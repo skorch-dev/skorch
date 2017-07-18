@@ -1,0 +1,9 @@
+jupyter
+matplotlib=2.0.0
+numpydoc
+openpyxl
+pylint
+pytest
+pytest-cov
+sphinx
+sphinx_rtd_theme

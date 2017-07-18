@@ -1,0 +1,4 @@
+[run]
+omit = 
+       inferno/tests/*
+       inferno/tests/*
