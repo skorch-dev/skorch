@@ -20,7 +20,7 @@ class TestHistory:
             for num_batch in range(self.test_batches):
                 h.new_batch()
                 h.record_batch('loss', num_epoch + num_batch)
-                if num_batch % 2 == 0:
+                if num_batch % 2 == 0 and (num_epoch+1) != self.test_epochs:
                     h.record_batch('extra_batch', 23)
         return h
 
@@ -73,6 +73,15 @@ class TestHistory:
         assert total_loss_with_extra[0][0] == ref[2]['total_loss']
         assert total_loss_with_extra[0][1] == ref[2]['extra']
 
+    def test_history_partial_join_list(self, history, ref):
+        total = history[:, ['total_loss', 'extra', 'batches']]
+
+        # there's only one epoch with the 'extra' key.
+        assert len(total) == 1
+        assert total[0][0] == ref[2]['total_loss']
+        assert total[0][1] == ref[2]['extra']
+        assert total[0][2] == ref[2]['batches']
+
     def test_history_retrieve_single_value(self, history, ref):
         total_loss_0 = history[0, 'total_loss']
         assert total_loss_0 == ref[0]['total_loss']
@@ -106,9 +115,21 @@ class TestHistory:
         loss_with_extra = history[:, 'batches', :, ('loss', 'extra_batch')]
 
         expected_e0 = [(b['loss'], b['extra_batch']) for b in ref[0]['batches'] if 'extra_batch' in b]
-        expected_e2 = [(b['loss'], b['extra_batch']) for b in ref[2]['batches'] if 'extra_batch' in b]
+        expected_e1 = [(b['loss'], b['extra_batch']) for b in ref[1]['batches'] if 'extra_batch' in b]
 
-        assert len(loss_with_extra) == self.test_epochs
+        assert len(loss_with_extra) == self.test_epochs - 1
         assert loss_with_extra[0] == expected_e0
-        assert loss_with_extra[2] == expected_e2
+        assert loss_with_extra[1] == expected_e1
 
+    def test_history_partial_batches(self, history, ref):
+        extra_batches = history[:, 'batches', 'extra_batch']
+
+        expected_e0 = [b['extra_batch'] for b in ref[0]['batches'] if 'extra_batch' in b]
+        expected_e1 = [b['extra_batch'] for b in ref[1]['batches'] if 'extra_batch' in b]
+
+        # In every epoch there are 2 batches with the 'extra_batch'
+        # key except for the last epoch. We therefore two results
+        # of which one of them is an empty list.
+        assert len(extra_batches) == self.test_epochs - 1
+        assert extra_batches[0] == expected_e0
+        assert extra_batches[1] == expected_e1
