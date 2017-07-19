@@ -133,3 +133,10 @@ class TestHistory:
         assert len(extra_batches) == self.test_epochs - 1
         assert extra_batches[0] == expected_e0
         assert extra_batches[1] == expected_e1
+
+    def test_history_partial_singular_values(self, history, ref):
+        values = history[-1, ('duration', 'total_loss')]
+        expected = (history[-1]['duration'], history[-1]['total_loss'])
+
+        assert type(values) == tuple
+        assert values == expected
