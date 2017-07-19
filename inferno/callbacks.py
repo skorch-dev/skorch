@@ -210,14 +210,13 @@ class PrintLog(Callback):
 
     def on_epoch_end(self, net, *args, **kwargs):
         tabulated = self.table(net.history)
-        out = ""
 
         if self.first_iteration_:
-            out = "\n".join(tabulated.split('\n', 2)[:2])
-            out += "\n"
+            header, lines = tabulated.split('\n', 2)[:2]
+            self.sink(header)
+            self.sink(lines)
             self.first_iteration_ = False
-        out += tabulated.rsplit('\n', 1)[-1]
 
-        self.sink(out)
+        self.sink(tabulated.rsplit('\n', 1)[-1])
         if self.sink is print:
             sys.stdout.flush()
