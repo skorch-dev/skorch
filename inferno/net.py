@@ -13,7 +13,9 @@ from inferno.callbacks import AverageLoss
 from inferno.callbacks import BestLoss
 from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
+from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
+from inferno.utils import get_dim
 from inferno.utils import to_numpy
 from inferno.utils import to_tensor
 from inferno.utils import to_var
@@ -59,15 +61,20 @@ class History(list):
                 return [partial_index(n, idx) for n in l]
 
             # join results of multiple indices
-            if type(idx) is tuple or type(idx) is list:
+            if isinstance(idx, (tuple, list)):
                 def incomplete_mapper(x):
                     for xs in x:
                         if type(xs) is __missingno:
                             return xs
                     return x
-                total_join = zip(*[partial_index(l, n) for n in idx])
-                inner_join = map(incomplete_mapper, total_join)
-                return list(inner_join)
+                zz = [partial_index(l, n) for n in idx]
+                if is_list_like(l):
+                    total_join = zip(*zz)
+                    inner_join = list(map(incomplete_mapper, total_join))
+                else:
+                    total_join = tuple(zz)
+                    inner_join = incomplete_mapper(total_join)
+                return inner_join
 
             try:
                 return l[idx]
@@ -104,6 +111,7 @@ class NeuralNet(Callback):
         ('epoch_timer', EpochTimer),
         ('average_loss', AverageLoss),
         ('best_loss', BestLoss),
+        ('print_log', PrintLog),
     ]
 
     def __init__(
@@ -270,24 +278,23 @@ class NeuralNet(Callback):
 
         return self
 
+    def forward(self, X, training_behavior=False):
+        self.module_.train(training_behavior)
+
+        iterator = self.get_iterator(X)
+        y_infer = []
+        for x in iterator:
+            x = to_var(x, use_cuda=self.use_cuda)
+            y_infer.append(self.module_(x))
+        return torch.cat(y_infer, dim=0)
+
     def predict_proba(self, X):
         y_proba = self.forward(X, training_behavior=False)
         y_proba = to_numpy(y_proba)
         return y_proba
 
-    def forward(self, X, training_behavior=False):
-        self.module_.train(training_behavior)
-
-        iterator = self.get_iterator(X)
-        y_probas = []
-        for x in iterator:
-            x = to_var(x, use_cuda=self.use_cuda)
-            y_probas.append(self.module_(x))
-        return torch.cat(y_probas, dim=0)
-
     def predict(self, X):
-        self.module_.train(False)
-        return self.predict_proba(X).argmax(1)
+        return self.predict_proba(X)
 
     def get_optimizer(self):
         kwargs = self._get_params_for('optim')
@@ -378,14 +385,18 @@ class NeuralNetClassifier(NeuralNet):
             ('valid_loss', 'valid_batch_size'),
             ('valid_acc', 'valid_batch_size'),
         ])),
-        ('best_loss', BestLoss(
-            keys_possible=['train_loss', 'valid_loss', 'valid_acc'],
-            signs=[-1, -1, 1],
-        )),
         ('accuracy', Scoring(
             name='valid_acc',
             scoring='accuracy_score',
             pred_extractor=accuracy_pred_extractor,
+        )),
+        ('best_loss', BestLoss(
+            keys_possible=['train_loss', 'valid_loss', 'valid_acc'],
+            signs=[-1, -1, 1],
+        )),
+        ('print_log', PrintLog(keys=(
+            'epoch', 'train_loss', 'valid_loss', 'train_loss_best',
+            'valid_loss_best', 'valid_acc', 'valid_acc_best', 'dur'),
         )),
     ]
 
@@ -406,3 +417,29 @@ class NeuralNetClassifier(NeuralNet):
     def get_loss(self, y_pred, y, train=False):
         y_pred_log = torch.log(y_pred)
         return self.criterion_(y_pred_log, y)
+
+    def predict(self, X):
+        return self.predict_proba(X).argmax(1)
+
+
+class NeuralNetRegressor(NeuralNet):
+    def __init__(
+            self,
+            module,
+            criterion=torch.nn.MSELoss,
+            *args,
+            **kwargs
+    ):
+        super(NeuralNetRegressor, self).__init__(
+            module,
+            criterion=criterion,
+            *args,
+            **kwargs
+        )
+
+    def check_data(self, _, y):
+        # The problem with 1-dim float y is that the pytorch DataLoader will
+        # somehow upcast it to DoubleTensor
+        if get_dim(y) == 1:
+            raise ValueError("The target data shouldn't be 1-dimensional; "
+                             "please reshape (e.g. y.reshape(-1, 1).")
