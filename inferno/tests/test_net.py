@@ -83,9 +83,11 @@ class TestNeuralNet:
 
     @pytest.fixture
     def net_pickleable(self, net_fit):
-        # callback fixture not pickleable
-        callbacks, net_fit.callbacks = net_fit.callbacks, []
-        callbacks_, net_fit.callbacks_ = net_fit.callbacks_, []
+        # callback fixture not pickleable, remove it
+        callbacks = net_fit.callbacks
+        net_fit.callbacks = []
+        callbacks_ = net_fit.callbacks_
+        net_fit.callbacks_ = net_fit.callbacks_[:-1]
         net_clone = clone(net_fit)
         net_fit.callbacks = callbacks
         net_fit.callbacks_ = callbacks_
