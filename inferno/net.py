@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
 from inferno.callbacks import AverageLoss
+from inferno.callbacks import BestLoss
 from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
 
@@ -125,7 +126,11 @@ class NeuralNet(Callback):
     prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optim',
                  'criterion', 'callbacks']
 
-    default_callbacks = [EpochTimer, AverageLoss]
+    default_callbacks = [
+        ('epoch_timer', EpochTimer),
+        ('average_loss', AverageLoss),
+        ('best_loss', BestLoss),
+    ]
 
     def __init__(
             self,
@@ -178,33 +183,40 @@ class NeuralNet(Callback):
     def on_batch_begin(self, net, train=False, **kwargs):
         self.history.new_batch()
 
-    def _get_callbacks_and_names(self, callbacks):
-        names_and_cbs = []
-        for item in callbacks:
+    def _yield_callbacks(self):
+        # handles cases:
+        #   * default and user callbacks
+        #   * callbacks with and without name
+        #   * initialized and uninitialized callbacks
+        for item in self.default_callbacks + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
                 name, cb = item
             else:
-                name = item.__class__.__name__
                 cb = item
-            names_and_cbs.append((name, cb))
-        return names_and_cbs
+                if isinstance(cb, type):  # uninitialized:
+                    name = cb.__name__
+                else:
+                    name = item.__class__.__name__
+            yield name, cb
 
     def initialize_callbacks(self):
-        callbacks = [cb() for cb in self.default_callbacks]
-        callbacks += self.callbacks or []
-        names_and_cbs = self._get_callbacks_and_names(callbacks)
-
-        names = list(zip(*names_and_cbs))[0]
-        if len(names) != len(set(names)):
-            # TODO: more useful message
-            raise ValueError("There are callbacks with duplicate names.")
-
+        names_seen = set()
         callbacks_ = []
-        for name, cb in names_and_cbs:
+
+        for name, cb in self._yield_callbacks():
+            if name in names_seen:
+                raise ValueError("The callback name '{}' appears more than "
+                                 "once.".format(name))
+            names_seen.add(name)
+
             params = self._get_params_for('callbacks__{}'.format(name))
-            cb.set_params(**params)
+            if isinstance(cb, type):  # uninitialized:
+                cb = cb(**params)
+            else:
+                cb.set_params(**params)
             cb.initialize()
             callbacks_.append((name, cb))
+
         self.callbacks_ = callbacks_
 
     def initialize_criterion(self):
@@ -375,7 +387,30 @@ class NeuralNet(Callback):
         BaseEstimator.__setstate__(self, state)
 
 
+def accuracy_pred_extractor(y):
+    return np.argmax(to_numpy(y), axis=1)
+
+
 class NeuralNetClassifier(NeuralNet):
+
+    default_callbacks = [
+        ('epoch_timer', EpochTimer),
+        ('average_loss', AverageLoss([
+            ('train_loss', 'train_batch_size'),
+            ('valid_loss', 'valid_batch_size'),
+            ('valid_acc', 'valid_batch_size'),
+        ])),
+        ('best_loss', BestLoss(
+            keys_possible=['train_loss', 'valid_loss', 'valid_acc'],
+            signs=[-1, -1, 1],
+        )),
+        ('accuracy', Scoring(
+            name='valid_acc',
+            scoring='accuracy_score',
+            pred_extractor=accuracy_pred_extractor,
+        )),
+    ]
+
     def __init__(
             self,
             module,

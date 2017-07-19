@@ -1,12 +1,17 @@
+import operator
 import time
 
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn import metrics
+
+from inferno.utils import to_numpy
+from inferno.utils import to_var
 
 
 class Callback:
     def initialize(self):
-        pass
+        return self
 
     def on_train_begin(self, net, **kwargs):
         pass
@@ -51,27 +56,94 @@ class EpochTimer(Callback):
 
 
 class AverageLoss(Callback):
-    def compute_average_loss(self, net, loss_key, bs_key):
-        losses = net.history[-1, 'batches', :, loss_key]
-        batch_sizes = net.history[-1, 'batches', :, bs_key]
-        return np.average(losses, weights=batch_sizes)
+    def __init__(self, keys_possible=None):
+        if keys_possible is None:
+            self.keys_possible = [('train_loss', 'train_batch_size'),
+                                  ('valid_loss', 'valid_batch_size')]
+        else:
+            self.keys_possible = keys_possible
 
-    def on_epoch_end(self, net, **kwargs):
-        todo = []
-        keys = [('train_loss', 'train_batch_size'),
-                ('valid_loss', 'valid_batch_size')]
-
-        for key in keys:
+    def _yield_key_losses_bs(self, history):
+        for key_tuple in self.keys_possible:
             try:
-                # TODO: remove loop when net.history supports tuples
-                # as selector
-                for subkey in key:
-                    net.history[-1, 'batches', :, subkey]
-
-                todo.append(key)
+                row = history[-1, 'batches', :, key_tuple]
+                yield key_tuple[0], list(zip(*row))
             except KeyError:
                 pass
 
-        for k in todo:
-            loss = self.compute_average_loss(net, *k)
-            net.history.record(k[0], loss)
+    def on_epoch_end(self, net, **kwargs):
+        history = net.history
+        for key_loss, (losses, bs) in self._yield_key_losses_bs(history):
+            loss = np.average(losses, weights=bs)
+            history.record(key_loss, loss)
+
+
+class BestLoss(Callback):
+    _op_dict = {-1: operator.lt, 1: operator.gt}
+
+    def __init__(self, keys_possible=None, signs=(-1, -1)):
+        if keys_possible is None:
+            self.keys_possible = ['train_loss', 'valid_loss']
+        else:
+            self.keys_possible = keys_possible
+        self.signs = signs
+
+        self.best_losses_ = None
+
+    def initialize(self):
+        if len(self.keys_possible) != len(self.signs):
+            raise ValueError("The number of keys and signs should be equal.")
+
+        self.best_losses_ = {key: -1 * sign * np.inf for key, sign
+                             in zip(self.keys_possible, self.signs)}
+        return self
+
+    def _yield_key_sign_loss(self, history):
+        for key, sign in zip(self.keys_possible, self.signs):
+            try:
+                loss = history[-1, key]
+                yield key, sign, loss
+            except KeyError:
+                pass
+
+    def on_epoch_end(self, net, **kwargs):
+        history = net.history
+        for key, sign, loss in self._yield_key_sign_loss(history):
+            is_best = False
+            op = self._op_dict[sign]
+            if op(loss, self.best_losses_[key]):
+                is_best = True
+                self.best_losses_[key] = loss
+            history.record('{}_best'.format(key), is_best)
+
+
+class Scoring(Callback):
+    def __init__(
+            self,
+            name,
+            scoring,
+            on_train=False,
+            target_extractor=to_numpy,
+            pred_extractor=to_numpy,
+    ):
+        self.name = name
+        self.scoring = scoring
+        self.target_extractor = target_extractor
+        self.pred_extractor = pred_extractor
+        self.on_train = on_train
+
+    def on_batch_end(self, net, X, y, train):
+        if train != self.on_train:
+            return
+
+        if isinstance(self.scoring, str):  # TODO: make py2.7 compatible
+            # scoring is a string
+            y = self.target_extractor(y)
+            scorer = getattr(metrics, self.scoring)
+            y_pred = self.pred_extractor(net.module_(to_var(X)))
+            score = scorer(y, y_pred)
+        else:
+            # scoring is a function
+            score = self.scoring(net, X, y)
+
+        net.history.record_batch(self.name, score)

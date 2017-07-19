@@ -62,7 +62,7 @@ class TestNeuralNet:
     def net(self, net_cls, module_cls, dummy_callback):
         return net_cls(
             module_cls,
-            callbacks=[dummy_callback],
+            callbacks=[('dummy', dummy_callback)],
             max_epochs=10,
             lr=0.1,
         )
@@ -239,22 +239,22 @@ class TestNeuralNet:
         assert mock.set_params.call_args_list[1][1]['spam'] == 'eggs'
 
     def test_callback_name_collides_with_default(self, net_cls, module_cls):
-        net = net_cls(module_cls, callbacks=[('AverageLoss', 'some-callback')])
+        net = net_cls(module_cls, callbacks=[('average_loss', Mock())])
 
         with pytest.raises(ValueError) as exc:
             net.initialize()
-        expected = "There are callbacks with duplicate names."
+        expected = "The callback name 'average_loss' appears more than once."
         assert str(exc.value) == expected
 
     def test_callback_same_name_twice(self, net_cls, module_cls):
-        callbacks = [('cb0', 'some-callback'),
-                     ('cb1', 'some-callback'),
-                     ('cb0', 'some-callback')]
+        callbacks = [('cb0', Mock()),
+                     ('cb1', Mock()),
+                     ('cb0', Mock())]
         net = net_cls(module_cls, callbacks=callbacks)
 
         with pytest.raises(ValueError) as exc:
             net.initialize()
-        expected = "There are callbacks with duplicate names."
+        expected = "The callback name 'cb0' appears more than once."
         assert str(exc.value) == expected
 
     def test_callback_same_inferred_name_twice(self, net_cls, module_cls):
@@ -266,7 +266,7 @@ class TestNeuralNet:
 
         with pytest.raises(ValueError) as exc:
             net.initialize()
-        expected = "There are callbacks with duplicate names."
+        expected = "The callback name 'some-name' appears more than once."
         assert str(exc.value) == expected
 
     def test_in_sklearn_pipeline(self, pipe, data):
