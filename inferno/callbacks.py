@@ -1,10 +1,15 @@
+from itertools import cycle
+from numbers import Number
 import operator
+import sys
 import time
 
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn import metrics
+from tabulate import tabulate
 
+from inferno.utils import Ansi
 from inferno.utils import to_numpy
 from inferno.utils import to_var
 
@@ -147,3 +152,72 @@ class Scoring(Callback):
             score = self.scoring(net, X, y)
 
         net.history.record_batch(self.name, score)
+
+
+class PrintLog(Callback):
+    def __init__(
+            self,
+            keys=('epoch', 'train_loss', 'valid_loss', 'train_loss_best',
+                  'valid_loss_best', 'dur'),
+            sink=print,
+            tablefmt='simple',
+            float_template='{:.4f}',
+    ):
+        self.keys = keys
+        self.sink = sink
+        self.tablefmt = tablefmt
+        self.float_template = float_template
+
+    def initialize(self):
+        self.first_iteration_ = True
+        self.idx_ = {key: i for i, key in enumerate(self.keys)}
+        return self
+
+    def _format_rows(self, rows):
+        for row in rows:
+            row_formatted = []
+
+            colors = cycle(Ansi)
+            for key, item in zip(self.keys, row):
+                if key.endswith('_best'):
+                    continue
+
+                if not isinstance(item, Number):
+                    row_formatted.append(item)
+                    continue
+
+                color = next(colors)
+                # if numeric, there could be a 'best' key
+                idx_best = self.idx_.get(key + '_best')
+
+                is_integer = float(item).is_integer()
+                template = '{}' if is_integer else self.float_template
+
+                if (idx_best is not None) and row[idx_best]:
+                    template = color.value + template + Ansi.ENDC.value
+                row_formatted.append(template.format(item))
+
+            yield row_formatted
+
+    def table(self, history):
+        data = list(self._format_rows(history[:, self.keys]))
+        headers = [key for key in self.keys if not key.endswith('_best')]
+        return tabulate(
+            data,
+            headers=headers,
+            tablefmt=self.tablefmt,
+        )
+
+    def on_epoch_end(self, net, *args, **kwargs):
+        tabulated = self.table(net.history)
+        out = ""
+
+        if self.first_iteration_:
+            out = "\n".join(tabulated.split('\n', 2)[:2])
+            out += "\n"
+            self.first_iteration_ = False
+        out += tabulated.rsplit('\n', 1)[-1]
+
+        self.sink(out)
+        if self.sink is print:
+            sys.stdout.flush()

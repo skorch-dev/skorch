@@ -13,6 +13,7 @@ from inferno.callbacks import AverageLoss
 from inferno.callbacks import BestLoss
 from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
+from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
 from inferno.utils import to_numpy
 from inferno.utils import to_tensor
@@ -104,6 +105,7 @@ class NeuralNet(Callback):
         ('epoch_timer', EpochTimer),
         ('average_loss', AverageLoss),
         ('best_loss', BestLoss),
+        ('print_log', PrintLog),
     ]
 
     def __init__(
@@ -374,14 +376,18 @@ class NeuralNetClassifier(NeuralNet):
             ('valid_loss', 'valid_batch_size'),
             ('valid_acc', 'valid_batch_size'),
         ])),
-        ('best_loss', BestLoss(
-            keys_possible=['train_loss', 'valid_loss', 'valid_acc'],
-            signs=[-1, -1, 1],
-        )),
         ('accuracy', Scoring(
             name='valid_acc',
             scoring='accuracy_score',
             pred_extractor=accuracy_pred_extractor,
+        )),
+        ('best_loss', BestLoss(
+            keys_possible=['train_loss', 'valid_loss', 'valid_acc'],
+            signs=[-1, -1, 1],
+        )),
+        ('print_log', PrintLog(keys=(
+            'epoch', 'train_loss', 'valid_loss', 'train_loss_best',
+            'valid_loss_best', 'valid_acc', 'valid_acc_best', 'dur'),
         )),
     ]
 

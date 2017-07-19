@@ -1,7 +1,18 @@
+from enum import Enum
+
 import numpy as np
 import torch
 from torch import nn
 from torch.autograd import Variable
+
+
+class Ansi(Enum):
+    BLUE = '\033[94m'
+    CYAN = '\033[36m'
+    GREEN = '\033[32m'
+    MAGENTA = '\033[35m'
+    RED = '\033[31m'
+    ENDC = '\033[0m'
 
 
 def to_var(X, use_cuda=False):
