@@ -161,51 +161,51 @@ class PrintLog(Callback):
                   'valid_loss_best', 'dur'),
             sink=print,
             tablefmt='simple',
-            float_template='{:.4f}',
+            floatfmt='.4f',
     ):
         self.keys = keys
         self.sink = sink
         self.tablefmt = tablefmt
-        self.float_template = float_template
+        self.floatfmt = floatfmt
 
     def initialize(self):
         self.first_iteration_ = True
         self.idx_ = {key: i for i, key in enumerate(self.keys)}
         return self
 
-    def _format_rows(self, rows):
-        for row in rows:
-            row_formatted = []
+    def _format_row(self, row):
+        row_formatted = []
+        colors = cycle(Ansi)
 
-            colors = cycle(Ansi)
-            for key, item in zip(self.keys, row):
-                if key.endswith('_best'):
-                    continue
+        for key, item in zip(self.keys, row):
+            if key.endswith('_best'):
+                continue
 
-                if not isinstance(item, Number):
-                    row_formatted.append(item)
-                    continue
+            if not isinstance(item, Number):
+                row_formatted.append(item)
+                continue
 
-                color = next(colors)
-                # if numeric, there could be a 'best' key
-                idx_best = self.idx_.get(key + '_best')
+            color = next(colors)
+            # if numeric, there could be a 'best' key
+            idx_best = self.idx_.get(key + '_best')
 
-                is_integer = float(item).is_integer()
-                template = '{}' if is_integer else self.float_template
+            is_integer = float(item).is_integer()
+            template = '{}' if is_integer else '{:' + self.floatfmt + '}'
 
-                if (idx_best is not None) and row[idx_best]:
-                    template = color.value + template + Ansi.ENDC.value
-                row_formatted.append(template.format(item))
+            if (idx_best is not None) and row[idx_best]:
+                template = color.value + template + Ansi.ENDC.value
+            row_formatted.append(template.format(item))
 
-            yield row_formatted
+        return row_formatted
 
     def table(self, history):
-        data = list(self._format_rows(history[:, self.keys]))
+        row_formatted = self._format_row(history[-1:, self.keys][0])
         headers = [key for key in self.keys if not key.endswith('_best')]
         return tabulate(
-            data,
+            [row_formatted],
             headers=headers,
             tablefmt=self.tablefmt,
+            floatfmt=self.floatfmt,
         )
 
     def on_epoch_end(self, net, *args, **kwargs):
