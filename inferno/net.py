@@ -48,16 +48,25 @@ class History(list):
                 return 'missingno'
 
         def partial_index(l, idx):
-            if isinstance(l, list) and len(l) > 0 and isinstance(l[0], list):
+            is_list_like = lambda x: isinstance(x, list)
+
+            needs_unrolling = is_list_like(l) \
+                    and len(l) > 0 and is_list_like(l[0])
+            needs_indirection = is_list_like(l) \
+                    and not isinstance(idx, (int, tuple, list, slice))
+
+            if needs_unrolling or needs_indirection:
                 return [partial_index(n, idx) for n in l]
 
-            needs_indirection = isinstance(l, list) and not isinstance(idx, (int, tuple, slice))
-            if needs_indirection:
-                return [partial_index(n, idx) for n in l]
-
-            if type(idx) == tuple:
+            # join results of multiple indices
+            if type(idx) is tuple or type(idx) is list:
+                def incomplete_mapper(x):
+                    for xs in x:
+                        if type(xs) is __missingno:
+                            return xs
+                    return x
                 total_join = zip(*[partial_index(l, n) for n in idx])
-                inner_join = filter(lambda x: __missingno not in [type(x[0]),type(x[1])], total_join)
+                inner_join = map(incomplete_mapper, total_join)
                 return list(inner_join)
 
             try:
@@ -67,19 +76,21 @@ class History(list):
 
         def filter_missing(x):
             if isinstance(x, list):
-                new_x = list(filter(lambda x: type(x) != __missingno, x))
-                if len(new_x) == 0 and len(x) > 0:
-                    raise next(filter(lambda x: type(x) == __missingno, x)).e
-                return [filter_missing(n) for n in new_x]
-            if type(x) == __missingno:
-                raise x.e
+                children = [filter_missing(n) for n in x]
+                filtered = list(filter(lambda x: type(x) != __missingno, children))
+
+                if len(children) > 0 and len(filtered) == 0:
+                    return next(filter(lambda x: type(x) == __missingno, children))
+                return filtered
             return x
 
         x = self
         if isinstance(i, tuple):
             for part in i:
-                x = partial_index(x, part)
-                x = filter_missing(x)
+                x_dirty = partial_index(x, part)
+                x = filter_missing(x_dirty)
+                if type(x) is __missingno:
+                    raise x.e
             return x
         raise ValueError("Invalid parameter type passed to index. "
                          "Pass string, int or tuple.")
