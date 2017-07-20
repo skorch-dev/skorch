@@ -11,7 +11,6 @@ install_requires = [
     'pandas',
     'scikit-learn>=0.18',
     'scipy',
-    'pytorch>=0.1.12',
 ]
 
 tests_require = [

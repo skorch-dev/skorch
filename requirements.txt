@@ -2,4 +2,3 @@ numpy==1.12.1
 PyYAML==3.12
 scikit-learn==0.18.1
 scipy==0.19.0
-torch==0.1.12.post2
