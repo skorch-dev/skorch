@@ -144,7 +144,12 @@ class Scoring(Callback):
         if isinstance(self.scoring, str):  # TODO: make py2.7 compatible
             # scoring is a string
             y = self.target_extractor(y)
-            scorer = getattr(metrics, self.scoring)
+            try:
+                scorer = getattr(metrics, self.scoring)
+            except AttributeError:
+                raise NameError("Metric with name '{}' does not exist, "
+                                "use a valid sklearn metric name."
+                                "".format(self.scoring))
             y_pred = self.pred_extractor(net.module_(to_var(X)))
             score = scorer(y, y_pred)
         else:
