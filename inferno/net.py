@@ -59,15 +59,20 @@ class History(list):
                 return [partial_index(n, idx) for n in l]
 
             # join results of multiple indices
-            if type(idx) is tuple or type(idx) is list:
+            if isinstance(idx, (tuple, list)):
                 def incomplete_mapper(x):
                     for xs in x:
                         if type(xs) is __missingno:
                             return xs
                     return x
-                total_join = zip(*[partial_index(l, n) for n in idx])
-                inner_join = map(incomplete_mapper, total_join)
-                return list(inner_join)
+                zz = [partial_index(l, n) for n in idx]
+                if is_list_like(l):
+                    total_join = zip(*zz)
+                    inner_join = list(map(incomplete_mapper, total_join))
+                else:
+                    total_join = tuple(zz)
+                    inner_join = incomplete_mapper(total_join)
+                return inner_join
 
             try:
                 return l[idx]
