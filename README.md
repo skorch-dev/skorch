@@ -4,7 +4,7 @@ A scikit-learn compatible neural network library that wraps pytorch.
 
 ## Example
 
-```
+```python
 import numpy as np
 from sklearn.datasets import make_classification
 import torch
@@ -49,7 +49,7 @@ y_proba = net.predict_proba(X)
 
 In an sklearn Pipeline:
 
-```
+```python
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -66,7 +66,7 @@ y_proba = pipe.predict_proba(X)
 
 With grid search
 
-```
+```python
 from sklearn.model_selection import GridSearchCV
 
 
