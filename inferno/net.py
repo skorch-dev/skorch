@@ -221,6 +221,9 @@ class NeuralNet(Callback):
         self.initialized_ = True
         return self
 
+    def check_data(self, *data):
+        pass
+
     def validation_step(self, xi, yi):
         xi, yi = Variable(xi), Variable(yi)
         self.module_.eval()
@@ -261,6 +264,7 @@ class NeuralNet(Callback):
             self.notify('on_epoch_end', X=X, y=y)
 
     def fit(self, X, y, **fit_params):
+        self.check_data(X, y)
         if self.cold_start or not hasattr(self, 'initialized_'):
             self.initialize()
 
