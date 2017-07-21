@@ -277,24 +277,23 @@ class NeuralNet(Callback):
 
         return self
 
+    def forward(self, X, training_behavior=False):
+        self.module_.train(training_behavior)
+
+        iterator = self.get_iterator(X)
+        y_infer = []
+        for x in iterator:
+            x = to_var(x, use_cuda=self.use_cuda)
+            y_infer.append(self.module_(x))
+        return torch.cat(y_infer, dim=0)
+
     def predict_proba(self, X):
         y_proba = self.forward(X, training_behavior=False)
         y_proba = to_numpy(y_proba)
         return y_proba
 
-    def forward(self, X, training_behavior=False):
-        self.module_.train(training_behavior)
-
-        iterator = self.get_iterator(X)
-        y_probas = []
-        for x in iterator:
-            x = to_var(x, use_cuda=self.use_cuda)
-            y_probas.append(self.module_(x))
-        return torch.cat(y_probas, dim=0)
-
     def predict(self, X):
-        self.module_.train(False)
-        return self.predict_proba(X).argmax(1)
+        return self.predict_proba(X)
 
     def get_optimizer(self):
         kwargs = self._get_params_for('optim')
@@ -417,3 +416,7 @@ class NeuralNetClassifier(NeuralNet):
     def get_loss(self, y_pred, y, train=False):
         y_pred_log = torch.log(y_pred)
         return self.criterion_(y_pred_log, y)
+
+    def predict(self, X):
+        return self.predict_proba(X).argmax(1)
+
