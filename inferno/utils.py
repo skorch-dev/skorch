@@ -64,3 +64,10 @@ def check_history_slice(history, sl):
         msg = ("Key '{}' could not be found in history; "
                "maybe there was a typo?".format(exc.args[0]))
         raise KeyError(msg)
+
+
+def get_dim(y):
+    try:
+        return y.ndim
+    except AttributeError:
+        return y.dim()

@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification
+from sklearn.datasets import make_regression
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
@@ -20,9 +21,9 @@ torch.manual_seed(0)
 torch.cuda.manual_seed(0)
 
 
-class MyModule(nn.Module):
+class MyClassifier(nn.Module):
     def __init__(self, num_units=10, nonlin=F.relu):
-        super(MyModule, self).__init__()
+        super(MyClassifier, self).__init__()
 
         self.dense0 = nn.Linear(20, num_units)
         self.nonlin = nonlin
@@ -51,7 +52,7 @@ class TestNeuralNet:
 
     @pytest.fixture(scope='module')
     def module_cls(self, data):
-        return MyModule
+        return MyClassifier
 
     @pytest.fixture(scope='module')
     def net_cls(self):
@@ -97,7 +98,7 @@ class TestNeuralNet:
         # fitting does not raise anything
         pass
 
-    def test_predict(self, net_fit, data):
+    def test_net_learns(self, net_fit, data):
         X, y = data
         y_pred = net_fit.predict(X)
         assert accuracy_score(y, y_pred) > 0.7
@@ -157,7 +158,8 @@ class TestNeuralNet:
         assert len(net_fit.history) == net_fit.max_epochs
 
     def test_history_default_keys(self, net_fit):
-        expected_keys = {'train_loss', 'valid_loss', 'epoch', 'dur', 'batches'}
+        expected_keys = {
+            'train_loss', 'valid_loss', 'epoch', 'dur', 'batches', 'valid_acc'}
         for row in net_fit.history:
             assert expected_keys.issubset(row)
 
@@ -307,3 +309,77 @@ class TestNeuralNet:
             -1, 'batches', :, ('train_loss', 'loss_a', 'loss_b')]
         diffs = [total - a - b for total, a, b in all_losses]
         assert np.allclose(diffs, 0, atol=1e-7)
+
+
+class MyRegressor(nn.Module):
+    def __init__(self, num_units=10, nonlin=F.relu):
+        super(MyRegressor, self).__init__()
+
+        self.dense0 = nn.Linear(20, num_units)
+        self.nonlin = nonlin
+        self.dropout = nn.Dropout(0.5)
+        self.dense1 = nn.Linear(num_units, 10)
+        self.output = nn.Linear(10, 1)
+
+    def forward(self, X, **kwargs):
+        X = self.nonlin(self.dense0(X))
+        X = self.dropout(X)
+        X = self.dense1(X)
+        X = self.output(X)
+        return X
+
+
+class TestNeuralNetRegressor:
+    @pytest.fixture(scope='module')
+    def data(self):
+        X, y = make_regression(
+            1000, 20, n_informative=10, bias=0, random_state=0)
+        X, y = X.astype(np.float32), y.astype(np.float32).reshape(-1, 1)
+        Xt = StandardScaler().fit_transform(X)
+        yt = StandardScaler().fit_transform(y)
+        return Xt, yt
+
+    @pytest.fixture(scope='module')
+    def module_cls(self, data):
+        return MyRegressor
+
+    @pytest.fixture(scope='module')
+    def net_cls(self):
+        from inferno.net import NeuralNetRegressor
+        return NeuralNetRegressor
+
+    @pytest.fixture(scope='module')
+    def net(self, net_cls, module_cls):
+        return net_cls(
+            module_cls,
+            max_epochs=20,
+            lr=0.1,
+        )
+
+    @pytest.fixture(scope='module')
+    def net_fit(self, net, data):
+        # Careful, don't call additional fits on this, since that would have
+        # side effects on other tests.
+        X, y = data
+        return net.fit(X, y)
+
+    def test_fit(self, net_fit):
+        # fitting does not raise anything
+        pass
+
+    def test_net_learns(self, net_fit):
+        train_losses = net_fit.history[:, 'train_loss']
+        assert train_losses[0] > 3 * train_losses[-1]
+
+    def test_history_default_keys(self, net_fit):
+        expected_keys = {'train_loss', 'valid_loss', 'epoch', 'dur', 'batches'}
+        for row in net_fit.history:
+            assert expected_keys.issubset(row)
+
+    def test_target_1d_raises(self, net, data):
+        X, y = data
+        with pytest.raises(ValueError) as exc:
+            net.fit(X, y.flatten())
+        assert exc.value.args[0] == (
+            "The target data shouldn't be 1-dimensional; "
+            "please reshape (e.g. y.reshape(-1, 1).")
