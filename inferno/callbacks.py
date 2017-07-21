@@ -1,12 +1,18 @@
+from itertools import cycle
+from numbers import Number
 import operator
+import sys
 import time
 
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn import metrics
+from tabulate import tabulate
 
+from inferno.utils import Ansi
 from inferno.utils import to_numpy
 from inferno.utils import to_var
+from inferno.utils import check_history_slice
 
 
 class Callback:
@@ -139,7 +145,12 @@ class Scoring(Callback):
         if isinstance(self.scoring, str):  # TODO: make py2.7 compatible
             # scoring is a string
             y = self.target_extractor(y)
-            scorer = getattr(metrics, self.scoring)
+            try:
+                scorer = getattr(metrics, self.scoring)
+            except AttributeError:
+                raise NameError("Metric with name '{}' does not exist, "
+                                "use a valid sklearn metric name."
+                                "".format(self.scoring))
             y_pred = self.pred_extractor(net.module_(to_var(X)))
             score = scorer(y, y_pred)
         else:
@@ -147,3 +158,74 @@ class Scoring(Callback):
             score = self.scoring(net, X, y)
 
         net.history.record_batch(self.name, score)
+
+
+class PrintLog(Callback):
+    def __init__(
+            self,
+            keys=('epoch', 'train_loss', 'valid_loss', 'train_loss_best',
+                  'valid_loss_best', 'dur'),
+            sink=print,
+            tablefmt='simple',
+            floatfmt='.4f',
+    ):
+        self.keys = (keys,) if isinstance(keys, str) else keys
+        self.sink = sink
+        self.tablefmt = tablefmt
+        self.floatfmt = floatfmt
+
+    def initialize(self):
+        self.first_iteration_ = True
+        self.idx_ = {key: i for i, key in enumerate(self.keys)}
+        return self
+
+    def format_row(self, row):
+        row_formatted = []
+        colors = cycle(Ansi)
+
+        for key, item in zip(self.keys, row):
+            if key.endswith('_best'):
+                continue
+
+            if not isinstance(item, Number):
+                row_formatted.append(item)
+                continue
+
+            color = next(colors)
+            # if numeric, there could be a 'best' key
+            idx_best = self.idx_.get(key + '_best')
+
+            is_integer = float(item).is_integer()
+            template = '{}' if is_integer else '{:' + self.floatfmt + '}'
+
+            if (idx_best is not None) and row[idx_best]:
+                template = color.value + template + Ansi.ENDC.value
+            row_formatted.append(template.format(item))
+
+        return row_formatted
+
+    def table(self, data):
+        formatted = [self.format_row(row) for row in data]
+        headers = [key for key in self.keys if not key.endswith('_best')]
+        return tabulate(
+            formatted,
+            headers=headers,
+            tablefmt=self.tablefmt,
+            floatfmt=self.floatfmt,
+        )
+
+    def on_epoch_end(self, net, *args, **kwargs):
+        sl = slice(-1, None), self.keys
+        check_history_slice(net.history, sl)
+        data = net.history[sl]
+        tabulated = self.table(data)
+
+        if self.first_iteration_:
+            header, lines = tabulated.split('\n', 2)[:2]
+            self.sink(header)
+            self.sink(lines)
+            self.first_iteration_ = False
+
+        self.sink(tabulated.rsplit('\n', 1)[-1])
+        if self.sink is print:
+            sys.stdout.flush()
