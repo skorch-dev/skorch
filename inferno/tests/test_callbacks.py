@@ -76,7 +76,7 @@ class TestBestLoss:
     @pytest.fixture
     def avg_loss(self):
         from inferno.callbacks import AverageLoss
-        return AverageLoss()
+        return AverageLoss().initialize()
 
     @pytest.fixture
     def best_loss_cls(self):
@@ -253,3 +253,104 @@ class TestScoring:
         call_args_list = mse_scoring.pred_extractor.call_args_list
         for (x, _), call_args in zip(data, call_args_list):
             assert x == call_args[0][0]
+
+
+class TestPrintLog:
+    @pytest.fixture
+    def print_log_cls(self):
+        from inferno.callbacks import PrintLog
+        return partial(PrintLog, sink=Mock())
+
+    @pytest.fixture
+    def print_log(self, print_log_cls):
+        return print_log_cls(keys=(
+            'epoch', 'train_loss', 'train_loss_best', 'valid_loss',
+            'valid_loss_best')).initialize()
+
+    @pytest.fixture
+    def avg_loss(self):
+        from inferno.callbacks import AverageLoss
+        return AverageLoss().initialize()
+
+    @pytest.fixture
+    def best_loss(self):
+        from inferno.callbacks import BestLoss
+        return BestLoss().initialize()
+
+    @pytest.fixture
+    def history(self, avg_loss, best_loss, print_log):
+        return get_history(avg_loss, best_loss, print_log)
+
+    @pytest.fixture
+    def sink(self, history, print_log):
+        # note: the history fixture is required even if not used because it
+        # triggers the calls on print_log
+        return print_log.sink
+
+    @pytest.fixture
+    def ansi(self):
+        from inferno.utils import Ansi
+        return Ansi
+
+    def test_call_count(self, sink):
+        # header + lines + 3 epochs
+        assert sink.call_count == 5
+
+    def test_header(self, sink):
+        header = sink.call_args_list[0][0][0]
+        columns = header.split()
+        expected = ['epoch', 'train_loss', 'valid_loss']
+        assert columns == expected
+
+    def test_lines(self, sink):
+        lines = sink.call_args_list[1][0][0].split()
+        header = sink.call_args_list[0][0][0]
+        columns = header.split()
+        expected = ['-' * (len(col) + 2) for col in columns]
+        assert lines
+        assert lines == expected
+
+    def test_first_row(self, sink, ansi):
+        row = sink.call_args_list[2][0][0]
+        items = row.split()
+        # epoch
+        assert items[0] == '1'
+        # color 1 used for item 1
+        assert items[1] == list(ansi)[1].value + '0.2500' + ansi.ENDC.value
+        # color 2 used for item 1
+        assert items[2] == list(ansi)[2].value + '7.5000' + ansi.ENDC.value
+
+    def test_second_row(self, sink, ansi):
+        row = sink.call_args_list[3][0][0]
+        items = row.split()
+        assert items[0] == '2'
+        # not best, hence no color
+        assert items[1] == '0.6500'
+        assert items[2] == list(ansi)[2].value + '3.5000' + ansi.ENDC.value
+
+    def test_third_row(self, sink, ansi):
+        row = sink.call_args_list[4][0][0]
+        items = row.split()
+        assert items[0] == '3'
+        assert items[1] == list(ansi)[1].value + '-0.1500' + ansi.ENDC.value
+        assert items[2] == '11.5000'
+
+    def test_args_passed_to_tabulate(self, history):
+        with patch('inferno.callbacks.tabulate') as tab:
+            from inferno.callbacks import PrintLog
+            print_log = PrintLog(
+                keys=('epoch',),
+                tablefmt='some-table',
+                floatfmt='some-float',
+            ).initialize()
+            print_log.table(history[:, ('epoch',)])
+
+            assert tab.call_count == 1
+            assert tab.call_args_list[0][1]['tablefmt'] == 'some-table'
+            assert tab.call_args_list[0][1]['floatfmt'] == 'some-float'
+
+    def test_with_one_key(self, history, print_log_cls):
+        key = 'epoch'
+        print_log = print_log_cls(keys=key).initialize()
+        # does not raise
+        print_log.on_epoch_end(Mock(history=history))

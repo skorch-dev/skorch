@@ -168,7 +168,7 @@ class PrintLog(Callback):
             tablefmt='simple',
             floatfmt='.4f',
     ):
-        self.keys = keys
+        self.keys = (keys,) if isinstance(keys, str) else keys
         self.sink = sink
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
@@ -178,7 +178,7 @@ class PrintLog(Callback):
         self.idx_ = {key: i for i, key in enumerate(self.keys)}
         return self
 
-    def _format_row(self, row):
+    def format_row(self, row):
         row_formatted = []
         colors = cycle(Ansi)
 
@@ -203,18 +203,19 @@ class PrintLog(Callback):
 
         return row_formatted
 
-    def table(self, history):
-        row_formatted = self._format_row(history[-1:, self.keys][0])
+    def table(self, data):
+        formatted = [self.format_row(row) for row in data]
         headers = [key for key in self.keys if not key.endswith('_best')]
         return tabulate(
-            [row_formatted],
+            formatted,
             headers=headers,
             tablefmt=self.tablefmt,
             floatfmt=self.floatfmt,
         )
 
     def on_epoch_end(self, net, *args, **kwargs):
-        tabulated = self.table(net.history)
+        data = net.history[-1:, self.keys]
+        tabulated = self.table(data)
 
         if self.first_iteration_:
             header, lines = tabulated.split('\n', 2)[:2]
