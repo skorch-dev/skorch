@@ -53,3 +53,14 @@ def to_numpy(X):
     except AttributeError:
         data = X
     return data.numpy()
+
+
+def check_history_slice(history, sl):
+    # Note: May extend this for more cases.
+    try:
+        history[sl]
+        return
+    except KeyError as exc:
+        msg = ("Key '{}' could not be found in history; "
+               "maybe there was a typo?".format(exc.args[0]))
+        raise KeyError(msg)

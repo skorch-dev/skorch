@@ -12,6 +12,7 @@ from tabulate import tabulate
 from inferno.utils import Ansi
 from inferno.utils import to_numpy
 from inferno.utils import to_var
+from inferno.utils import check_history_slice
 
 
 class Callback:
@@ -214,7 +215,9 @@ class PrintLog(Callback):
         )
 
     def on_epoch_end(self, net, *args, **kwargs):
-        data = net.history[-1:, self.keys]
+        sl = slice(-1, None), self.keys
+        check_history_slice(net.history, sl)
+        data = net.history[sl]
         tabulated = self.table(data)
 
         if self.first_iteration_:

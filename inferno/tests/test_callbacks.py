@@ -354,3 +354,23 @@ class TestPrintLog:
         print_log = print_log_cls(keys=key).initialize()
         # does not raise
         print_log.on_epoch_end(Mock(history=history))
+
+    def test_with_1_missing_key(self, history, print_log_cls):
+        keys = 'train_loss', 'missing-key'
+        print_log = print_log_cls(keys=keys).initialize()
+        with pytest.raises(KeyError) as exc:
+            print_log.on_epoch_end(Mock(history=history))
+
+        expected = ("Key 'missing-key' could not be found in history; "
+                    "maybe there was a typo?")
+        assert exc.value.args[0] == expected
+
+    def test_with_2_missing_keys(self, history, print_log_cls):
+        keys = 'missing-key0', 'train_loss', 'missing-key1'
+        print_log = print_log_cls(keys=keys).initialize()
+        with pytest.raises(KeyError) as exc:
+            print_log.on_epoch_end(Mock(history=history))
+
+        expected = ("Key 'missing-key0' could not be found in history; "
+                    "maybe there was a typo?")
+        assert exc.value.args[0] == expected
