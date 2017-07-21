@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.autograd import Variable
+import collections.abc
 
 
 class Ansi(Enum):
@@ -39,6 +40,9 @@ def to_tensor(X, use_cuda=False):
 
     if isinstance(X, np.ndarray):
         X = torch.from_numpy(X)
+
+    if isinstance(X, collections.abc.Sequence):
+        X = torch.from_numpy(np.array(X))
 
     if use_cuda:
         X = X.cuda()
