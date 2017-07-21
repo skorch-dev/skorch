@@ -42,3 +42,10 @@ def to_numpy(X):
     except AttributeError:
         data = X
     return data.numpy()
+
+
+def get_dim(y):
+    try:
+        return y.ndim
+    except AttributeError:
+        return y.dim()

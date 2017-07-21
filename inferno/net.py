@@ -14,6 +14,7 @@ from inferno.callbacks import BestLoss
 from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
 from inferno.callbacks import Scoring
+from inferno.utils import get_dim
 from inferno.utils import to_numpy
 from inferno.utils import to_tensor
 from inferno.utils import to_var
@@ -409,3 +410,25 @@ class NeuralNetClassifier(NeuralNet):
     def predict(self, X):
         return self.predict_proba(X).argmax(1)
 
+
+class NeuralNetRegressor(NeuralNet):
+    def __init__(
+            self,
+            module,
+            criterion=torch.nn.MSELoss,
+            *args,
+            **kwargs
+    ):
+        super(NeuralNetRegressor, self).__init__(
+            module,
+            criterion=criterion,
+            *args,
+            **kwargs
+        )
+
+    def check_data(self, _, y):
+        # The problem with 1-dim float y is that the pytorch DataLoader will
+        # somehow upcast it to DoubleTensor
+        if get_dim(y) == 1:
+            raise ValueError("The target data shouldn't be 1-dimensional; "
+                             "please reshape (e.g. y.reshape(-1, 1).")
