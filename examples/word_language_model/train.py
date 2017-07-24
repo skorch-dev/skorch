@@ -19,14 +19,14 @@ class Trainer(inferno.NeuralNet):
     def repackage_hidden(self, h):
         """Wraps hidden states in new Variables, to detach them from their history."""
         if type(h) == Variable:
-            return Variable(h.data)
+            v = Variable(h.data)
+            return v.cuda() if self.use_cuda else v
         else:
             return tuple(self.repackage_hidden(v) for v in h)
 
     def on_train_begin(self, net, *args, **kwargs):
         self.hidden = self.module_.init_hidden(self.batch_size)
-        #if self.use_cuda:
-        #    [n.cuda() for n in self.hidden]
+        self.module_.cuda()
 
     def train_step(self, X, y, _):
         self.module_.train()
@@ -60,7 +60,7 @@ corpus = data.Corpus('./data/penn')
 ntokens = len(corpus.dictionary)
 bptt = 10
 batch_size = 20
-use_cuda = False # FIXME
+use_cuda = True
 
 class Loader:
     def __init__(self, source, bptt=10, batch_size=20, evaluation=False):
