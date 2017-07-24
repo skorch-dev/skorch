@@ -67,6 +67,10 @@ def check_history_slice(history, sl):
 
 
 def get_dim(y):
+    """Return the number of dimensions of a torch tensor or numpy
+    array-like object.
+
+    """
     try:
         return y.ndim
     except AttributeError:
