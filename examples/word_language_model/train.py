@@ -33,6 +33,7 @@ class Trainer(inferno.NeuralNet):
         self.module_.train()
 
         self.hidden = self.repackage_hidden(self.hidden)
+        self.module_.zero_grad()
 
         output, self.hidden = self.module_(X, self.hidden)
         y_pred = output.view(-1, ntokens)
