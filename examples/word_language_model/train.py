@@ -1,4 +1,5 @@
 import inferno
+from sklearn.metrics import f1_score
 from sklearn.model_selection import GridSearchCV
 import torch
 from torch.autograd import Variable
@@ -53,8 +54,59 @@ class Trainer(inferno.NeuralNet):
 
         return self.get_loss(output_flat, y)
 
+    def evaluation_step(self, X):
+        self.module_.eval()
+
+        hidden = self.module_.init_hidden(X.size(1))
+        output, hidden = self.module_(X, hidden)
+
+        temperature = 1.0 # TODO
+
+        word_weights = output.view(-1, ntokens).data.div(temperature).exp().cpu()
+        word_idx = torch.multinomial(word_weights, 1)
+
+        return word_idx
+
+    def forward(self, X, training_behavior=False):
+        self.module_.train(training_behavior)
+
+        iterator = self.get_iterator(X, train=training_behavior)
+        y_probas = []
+        for x in iterator:
+            x = inferno.utils.to_var(x, use_cuda=self.use_cuda)
+            y_probas.append(self.evaluation_step(x))
+        return torch.cat(y_probas, dim=0)
+
     def score(self, X, y):
-        import pdb; pdb.set_trace()
+        # TODO: we cannot use predict() directly as the y supplied by GridSearchCV
+        # is not a "valid" y and only based on the input given to fit() down below.
+        # Therefore we have to generate our own batches.
+        #pred = self.predict(X)
+        #return f1_score(y, pred)
+
+        iterator = self.get_iterator(X, y, train=False)
+        y_probas = []
+        y_target = []
+        for x, y in iterator:
+            y_probas.append(self.evaluation_step(x))
+            y_target.append(y)
+        y_probas = inferno.utils.to_numpy(torch.cat(y_probas, dim=0).squeeze())
+        y_target = inferno.utils.to_numpy(torch.cat(y_target, dim=0))
+        return f1_score(y_probas, y_target, average='micro')
+
+
+# TODO: lr annealing:
+"""
+        # Save the model if the validation loss is the best we've seen so far.
+        if not best_val_loss or val_loss < best_val_loss:
+            with open(args.save, 'wb') as f:
+                torch.save(model, f)
+            best_val_loss = val_loss
+        else:
+            # Anneal the learning rate if no improvement has been seen in the validation dataset.
+            lr /= 4.0
+"""
+
 
 corpus = data.Corpus('./data/penn')
 ntokens = len(corpus.dictionary)
@@ -64,7 +116,16 @@ use_cuda = True
 
 class Loader:
     def __init__(self, source, bptt=10, batch_size=20, evaluation=False):
-        self.batches = self.batchify(source.data_tensor, batch_size)
+        # FIXME: this is kind of stupid, we supply TensorDatasets to the loader
+        # except in forward (=> therefore in predict()) we don't (we just
+        # supply it with what we get).
+        if type(source) == torch.utils.data.TensorDataset:
+            source = source.data_tensor
+            self.prediction = False
+        else:
+            self.prediction = True
+
+        self.batches = self.batchify(source, batch_size)
         self.evaluation = evaluation
         self.bptt = bptt
         self.batch_size = batch_size
@@ -83,8 +144,12 @@ class Loader:
     def get_batch(self, i):
         seq_len = min(self.bptt, len(self.batches) - 1 - i)
         data = Variable(self.batches[i:i+seq_len], volatile=self.evaluation)
-        target = Variable(self.batches[i+1:i+1+seq_len].view(-1))
-        return data, target
+
+        if self.prediction:
+            return data
+        else:
+            target = Variable(self.batches[i+1:i+1+seq_len].view(-1))
+            return data, target
 
     def __iter__(self):
         for batch, i in enumerate(range(0, self.batches.size(0) - 1, self.bptt)):

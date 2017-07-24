@@ -281,7 +281,7 @@ class NeuralNet(Callback):
     def forward(self, X, training_behavior=False):
         self.module_.train(training_behavior)
 
-        iterator = self.get_iterator(X)
+        iterator = self.get_iterator(X, train=training_behavior)
         y_probas = []
         for x in iterator:
             x = to_var(x, use_cuda=self.use_cuda)
