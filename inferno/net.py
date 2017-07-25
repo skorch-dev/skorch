@@ -243,9 +243,29 @@ class NeuralNet(Callback):
         optimizer.step()
         return loss
 
-    def fit_loop(self, X, y):
+    def fit_loop(self, X, y, epochs=None):
+        """The proper fit loop.
+
+        Contains the logic of what actually happens during the fit
+        loop.
+
+        Parameters
+        ----------
+        X : TODO
+
+        y : TODO
+
+        epochs : int or None (default=None)
+          If int, train for this number of epochs; if None, use
+          `self.max_epochs`.
+
+        **fit_params : TODO
+
+        """
+        self.check_data(X, y)
+        epochs = epochs or self.max_epochs
         optimizer = self.get_optimizer()
-        for epoch in range(self.max_epochs):
+        for epoch in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
             for xi, yi in self.get_iterator(X, y, train=True):
@@ -263,19 +283,35 @@ class NeuralNet(Callback):
                 self.notify('on_batch_end', X=xi, y=yi, train=False)
 
             self.notify('on_epoch_end', X=X, y=y)
+        return self
 
-    def fit(self, X, y, **fit_params):
-        self.check_data(X, y)
-        if self.cold_start or not hasattr(self, 'initialized_'):
-            self.initialize()
-
+    def partial_fit(self, X, y, classes=None, **fit_params):
         self.notify('on_train_begin')
         try:
             self.fit_loop(X, y)
         except KeyboardInterrupt:
             pass
         self.notify('on_train_end')
+        return self
 
+    def fit(self, X, y, **fit_params):
+        """Initialize and fit the module.
+
+        Unless `cold_start` is False, the module will be re-initialized.
+
+        Parameters
+        ----------
+        X : TODO
+
+        y : TODO
+
+        **fit_params : TODO
+
+        """
+        if self.cold_start or not hasattr(self, 'initialized_'):
+            self.initialize()
+
+        self.partial_fit(X, y, **fit_params)
         return self
 
     def forward(self, X, training_behavior=False):
