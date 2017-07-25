@@ -90,7 +90,3 @@ class Learner(inferno.NeuralNet):
         y_probas = inferno.utils.to_numpy(torch.cat(y_probas, dim=0).squeeze())
         y_target = inferno.utils.to_numpy(torch.cat(y_target, dim=0))
         return f1_score(y_probas, y_target, average='micro')
-
-
-
-
