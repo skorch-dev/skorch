@@ -286,7 +286,7 @@ class TestNeuralNet:
             'max_epochs': [10, 20],
             'module__num_units': [10, 20],
         }
-        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy')
+        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy')
         gs.fit(X[:100], y[:100])  # for speed
         print(gs.best_score_, gs.best_params_)
 

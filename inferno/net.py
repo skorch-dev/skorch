@@ -358,6 +358,8 @@ class NeuralNet(Callback):
         if any(key.startswith('module') for key in special_params):
             self.initialize_module()
 
+        return self
+
     def __getstate__(self):
         state = BaseEstimator.__getstate__(self)
         module_ = state.pop('module_')
