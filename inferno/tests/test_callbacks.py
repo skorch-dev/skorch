@@ -181,7 +181,7 @@ class TestScoring:
             name='acc',
             scoring='accuracy_score',
         )
-        for x, y in zip(np.arange(5), np.arange(5)[::-1]):
+        for x, y in zip(np.arange(5), reversed(np.arange(5))):
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
 
@@ -197,7 +197,7 @@ class TestScoring:
             name='acc',
             scoring=score_func,
         )
-        for x, y in zip(np.arange(5), np.arange(5)[::-1]):
+        for x, y in zip(np.arange(5), reversed(np.arange(5))):
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
 
@@ -211,7 +211,7 @@ class TestScoring:
             name='acc',
             scoring=None,
         )
-        for x, y in zip(np.arange(5), np.arange(5)[::-1]):
+        for x, y in zip(np.arange(5), reversed(np.arange(5))):
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
 
