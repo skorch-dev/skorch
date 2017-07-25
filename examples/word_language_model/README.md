@@ -14,5 +14,6 @@ checkpoints of the model in a file (default is `./model.pt`).
 
 The default setting is that during training in `train.py` a checkpoint model
 is written to `./model.pt` by default. This model checkpoint is also used
-for generation in `generate.py`.
+for generation in `generate.py`. The generated text is written to 
+`generated.txt` by default.
 
