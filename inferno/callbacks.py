@@ -127,7 +127,7 @@ class Scoring(Callback):
     def __init__(
             self,
             name,
-            scoring,
+            scoring=None,
             on_train=False,
             target_extractor=to_numpy,
             pred_extractor=to_numpy,
@@ -142,9 +142,11 @@ class Scoring(Callback):
         if train != self.on_train:
             return
 
-        if isinstance(self.scoring, str):  # TODO: make py2.7 compatible
+        y = self.target_extractor(y)
+        if self.scoring is None:
+            score = net.score(X, y)
+        elif isinstance(self.scoring, str):  # TODO: make py2.7 compatible
             # scoring is a string
-            y = self.target_extractor(y)
             try:
                 scorer = getattr(metrics, self.scoring)
             except AttributeError:
