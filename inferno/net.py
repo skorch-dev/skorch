@@ -414,7 +414,7 @@ def accuracy_pred_extractor(y):
 class NeuralNetClassifier(NeuralNet):
 
     default_callbacks = [
-        ('epoch_timer', EpochTimer),
+        ('epoch_timer', EpochTimer()),
         ('average_loss', AverageLoss([
             ('train_loss', 'train_batch_size'),
             ('valid_loss', 'valid_batch_size'),
