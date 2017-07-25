@@ -4,9 +4,9 @@ import inferno
 import torch
 from sklearn.model_selection import GridSearchCV
 
-from model import RNNModel
 import data
-import learner
+from model import RNNModel
+from learner import Learner
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/penn',
@@ -23,6 +23,7 @@ parser.add_argument('--save', type=str,  default='model.pt',
                     help='path to save the final model')
 args = parser.parse_args()
 
+# TODO: set seed
 
 class LRAnnealing(inferno.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
@@ -38,7 +39,7 @@ class Checkpointing(inferno.callbacks.Callback):
 corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
-trainer = learner.Learner(
+learner = Learner(
     module=RNNModel,
     iterator_train=data.Loader,
     iterator_test=data.Loader,
@@ -62,7 +63,7 @@ params = [
     },
 ]
 
-pl = GridSearchCV(trainer, params)
+pl = GridSearchCV(learner, params)
 pl.fit(corpus.train[:1000], corpus.train[:1000])
 
 import tabulate
