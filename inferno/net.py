@@ -282,7 +282,7 @@ class NeuralNet(Callback):
         self.module_.train(training_behavior)
 
         iterator = self.get_iterator(X, train=training_behavior)
-        y_probas = []
+        y_infer = []
         for x in iterator:
             x = to_var(x, use_cuda=self.use_cuda)
             y_infer.append(self.module_(x))
