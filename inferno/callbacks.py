@@ -1,3 +1,5 @@
+"""Contains callback base class and callbacks."""
+
 from itertools import cycle
 from numbers import Number
 import operator
@@ -16,25 +18,48 @@ from inferno.utils import check_history_slice
 
 
 class Callback:
+    """Base class for callbacks.
+
+    All callbacks should inherit from this class. It implements all
+    existing methods on callbacks, but the methods are allowed not to
+    have any effect.
+
+    Classes that inherit from this also gain the `get_params` and
+    `set_params` method.
+
+    """
     def initialize(self):
+        """(Re-)Set the initial state of the callback. Use this
+        e.g. if the callback tracks some state that should be reset
+        when the model is re-initialized.
+
+        This method should return self.
+
+        """
         return self
 
     def on_train_begin(self, net, **kwargs):
+        """Called at the beginning of training."""
         pass
 
     def on_train_end(self, net, **kwargs):
+        """Called at the end of training."""
         pass
 
     def on_epoch_begin(self, net, **kwargs):
+        """Called at the beginning of each epoch."""
         pass
 
     def on_epoch_end(self, net, **kwargs):
+        """Called at the end of each epoch."""
         pass
 
     def on_batch_begin(self, net, **kwargs):
+        """Called at the beginning of each batch."""
         pass
 
     def on_batch_end(self, net, **kwargs):
+        """Called at the end of each batch."""
         pass
 
     def _get_param_names(self):
@@ -49,6 +74,10 @@ class Callback:
 
 
 class EpochTimer(Callback):
+    """Measures the duration of each epoch and writes it to the
+    history with the name `dur`.
+
+    """
     def __init__(self, **kwargs):
         super(EpochTimer, self).__init__(**kwargs)
 
@@ -62,6 +91,23 @@ class EpochTimer(Callback):
 
 
 class AverageLoss(Callback):
+    """Determines the average loss.
+
+    By default, average train loss and valid loss are determined, if
+    present.
+
+    Parameters
+    ----------
+    keys_possible : None or list of tuples (default=None)
+      If not None, provide a list of tuples, where each tuple consists
+      of the column in the history that contains 1) the value in the
+      batch that should be averaged and 2) the batch size of that
+      batch. The batch size is important to determine the correct
+      average.
+      If keys are not found for a specific batch or epoch, they are
+      ignored.
+
+    """
     def __init__(self, keys_possible=None):
         if keys_possible is None:
             self.keys_possible = [('train_loss', 'train_batch_size'),
@@ -85,6 +131,25 @@ class AverageLoss(Callback):
 
 
 class BestLoss(Callback):
+    """For each epoch, determine whether the given loss is the best
+    loss achieved yet.
+
+    By default, train loss and valid loss are analyzed.
+
+    Parameters
+    ----------
+    keys_possible : None or list of str (default=None)
+      If list of str, the strings should be the name of the column in
+      the history that contains the values that should be analyzed.
+      If keys are not found for a specific epoch, they are ignored.
+
+    signs : list or tuple of int (default=(-1, -1))
+      The signs should be either -1 or 1. They determine whether the
+      value should be minimized (-1) or maximized (1). E.g.,
+      cross-entropy losses should be minimized and hence get -1,
+      accuracy should be maximized and hence get 1.
+
+    """
     _op_dict = {-1: operator.lt, 1: operator.gt}
 
     def __init__(self, keys_possible=None, signs=(-1, -1)):
@@ -124,6 +189,31 @@ class BestLoss(Callback):
 
 
 class Scoring(Callback):
+    """Callback that performs generic scoring on predictions.
+
+    Parameters
+    ----------
+    name : str (default='myscore')
+      The name of the score. Determines the column name in the
+      history.
+
+    scoring : None, str, or callable (default=None)
+      If None, use the `score` method of the model. If str, it should
+      be a valid skearn metric (e.g. "f1_score", "accuracy_score"). If
+      a callable, it should have the signature (model, X, y), and it
+      should return a scalar. This works analogously to the `scoring`
+      parameter in sklearn's `GridSearchCV` et al.
+
+    on_train : bool (default=False)
+      Whether this should be called during train or validation.
+
+    target_extractor : callable (default=to_numpy)
+      This is called on y before it is passed to scoring.
+
+    pred_extractor : callable (default=to_numpy)
+      This is called on y_pred before it is passed to scoring.
+
+    """
     def __init__(
             self,
             name='myscore',
@@ -163,6 +253,40 @@ class Scoring(Callback):
 
 
 class PrintLog(Callback):
+    """Print out useful information from the model's history.
+
+    By default, this will print the epoch, train loss, valid loss, and
+    epoch duration. In addition, `PrintLog` will take care of
+    highlighting the best loss at each epoch.
+
+    To determine the best loss, `PrintLog` looks for a keys that end
+    on `'_best'` and associates them with the corresponding
+    loss. E.g., `'train_loss_best'` will be matched with
+    `'train_loss'`. Therefore, `PrintLog` works best in conjunction
+    with the `BestLoss` callback.
+
+    Parameters
+    ----------
+    keys : list of str
+      The columns from history that should be printed. Keys that end
+      on `'_best'` are used to determine the best corresponding loss
+      (see above).
+
+    sink : callable (default=print)
+      The target that the output string is sent to. By default, the
+      output is printed to stdout, but the sink could also be a
+      logger, etc.
+
+    tablefmt : str (default='simple')
+      The format of the table. See the documentation of the `tabulate`
+      package for more detail. Can be 'plain', 'grid', 'pipe', 'html',
+      'latex', among others.
+
+    floatfmt : str (default='.4f')
+      The number formatting. See the documentation of the `tabulate`
+      package for more details.
+
+    """
     def __init__(
             self,
             keys=('epoch', 'train_loss', 'valid_loss', 'train_loss_best',
