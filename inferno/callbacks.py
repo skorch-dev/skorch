@@ -46,6 +46,7 @@ class Callback:
     def set_params(self, **params):
         for key, val in params.items():
             setattr(self, key, val)
+        return self
 
 
 class EpochTimer(Callback):
