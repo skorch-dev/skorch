@@ -127,7 +127,7 @@ class BestLoss(Callback):
 class Scoring(Callback):
     def __init__(
             self,
-            name,
+            name='myscore',
             scoring=None,
             on_train=False,
             target_extractor=to_numpy,
