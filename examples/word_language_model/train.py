@@ -96,17 +96,11 @@ class Trainer(inferno.NeuralNet):
         return f1_score(y_probas, y_target, average='micro')
 
 
-# TODO: lr annealing:
-"""
-        # Save the model if the validation loss is the best we've seen so far.
-        if not best_val_loss or val_loss < best_val_loss:
-            with open(args.save, 'wb') as f:
-                torch.save(model, f)
-            best_val_loss = val_loss
-        else:
-            # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            lr /= 4.0
-"""
+
+class LRAnnealing(inferno.callbacks.Callback):
+    def on_epoch_end(self, net, **kwargs):
+        if not net.history[-1]['valid_loss_best']:
+            net.lr /= 4.0
 
 
 corpus = data.Corpus('./data/penn')
@@ -163,6 +157,7 @@ trainer = Trainer(
         iterator_test=Loader,
         batch_size=batch_size,
         use_cuda=use_cuda,
+        callbacks=[LRAnnealing()],
         module__rnn_type='LSTM',
         module__ntoken=ntokens,
         module__ninp=200,
@@ -172,7 +167,7 @@ trainer = Trainer(
 
 params = [
     {
-        'lr': [0.01,],
+        'lr': [20],
         'iterator_train__bptt': [5, 10],
     },
 ]
