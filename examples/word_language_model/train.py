@@ -1,5 +1,6 @@
-import inferno
 import argparse
+
+import inferno
 import torch
 from sklearn.model_selection import GridSearchCV
 
