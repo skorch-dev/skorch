@@ -25,7 +25,8 @@ class Learner(inferno.NeuralNet):
 
     def on_train_begin(self, net, *args, **kwargs):
         self.hidden = self.module_.init_hidden(self.batch_size)
-        self.module_.cuda()
+        if self.use_cuda:
+            self.module_.cuda()
 
     def train_step(self, X, y, _):
         self.module_.train()
@@ -42,7 +43,6 @@ class Learner(inferno.NeuralNet):
         torch.nn.utils.clip_grad_norm(self.module_.parameters(), self.clip)
         for p in self.module_.parameters():
             p.data.add_(-self.lr, p.grad.data)
-
         return loss
 
     def validation_step(self, X, y):
