@@ -61,9 +61,7 @@ class Trainer(inferno.NeuralNet):
         hidden = self.module_.init_hidden(X.size(1))
         output, hidden = self.module_(X, hidden)
 
-        temperature = 1.0 # TODO
-
-        word_weights = output.view(-1, ntokens).data.div(temperature).exp().cpu()
+        word_weights = output.view(-1, ntokens)
         word_idx = torch.multinomial(word_weights, 1)
 
         return word_idx
