@@ -178,7 +178,7 @@ class NeuralNet(Callback):
                 if isinstance(cb, type):  # uninitialized:
                     name = cb.__name__
                 else:
-                    name = item.__class__.__name__
+                    name = cb.__class__.__name__
             yield name, cb
 
     def initialize_callbacks(self):
