@@ -20,8 +20,9 @@ from inferno.utils import check_history_slice
 class Callback:
     """Base class for callbacks.
 
-    All callbacks should inherit from this class. It implements all
-    existing methods on callbacks, but the methods are allowed not to
+    All custom callbacks should inherit from this class. The subclass
+    may override any of the `on_...` methods. It is, however, not
+    necessary to override all of them, since it's okay if they don't
     have any effect.
 
     Classes that inherit from this also gain the `get_params` and
@@ -200,7 +201,7 @@ class Scoring(Callback):
 
     scoring : None, str, or callable (default=None)
       If None, use the `score` method of the model. If str, it should
-      be a valid skearn metric (e.g. "f1_score", "accuracy_score"). If
+      be a valid sklearn metric (e.g. "f1_score", "accuracy_score"). If
       a callable, it should have the signature (model, X, y), and it
       should return a scalar. This works analogously to the `scoring`
       parameter in sklearn's `GridSearchCV` et al.
@@ -260,11 +261,11 @@ class PrintLog(Callback):
     epoch duration. In addition, `PrintLog` will take care of
     highlighting the best loss at each epoch.
 
-    To determine the best loss, `PrintLog` looks for a keys that end
-    on `'_best'` and associates them with the corresponding
-    loss. E.g., `'train_loss_best'` will be matched with
-    `'train_loss'`. Therefore, `PrintLog` works best in conjunction
-    with the `BestLoss` callback.
+    To determine the best loss, `PrintLog` looks for keys that end on
+    `'_best'` and associates them with the corresponding loss. E.g.,
+    `'train_loss_best'` will be matched with `'train_loss'`. The
+    `BestLoss` callback takes care of creating those entries, which is
+    why `PrintLog` works best in conjunction with that callback.
 
     Parameters
     ----------
