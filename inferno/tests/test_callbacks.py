@@ -181,7 +181,7 @@ class TestScoring:
             name='acc',
             scoring='accuracy_score',
         )
-        for x, y in zip(np.arange(5), np.arange(5)[::-1]):
+        for x, y in zip(np.arange(5), reversed(np.arange(5))):
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
 
@@ -197,12 +197,26 @@ class TestScoring:
             name='acc',
             scoring=score_func,
         )
-        for x, y in zip(np.arange(5), np.arange(5)[::-1]):
+        for x, y in zip(np.arange(5), reversed(np.arange(5))):
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
 
         acc = net.history[:, 'batches', :, 'acc']
         expected = [555] * 5
+        assert np.allclose(acc, expected)
+
+    def test_scoring_func_none(self, scoring_cls, net):
+        net.score = Mock(return_value=345)
+        scoring = scoring_cls(
+            name='acc',
+            scoring=None,
+        )
+        for x, y in zip(np.arange(5), reversed(np.arange(5))):
+            net.history.new_batch()
+            scoring.on_batch_end(net, [x], [y], train=False)
+
+        acc = net.history[:, 'batches', :, 'acc']
+        expected = [345] * 5
         assert np.allclose(acc, expected)
 
     def test_score_func_does_not_exist(self, scoring_cls, net, data):

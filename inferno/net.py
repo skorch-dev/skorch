@@ -22,21 +22,89 @@ from inferno.utils import to_var
 
 
 class History(list):
+    """A list-like collection that facilitates some of the more common
+    tasks that are required.
+
+    It is basically a list of dicts for each epoch, that again
+    contains a list of dicts for each batch. For convenience, it has
+    enhanced slicing notation and some methods to write new items.
+
+    To access items from history, you may pass a tuple of up to four
+    items:
+
+      1. Slices along the epochs.
+      2. Selects columns from history epochs, may be a single one or a
+      tuple of column names.
+      3. Slices along the batches.
+      4. Selects columns from history batchs, may be a single one or a
+      tuple of column names.
+
+    You may use a combination of the four items.
+
+    If you select columns that are not present in all epochs/batches,
+    only those epochs/batches are chosen that contain said columns. If
+    this set is empty, a KeyError is raised.
+
+    Examples
+    --------
+    >>> # ACCESSING ITEMS
+    >>> # history of a fitted neural net
+    >>> history = net.history
+    >>> # get current epoch, a dict
+    >>> history[-1]
+    >>> # get train losses from all epochs, a list of floats
+    >>> history[:, 'train_loss']
+    >>> # get train and valid losses from all epochs, a list of tuples
+    >>> history[:, ('train_loss', 'valid_loss')]
+    >>> # get current batches, a list of dicts
+    >>> history[-1, 'batches']
+    >>> # get latest batch, a dict
+    >>> history[-1, 'batches', -1]
+    >>> # get train losses from current batch, a list of floats
+    >>> history[-1, 'batches', :, 'train_loss']
+    >>> # get train and valid losses from current batch, a list of tuples
+    >>> history[-1, 'batches', :, ('train_loss', 'valid_loss')]
+
+    >>> # WRITING ITEMS
+    >>> # add new epoch row
+    >>> history.new_epoch()
+    >>> # add an entry to current epoch
+    >>> history.record('my-score', 123)
+    >>> # add a batch row to the current epoch
+    >>> history.new_batch()
+    >>> # add an entry to the current batch
+    >>> history.record_batch('my-batch-score', 456)
+    >>> # overwrite entry of current batch
+    >>> history.record_batch('my-batch-score', 789)
+
+    """
 
     def new_epoch(self):
+        """Register a new epoch row."""
         self.append({'batches': []})
 
     def new_batch(self):
+        """Register a new batch row for the current epoch."""
         self[-1]['batches'].append({})
 
     def record(self, attr, value):
-        assert len(self) > 0, "Call new_epoch before recording for the first time."
+        """Add a new value to the given column for the current
+        epoch.
+
+        """
+        msg = "Call new_epoch before recording for the first time."
+        assert len(self) > 0, msg
         self[-1][attr] = value
 
     def record_batch(self, attr, value):
+        """Add a new value to the given column for the current
+        batch.
+
+        """
         self[-1]['batches'][-1][attr] = value
 
     def to_list(self):
+        """Return history object as a list."""
         return list(self)
 
     def __getitem__(self, i):
@@ -104,6 +172,127 @@ class History(list):
 
 
 class NeuralNet(Callback):
+    """NeuralNet base class.
+
+    The base class covers more generic cases. Depending on your use
+    case, you might want to use `NeuralNetClassifier` or
+    `NeuralNetRegressor`.
+
+    In addition to the parameters listed below, there are parameters
+    with specific prefixes that are handled separately. To illustrate
+    this, here is an example:
+
+    ```
+    net = NeuralNet(
+        ...,
+        optim=torch.optim.SGD,
+        optim__momentum=0.95,
+    )
+    ```
+
+    This way, when `optim` is initialized, `NeuralNet` will take care
+    of setting the `momentum` parameter to 0.95.
+
+    (Note that the double underscore notation in `optim__momentum`
+    means that the parameter `momentum` should be set on the object
+    `optim`. This is the same semantic as used by sklearn.)
+
+    Furthermore, this allows to change those parameters later:
+
+    ```
+    net.set_params(optim__momentum=0.99)
+    ```
+
+    This can be useful when you want to change certain parameters using
+    a callback, when using the net in an sklearn grid search, etc.
+
+    Parameters
+    ----------
+    module : torch module (class or instance)
+      A torch module. In general, the uninstantiated class should be
+      passed, although instantiated modules will also work.
+
+    criterion : torch criterion (class)
+      The uninitialized criterion (loss) used to optimize the
+      module.
+
+    optim : torch optim (class, default=torch.optim.SGD)
+      The uninitialized optimizer (update rule) used to optimize the
+      module
+
+    lr : float (default=0.01)
+      Learning rate passed to the optimizer. You may use `lr` instead
+      of using `optim__lr`, which would result in the same outcome.
+
+    max_epochs : int (default=10)
+      The number of epochs to train for each `fit` call. Note that you
+      may keyboard-interrupt training at any time.
+
+    batch_size : int (default=128)
+      Mini-batch size. Use this instead of setting
+      `iterator_train__batch_size` and `iterator_test__batch_size`,
+      which would result in the same outcome.
+
+    iterator_train : torch DataLoader
+      TODO: Will probably change.
+
+    iterator_test : torch DataLoader
+      TODO: Will probably change.
+
+    callbacks : None or list of Callback instances (default=None)
+      More callbacks, in addition to those specified in
+      `default_callbacks`. Each callback should inherit from
+      inferno.Callback. If not None, a list of tuples (name, callback)
+      should be passed, where names should be unique. Callbacks may or
+      may not be instantiated.
+      Alternatively, it is possible to just pass a list of callbacks,
+      which results in names being inferred from the class name.
+      The callback name can be used to set parameters on specific
+      callbacks (e.g., for the callback with name `'print_log'`, use
+      `net.set_params(callbacks__print_log__keys=['epoch',
+      'train_loss'])`).
+
+    cold_start : bool (default=True)
+      Whether each fit call should lead to a re-initialization of the
+      module (cold start) or whether the module should be trained
+      further (warm start).
+
+    use_cuda : bool (default=False)
+      Whether usage of cuda is intended. If True, data in torch
+      tensors will be pushed to cuda tensors before being sent to the
+      module.
+
+    history : None or inferno.History instance (default=None)
+      If not None, start from the given history. In general, this
+      parameter should be left at None. Only set it if you want to
+      start with a specific training history.
+
+    Attributes
+    ----------
+    prefixes_ : list of str
+      Contains the prefixes to special parameters. E.g., since there
+      is the `'module'` prefix, it is possible to set parameters like
+      so: `NeuralNet(..., optim__momentum=0.95)`.
+
+    default_callbacks : list of str
+      Callbacks that come by default. They are mainly set for the
+      user's convenience. By default, an EpochTimer, AverageLoss,
+      BestLoss, and PrintLog are set.
+
+    initialized_ : bool
+      Whether the NeuralNet was initialized.
+
+    module_ : torch module (instance)
+      The instantiated module.
+
+    criterion_ : torch criterion (instance)
+      The instantiated criterion.
+
+    callbacks_ : list of tuples
+      The complete (i.e. default and other), initialized callbacks, in
+      a tuple with unique names.
+
+    """
     prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optim',
                  'criterion', 'callbacks']
 
@@ -154,6 +343,18 @@ class NeuralNet(Callback):
             self.initialized_ = False
 
     def notify(self, method_name, **cb_kwargs):
+        """Call the callback method specified in `method_name` with
+        parameters specified in `cb_kwargs`.
+
+        Method names can be one of:
+        * on_train_begin
+        * on_train_end
+        * on_epoch_begin
+        * on_epoch_end
+        * on_batch_begin
+        * on_batch_end
+
+        """
         getattr(self, method_name)(self, **cb_kwargs)
         for _, cb in self.callbacks_:
             getattr(cb, method_name)(self, **cb_kwargs)
@@ -182,6 +383,19 @@ class NeuralNet(Callback):
             yield name, cb
 
     def initialize_callbacks(self):
+        """Initializes all callbacks and save the result in the
+        `callbacks_` attribute.
+
+        Both `default_callbacks` and `callbacks` are used (in that
+        order). Callbacks may either be initialized or not, and if
+        they don't have a name, the name is inferred from the class
+        name. The `initialize` method is called on all callbacks.
+
+        The final result will be a list of tuples, where each tuple
+        consists of a name and an initialized callback. If names are
+        not unique, a ValueError is raised.
+
+        """
         names_seen = set()
         callbacks_ = []
 
@@ -202,10 +416,17 @@ class NeuralNet(Callback):
         self.callbacks_ = callbacks_
 
     def initialize_criterion(self):
+        """Initializes the criterion."""
         criterion_params = self._get_params_for('criterion')
         self.criterion_ = self.criterion(**criterion_params)
 
     def initialize_module(self):
+        """Initializes the module.
+
+        Note that if the module has learned parameters, those will be
+        reset.
+
+        """
         if self.initialized_:
             print("Re-initializing module!")
 
@@ -214,6 +435,7 @@ class NeuralNet(Callback):
         return self
 
     def initialize(self):
+        """Initializes all components of the NeuralNet."""
         self.initialize_callbacks()
         self.initialize_criterion()
         self.initialize_module()
@@ -226,6 +448,13 @@ class NeuralNet(Callback):
         pass
 
     def validation_step(self, xi, yi):
+        """Perform a forward step using batched data and return the
+        resulting loss.
+
+        The module is set to be in evaluation mode (e.g. dropout is
+        not applied).
+
+        """
         xi, yi = Variable(xi), Variable(yi)
         self.module_.eval()
 
@@ -233,6 +462,13 @@ class NeuralNet(Callback):
         return self.get_loss(y_pred, yi, train=False)
 
     def train_step(self, xi, yi, optimizer):
+        """Perform a forward step using batched data, update module
+        parameters, and return the loss.
+
+        The module is set to be in train mode (e.g. dropout is
+        applied).
+
+        """
         xi, yi = Variable(xi), Variable(yi)
         self.module_.train()
 
@@ -243,9 +479,29 @@ class NeuralNet(Callback):
         optimizer.step()
         return loss
 
-    def fit_loop(self, X, y):
+    def fit_loop(self, X, y, epochs=None):
+        """The proper fit loop.
+
+        Contains the logic of what actually happens during the fit
+        loop.
+
+        Parameters
+        ----------
+        X : TODO
+
+        y : TODO
+
+        epochs : int or None (default=None)
+          If int, train for this number of epochs; if None, use
+          `self.max_epochs`.
+
+        **fit_params : TODO
+
+        """
+        self.check_data(X, y)
+        epochs = epochs or self.max_epochs
         optimizer = self.get_optimizer()
-        for epoch in range(self.max_epochs):
+        for epoch in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
             for xi, yi in self.get_iterator(X, y, train=True):
@@ -263,22 +519,72 @@ class NeuralNet(Callback):
                 self.notify('on_batch_end', X=xi, y=yi, train=False)
 
             self.notify('on_epoch_end', X=X, y=y)
+        return self
 
-    def fit(self, X, y, **fit_params):
-        self.check_data(X, y)
-        if self.cold_start or not hasattr(self, 'initialized_'):
-            self.initialize()
+    def partial_fit(self, X, y, classes=None, **fit_params):
+        """Fit the module.
 
+        The module is not re-initialized, which means that this method
+        should be used if you want to continue training a model (warm
+        start).
+
+        Parameters
+        ----------
+        X : TODO
+
+        y : TODO
+
+        classes : array, sahpe (n_classes,)
+          Solely for sklearn compatibility, currently unused.
+
+        **fit_params : TODO
+
+        """
         self.notify('on_train_begin')
         try:
             self.fit_loop(X, y)
         except KeyboardInterrupt:
             pass
         self.notify('on_train_end')
+        return self
 
+    def fit(self, X, y, **fit_params):
+        """Initialize and fit the module.
+
+        Unless `cold_start` is False, the module will be re-initialized.
+
+        Parameters
+        ----------
+        X : TODO
+
+        y : TODO
+
+        **fit_params : TODO
+
+        """
+        if self.cold_start or not hasattr(self, 'initialized_'):
+            self.initialize()
+
+        self.partial_fit(X, y, **fit_params)
         return self
 
     def forward(self, X, training_behavior=False):
+        """Perform a forward steps on the module with batches derived
+        from data.
+
+        Parameters
+        ----------
+        X : TODO
+
+        training_behavior : bool (default=False)
+          Whether to set the module to train mode or not.
+
+        Returns
+        -------
+        y_infer : torch tensor
+          The result from the forward step.
+
+        """
         self.module_.train(training_behavior)
 
         iterator = self.get_iterator(X)
@@ -289,23 +595,85 @@ class NeuralNet(Callback):
         return torch.cat(y_infer, dim=0)
 
     def predict_proba(self, X):
+        """Where applicable, return probability estimates for
+        samples.
+
+        Parameters
+        ----------
+        X : TODO
+
+        Returns
+        -------
+        y_proba : numpy ndarray
+
+        """
         y_proba = self.forward(X, training_behavior=False)
         y_proba = to_numpy(y_proba)
         return y_proba
 
     def predict(self, X):
-        return self.predict_proba(X)
+        """Where applicable, return class labels for samples in X.
+
+        Parameters
+        ----------
+        X : TODO
+
+        Returns
+        -------
+        y_pred : numpy ndarray
+
+        """
+        self.module_.train(False)
+        return self.predict_proba(X).argmax(1)
 
     def get_optimizer(self):
+        """Get the initialized model optimizer. If `self.optim__lr` is
+        not set, use `self.lr` instead.
+
+        """
         kwargs = self._get_params_for('optim')
         if 'lr' not in kwargs:
             kwargs['lr'] = self.lr
         return self.optim(self.module_.parameters(), **kwargs)
 
     def get_loss(self, y_pred, y_true, train=False):
+        """Return the loss for this batch.
+
+        Parameters
+        ----------
+        y_pred : torch tensor
+          Predicted target values
+
+        y_true : torch tensor
+          True target values.
+
+        """
         return self.criterion_(y_pred, y_true)
 
     def get_iterator(self, X, y=None, train=False):
+        """Get an iterator that allows to loop over the batches of the
+        given data.
+
+        If `self.iterator_train__batch_size` and/or
+        `self.iterator_test__batch_size` are not set, use
+        `self.batch_size` instead.
+
+        Parameters
+        ----------
+        X : TODO
+
+        y : TODO
+
+        train : bool (default=False)
+          Whether to use `iterator_train` or `iterator_test`.
+
+        Returns
+        -------
+        iterator
+          An instantiated iterator that allows to loop over the
+          mini-batches.
+
+        """
         X = to_tensor(X, use_cuda=self.use_cuda)
         if y is None:
             dataset = X
@@ -381,7 +749,7 @@ def accuracy_pred_extractor(y):
 class NeuralNetClassifier(NeuralNet):
 
     default_callbacks = [
-        ('epoch_timer', EpochTimer),
+        ('epoch_timer', EpochTimer()),
         ('average_loss', AverageLoss([
             ('train_loss', 'train_batch_size'),
             ('valid_loss', 'valid_batch_size'),
