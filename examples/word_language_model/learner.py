@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Variable
 from sklearn.metrics import f1_score
 
-class Trainer(inferno.NeuralNet):
+class Learner(inferno.NeuralNet):
 
     def __init__(self,
                  criterion=torch.nn.CrossEntropyLoss,
@@ -13,7 +13,7 @@ class Trainer(inferno.NeuralNet):
                  *args, **kwargs):
         self.clip = clip
         self.ntokens = ntokens
-        super(Trainer, self).__init__(criterion=criterion, lr=lr, *args, **kwargs)
+        super(Learner, self).__init__(criterion=criterion, lr=lr, *args, **kwargs)
 
     def repackage_hidden(self, h):
         """Wraps hidden states in new Variables, to detach them from their history."""
