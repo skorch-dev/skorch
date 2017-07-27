@@ -7,7 +7,6 @@ from sklearn.base import BaseEstimator
 import torch
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from torch.utils.data import TensorDataset
 
 from inferno.callbacks import AverageLoss
 from inferno.callbacks import BestLoss
@@ -15,9 +14,9 @@ from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
+from inferno.dataset import Dataset
 from inferno.utils import get_dim
 from inferno.utils import to_numpy
-from inferno.utils import to_tensor
 from inferno.utils import to_var
 
 
@@ -589,7 +588,7 @@ class NeuralNet(Callback):
 
         iterator = self.get_iterator(X)
         y_infer = []
-        for x in iterator:
+        for x, _ in iterator:
             x = to_var(x, use_cuda=self.use_cuda)
             y_infer.append(self.infer(x))
         return torch.cat(y_infer, dim=0)
@@ -680,12 +679,7 @@ class NeuralNet(Callback):
           mini-batches.
 
         """
-        X = to_tensor(X, use_cuda=self.use_cuda)
-        if y is None:
-            dataset = X
-        else:
-            y = to_tensor(y, use_cuda=self.use_cuda)
-            dataset = TensorDataset(X, y)
+        dataset = Dataset(X, y, use_cuda=self.use_cuda)
 
         if train:
             kwargs = self._get_params_for('iterator_train')
