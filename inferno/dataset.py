@@ -40,6 +40,43 @@ def get_len(data):
 
 
 def multi_indexing(data, i):
+    """Perform indexing on multiple data structures.
+
+    Currently supported data types:
+
+    * numpy arrays
+    * torch tensors
+    * pandas NDFrame
+    * a dictionary of the former three
+    * a list/tuple of the former three
+
+    `i` can be an integer or a slice.
+
+    Example
+    -------
+    >>> multi_indexing(np.asarray([1, 2, 3]), 0)
+    1
+
+    >>> multi_indexing(np.asarray([1, 2, 3]), np.s_[:2])
+    array([1, 2])
+
+    >>> multi_indexing(torch.arange(0, 4), np.s_[1:3])
+     1
+     2
+    [torch.FloatTensor of size 2]
+
+    >>> multi_indexing([[1, 2, 3], [4, 5, 6]], np.s_[:2])
+    [[1, 2], [4, 5]]
+
+    >>> multi_indexing({'a': [1, 2, 3], 'b': [4, 5, 6]}, np.s_[-2:])
+    {'a': [2, 3], 'b': [5, 6]}
+
+    >>> multi_indexing(pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]}))
+       a  b
+    1  2  5
+    2  3  6
+
+    """
     if isinstance(data, dict):
         # dictionary of containers
         return {k: v[i] for k, v in data.items()}
@@ -74,8 +111,9 @@ class Dataset(object):
 
     * numpy arrays
     * torch tensors
-    * a dictionary of the former two
-    * a list/tuple of the former two
+    * pandas NDFrame
+    * a dictionary of the former three
+    * a list/tuple of the former three
 
     Parameters
     ----------
