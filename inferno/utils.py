@@ -16,7 +16,16 @@ class Ansi(Enum):
 
 
 def to_var(X, use_cuda=False):
+    if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
+        return X
+
     X = to_tensor(X, use_cuda=use_cuda)
+    if isinstance(X, dict):
+        return {k: to_var(v) for k, v in X.items()}
+
+    if isinstance(X, (tuple, list)):
+        return [to_var(x) for x in X]
+
     return Variable(X)
 
 
