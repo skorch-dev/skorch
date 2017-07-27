@@ -46,3 +46,11 @@ def get_history(*callbacks, history_cls=history_cls):
             cb.on_epoch_end(net)
 
     return h
+
+
+pandas_installed = False
+try:
+    import pandas
+    pandas_installed = True
+except ImportError:
+    pass

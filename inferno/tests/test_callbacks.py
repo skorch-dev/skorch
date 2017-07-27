@@ -151,7 +151,7 @@ class TestScoring:
     def net(self):
         from inferno.net import History
 
-        net = Mock(module_=Mock(side_effect=lambda x: x))
+        net = Mock(infer=Mock(side_effect=lambda x: x))
         history = History()
         history.new_epoch()
         net.history = history

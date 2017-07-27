@@ -7,7 +7,6 @@ from sklearn.base import BaseEstimator
 import torch
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from torch.utils.data import TensorDataset
 
 from inferno.callbacks import AverageLoss
 from inferno.callbacks import BestLoss
@@ -15,9 +14,9 @@ from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
+from inferno.dataset import Dataset
 from inferno.utils import get_dim
 from inferno.utils import to_numpy
-from inferno.utils import to_tensor
 from inferno.utils import to_var
 
 
@@ -455,10 +454,10 @@ class NeuralNet(Callback):
         not applied).
 
         """
-        xi, yi = Variable(xi), Variable(yi)
+        xi, yi = to_var(xi), to_var(yi)
         self.module_.eval()
 
-        y_pred = self.module_(xi)
+        y_pred = self.infer(xi)
         return self.get_loss(y_pred, yi, train=False)
 
     def train_step(self, xi, yi, optimizer):
@@ -469,11 +468,11 @@ class NeuralNet(Callback):
         applied).
 
         """
-        xi, yi = Variable(xi), Variable(yi)
+        xi, yi = to_var(xi), to_var(yi)
         self.module_.train()
 
         optimizer.zero_grad()
-        y_pred = self.module_(xi)
+        y_pred = self.infer(xi)
         loss = self.get_loss(y_pred, yi, train=True)
         loss.backward()
         optimizer.step()
@@ -589,10 +588,16 @@ class NeuralNet(Callback):
 
         iterator = self.get_iterator(X)
         y_infer = []
-        for x in iterator:
+        for x, _ in iterator:
             x = to_var(x, use_cuda=self.use_cuda)
-            y_infer.append(self.module_(x))
+            y_infer.append(self.infer(x))
         return torch.cat(y_infer, dim=0)
+
+    def infer(self, x):
+        x = to_var(x)
+        if isinstance(x, dict):
+            return self.module_(**x)
+        return self.module_(x)
 
     def predict_proba(self, X):
         """Where applicable, return probability estimates for
@@ -674,12 +679,7 @@ class NeuralNet(Callback):
           mini-batches.
 
         """
-        X = to_tensor(X, use_cuda=self.use_cuda)
-        if y is None:
-            dataset = X
-        else:
-            y = to_tensor(y, use_cuda=self.use_cuda)
-            dataset = TensorDataset(X, y)
+        dataset = Dataset(X, y, use_cuda=self.use_cuda)
 
         if train:
             kwargs = self._get_params_for('iterator_train')
