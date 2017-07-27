@@ -455,10 +455,10 @@ class NeuralNet(Callback):
         not applied).
 
         """
-        xi, yi = Variable(xi), Variable(yi)
+        xi, yi = to_var(xi), to_var(yi)
         self.module_.eval()
 
-        y_pred = self.module_(xi)
+        y_pred = self.infer(xi)
         return self.get_loss(y_pred, yi, train=False)
 
     def train_step(self, xi, yi, optimizer):
@@ -469,11 +469,11 @@ class NeuralNet(Callback):
         applied).
 
         """
-        xi, yi = Variable(xi), Variable(yi)
+        xi, yi = to_var(xi), to_var(yi)
         self.module_.train()
 
         optimizer.zero_grad()
-        y_pred = self.module_(xi)
+        y_pred = self.infer(xi)
         loss = self.get_loss(y_pred, yi, train=True)
         loss.backward()
         optimizer.step()
@@ -591,8 +591,14 @@ class NeuralNet(Callback):
         y_infer = []
         for x in iterator:
             x = to_var(x, use_cuda=self.use_cuda)
-            y_infer.append(self.module_(x))
+            y_infer.append(self.infer(x))
         return torch.cat(y_infer, dim=0)
+
+    def infer(self, x):
+        x = to_var(x)
+        if isinstance(x, dict):
+            return self.module_(**x)
+        return self.module_(x)
 
     def predict_proba(self, X):
         """Where applicable, return probability estimates for
