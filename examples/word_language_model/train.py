@@ -66,5 +66,6 @@ params = [
 pl = GridSearchCV(learner, params)
 pl.fit(corpus.train[:1000], corpus.train[:1000])
 
-import tabulate
-print(tabulate.tabulate(pl.cv_results_, headers='keys', tablefmt='psql'))
+print("Results of grid search:")
+print("Best parameter configuration:", pl.best_params_)
+print("Achieved score:", pl.best_score_)
