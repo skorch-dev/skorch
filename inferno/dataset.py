@@ -103,12 +103,13 @@ class Dataset(torch.utils.data.Dataset):
     """General dataset wrapper that can be used in conjunction with
     pytorch's DataLoader.
 
-    The dataset will always yield two values, the data and the
-    target. However, the target is allowed to be None. In that case,
+    The dataset will always yield a tuple of two values, the first
+    from the data (`X`) and the second from the target
+    (`y`). However, the target is allowed to be None. In that case,
     Dataset will currently return a dummy tensor, since DataLoader
     does not work with Nones.
 
-    Currently works with the following data types:
+    Dataset currently works with the following data types:
 
     * numpy arrays
     * torch tensors
