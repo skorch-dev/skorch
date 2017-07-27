@@ -4,6 +4,7 @@ from sklearn.utils import safe_indexing
 import torch
 import torch.utils.data
 
+from inferno.utils import is_pandas_ndframe
 from inferno.utils import to_tensor
 
 
@@ -90,7 +91,7 @@ def multi_indexing(data, i):
     if torch.is_tensor(data):
         # torch tensor-like
         return data[i]
-    if hasattr(data, 'iloc'):
+    if is_pandas_ndframe(data):
         # pandas NDFrame
         return data.iloc[i]
     # numpy ndarray, list
@@ -161,7 +162,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, i):
         X, y = self.X, self.y
-        if hasattr(X, 'iloc'):
+        if is_pandas_ndframe(X):
             X = {k: X[k].values.reshape(-1, 1) for k in X}
 
         xi = multi_indexing(X, i)

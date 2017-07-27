@@ -84,3 +84,8 @@ def get_dim(y):
         return y.ndim
     except AttributeError:
         return y.dim()
+
+
+def is_pandas_ndframe(x):
+    # the sklearn way of determining this
+    return hasattr(x, 'iloc')
