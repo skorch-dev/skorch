@@ -378,7 +378,7 @@ class NeuralNet(Callback):
                 if isinstance(cb, type):  # uninitialized:
                     name = cb.__name__
                 else:
-                    name = item.__class__.__name__
+                    name = cb.__class__.__name__
             yield name, cb
 
     def initialize_callbacks(self):
@@ -586,7 +586,7 @@ class NeuralNet(Callback):
         """
         self.module_.train(training_behavior)
 
-        iterator = self.get_iterator(X)
+        iterator = self.get_iterator(X, train=training_behavior)
         y_infer = []
         for x, _ in iterator:
             x = to_var(x, use_cuda=self.use_cuda)
