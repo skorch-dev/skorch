@@ -2,6 +2,7 @@ from functools import partial
 
 from sklearn.utils import safe_indexing
 import torch
+import torch.utils.data
 
 from inferno.utils import to_tensor
 
@@ -98,7 +99,7 @@ def multi_indexing(data, i):
     return safe_indexing(data, i)
 
 
-class Dataset(object):
+class Dataset(torch.utils.data.Dataset):
     """General dataset wrapper that can be used in conjunction with
     pytorch's DataLoader.
 
