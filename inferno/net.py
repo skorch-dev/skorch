@@ -478,7 +478,7 @@ class NeuralNet(Callback):
         optimizer.step()
         return loss
 
-    def fit_loop(self, X, y, epochs=None):
+    def fit_loop(self, X, y=None, epochs=None):
         """The proper fit loop.
 
         Contains the logic of what actually happens during the fit
@@ -520,7 +520,7 @@ class NeuralNet(Callback):
             self.notify('on_epoch_end', X=X, y=y)
         return self
 
-    def partial_fit(self, X, y, classes=None, **fit_params):
+    def partial_fit(self, X, y=None, classes=None, **fit_params):
         """Fit the module.
 
         The module is not re-initialized, which means that this method
@@ -547,7 +547,7 @@ class NeuralNet(Callback):
         self.notify('on_train_end')
         return self
 
-    def fit(self, X, y, **fit_params):
+    def fit(self, X, y=None, **fit_params):
         """Initialize and fit the module.
 
         Unless `cold_start` is False, the module will be re-initialized.
