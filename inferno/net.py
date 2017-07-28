@@ -478,6 +478,18 @@ class NeuralNet(Callback):
         optimizer.step()
         return loss
 
+    def evaluation_step(self, xi, training_behavior=False):
+        """Perform a forward step to produce the output used for
+        prediction and scoring.
+
+        Therefore the module is set to evaluation mode by default
+        beforehand which can be overridden to re-enable features
+        like dropout by setting `training_behavior=True`.
+
+        """
+        self.module_.train(training_behavior)
+        return self.infer(to_var(xi))
+
     def fit_loop(self, X, y=None, epochs=None):
         """The proper fit loop.
 
@@ -590,7 +602,7 @@ class NeuralNet(Callback):
         y_infer = []
         for x, _ in iterator:
             x = to_var(x, use_cuda=self.use_cuda)
-            y_infer.append(self.infer(x))
+            y_infer.append(self.evaluation_step(x, training_behavior))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):

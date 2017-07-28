@@ -54,7 +54,7 @@ class Learner(inferno.NeuralNet):
 
         return self.get_loss(output_flat, y)
 
-    def evaluation_step(self, X):
+    def evaluation_step(self, X, **kwargs):
         self.module_.eval()
 
         hidden = self.module_.init_hidden(X.size(1))
