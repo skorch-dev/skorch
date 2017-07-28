@@ -3,6 +3,7 @@ import torch
 from torch.autograd import Variable
 from sklearn.metrics import f1_score
 
+
 class Learner(inferno.NeuralNet):
 
     def __init__(self,
@@ -64,17 +65,7 @@ class Learner(inferno.NeuralNet):
 
         return word_idx
 
-    def forward(self, X, training_behavior=False):
-        self.module_.train(training_behavior)
-
-        iterator = self.get_iterator(X, train=training_behavior)
-        y_probas = []
-        for x in iterator:
-            x = inferno.utils.to_var(x, use_cuda=self.use_cuda)
-            y_probas.append(self.evaluation_step(x))
-        return torch.cat(y_probas, dim=0)
-
-    def score(self, X, y):
+    def score(self, X, y=None):
         # TODO: we cannot use predict() directly as the y supplied by GridSearchCV
         # is not a "valid" y and only based on the input given to fit() down below.
         # Therefore we have to generate our own batches.

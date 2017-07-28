@@ -53,20 +53,11 @@ class Corpus(object):
 
 class Loader:
     def __init__(self, source, use_cuda=False, bptt=10, batch_size=20, evaluation=False):
-        # FIXME: this is kind of stupid, we supply TensorDatasets to the loader
-        # except in forward (=> therefore in predict()) we don't (we just
-        # supply it with what we get).
-        if isinstance(source, torch.utils.data.TensorDataset):
-            source = source.data_tensor
-            self.prediction = False
-        else:
-            self.prediction = True
-
         self.evaluation = evaluation
         self.bptt = bptt
         self.batch_size = batch_size
         self.use_cuda = use_cuda
-        self.batches = self.batchify(source, batch_size)
+        self.batches = self.batchify(torch.LongTensor(source.X), batch_size)
 
     def batchify(self, data, bsz):
         # Work out how cleanly we can divide the dataset into bsz parts.
@@ -82,15 +73,9 @@ class Loader:
     def get_batch(self, i):
         seq_len = min(self.bptt, len(self.batches) - 1 - i)
         data = Variable(self.batches[i:i+seq_len], volatile=self.evaluation)
-
-        if self.prediction:
-            return data
-        else:
-            target = Variable(self.batches[i+1:i+1+seq_len].view(-1))
-            return data, target
+        target = Variable(self.batches[i+1:i+1+seq_len].view(-1))
+        return data, target
 
     def __iter__(self):
         for i in range(0, self.batches.size(0) - 1, self.bptt):
             yield self.get_batch(i)
-
-

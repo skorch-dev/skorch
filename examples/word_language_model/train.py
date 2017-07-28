@@ -64,7 +64,7 @@ params = [
 ]
 
 pl = GridSearchCV(learner, params)
-pl.fit(corpus.train[:1000], corpus.train[:1000])
+pl.fit(corpus.train[:1000])
 
 print("Results of grid search:")
 print("Best parameter configuration:", pl.best_params_)
