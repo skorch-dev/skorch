@@ -234,6 +234,27 @@ class TestMultiIndexing:
             pd.DataFrame({'a': [0, 1], 'b': [3, 4]}, index=[2, 1]))
         assert result[1].equals(pd.Series(data=[0, 1], index=[2, 1]))
 
+    def test_index_torch_tensor_with_numpy_int_array(self, multi_indexing):
+        X = torch.zeros((1000, 10))
+        i = np.arange(100)
+        result = multi_indexing(X, i)
+        assert (result == X[:100]).all()
+
+    def test_index_torch_tensor_with_numpy_bool_array(self, multi_indexing):
+        X = torch.zeros((1000, 10))
+        i = np.asarray([True] * 100 + [False] * 900)
+        result = multi_indexing(X, i)
+        assert (result == X[:100]).all()
+
+    def test_index_with_float_array_raises(self, multi_indexing):
+        X = np.zeros(10)
+        i = np.arange(3, 0.5)
+        with pytest.raises(IndexError) as exc:
+            multi_indexing(X, i)
+
+        assert exc.value.args[0] == (
+            "arrays used as indices must be of integer (or boolean) type")
+
 
 class TestNetWithDict:
     @pytest.fixture(scope='module')

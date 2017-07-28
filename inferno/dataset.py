@@ -79,6 +79,15 @@ def multi_indexing(data, i):
     2  3  6
 
     """
+    if isinstance(i, np.ndarray):
+        if i.dtype == bool:
+            i = i.nonzero()[0]
+        if i.dtype == int:
+            i = i.tolist()
+        else:
+            raise IndexError("arrays used as indices must be of integer "
+                             "(or boolean) type")
+
     if isinstance(data, dict):
         # dictionary of containers
         return {k: v[i] for k, v in data.items()}
@@ -90,6 +99,8 @@ def multi_indexing(data, i):
             pass
     if torch.is_tensor(data):
         # torch tensor-like
+        if isinstance(i, list):
+            i = torch.LongTensor(i)
         return data[i]
     if is_pandas_ndframe(data):
         # pandas NDFrame
