@@ -146,8 +146,9 @@ class TestNeuralNet:
         ('on_train_end', 1),
         ('on_epoch_begin', 10),
         ('on_epoch_end', 10),
-        ('on_batch_begin', (1000 // 128 + 1) * 10 * 2),
-        ('on_batch_end', (1000 // 128 + 1) * 10 * 2),
+        # by default: 80/20 train/valid split
+        ('on_batch_begin', (800 // 128 + 1) * 10 + (200 // 128 + 1) * 10),
+        ('on_batch_end', (800 // 128 + 1) * 10 + (200 // 128 + 1) * 10),
     ])
     def test_callback_is_called(self, net_fit, method, call_count):
         method = getattr(net_fit.callbacks_[-1][1], method)
@@ -309,6 +310,19 @@ class TestNeuralNet:
             -1, 'batches', :, ('train_loss', 'loss_a', 'loss_b')]
         diffs = [total - a - b for total, a, b in all_losses]
         assert np.allclose(diffs, 0, atol=1e-7)
+
+    def test_net_no_valid(self, net_cls, module_cls, data):
+        net = net_cls(
+            module_cls,
+            max_epochs=10,
+            lr=0.1,
+            train_split=None,
+        )
+        X, y = data
+        net.fit(X, y)
+        assert net.history[:, 'train_loss']
+        with pytest.raises(KeyError):
+            net.history[:, 'valid_loss']
 
 
 class MyRegressor(nn.Module):

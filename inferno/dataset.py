@@ -1,10 +1,13 @@
 from functools import partial
 
+import numpy as np
 from sklearn.utils import safe_indexing
+from sklearn.model_selection import check_cv
 import torch
 import torch.utils.data
 
 from inferno.utils import is_pandas_ndframe
+from inferno.utils import to_numpy
 from inferno.utils import to_tensor
 
 
@@ -186,3 +189,89 @@ class Dataset(torch.utils.data.Dataset):
             to_tensor(xi, use_cuda=self.use_cuda),
             to_tensor(yi, use_cuda=self.use_cuda),
         )
+
+
+class CVSplit(object):
+    """Class that performs the internal train/valid split.
+
+    The `cv` argument here works similarly to the regular sklearn `cv`
+    parameter in, e.g., `GridSearchCV`. However, instead of cycling
+    through all splits, only one fixed split (the first one) is
+    used. To get a full cycle through the splits, don't use
+    `NeuralNet`'s internal validation but instead the corresponding
+    sklearn functions (e.g. `cross_val_score`).
+
+    Parameters
+    ----------
+    cv : int, cross-validation generator or an iterable, optional
+      (Refer sklearn's User Guide for cross_validation for the various
+      cross-validation strategies that can be used here.)
+
+      Determines the cross-validation splitting strategy.
+      Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross validation,
+        - integer, to specify the number of folds in a `(Stratified)KFold`,
+        - An object to be used as a cross-validation generator.
+        - An iterable yielding train, test splits.
+
+    classifier : bool (default=False)
+      For integer/None inputs to cv, if the estimator is a classifier
+      (e.g. `NeuralNetClassifier`) and `y` is either binary or
+      multiclass, sklearn's StratifiedKFold is used. In all other
+      cases, KFold is used.
+
+    """
+    def __init__(self, cv=5, classifier=False):
+        self.cv = cv
+        self.classifier = classifier
+
+    def regular_cv(self, X, y, cv):
+        """Use the normal `.split` interface for data types are
+        supported by sklearn.
+
+        """
+        train_index, valid_index = next(iter(cv.split(X, y)))
+        return (
+            safe_indexing(X, train_index),
+            safe_indexing(X, valid_index),
+            safe_indexing(y, train_index),
+            safe_indexing(y, valid_index),
+        )
+
+    def special_cv(self, X, y, cv):
+        """For data types not directly supported by sklearn, use
+        custom split function.
+
+        """
+        dataset = Dataset(X, y)
+        num_samples = len(dataset)
+        indices = np.arange(num_samples)
+
+        try:
+            valid_index = next(iter(cv._iter_test_indices(indices)))
+            valid_mask = np.zeros(num_samples, dtype=np.bool)
+            valid_mask[valid_index] = True
+        except NotImplementedError:
+            valid_mask = next(iter(cv._iter_test_masks(indices)))
+        train_index = indices[np.logical_not(valid_mask)]
+        valid_index = indices[valid_index]
+
+        ds_train = dataset[train_index]
+        ds_valid = dataset[valid_index]
+        return ds_train[0], ds_valid[0], ds_train[1], ds_valid[1]
+
+    def __call__(self, X, y):
+        try:
+            # For StratifiedKFold, we need y, but there may be values
+            # of y that just won't work.
+            cv = check_cv(self.cv, to_numpy(y), classifier=self.classifier)
+        except ValueError:
+            cv = check_cv(self.cv, classifier=self.classifier)
+
+        if isinstance(X, np.ndarray) or is_pandas_ndframe(X):
+            # regular sklearn case
+            return self.regular_cv(X, y, cv)
+        else:
+            # sklearn cannot properly split
+            return self.special_cv(X, y, cv)

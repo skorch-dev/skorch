@@ -1,3 +1,6 @@
+from unittest.mock import Mock
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification
@@ -6,6 +9,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from .conftest import pandas_installed
+from inferno.utils import to_tensor
 
 
 class TestGetLen:
@@ -385,3 +389,211 @@ class TestNetWithPandas:
         net.fit(X, y)
         y_proba = net.predict_proba(X)
         assert np.allclose(y_proba.sum(1), 1)
+
+
+class TestTrainSplitIsUsed:
+    @pytest.fixture
+    def iterator(self):
+        class Iterator:
+            """An iterator that just yield the input data."""
+            def __init__(self, dataset, *args, **kwargs):
+                self.dataset = dataset
+
+            def __iter__(self):
+                yield self.dataset.X, self.dataset.y
+
+        return Iterator
+
+    @pytest.fixture
+    def data(self):
+        X = torch.arange(0, 12).view(4, 3)
+        y = torch.LongTensor([0, 1, 1, 0])
+        return X, y
+
+    @pytest.fixture
+    def data_split(self, data):
+        X, y = data
+        return X[:2], X[2:], y[:2], y[2:]
+
+    @pytest.fixture
+    def module(self):
+        class MyClassifier(nn.Module):
+            def __init__(self, input_units=20, num_units=10, nonlin=F.relu):
+                super(MyClassifier, self).__init__()
+
+                self.dense0 = nn.Linear(input_units, num_units)
+                self.nonlin = nonlin
+                self.dropout = nn.Dropout(0.5)
+                self.dense1 = nn.Linear(num_units, 10)
+                self.output = nn.Linear(10, 2)
+
+            def forward(self, X, **kwargs):
+                X = self.nonlin(self.dense0(X))
+                X = self.dropout(X)
+                X = F.relu(self.dense1(X))
+                X = F.softmax(self.output(X))
+                return X
+        return MyClassifier
+
+    @pytest.fixture
+    def train_split(self, data_split):
+        return Mock(side_effect=[data_split])
+
+    @pytest.fixture
+    def net_and_mock(self, module, data, train_split, iterator):
+        from inferno import NeuralNetClassifier
+        X, y = data
+        net = NeuralNetClassifier(
+            module,
+            module__input_units=3,
+            max_epochs=1,
+            iterator_train=iterator,
+            iterator_test=iterator,
+            train_split=train_split
+        )
+
+        mock = Mock()
+
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                mock(*args, **kwargs)
+                func.__dict__['mock_'] = mock
+                return func(*args[1:], **kwargs)
+            return wrapper
+
+        import types
+        net.train_step = types.MethodType(decorator(net.train_step), net)
+        net.validation_step = types.MethodType(
+            decorator(net.validation_step), net)
+        return net.fit(X, y), mock
+
+    def test_steps_called_with_split_data(self, net_and_mock, data_split):
+        net, mock = net_and_mock
+        assert mock.call_count == 2  # once for train, once for valid
+        assert (mock.call_args_list[0][0][1] == data_split[0]).all()
+        assert (mock.call_args_list[0][0][2] == data_split[2]).all()
+        assert (mock.call_args_list[1][0][1] == data_split[1]).all()
+        assert (mock.call_args_list[1][0][2] == data_split[3]).all()
+
+
+class TestCVSplit:
+    num_samples = 100
+
+    @pytest.fixture
+    def data(self):
+        X = np.random.random((self.num_samples, 10))
+        assert self.num_samples % 25 == 0
+        y = np.repeat([0, 1, 2, 3], self.num_samples // 4)
+        return X, y
+
+    @pytest.fixture
+    def cv_split_cls(self):
+        from inferno.dataset import CVSplit
+        return CVSplit
+
+    def test_reproducible(self, cv_split_cls, data):
+        X, y = data
+        X_train1, X_valid1, y_train1, y_valid1 = cv_split_cls(5)(X, y)
+        X_train2, X_valid2, y_train2, y_valid2 = cv_split_cls(5)(X, y)
+        assert np.all(X_train1 == X_train2)
+        assert np.all(y_valid1 == y_valid2)
+
+    @pytest.mark.parametrize('cv', [2, 4, 5, 10])
+    def test_eval_size_half(self, cv_split_cls, cv, data):
+        if self.num_samples % cv != 0:
+            raise ValueError("Num samples not divisible by {}".format(cv))
+
+        X, y = data
+        X_train, X_valid, y_train, y_valid = cv_split_cls(cv)(X, y)
+        assert len(X_train) + len(X_valid) == self.num_samples
+        assert len(y_train) + len(y_valid) == self.num_samples
+        assert len(X_valid) == len(y_valid) == self.num_samples // cv
+
+    def test_stratified(self, cv_split_cls, data):
+        X = data[0]
+        num_expected = self.num_samples // 4
+        y = np.hstack([np.repeat([0, 0, 0], num_expected),
+                       np.repeat([1], num_expected)])
+        X_train, X_valid, y_train, y_valid = cv_split_cls(
+            5, classifier=True)(X, y)
+        assert y_train.sum() == 0.8 * num_expected
+        assert y_valid.sum() == 0.2 * num_expected
+
+    def test_not_stratified(self, cv_split_cls, data):
+        X = data[0]
+        num_expected = self.num_samples // 4
+        y = np.hstack([np.repeat([0, 0, 0], num_expected),
+                       np.repeat([1], num_expected)])
+        X_train, X_valid, y_train, y_valid = cv_split_cls(
+            5, classifier=False)(X, y)
+        assert y_train.sum() == num_expected
+        assert y_valid.sum() == 0
+
+    def test_predefined_split(self, cv_split_cls, data):
+        X, y = data
+
+        from sklearn.model_selection import PredefinedSplit
+        indices = (y > 0).astype(int)
+        split = PredefinedSplit(indices)
+
+        _, _, y_train, y_valid = cv_split_cls(split)(X, y)
+        assert (y_train > 0).all()
+        assert (y_valid == 0).all()
+
+    def test_with_y_none(self, cv_split_cls, data):
+        X = data[0]
+        y = None
+        m = self.num_samples // 5
+        n = self.num_samples - m
+
+        X_train, X_valid, y_train, y_valid = cv_split_cls(5)(X, y)
+        assert len(X_train[0]) == len(X_train[1]) == len(y_train) == n
+        assert len(X_valid[0]) == len(X_valid[1]) == len(y_valid) == m
+
+    def test_with_torch_tensors(self, cv_split_cls, data):
+        X, y = data
+        X = to_tensor(X)
+        y = to_tensor(y)
+        m = self.num_samples // 5
+        n = self.num_samples - m
+
+        X_train, X_valid, y_train, y_valid = cv_split_cls(5)(X, y)
+        assert len(X_train[0]) == len(X_train[1]) == len(y_train) == n
+        assert len(X_valid[0]) == len(X_valid[1]) == len(y_valid) == m
+
+    def test_with_list_of_arrays(self, cv_split_cls, data):
+        X, y = data
+        X = [X, X]
+        m = self.num_samples // 5
+        n = self.num_samples - m
+
+        X_train, X_valid, y_train, y_valid = cv_split_cls(5)(X, y)
+        assert len(X_train[0]) == len(X_train[1]) == len(y_train) == n
+        assert len(X_valid[0]) == len(X_valid[1]) == len(y_valid) == m
+
+    def test_with_dict(self, cv_split_cls, data):
+        X, y = data
+        X = {'1': X, '2': X}
+        X_train, X_valid, y_train, y_valid = cv_split_cls(5)(X, y)
+
+        m = self.num_samples // 5
+        n = self.num_samples - m
+
+        assert len(X_train['1']) == len(X_train['2']) == len(y_train) == n
+        assert len(X_valid['1']) == len(X_valid['2']) == len(y_valid) == m
+
+    @pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
+    def test_with_pandas(self, cv_split_cls, data):
+        import pandas as pd
+
+        X, y = data
+        df = pd.DataFrame(X, columns=[str(i) for i in range(X.shape[1])])
+        y = pd.Series(y)
+
+        X_train, X_valid, y_train, y_valid = cv_split_cls(5)(df, y)
+
+        m = self.num_samples // 5
+
+        assert len(X_train) + len(X_valid) == self.num_samples
+        assert len(y_train) + len(y_valid) == self.num_samples
+        assert len(X_valid) == len(y_valid) == m

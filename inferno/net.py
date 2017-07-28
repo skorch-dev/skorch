@@ -5,7 +5,6 @@ import pickle
 import numpy as np
 from sklearn.base import BaseEstimator
 import torch
-from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
 from inferno.callbacks import AverageLoss
@@ -15,6 +14,7 @@ from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
 from inferno.dataset import Dataset
+from inferno.dataset import CVSplit
 from inferno.utils import get_dim
 from inferno.utils import to_numpy
 from inferno.utils import to_var
@@ -312,6 +312,7 @@ class NeuralNet(Callback):
             batch_size=128,
             iterator_train=DataLoader,
             iterator_test=DataLoader,
+            train_split=CVSplit(5),
             callbacks=None,
             cold_start=True,
             use_cuda=False,
@@ -326,6 +327,7 @@ class NeuralNet(Callback):
         self.batch_size = batch_size
         self.iterator_train = iterator_train
         self.iterator_test = iterator_test
+        self.train_split = train_split
         self.callbacks = callbacks
         self.cold_start = cold_start
         self.use_cuda = use_cuda
@@ -500,17 +502,19 @@ class NeuralNet(Callback):
         self.check_data(X, y)
         epochs = epochs or self.max_epochs
         optimizer = self.get_optimizer()
+        X_train, X_valid, y_train, y_valid = self.train_split(X, y)
+
         for epoch in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
-            for xi, yi in self.get_iterator(X, y, train=True):
+            for xi, yi in self.get_iterator(X_train, y_train, train=True):
                 self.notify('on_batch_begin', X=xi, y=yi, train=True)
                 loss = self.train_step(xi, yi, optimizer)
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(xi))
                 self.notify('on_batch_end', X=xi, y=yi, train=True)
 
-            for xi, yi in self.get_iterator(X, y, train=False):
+            for xi, yi in self.get_iterator(X_valid, y_valid, train=False):
                 self.notify('on_batch_begin', X=xi, y=yi, train=False)
                 loss = self.validation_step(xi, yi)
                 self.history.record_batch('valid_loss', loss.data[0])
@@ -774,12 +778,14 @@ class NeuralNetClassifier(NeuralNet):
             self,
             module,
             criterion=torch.nn.NLLLoss,
+            train_split=CVSplit(5, classifier=True),
             *args,
             **kwargs
     ):
         super(NeuralNetClassifier, self).__init__(
             module,
             criterion=criterion,
+            train_split=train_split,
             *args,
             **kwargs
         )
