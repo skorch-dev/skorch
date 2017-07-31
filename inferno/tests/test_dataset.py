@@ -547,8 +547,10 @@ class TestCVSplit:
         n = self.num_samples - m
 
         X_train, X_valid, y_train, y_valid = cv_split_cls(5)(X, y)
-        assert len(X_train[0]) == len(X_train[1]) == len(y_train) == n
-        assert len(X_valid[0]) == len(X_valid[1]) == len(y_valid) == m
+        assert len(X_train) == n
+        assert len(X_valid) == m
+        assert y_train is None
+        assert y_valid is None
 
     def test_with_torch_tensors(self, cv_split_cls, data):
         X, y = data
@@ -558,8 +560,19 @@ class TestCVSplit:
         n = self.num_samples - m
 
         X_train, X_valid, y_train, y_valid = cv_split_cls(5)(X, y)
-        assert len(X_train[0]) == len(X_train[1]) == len(y_train) == n
-        assert len(X_valid[0]) == len(X_valid[1]) == len(y_valid) == m
+        assert len(X_train) == len(y_train) == n
+        assert len(X_valid) == len(y_valid) == m
+
+    def test_with_torch_tensors_and_stratified(self, cv_split_cls, data):
+        X = to_tensor(data[0])
+        num_expected = self.num_samples // 4
+        y = np.hstack([np.repeat([0, 0, 0], num_expected),
+                       np.repeat([1], num_expected)])
+        y = to_tensor(y)
+        X_train, X_valid, y_train, y_valid = cv_split_cls(
+            5, classifier=True)(X, y)
+        assert y_train.sum() == 0.8 * num_expected
+        assert y_valid.sum() == 0.2 * num_expected
 
     def test_with_list_of_arrays(self, cv_split_cls, data):
         X, y = data
