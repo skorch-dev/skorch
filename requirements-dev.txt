@@ -1,5 +1,5 @@
 jupyter
-matplotlib=2.0.0
+matplotlib==2.0.0
 numpydoc
 openpyxl
 pylint
