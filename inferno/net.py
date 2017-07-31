@@ -502,7 +502,10 @@ class NeuralNet(Callback):
         self.check_data(X, y)
         epochs = epochs or self.max_epochs
         optimizer = self.get_optimizer()
-        X_train, X_valid, y_train, y_valid = self.train_split(X, y)
+        if self.train_split:
+            X_train, X_valid, y_train, y_valid = self.train_split(X, y)
+        else:
+            X_train, X_valid, y_train, y_valid = X, None, y, None
 
         for epoch in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
@@ -513,6 +516,10 @@ class NeuralNet(Callback):
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(xi))
                 self.notify('on_batch_end', X=xi, y=yi, train=True)
+
+            if X_valid is None:
+                self.notify('on_epoch_end', X=X, y=y)
+                continue
 
             for xi, yi in self.get_iterator(X_valid, y_valid, train=False):
                 self.notify('on_batch_begin', X=xi, y=yi, train=False)

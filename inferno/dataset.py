@@ -221,6 +221,10 @@ class CVSplit(object):
       multiclass, sklearn's StratifiedKFold is used. In all other
       cases, KFold is used.
 
+    Yields
+    ------
+    TODO
+
     """
     def __init__(self, cv=5, classifier=False):
         self.cv = cv
@@ -231,47 +235,59 @@ class CVSplit(object):
         supported by sklearn.
 
         """
-        train_index, valid_index = next(iter(cv.split(X, y)))
-        return (
-            safe_indexing(X, train_index),
-            safe_indexing(X, valid_index),
-            safe_indexing(y, train_index),
-            safe_indexing(y, valid_index),
-        )
+        idx_train, idx_valid = next(iter(cv.split(X, y)))
+        X_train = safe_indexing(X, idx_train)
+        X_valid = safe_indexing(X, idx_valid)
+        y_train = None if y is None else safe_indexing(y, idx_train)
+        y_valid = None if y is None else safe_indexing(y, idx_valid)
+        return X_train, X_valid, y_train, y_valid
 
-    def special_cv(self, X, y, cv):
+    def special_cv(self, X, y, cv, stratified=False):
         """For data types not directly supported by sklearn, use
         custom split function.
 
         """
         dataset = Dataset(X, y)
         num_samples = len(dataset)
-        indices = np.arange(num_samples)
+        args = (np.arange(num_samples),)
+        if stratified:
+            y_arr = to_numpy(y)
+            args = args + (y_arr,)
+        idx_train, idx_valid = next(iter(cv.split(*args)))
+
+        X_train, y_train = dataset[idx_train]
+        X_valid, y_valid = dataset[idx_valid]
+        return X_train, X_valid, y_train, y_valid
+
+    def _check_cv(self, y):
+        # TODO: Find a better solution for this mess
+        stratified = False
+        if y is None:
+            cv = check_cv(self.cv, classifier=self.classifier)
+            return cv, stratified
 
         try:
-            valid_index = next(iter(cv._iter_test_indices(indices)))
-            valid_mask = np.zeros(num_samples, dtype=np.bool)
-            valid_mask[valid_index] = True
-        except NotImplementedError:
-            valid_mask = next(iter(cv._iter_test_masks(indices)))
-        train_index = indices[np.logical_not(valid_mask)]
-        valid_index = indices[valid_index]
+            # for stratified split, y must be a numpy array
+            y_arr = to_numpy(y)
+        except AttributeError:
+            y_arr = y
 
-        ds_train = dataset[train_index]
-        ds_valid = dataset[valid_index]
-        return ds_train[0], ds_valid[0], ds_train[1], ds_valid[1]
-
-    def __call__(self, X, y):
         try:
-            # For StratifiedKFold, we need y, but there may be values
-            # of y that just won't work.
-            cv = check_cv(self.cv, to_numpy(y), classifier=self.classifier)
+            cv = check_cv(self.cv, y_arr, classifier=self.classifier)
+            stratified = True
         except ValueError:
             cv = check_cv(self.cv, classifier=self.classifier)
+        return cv, stratified
 
+    def __call__(self, X, y):
+        cv, stratified = self._check_cv(y)
         if isinstance(X, np.ndarray) or is_pandas_ndframe(X):
             # regular sklearn case
             return self.regular_cv(X, y, cv)
         else:
             # sklearn cannot properly split
-            return self.special_cv(X, y, cv)
+            return self.special_cv(X, y, cv, stratified=stratified)
+
+    def __repr__(self):
+        # TODO
+        return super(CVSplit, self).__repr__()
