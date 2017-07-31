@@ -4,6 +4,7 @@ from sklearn.utils import safe_indexing
 import torch
 import torch.utils.data
 
+from inferno.utils import flatten
 from inferno.utils import is_pandas_ndframe
 from inferno.utils import to_tensor
 
@@ -24,17 +25,9 @@ def _apply_to_data(data, func, unpack_dict=False):
     return func(data)
 
 
-def _flatten(arr):
-    for item in arr:
-        if isinstance(item, (tuple, list)):
-            yield from _flatten(item)
-        else:
-            yield item
-
-
 def get_len(data):
     lens = [_apply_to_data(data, len, unpack_dict=True)]
-    lens = list(_flatten(lens))
+    lens = list(flatten(lens))
     len_set = set(lens)
     if len(len_set) != 1:
         raise ValueError("Dataset does not have consistent lengths.")
