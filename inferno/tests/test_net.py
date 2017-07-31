@@ -310,6 +310,20 @@ class TestNeuralNet:
         diffs = [total - a - b for total, a, b in all_losses]
         assert np.allclose(diffs, 0, atol=1e-7)
 
+    @pytest.mark.xfail
+    def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
+        from inferno.callbacks import EpochTimer
+
+        net = net_cls(
+            module_cls,
+            callbacks=[EpochTimer, ('other_timer', EpochTimer)],
+        )
+        # none of this raises an exception
+        net = clone(net)
+        net.get_params()
+        net.initialize()
+        net.get_params()
+
 
 class MyRegressor(nn.Module):
     def __init__(self, num_units=10, nonlin=F.relu):

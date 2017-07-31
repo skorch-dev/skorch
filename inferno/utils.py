@@ -36,9 +36,10 @@ def to_tensor(X, use_cuda=False):
     Handles the cases:
       * Variable
       * PackedSequence
-      * dict
       * numpy array
       * torch Tensor
+      * list or tuple of one of the former
+      * dict of one of the former
 
     """
     if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
@@ -46,6 +47,9 @@ def to_tensor(X, use_cuda=False):
 
     if isinstance(X, dict):
         return {key: to_tensor(val) for key, val in X.items()}
+
+    if isinstance(X, (list, tuple)):
+        return [to_tensor(x) for x in X]
 
     if isinstance(X, np.ndarray):
         X = torch.from_numpy(X)
@@ -59,6 +63,12 @@ def to_tensor(X, use_cuda=False):
 
 
 def to_numpy(X):
+    if isinstance(X, np.ndarray):
+        return X
+
+    if is_pandas_ndframe(X):
+        return X.values
+
     if X.is_cuda:
         X = X.cpu()
     try:
