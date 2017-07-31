@@ -59,17 +59,44 @@ class TestAverageLoss:
 
         assert history[0, 'train_loss'] == 30
 
-    def test_init_other_keys(self, avg_loss_cls):
-        avg_loss = avg_loss_cls(keys_possible=[
-            ('train_loss', 'train_batch_size')]).initialize()
+    def test_init_other_key_sizes(self, avg_loss_cls):
+        key_sizes = {'train_batch_size': 'valid_batch_size'}
+        avg_loss = avg_loss_cls(key_sizes=key_sizes).initialize()
         history = get_history(avg_loss)
 
         train_losses = history[:, 'train_loss']
         expected = [0.25, 0.65, -0.15]
         assert np.allclose(train_losses, expected)
 
-        with pytest.raises(KeyError):
-            history[:, 'valid_loss']
+        valid_losses = history[:, 'valid_loss']
+        expected = [7.5, 3.5, 11.5]
+        assert np.allclose(valid_losses, expected)
+
+        train_batch_sizes = history[:, 'train_batch_size']
+        expected = [10.0, 10.0, 10.0]
+        assert np.allclose(train_batch_sizes, expected)
+
+    def test_missing_key(self, avg_loss_cls):
+        key_sizes = {'missing': 'valid_batch_size'}
+        avg_loss = avg_loss_cls(key_sizes=key_sizes).initialize()
+
+        with pytest.raises(KeyError) as exc:
+            get_history(avg_loss)
+
+        expected = ("Key 'missing' could not be found in history; "
+                    "maybe there was a typo?")
+        assert exc.value.args[0] == expected
+
+    def test_missing_size(self, avg_loss_cls):
+        key_sizes = {'train_loss': 'missing'}
+        avg_loss = avg_loss_cls(key_sizes=key_sizes).initialize()
+
+        with pytest.raises(KeyError) as exc:
+            get_history(avg_loss)
+
+        expected = ("Key 'missing' could not be found in history; "
+                    "maybe there was a typo?")
+        assert exc.value.args[0] == expected
 
 
 class TestBestLoss:

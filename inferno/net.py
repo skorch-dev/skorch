@@ -750,11 +750,7 @@ class NeuralNetClassifier(NeuralNet):
 
     default_callbacks = [
         ('epoch_timer', EpochTimer()),
-        ('average_loss', AverageLoss([
-            ('train_loss', 'train_batch_size'),
-            ('valid_loss', 'valid_batch_size'),
-            ('valid_acc', 'valid_batch_size'),
-        ])),
+        ('average_loss', AverageLoss({'valid_acc': 'valid_batch_size'})),
         ('accuracy', Scoring(
             name='valid_acc',
             scoring='accuracy_score',

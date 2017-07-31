@@ -12,9 +12,9 @@ from sklearn import metrics
 from tabulate import tabulate
 
 from inferno.utils import Ansi
+from inferno.utils import check_history_slice
 from inferno.utils import to_numpy
 from inferno.utils import to_var
-from inferno.utils import check_history_slice
 
 
 class Callback:
@@ -100,32 +100,44 @@ class AverageLoss(Callback):
 
     Parameters
     ----------
-    keys_possible : None or list of tuples (default=None)
-      If not None, provide a list of tuples, where each tuple consists
-      of the column in the history that contains 1) the value in the
-      batch that should be averaged and 2) the batch size of that
-      batch. The batch size is important to determine the correct
-      average.
-      If keys are not found for a specific batch or epoch, they are
+    key_sizes : dict or None (default=None)
+      If not None, this should be a dictionary whose keys are the
+      columns in 'history' on which to measure the average,
+      e.g. 'train_loss'. The values should be the corresponding batch
+      sizes, e.g. 'train_batch_size'. (The latter are required to
+      determine the correct average in case the batch sizes are not
+      the same across all batches.)
+
+    Attributes
+    ----------
+    default_key_sizes
+      By default, average train loss and average valid loss are
+      determined. If any of the losses is not present, it is
       ignored.
 
     """
-    def __init__(self, keys_possible=None):
-        if keys_possible is None:
-            self.keys_possible = [('train_loss', 'train_batch_size'),
-                                  ('valid_loss', 'valid_batch_size')]
-        else:
-            self.keys_possible = keys_possible
+    default_key_sizes = {'train_loss': 'train_batch_size',
+                         'valid_loss': 'valid_batch_size'}
+
+    def __init__(self, key_sizes=None):
+        self.key_sizes = {} if key_sizes is None else key_sizes
 
     def _yield_key_losses_bs(self, history):
-        for key_tuple in self.keys_possible:
+        for key_loss, key_size in self.default_key_sizes.items():
             try:
-                row = history[-1, 'batches', :, key_tuple]
-                yield key_tuple[0], list(zip(*row))
+                row = history[-1, 'batches', :, (key_loss, key_size)]
+                yield key_loss, list(zip(*row))
             except KeyError:
                 pass
+        for key_loss, key_size in self.key_sizes.items():
+            row = history[-1, 'batches', :, (key_loss, key_size)]
+            yield key_loss, list(zip(*row))
 
     def on_epoch_end(self, net, **kwargs):
+        for key, size in self.key_sizes.items():
+            sl = np.s_[-1, 'batches', :, (key, size)]
+            check_history_slice(net.history, sl)
+
         history = net.history
         for key_loss, (losses, bs) in self._yield_key_losses_bs(history):
             loss = np.average(losses, weights=bs)
