@@ -756,10 +756,7 @@ class NeuralNetClassifier(NeuralNet):
             scoring='accuracy_score',
             pred_extractor=accuracy_pred_extractor,
         )),
-        ('best_loss', BestLoss(
-            keys_possible=['train_loss', 'valid_loss', 'valid_acc'],
-            signs=[-1, -1, 1],
-        )),
+        ('best_loss', BestLoss(key_signs={'valid_acc': 1})),
         ('print_log', PrintLog(keys=(
             'epoch', 'train_loss', 'valid_loss', 'train_loss_best',
             'valid_loss_best', 'valid_acc', 'valid_acc_best', 'dur'),
