@@ -1,5 +1,6 @@
 from functools import partial
 from unittest.mock import Mock
+from unittest.mock import PropertyMock
 from unittest.mock import patch
 
 import numpy as np
@@ -105,14 +106,20 @@ class TestBestLoss:
         from inferno.callbacks import AverageLoss
         return AverageLoss().initialize()
 
-    @pytest.fixture
+    @pytest.yield_fixture
     def best_loss_cls(self):
-        from inferno.callbacks import BestLoss
-        return BestLoss
+        default_key_signs = {'train_loss': -1, 'valid_loss': 1}
+        with patch(
+                'inferno.callbacks.BestLoss.default_key_signs',
+                new_callable=PropertyMock,
+        ) as dks:
+            dks.return_value = default_key_signs
+            from inferno.callbacks import BestLoss
+            yield BestLoss
 
     @pytest.fixture
     def best_loss(self, best_loss_cls):
-        return best_loss_cls(signs=(-1, 1)).initialize()
+        return best_loss_cls().initialize()
 
     @pytest.fixture
     def history_best_loss(self, avg_loss, best_loss):
@@ -127,31 +134,50 @@ class TestBestLoss:
         expected = [True, False, True]
         assert valid_loss_best == expected
 
-    def test_other_signs(self, best_loss_cls, avg_loss):
-        best_loss = best_loss_cls(signs=(1, -1)).initialize()
-        history = get_history(avg_loss, best_loss)
+    def test_other_signs(self, avg_loss):
+        default_key_signs = {'train_loss': 1, 'valid_loss': -1}
+        with patch(
+                'inferno.callbacks.BestLoss.default_key_signs',
+                new_callable=PropertyMock,
+        ) as dks:
+            dks.return_value = default_key_signs
+            from inferno.callbacks import BestLoss
 
-        train_loss_best = history[:, 'train_loss_best']
-        expected = [True, True, False]
-        assert train_loss_best == expected
+            best_loss = BestLoss().initialize()
+            history = get_history(avg_loss, best_loss)
 
-        valid_loss_best = history[:, 'valid_loss_best']
-        expected = [True, True, False]
-        assert valid_loss_best == expected
+            train_loss_best = history[:, 'train_loss_best']
+            expected = [True, True, False]
+            assert train_loss_best == expected
+
+            valid_loss_best = history[:, 'valid_loss_best']
+            expected = [True, True, False]
+            assert valid_loss_best == expected
 
     def test_init_other_keys(self, best_loss_cls, avg_loss):
-        best_loss = best_loss_cls(
-            keys_possible=('valid_loss',),
-            signs=(1,),
-        ).initialize()
+        best_loss = best_loss_cls(key_signs={'epoch': 1}).initialize()
         history = get_history(avg_loss, best_loss)
 
-        with pytest.raises(KeyError):
-            history[:, 'train_loss_best']
+        epoch_best = history[:, 'epoch_best']
+        expected = [True, True, True]
+        assert epoch_best == expected
 
-        valid_loss_best = history[:, 'valid_loss_best']
-        expected = [True, False, True]
-        assert valid_loss_best == expected
+    def test_key_missing(self, best_loss_cls, avg_loss):
+        best_loss = best_loss_cls(key_signs={'missing': 1}).initialize()
+
+        with pytest.raises(KeyError) as exc:
+            get_history(avg_loss, best_loss)
+
+        expected = ("Key 'missing' could not be found in history; "
+                    "maybe there was a typo?")
+        assert exc.value.args[0] == expected
+
+    def test_sign_not_allowed(self, best_loss_cls):
+        with pytest.raises(ValueError) as exc:
+            best_loss_cls(key_signs={'epoch': 2}).initialize()
+
+        expected = "Wrong sign 2, expected one of -1, 1."
+        assert exc.value.args[0] == expected
 
 
 class TestScoring:

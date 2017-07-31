@@ -1,5 +1,6 @@
 """Contains callback base class and callbacks."""
 
+from itertools import chain
 from itertools import cycle
 from numbers import Number
 import operator
@@ -152,46 +153,58 @@ class BestLoss(Callback):
 
     Parameters
     ----------
-    keys_possible : None or list of str (default=None)
-      If list of str, the strings should be the name of the column in
-      the history that contains the values that should be analyzed.
-      If keys are not found for a specific epoch, they are ignored.
+    key_signs : dict or None
+      If not None, this should be a dictionary whose keys are the
+      columns in 'history' that should be checked for whether they
+      reached the best value yet, e.g. 'train_loss'. The values should
+      be -1 if lower values are better and 1 if higher values are
+      better. E.g., log loss should get -1, whereas accuracy should
+      get 1.
 
-    signs : list or tuple of int (default=(-1, -1))
-      The signs should be either -1 or 1. They determine whether the
-      value should be minimized (-1) or maximized (1). E.g.,
-      cross-entropy losses should be minimized and hence get -1,
-      accuracy should be maximized and hence get 1.
+    Attributes
+    ----------
+    default_key_signs
+      By default, the best epochs for average train loss and average
+      valid loss are determined. If any of the losses is not present,
+      it is ignored.
 
     """
+    default_key_signs = {'train_loss': -1, 'valid_loss': -1}
     _op_dict = {-1: operator.lt, 1: operator.gt}
 
-    def __init__(self, keys_possible=None, signs=(-1, -1)):
-        if keys_possible is None:
-            self.keys_possible = ['train_loss', 'valid_loss']
-        else:
-            self.keys_possible = keys_possible
-        self.signs = signs
+    def __init__(self, key_signs=None):
+        self.key_signs = {} if key_signs is None else key_signs
 
         self.best_losses_ = None
 
     def initialize(self):
-        if len(self.keys_possible) != len(self.signs):
-            raise ValueError("The number of keys and signs should be equal.")
+        signs = chain(self.default_key_signs.values(), self.key_signs.values())
+        signs_allowed = sorted(self._op_dict.keys())
+        for sign in signs:
+            if sign not in signs_allowed:
+                raise ValueError(
+                    "Wrong sign {}, expected one of {}."
+                    "".format(sign, ", ".join(map(str, signs_allowed))))
 
-        self.best_losses_ = {key: -1 * sign * np.inf for key, sign
-                             in zip(self.keys_possible, self.signs)}
+        items = chain(self.default_key_signs.items(), self.key_signs.items())
+        self.best_losses_ = {key: -1 * sign * np.inf for key, sign in items}
         return self
 
     def _yield_key_sign_loss(self, history):
-        for key, sign in zip(self.keys_possible, self.signs):
+        for key, sign in self.default_key_signs.items():
             try:
                 loss = history[-1, key]
                 yield key, sign, loss
             except KeyError:
                 pass
+        for key, sign in self.key_signs.items():
+            loss = history[-1, key]
+            yield key, sign, loss
 
     def on_epoch_end(self, net, **kwargs):
+        sl = slice(-1, None), list(self.key_signs)
+        check_history_slice(net.history, sl)
+
         history = net.history
         for key, sign, loss in self._yield_key_sign_loss(history):
             is_best = False
