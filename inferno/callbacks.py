@@ -292,6 +292,10 @@ class PrintLog(Callback):
     `BestLoss` callback takes care of creating those entries, which is
     why `PrintLog` works best in conjunction with that callback.
 
+    *Note*: `PrintLog` will not result in good outputs if the number
+     of columns varies between epochs, e.g. if the valid loss is only
+     present on every other epoch.
+
     Parameters
     ----------
     keys : list of str
@@ -313,55 +317,70 @@ class PrintLog(Callback):
       The number formatting. See the documentation of the `tabulate`
       package for more details.
 
+    Attributes
+    ----------
+    default_keys
+      By default, `PrintLog` prints the epoch, the train loss, the
+      valid loss, and the time it took to process the epoch
+      ("dur"). It will also highlight the best train and valid
+      loss. If any of the mentioned keys is not found, it is ignored.
+
     """
+
+    default_keys = ['epoch', 'train_loss', 'valid_loss', 'train_loss_best',
+                    'valid_loss_best', 'dur']
+
     def __init__(
             self,
-            keys=('epoch', 'train_loss', 'valid_loss', 'train_loss_best',
-                  'valid_loss_best', 'dur'),
+            keys=None,
             sink=print,
             tablefmt='simple',
             floatfmt='.4f',
     ):
-        self.keys = (keys,) if isinstance(keys, str) else keys
+        if keys is None:
+            self.keys = []
+        else:
+            self.keys = [keys] if isinstance(keys, str) else keys
         self.sink = sink
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
 
     def initialize(self):
         self.first_iteration_ = True
-        self.idx_ = {key: i for i, key in enumerate(self.keys)}
         return self
 
-    def format_row(self, row):
-        row_formatted = []
+    def _yield_keys(self, data):
+        for key in self.default_keys:
+            if (key in data) and not key.endswith('_best'):
+                yield key
+        for key in self.keys:
+            if not key.endswith('_best'):
+                yield key
+
+    def format_row(self, row, key, color):
+        value = row[key]
+        if not isinstance(value, Number):
+            return value
+
+        # determine if integer value
+        is_integer = float(value).is_integer()
+        template = '{}' if is_integer else '{:' + self.floatfmt + '}'
+
+        # if numeric, there could be a 'best' key
+        key_best = key + '_best'
+        if (key_best in row) and row[key_best]:
+            template = color.value + template + Ansi.ENDC.value
+        return template.format(value)
+
+    def table(self, row):
+        headers = []
+        formatted = []
         colors = cycle(Ansi)
-
-        for key, item in zip(self.keys, row):
-            if key.endswith('_best'):
-                continue
-
-            if not isinstance(item, Number):
-                row_formatted.append(item)
-                continue
-
-            color = next(colors)
-            # if numeric, there could be a 'best' key
-            idx_best = self.idx_.get(key + '_best')
-
-            is_integer = float(item).is_integer()
-            template = '{}' if is_integer else '{:' + self.floatfmt + '}'
-
-            if (idx_best is not None) and row[idx_best]:
-                template = color.value + template + Ansi.ENDC.value
-            row_formatted.append(template.format(item))
-
-        return row_formatted
-
-    def table(self, data):
-        formatted = [self.format_row(row) for row in data]
-        headers = [key for key in self.keys if not key.endswith('_best')]
+        for key, color in zip(self._yield_keys(row), colors):
+            headers.append(key)
+            formatted.append(self.format_row(row, key, color=color))
         return tabulate(
-            formatted,
+            [formatted],
             headers=headers,
             tablefmt=self.tablefmt,
             floatfmt=self.floatfmt,
@@ -370,7 +389,8 @@ class PrintLog(Callback):
     def on_epoch_end(self, net, *args, **kwargs):
         sl = slice(-1, None), self.keys
         check_history_slice(net.history, sl)
-        data = net.history[sl]
+
+        data = net.history[-1]
         tabulated = self.table(data)
 
         if self.first_iteration_:

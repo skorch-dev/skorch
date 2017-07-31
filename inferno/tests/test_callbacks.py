@@ -325,14 +325,20 @@ class TestScoring:
 class TestPrintLog:
     @pytest.fixture
     def print_log_cls(self):
-        from inferno.callbacks import PrintLog
-        return partial(PrintLog, sink=Mock())
+        default_keys = ['epoch', 'train_loss', 'train_loss_best', 'valid_loss',
+                        'valid_loss_best']
+        with patch(
+                'inferno.callbacks.PrintLog.default_keys',
+                new_callable=PropertyMock,
+        ) as dk:
+            dk.return_value = default_keys
+
+            from inferno.callbacks import PrintLog
+            yield partial(PrintLog, sink=Mock())
 
     @pytest.fixture
     def print_log(self, print_log_cls):
-        return print_log_cls(keys=(
-            'epoch', 'train_loss', 'train_loss_best', 'valid_loss',
-            'valid_loss_best')).initialize()
+        return print_log_cls().initialize()
 
     @pytest.fixture
     def avg_loss(self):
@@ -407,17 +413,17 @@ class TestPrintLog:
             from inferno.callbacks import PrintLog
             print_log = PrintLog(
                 keys=('epoch',),
-                tablefmt='some-table',
-                floatfmt='some-float',
+                tablefmt='latex',
+                floatfmt='.9f',
             ).initialize()
-            print_log.table(history[:, ('epoch',)])
+            print_log.table(history[-1])
 
             assert tab.call_count == 1
-            assert tab.call_args_list[0][1]['tablefmt'] == 'some-table'
-            assert tab.call_args_list[0][1]['floatfmt'] == 'some-float'
+            assert tab.call_args_list[0][1]['tablefmt'] == 'latex'
+            assert tab.call_args_list[0][1]['floatfmt'] == '.9f'
 
-    def test_with_one_key(self, history, print_log_cls):
-        key = 'epoch'
+    def test_with_additional_key(self, history, print_log_cls):
+        key = 'text'
         print_log = print_log_cls(keys=key).initialize()
         # does not raise
         print_log.on_epoch_end(Mock(history=history))
@@ -441,3 +447,33 @@ class TestPrintLog:
         expected = ("Key 'missing-key0' could not be found in history; "
                     "maybe there was a typo?")
         assert exc.value.args[0] == expected
+
+    def test_no_valid(self, avg_loss, best_loss, print_log, ansi):
+        get_history(avg_loss, best_loss, print_log, with_valid=False)
+        sink = print_log.sink
+        row = sink.call_args_list[2][0][0]
+        items = row.split()
+
+        assert len(items) == 2  # no valid
+        # epoch
+        assert items[0] == '1'
+        # color 1 used for item 1
+        assert items[1] == list(ansi)[1].value + '0.2500' + ansi.ENDC.value
+
+    def test_with_custom_key(self, avg_loss, best_loss, print_log_cls):
+        print_log = print_log_cls(keys=['text']).initialize()
+        get_history(avg_loss, best_loss, print_log)
+
+        row = print_log.sink.call_args_list[0][0][0]
+        columns = row.split()
+        expected = ['epoch', 'train_loss', 'valid_loss', 'text']
+        assert columns == expected
+
+    def test_with_str_key(self, avg_loss, best_loss, print_log_cls):
+        print_log = print_log_cls(keys='text').initialize()
+        get_history(avg_loss, best_loss, print_log)
+
+        row = print_log.sink.call_args_list[0][0][0]
+        columns = row.split()
+        expected = ['epoch', 'train_loss', 'valid_loss', 'text']
+        assert columns == expected
