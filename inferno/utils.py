@@ -85,7 +85,8 @@ def check_history_slice(history, sl):
         return
     except KeyError as exc:
         msg = ("Key '{}' could not be found in history; "
-               "maybe there was a typo?".format(exc.args[0]))
+               "maybe there was a typo? To make this key optional, "
+               "add it to the 'keys_optional' parameter.".format(exc.args[0]))
         raise KeyError(msg)
 
 
