@@ -783,6 +783,15 @@ class NeuralNetClassifier(NeuralNet):
     def predict(self, X):
         return self.predict_proba(X).argmax(1)
 
+    def fit(self, X, y, **fit_params):
+        """See `NeuralNet.fit`.
+
+        In contrast to `NeuralNet.fit`, `y` is non-optional to avoid mistakenly
+        forgetting about `y`. However, `y` can be set to `None` in case it
+        is derived dynamically from `X`.
+        """
+        return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
+
 
 class NeuralNetRegressor(NeuralNet):
     def __init__(
@@ -805,3 +814,12 @@ class NeuralNetRegressor(NeuralNet):
         if get_dim(y) == 1:
             raise ValueError("The target data shouldn't be 1-dimensional; "
                              "please reshape (e.g. y.reshape(-1, 1).")
+
+    def fit(self, X, y, **fit_params):
+        """See `NeuralNet.fit`.
+
+        In contrast to `NeuralNet.fit`, `y` is non-optional to avoid mistakenly
+        forgetting about `y`. However, `y` can be set to `None` in case it
+        is derived dynamically from `X`.
+        """
+        return super(NeuralNetRegressor, self).fit(X, y, **fit_params)
