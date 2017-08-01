@@ -431,6 +431,8 @@ class NeuralNet(Callback):
 
         kwargs = self._get_params_for('module')
         self.module_ = self.module(**kwargs)
+        if self.use_cuda:
+            self.module_.cuda()
         return self
 
     def initialize(self):

@@ -310,6 +310,15 @@ class TestNeuralNet:
         diffs = [total - a - b for total, a, b in all_losses]
         assert np.allclose(diffs, 0, atol=1e-7)
 
+    def test_use_cuda_on_model(self, net_cls, module_cls):
+        net_cuda = net_cls(module_cls, use_cuda=True)
+        net_cuda.initialize()
+        net_cpu = net_cls(module_cls, use_cuda=False)
+        net_cpu.initialize()
+
+        assert type(net_cpu.module_.dense0.weight.data) == torch.FloatTensor
+        assert type(net_cuda.module_.dense0.weight.data) == torch.cuda.FloatTensor
+
     @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
         from inferno.callbacks import EpochTimer
