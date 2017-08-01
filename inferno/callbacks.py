@@ -293,8 +293,8 @@ class PrintLog(Callback):
     why `PrintLog` works best in conjunction with that callback.
 
     *Note*: `PrintLog` will not result in good outputs if the number
-     of columns varies between epochs, e.g. if the valid loss is only
-     present on every other epoch.
+    of columns varies between epochs, e.g. if the valid loss is only
+    present on every other epoch.
 
     Parameters
     ----------
