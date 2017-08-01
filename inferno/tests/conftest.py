@@ -41,6 +41,8 @@ def get_history(*callbacks, history_cls=history_cls, with_valid=True):
             for cb in callbacks:
                 cb.on_batch_end(net)
 
+            h.record_batch('text', 'ha')
+
         h.record('epoch', epoch)
         h.record('text', text)
         for cb in callbacks:
