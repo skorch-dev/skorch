@@ -757,10 +757,7 @@ class NeuralNetClassifier(NeuralNet):
             pred_extractor=accuracy_pred_extractor,
         )),
         ('best_loss', BestLoss(key_signs={'valid_acc': 1})),
-        ('print_log', PrintLog(keys=(
-            'epoch', 'train_loss', 'valid_loss', 'train_loss_best',
-            'valid_loss_best', 'valid_acc', 'valid_acc_best', 'dur'),
-        )),
+        ('print_log', PrintLog(keys=['valid_acc', 'valid_acc_best'])),
     ]
 
     def __init__(
