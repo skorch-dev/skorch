@@ -386,6 +386,8 @@ class TestPrintLog:
     def test_first_row(self, sink, ansi):
         row = sink.call_args_list[2][0][0]
         items = row.split()
+
+        assert len(items) == 3
         # epoch
         assert items[0] == '1'
         # color 1 used for item 1
@@ -396,6 +398,8 @@ class TestPrintLog:
     def test_second_row(self, sink, ansi):
         row = sink.call_args_list[3][0][0]
         items = row.split()
+
+        assert len(items) == 3
         assert items[0] == '2'
         # not best, hence no color
         assert items[1] == '0.6500'
@@ -404,6 +408,8 @@ class TestPrintLog:
     def test_third_row(self, sink, ansi):
         row = sink.call_args_list[4][0][0]
         items = row.split()
+
+        assert len(items) == 3
         assert items[0] == '3'
         assert items[1] == list(ansi)[1].value + '-0.1500' + ansi.ENDC.value
         assert items[2] == '11.5000'
