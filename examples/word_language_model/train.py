@@ -57,6 +57,8 @@ learner = Learner(
     iterator_test__use_cuda=args.cuda,
     iterator_test__bptt=args.bptt)
 
+# FIXME: iterator_test does not use corpus.valid as dataset
+
 params = [
     {
         'lr': [10,20,30],
