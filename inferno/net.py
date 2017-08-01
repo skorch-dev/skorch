@@ -602,7 +602,7 @@ class NeuralNet(Callback):
         y_infer = []
         for x, _ in iterator:
             x = to_var(x, use_cuda=self.use_cuda)
-            y_infer.append(self.evaluation_step(x, training_behavior))
+            y_infer.append(self.evaluation_step(x, training_behavior=training_behavior))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
@@ -640,7 +640,6 @@ class NeuralNet(Callback):
         y_pred : numpy ndarray
 
         """
-        self.module_.train(False)
         return self.predict_proba(X).argmax(1)
 
     def get_optimizer(self):
