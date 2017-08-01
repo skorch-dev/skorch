@@ -62,10 +62,7 @@ class Learner(inferno.NeuralNet):
         hidden = self.module_.init_hidden(X.size(1))
         output, hidden = self.module_(X, hidden)
 
-        word_weights = output.view(-1, self.ntokens)
-        word_idx = torch.multinomial(word_weights, 1)
-
-        return word_idx
+        return output.view(-1, self.ntokens)
 
     def score(self, X, y=None):
         # TODO: we cannot use predict() directly as the y supplied by GridSearchCV
