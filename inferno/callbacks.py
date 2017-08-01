@@ -14,6 +14,7 @@ from tabulate import tabulate
 
 from inferno.utils import Ansi
 from inferno.utils import check_history_slice
+from inferno.utils import flatten
 from inferno.utils import to_numpy
 from inferno.utils import to_var
 
@@ -109,6 +110,14 @@ class AverageLoss(Callback):
       determine the correct average in case the batch sizes are not
       the same across all batches.)
 
+    keys_optional: list of str or None (default=None)
+      If not None, this should be a list of keys whose presence is
+      optional. By default, keys indicated in `key_sizes` are
+      mandatory, but sometimes we want optional keys. E.g., if keys
+      refer to validation data, but validation data is not always
+      present, those keys should be optional. When a key that is not
+      optional is missing, an exception will be raised.
+
     Attributes
     ----------
     default_key_sizes
@@ -116,28 +125,56 @@ class AverageLoss(Callback):
       determined. If any of the losses is not present, it is
       ignored.
 
-    """
+      """
     default_key_sizes = {'train_loss': 'train_batch_size',
                          'valid_loss': 'valid_batch_size'}
 
-    def __init__(self, key_sizes=None):
+    def __init__(self, key_sizes=None, keys_optional=None):
         self.key_sizes = {} if key_sizes is None else key_sizes
 
+        if keys_optional is None:
+            self.keys_optional = []
+        elif isinstance(keys_optional, str):
+            self.keys_optional = [keys_optional]
+        else:
+            self.keys_optional = keys_optional
+
+        self._check_keys_duplicated()
+
+    def _is_optional(self, key):
+        return (key in self.keys_optional) or (key in self.default_key_sizes)
+
     def _yield_key_losses_bs(self, history):
-        for key_loss, key_size in self.default_key_sizes.items():
-            try:
-                row = history[-1, 'batches', :, (key_loss, key_size)]
-                yield key_loss, list(zip(*row))
-            except KeyError:
-                pass
-        for key_loss, key_size in self.key_sizes.items():
+        key_sizes = chain(
+            self.default_key_sizes.items(), self.key_sizes.items())
+        for key_loss, key_size in key_sizes:
+            if self._is_optional(key_loss) or self._is_optional(key_size):
+                try:
+                    row = history[-1, 'batches', :, (key_loss, key_size)]
+                    yield key_loss, list(zip(*row))
+                except KeyError:
+                    continue
             row = history[-1, 'batches', :, (key_loss, key_size)]
             yield key_loss, list(zip(*row))
 
+    def _check_keys_duplicated(self):
+        keys_0 = set(self.default_key_sizes)
+        keys_1 = set(self.key_sizes)
+        duplicates = keys_0 & keys_1
+        if duplicates:
+            raise ValueError("AverageLoss found duplicate keys: {}"
+                             "".format(', '.join(sorted(duplicates))))
+
+    def _check_keys_missing(self, net):
+        check_keys = []
+        for key in flatten(self.key_sizes.items()):
+            if not self._is_optional(key):
+                check_keys.append(key)
+        sl = np.s_[-1, 'batches', :, check_keys]
+        check_history_slice(net.history, sl)
+
     def on_epoch_end(self, net, **kwargs):
-        for key, size in self.key_sizes.items():
-            sl = np.s_[-1, 'batches', :, (key, size)]
-            check_history_slice(net.history, sl)
+        self._check_keys_missing(net)
 
         history = net.history
         for key_loss, (losses, bs) in self._yield_key_losses_bs(history):

@@ -85,18 +85,61 @@ class TestAverageLoss:
             get_history(avg_loss)
 
         expected = ("Key 'missing' could not be found in history; "
-                    "maybe there was a typo?")
+                    "maybe there was a typo? To make this key optional, "
+                    "add it to the 'keys_optional' parameter.")
         assert exc.value.args[0] == expected
 
     def test_missing_size(self, avg_loss_cls):
-        key_sizes = {'train_loss': 'missing'}
+        key_sizes = {'text': 'missing'}
         avg_loss = avg_loss_cls(key_sizes=key_sizes).initialize()
 
         with pytest.raises(KeyError) as exc:
             get_history(avg_loss)
 
         expected = ("Key 'missing' could not be found in history; "
-                    "maybe there was a typo?")
+                    "maybe there was a typo? To make this key optional, "
+                    "add it to the 'keys_optional' parameter.")
+        assert exc.value.args[0] == expected
+
+    def test_missing_key_optional(self, avg_loss_cls):
+        key_sizes = {'missing': 'valid_batch_size'}
+        avg_loss = avg_loss_cls(
+            key_sizes=key_sizes, keys_optional=['missing']).initialize()
+
+        # does not raise
+        get_history(avg_loss)
+
+    def test_missing_key_optional_as_str(self, avg_loss_cls):
+        key_sizes = {'missing': 'valid_batch_size'}
+        avg_loss = avg_loss_cls(
+            key_sizes=key_sizes, keys_optional='missing').initialize()
+
+        # does not raise
+        get_history(avg_loss)
+
+    def test_missing_size_optional(self, avg_loss_cls):
+        key_sizes = {'text': 'missing'}
+        avg_loss = avg_loss_cls(
+            key_sizes=key_sizes, keys_optional=['missing']).initialize()
+
+        # does not raise
+        get_history(avg_loss)
+
+    def test_1_duplicate_key(self, avg_loss_cls):
+        key_sizes = {'train_loss': 'a-batch-size'}
+        with pytest.raises(ValueError) as exc:
+            avg_loss_cls(key_sizes=key_sizes).initialize()
+
+        expected = "AverageLoss found duplicate keys: train_loss"
+        assert exc.value.args[0] == expected
+
+    def test_2_duplicate_keys(self, avg_loss_cls):
+        key_sizes = {'train_loss': 'a-batch-size',
+                     'valid_loss': 'a-batch-size'}
+        with pytest.raises(ValueError) as exc:
+            avg_loss_cls(key_sizes=key_sizes).initialize()
+
+        expected = "AverageLoss found duplicate keys: train_loss, valid_loss"
         assert exc.value.args[0] == expected
 
 
