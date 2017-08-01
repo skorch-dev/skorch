@@ -14,7 +14,7 @@ def history(history_cls):
     return history_cls()
 
 
-def get_history(*callbacks, history_cls=history_cls):
+def get_history(*callbacks, history_cls=history_cls, with_valid=True):
     h = history_cls()()
     net = Mock()
     net.history = h
@@ -34,8 +34,9 @@ def get_history(*callbacks, history_cls=history_cls):
 
             h.record_batch('train_loss', 1 - i / 10)
             h.record_batch('train_batch_size', 10)
-            h.record_batch('valid_loss', i)
-            h.record_batch('valid_batch_size', 1)
+            if with_valid:
+                h.record_batch('valid_loss', i)
+                h.record_batch('valid_batch_size', 1)
 
             for cb in callbacks:
                 cb.on_batch_end(net)
