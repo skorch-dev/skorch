@@ -19,6 +19,12 @@ from inferno.utils import to_numpy
 from inferno.utils import to_var
 
 
+def _duplicate_items(collection_0, collection_1):
+    set_0 = set(collection_0)
+    set_1 = set(collection_1)
+    return set_0 & set_1
+
+
 class Callback:
     """Base class for callbacks.
 
@@ -153,28 +159,27 @@ class AverageLoss(Callback):
                     row = history[-1, 'batches', :, (key_loss, key_size)]
                     yield key_loss, list(zip(*row))
                 except KeyError:
-                    continue
+                    pass
+                continue
             row = history[-1, 'batches', :, (key_loss, key_size)]
             yield key_loss, list(zip(*row))
 
     def _check_keys_duplicated(self):
-        keys_0 = set(self.default_key_sizes)
-        keys_1 = set(self.key_sizes)
-        duplicates = keys_0 & keys_1
+        duplicates = _duplicate_items(self.default_key_sizes, self.key_sizes)
         if duplicates:
             raise ValueError("AverageLoss found duplicate keys: {}"
                              "".format(', '.join(sorted(duplicates))))
 
-    def _check_keys_missing(self, net):
+    def _check_keys_missing(self, history):
         check_keys = []
         for key in flatten(self.key_sizes.items()):
             if not self._is_optional(key):
                 check_keys.append(key)
         sl = np.s_[-1, 'batches', :, check_keys]
-        check_history_slice(net.history, sl)
+        check_history_slice(history, sl)
 
     def on_epoch_end(self, net, **kwargs):
-        self._check_keys_missing(net)
+        self._check_keys_missing(net.history)
 
         history = net.history
         for key_loss, (losses, bs) in self._yield_key_losses_bs(history):
