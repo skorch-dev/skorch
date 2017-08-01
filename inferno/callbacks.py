@@ -214,12 +214,30 @@ class BestLoss(Callback):
     default_key_signs = {'train_loss': -1, 'valid_loss': -1}
     _op_dict = {-1: operator.lt, 1: operator.gt}
 
-    def __init__(self, key_signs=None):
+    def __init__(self, key_signs=None, keys_optional=None):
         self.key_signs = {} if key_signs is None else key_signs
+        if keys_optional is None:
+            self.keys_optional = []
+        elif isinstance(keys_optional, str):
+            self.keys_optional = [keys_optional]
+        else:
+            self.keys_optional = keys_optional
 
         self.best_losses_ = None
 
-    def initialize(self):
+        self._check_keys_duplicated()
+        self._check_signs()
+
+    def _is_optional(self, key):
+        return (key in self.keys_optional) or (key in self.default_key_signs)
+
+    def _check_keys_duplicated(self):
+        duplicates = _duplicate_items(self.default_key_signs, self.key_signs)
+        if duplicates:
+            raise ValueError("BestLoss found duplicate keys: {}"
+                             "".format(', '.join(sorted(duplicates))))
+
+    def _check_signs(self):
         signs = chain(self.default_key_signs.values(), self.key_signs.values())
         signs_allowed = sorted(self._op_dict.keys())
         for sign in signs:
@@ -228,24 +246,32 @@ class BestLoss(Callback):
                     "Wrong sign {}, expected one of {}."
                     "".format(sign, ", ".join(map(str, signs_allowed))))
 
+    def initialize(self):
         items = chain(self.default_key_signs.items(), self.key_signs.items())
         self.best_losses_ = {key: -1 * sign * np.inf for key, sign in items}
         return self
 
+    def _check_keys_missing(self, history):
+        check_keys = [k for k in self.key_signs if not self._is_optional(k)]
+        sl = np.s_[-1, check_keys]
+        check_history_slice(history, sl)
+
     def _yield_key_sign_loss(self, history):
-        for key, sign in self.default_key_signs.items():
-            try:
-                loss = history[-1, key]
-                yield key, sign, loss
-            except KeyError:
-                pass
-        for key, sign in self.key_signs.items():
-            loss = history[-1, key]
-            yield key, sign, loss
+        key_signs = chain(
+            self.default_key_signs.items(), self.key_signs.items())
+        for key_loss, sign in key_signs:
+            if self._is_optional(key_loss):
+                try:
+                    loss = history[-1, key_loss]
+                    yield key_loss, sign, loss
+                except KeyError:
+                    pass
+                continue
+            loss = history[-1, key_loss]
+            yield key_loss, sign, loss
 
     def on_epoch_end(self, net, **kwargs):
-        sl = np.s_[-1, list(self.key_signs)]
-        check_history_slice(net.history, sl)
+        self._check_keys_missing(net.history)
 
         history = net.history
         for key, sign, loss in self._yield_key_sign_loss(history):
