@@ -379,6 +379,14 @@ class PrintLog(Callback):
       on `'_best'` are used to determine the best corresponding loss
       (see above).
 
+    keys_optional: list of str or None (default=None)
+      If not None, this should be a list of keys whose presence is
+      optional. By default, keys indicated in `key` are mandatory, but
+      sometimes we want optional keys. E.g., if keys refer to
+      validation data, but validation data is not always present,
+      those keys should be optional. When a key that is not optional
+      is missing, an exception will be raised.
+
     sink : callable (default=print)
       The target that the output string is sent to. By default, the
       output is printed to stdout, but the sink could also be a
@@ -409,6 +417,7 @@ class PrintLog(Callback):
     def __init__(
             self,
             keys=None,
+            keys_optional=None,
             sink=print,
             tablefmt='simple',
             floatfmt='.4f',
@@ -417,13 +426,37 @@ class PrintLog(Callback):
             self.keys = []
         else:
             self.keys = [keys] if isinstance(keys, str) else keys
+
+        if keys_optional is None:
+            self.keys_optional = []
+        elif isinstance(keys_optional, str):
+            self.keys_optional = [keys_optional]
+        else:
+            self.keys_optional = keys_optional
+
         self.sink = sink
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
 
+        self._check_keys_duplicated()
+
+    def _is_optional(self, key):
+        return (key in self.keys_optional) or (key in self.default_keys)
+
+    def _check_keys_duplicated(self):
+        duplicates = _duplicate_items(self.default_keys, self.keys)
+        if duplicates:
+            raise ValueError("PrintLog found duplicate keys: {}"
+                             "".format(', '.join(sorted(duplicates))))
+
     def initialize(self):
         self.first_iteration_ = True
         return self
+
+    def _check_keys_missing(self, history):
+        check_keys = [key for key in self.keys if not self._is_optional(key)]
+        sl = np.s_[-1, check_keys]
+        check_history_slice(history, sl)
 
     def _yield_keys(self, data):
         for key in self.default_keys:
@@ -453,8 +486,16 @@ class PrintLog(Callback):
         formatted = []
         colors = cycle(Ansi)
         for key, color in zip(self._yield_keys(row), colors):
+            if self._is_optional(key):
+                try:
+                    headers.append(key)
+                    formatted.append(self.format_row(row, key, color=color))
+                except KeyError:
+                    pass
+                continue
             headers.append(key)
             formatted.append(self.format_row(row, key, color=color))
+
         return tabulate(
             [formatted],
             headers=headers,
@@ -463,8 +504,7 @@ class PrintLog(Callback):
         )
 
     def on_epoch_end(self, net, *args, **kwargs):
-        sl = slice(-1, None), self.keys
-        check_history_slice(net.history, sl)
+        self._check_keys_missing(net.history)
 
         data = net.history[-1]
         tabulated = self.table(data)
