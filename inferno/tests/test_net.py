@@ -324,6 +324,20 @@ class TestNeuralNet:
         with pytest.raises(KeyError):
             net.history[:, 'valid_loss']
 
+    @pytest.mark.xfail
+    def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
+        from inferno.callbacks import EpochTimer
+
+        net = net_cls(
+            module_cls,
+            callbacks=[EpochTimer, ('other_timer', EpochTimer)],
+        )
+        # none of this raises an exception
+        net = clone(net)
+        net.get_params()
+        net.initialize()
+        net.get_params()
+
 
 class MyRegressor(nn.Module):
     def __init__(self, num_units=10, nonlin=F.relu):

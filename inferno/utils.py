@@ -103,3 +103,11 @@ def get_dim(y):
 def is_pandas_ndframe(x):
     # the sklearn way of determining this
     return hasattr(x, 'iloc')
+
+
+def flatten(arr):
+    for item in arr:
+        if isinstance(item, (tuple, list)):
+            yield from flatten(item)
+        else:
+            yield item

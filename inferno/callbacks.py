@@ -1,5 +1,6 @@
 """Contains callback base class and callbacks."""
 
+from itertools import chain
 from itertools import cycle
 from numbers import Number
 import operator
@@ -12,9 +13,9 @@ from sklearn import metrics
 from tabulate import tabulate
 
 from inferno.utils import Ansi
+from inferno.utils import check_history_slice
 from inferno.utils import to_numpy
 from inferno.utils import to_var
-from inferno.utils import check_history_slice
 
 
 class Callback:
@@ -100,32 +101,44 @@ class AverageLoss(Callback):
 
     Parameters
     ----------
-    keys_possible : None or list of tuples (default=None)
-      If not None, provide a list of tuples, where each tuple consists
-      of the column in the history that contains 1) the value in the
-      batch that should be averaged and 2) the batch size of that
-      batch. The batch size is important to determine the correct
-      average.
-      If keys are not found for a specific batch or epoch, they are
+    key_sizes : dict or None (default=None)
+      If not None, this should be a dictionary whose keys are the
+      columns in 'history' on which to measure the average,
+      e.g. 'train_loss'. The values should be the corresponding batch
+      sizes, e.g. 'train_batch_size'. (The latter are required to
+      determine the correct average in case the batch sizes are not
+      the same across all batches.)
+
+    Attributes
+    ----------
+    default_key_sizes
+      By default, average train loss and average valid loss are
+      determined. If any of the losses is not present, it is
       ignored.
 
     """
-    def __init__(self, keys_possible=None):
-        if keys_possible is None:
-            self.keys_possible = [('train_loss', 'train_batch_size'),
-                                  ('valid_loss', 'valid_batch_size')]
-        else:
-            self.keys_possible = keys_possible
+    default_key_sizes = {'train_loss': 'train_batch_size',
+                         'valid_loss': 'valid_batch_size'}
+
+    def __init__(self, key_sizes=None):
+        self.key_sizes = {} if key_sizes is None else key_sizes
 
     def _yield_key_losses_bs(self, history):
-        for key_tuple in self.keys_possible:
+        for key_loss, key_size in self.default_key_sizes.items():
             try:
-                row = history[-1, 'batches', :, key_tuple]
-                yield key_tuple[0], list(zip(*row))
+                row = history[-1, 'batches', :, (key_loss, key_size)]
+                yield key_loss, list(zip(*row))
             except KeyError:
                 pass
+        for key_loss, key_size in self.key_sizes.items():
+            row = history[-1, 'batches', :, (key_loss, key_size)]
+            yield key_loss, list(zip(*row))
 
     def on_epoch_end(self, net, **kwargs):
+        for key, size in self.key_sizes.items():
+            sl = np.s_[-1, 'batches', :, (key, size)]
+            check_history_slice(net.history, sl)
+
         history = net.history
         for key_loss, (losses, bs) in self._yield_key_losses_bs(history):
             loss = np.average(losses, weights=bs)
@@ -140,46 +153,58 @@ class BestLoss(Callback):
 
     Parameters
     ----------
-    keys_possible : None or list of str (default=None)
-      If list of str, the strings should be the name of the column in
-      the history that contains the values that should be analyzed.
-      If keys are not found for a specific epoch, they are ignored.
+    key_signs : dict or None
+      If not None, this should be a dictionary whose keys are the
+      columns in 'history' that should be checked for whether they
+      reached the best value yet, e.g. 'train_loss'. The values should
+      be -1 if lower values are better and 1 if higher values are
+      better. E.g., log loss should get -1, whereas accuracy should
+      get 1.
 
-    signs : list or tuple of int (default=(-1, -1))
-      The signs should be either -1 or 1. They determine whether the
-      value should be minimized (-1) or maximized (1). E.g.,
-      cross-entropy losses should be minimized and hence get -1,
-      accuracy should be maximized and hence get 1.
+    Attributes
+    ----------
+    default_key_signs
+      By default, the best epochs for average train loss and average
+      valid loss are determined. If any of the losses is not present,
+      it is ignored.
 
     """
+    default_key_signs = {'train_loss': -1, 'valid_loss': -1}
     _op_dict = {-1: operator.lt, 1: operator.gt}
 
-    def __init__(self, keys_possible=None, signs=(-1, -1)):
-        if keys_possible is None:
-            self.keys_possible = ['train_loss', 'valid_loss']
-        else:
-            self.keys_possible = keys_possible
-        self.signs = signs
+    def __init__(self, key_signs=None):
+        self.key_signs = {} if key_signs is None else key_signs
 
         self.best_losses_ = None
 
     def initialize(self):
-        if len(self.keys_possible) != len(self.signs):
-            raise ValueError("The number of keys and signs should be equal.")
+        signs = chain(self.default_key_signs.values(), self.key_signs.values())
+        signs_allowed = sorted(self._op_dict.keys())
+        for sign in signs:
+            if sign not in signs_allowed:
+                raise ValueError(
+                    "Wrong sign {}, expected one of {}."
+                    "".format(sign, ", ".join(map(str, signs_allowed))))
 
-        self.best_losses_ = {key: -1 * sign * np.inf for key, sign
-                             in zip(self.keys_possible, self.signs)}
+        items = chain(self.default_key_signs.items(), self.key_signs.items())
+        self.best_losses_ = {key: -1 * sign * np.inf for key, sign in items}
         return self
 
     def _yield_key_sign_loss(self, history):
-        for key, sign in zip(self.keys_possible, self.signs):
+        for key, sign in self.default_key_signs.items():
             try:
                 loss = history[-1, key]
                 yield key, sign, loss
             except KeyError:
                 pass
+        for key, sign in self.key_signs.items():
+            loss = history[-1, key]
+            yield key, sign, loss
 
     def on_epoch_end(self, net, **kwargs):
+        sl = np.s_[-1, list(self.key_signs)]
+        check_history_slice(net.history, sl)
+
         history = net.history
         for key, sign, loss in self._yield_key_sign_loss(history):
             is_best = False
@@ -267,6 +292,10 @@ class PrintLog(Callback):
     `BestLoss` callback takes care of creating those entries, which is
     why `PrintLog` works best in conjunction with that callback.
 
+    *Note*: `PrintLog` will not result in good outputs if the number
+    of columns varies between epochs, e.g. if the valid loss is only
+    present on every other epoch.
+
     Parameters
     ----------
     keys : list of str
@@ -288,55 +317,70 @@ class PrintLog(Callback):
       The number formatting. See the documentation of the `tabulate`
       package for more details.
 
+    Attributes
+    ----------
+    default_keys
+      By default, `PrintLog` prints the epoch, the train loss, the
+      valid loss, and the time it took to process the epoch
+      ("dur"). It will also highlight the best train and valid
+      loss. If any of the mentioned keys is not found, it is ignored.
+
     """
+
+    default_keys = ['epoch', 'train_loss', 'valid_loss', 'train_loss_best',
+                    'valid_loss_best', 'dur']
+
     def __init__(
             self,
-            keys=('epoch', 'train_loss', 'valid_loss', 'train_loss_best',
-                  'valid_loss_best', 'dur'),
+            keys=None,
             sink=print,
             tablefmt='simple',
             floatfmt='.4f',
     ):
-        self.keys = (keys,) if isinstance(keys, str) else keys
+        if keys is None:
+            self.keys = []
+        else:
+            self.keys = [keys] if isinstance(keys, str) else keys
         self.sink = sink
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
 
     def initialize(self):
         self.first_iteration_ = True
-        self.idx_ = {key: i for i, key in enumerate(self.keys)}
         return self
 
-    def format_row(self, row):
-        row_formatted = []
+    def _yield_keys(self, data):
+        for key in self.default_keys:
+            if (key in data) and not key.endswith('_best'):
+                yield key
+        for key in self.keys:
+            if not key.endswith('_best'):
+                yield key
+
+    def format_row(self, row, key, color):
+        value = row[key]
+        if not isinstance(value, Number):
+            return value
+
+        # determine if integer value
+        is_integer = float(value).is_integer()
+        template = '{}' if is_integer else '{:' + self.floatfmt + '}'
+
+        # if numeric, there could be a 'best' key
+        key_best = key + '_best'
+        if (key_best in row) and row[key_best]:
+            template = color.value + template + Ansi.ENDC.value
+        return template.format(value)
+
+    def table(self, row):
+        headers = []
+        formatted = []
         colors = cycle(Ansi)
-
-        for key, item in zip(self.keys, row):
-            if key.endswith('_best'):
-                continue
-
-            if not isinstance(item, Number):
-                row_formatted.append(item)
-                continue
-
-            color = next(colors)
-            # if numeric, there could be a 'best' key
-            idx_best = self.idx_.get(key + '_best')
-
-            is_integer = float(item).is_integer()
-            template = '{}' if is_integer else '{:' + self.floatfmt + '}'
-
-            if (idx_best is not None) and row[idx_best]:
-                template = color.value + template + Ansi.ENDC.value
-            row_formatted.append(template.format(item))
-
-        return row_formatted
-
-    def table(self, data):
-        formatted = [self.format_row(row) for row in data]
-        headers = [key for key in self.keys if not key.endswith('_best')]
+        for key, color in zip(self._yield_keys(row), colors):
+            headers.append(key)
+            formatted.append(self.format_row(row, key, color=color))
         return tabulate(
-            formatted,
+            [formatted],
             headers=headers,
             tablefmt=self.tablefmt,
             floatfmt=self.floatfmt,
@@ -345,7 +389,8 @@ class PrintLog(Callback):
     def on_epoch_end(self, net, *args, **kwargs):
         sl = slice(-1, None), self.keys
         check_history_slice(net.history, sl)
-        data = net.history[sl]
+
+        data = net.history[-1]
         tabulated = self.table(data)
 
         if self.first_iteration_:
