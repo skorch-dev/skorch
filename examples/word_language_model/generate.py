@@ -42,11 +42,7 @@ learner = learner.Learner(
     module__ntoken=ntokens,
     module__ninp=200,
     module__nhid=200,
-    module__nlayers=2,
-    iterator_test__evaluation=True,
-    iterator_test__use_cuda=args.cuda,
-    iterator_test__bptt=args.bptt)
-
+    module__nlayers=2)
 learner.initialize()
 
 if not args.cuda:
