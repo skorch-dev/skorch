@@ -108,7 +108,32 @@ def is_pandas_ndframe(x):
 
 def flatten(arr):
     for item in arr:
-        if isinstance(item, (tuple, list)):
+        if isinstance(item, (tuple, list, dict)):
             yield from flatten(item)
         else:
             yield item
+
+
+def duplicate_items(*collections):
+    """Search for duplicate items in all collections.
+
+    Examples
+    --------
+    >>> duplicate_items([1, 2], [3])
+    set()
+    >>> duplicate_items({1: 'a', 2: 'a'})
+    set()
+    >>> duplicate_items(['a', 'b', 'a'])
+    {'a'}
+    >>> duplicate_items([1, 2], {3: 'hi', 4: 'ha'}, (2, 3))
+    {2, 3}
+
+    """
+    duplicates = set()
+    seen = set()
+    for item in flatten(collections):
+        if item in seen:
+            duplicates.add(item)
+        else:
+            seen.add(item)
+    return duplicates

@@ -14,15 +14,10 @@ from tabulate import tabulate
 
 from inferno.utils import Ansi
 from inferno.utils import check_history_slice
+from inferno.utils import duplicate_items
 from inferno.utils import flatten
 from inferno.utils import to_numpy
 from inferno.utils import to_var
-
-
-def _duplicate_items(collection_0, collection_1):
-    set_0 = set(collection_0)
-    set_1 = set(collection_1)
-    return set_0 & set_1
 
 
 class Callback:
@@ -165,7 +160,7 @@ class AverageLoss(Callback):
             yield key_loss, list(zip(*row))
 
     def _check_keys_duplicated(self):
-        duplicates = _duplicate_items(self.default_key_sizes, self.key_sizes)
+        duplicates = duplicate_items(self.default_key_sizes, self.key_sizes)
         if duplicates:
             raise ValueError("AverageLoss found duplicate keys: {}"
                              "".format(', '.join(sorted(duplicates))))
@@ -240,7 +235,7 @@ class BestLoss(Callback):
         return (key in self.keys_optional) or (key in self.default_key_signs)
 
     def _check_keys_duplicated(self):
-        duplicates = _duplicate_items(self.default_key_signs, self.key_signs)
+        duplicates = duplicate_items(self.default_key_signs, self.key_signs)
         if duplicates:
             raise ValueError("BestLoss found duplicate keys: {}"
                              "".format(', '.join(sorted(duplicates))))
@@ -444,7 +439,7 @@ class PrintLog(Callback):
         return (key in self.keys_optional) or (key in self.default_keys)
 
     def _check_keys_duplicated(self):
-        duplicates = _duplicate_items(self.default_keys, self.keys)
+        duplicates = duplicate_items(self.default_keys, self.keys)
         if duplicates:
             raise ValueError("PrintLog found duplicate keys: {}"
                              "".format(', '.join(sorted(duplicates))))
