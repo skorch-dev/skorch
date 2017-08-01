@@ -59,23 +59,25 @@ class Learner(inferno.NeuralNet):
     def evaluation_step(self, X, **kwargs):
         self.module_.eval()
 
+        # TODO: resetting the hidden layer must be done BEFORE
+        # starting the prediction loop, i.e.
+        # `predict(x) = { init_hidden(); super.predict(x) }`
         hidden = self.module_.init_hidden(X.size(1))
-        output, hidden = self.module_(X, hidden)
+        # TODO: decide if predict should be stateful or not.
+        # I have no good answer for this. Needs discussion.
+        output, self.hidden = self.module_(X, hidden)
 
         return output.view(-1, self.ntokens)
 
     def score(self, X, y=None):
-        # TODO: we cannot use predict() directly as the y supplied by GridSearchCV
-        # is not a "valid" y and only based on the input given to fit() down below.
-        # Therefore we have to generate our own batches.
-        #pred = self.predict(X)
-        #return f1_score(y, pred)
-
+        # We cannot use self.predict() directly as there is no y supplied to
+        # GridSearchCV. Therefore we have to collect the y values from the
+        # iterator ourself.
         iterator = self.get_iterator(X, y, train=False)
         y_probas = []
         y_target = []
         for x, y in iterator:
-            y_probas.append(self.evaluation_step(x))
+            y_probas.append(self.predict(x))
             y_target.append(y)
         y_probas = inferno.utils.to_numpy(torch.cat(y_probas, dim=0).squeeze())
         y_target = inferno.utils.to_numpy(torch.cat(y_target, dim=0))
