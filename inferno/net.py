@@ -750,14 +750,23 @@ class NeuralNetClassifier(NeuralNet):
 
     default_callbacks = [
         ('epoch_timer', EpochTimer()),
-        ('average_loss', AverageLoss({'valid_acc': 'valid_batch_size'})),
+        ('average_loss', AverageLoss(
+            key_sizes={'valid_acc': 'valid_batch_size'},
+            keys_optional=['valid_acc'],
+        )),
         ('accuracy', Scoring(
             name='valid_acc',
             scoring='accuracy_score',
             pred_extractor=accuracy_pred_extractor,
         )),
-        ('best_loss', BestLoss(key_signs={'valid_acc': 1})),
-        ('print_log', PrintLog(keys=['valid_acc', 'valid_acc_best'])),
+        ('best_loss', BestLoss(
+            key_signs={'valid_acc': 1},
+            keys_optional=['valid_acc'],
+        )),
+        ('print_log', PrintLog(
+            keys=['valid_acc', 'valid_acc_best'],
+            keys_optional=['valid_acc', 'valid_acc_best'],
+        )),
     ]
 
     def __init__(
