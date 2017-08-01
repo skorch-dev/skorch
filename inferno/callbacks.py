@@ -202,7 +202,7 @@ class BestLoss(Callback):
             yield key, sign, loss
 
     def on_epoch_end(self, net, **kwargs):
-        sl = slice(-1, None), list(self.key_signs)
+        sl = np.s_[-1, list(self.key_signs)]
         check_history_slice(net.history, sl)
 
         history = net.history
