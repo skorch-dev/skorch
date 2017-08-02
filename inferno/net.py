@@ -312,7 +312,7 @@ class NeuralNet(Callback):
             batch_size=128,
             iterator_train=DataLoader,
             iterator_test=DataLoader,
-            train_split=CVSplit(5),
+            train_split=CVSplit(0.2),
             callbacks=None,
             cold_start=True,
             use_cuda=False,
@@ -786,7 +786,7 @@ class NeuralNetClassifier(NeuralNet):
             self,
             module,
             criterion=torch.nn.NLLLoss,
-            train_split=CVSplit(5, classifier=True),
+            train_split=CVSplit(0.2, classifier=True),
             *args,
             **kwargs
     ):
