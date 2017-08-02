@@ -551,6 +551,17 @@ class TestCVSplit:
         assert len(X_valid) == m
         assert len(X_train) == n
 
+    def test_fraction_no_classifier(self, cv_split_cls, data):
+        X = data[0]
+        y = np.random.random(len(X))
+        cv = 0.2
+        m = int(cv * self.num_samples)
+        n = int((1 - cv) * self.num_samples)
+        X_train, X_valid, y_train, y_valid = cv_split_cls(
+            cv, classifier=False)(X, y)
+        assert len(X_valid) == len(y_valid) == m
+        assert len(X_train) == len(y_train) == n
+
     @pytest.mark.parametrize('cv', [0, -0.001, -0.2, -3])
     def test_bad_values_raise(self, cv_split_cls, cv):
         with pytest.raises(ValueError) as exc:

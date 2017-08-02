@@ -269,9 +269,10 @@ class CVSplit(object):
             )
             return cv, stratified
 
+        cv_cls = StratifiedShuffleSplit if self.classifier else ShuffleSplit
         try:
             cv = check_cv(
-                StratifiedShuffleSplit(test_size=self.cv),
+                cv_cls(test_size=self.cv),
                 y=y,
                 classifier=self.classifier,
             )
