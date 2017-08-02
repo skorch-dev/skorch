@@ -148,16 +148,15 @@ class AverageLoss(Callback):
     def _yield_key_losses_bs(self, history):
         key_sizes = chain(
             self.default_key_sizes.items(), self.key_sizes.items())
+
         for key_loss, key_size in key_sizes:
-            if self._is_optional(key_loss) or self._is_optional(key_size):
-                try:
-                    row = history[-1, 'batches', :, (key_loss, key_size)]
-                    yield key_loss, list(zip(*row))
-                except KeyError:
-                    pass
-                continue
-            row = history[-1, 'batches', :, (key_loss, key_size)]
-            yield key_loss, list(zip(*row))
+            try:
+                row = row = history[-1, 'batches', :, (key_loss, key_size)]
+                yield key_loss, list(zip(*row))
+            except KeyError:
+                if self._is_optional(key_loss) or self._is_optional(key_size):
+                    continue
+                raise
 
     def _check_keys_duplicated(self):
         duplicates = duplicate_items(self.default_key_sizes, self.key_sizes)
@@ -262,16 +261,14 @@ class BestLoss(Callback):
     def _yield_key_sign_loss(self, history):
         key_signs = chain(
             self.default_key_signs.items(), self.key_signs.items())
+
         for key_loss, sign in key_signs:
-            if self._is_optional(key_loss):
-                try:
-                    loss = history[-1, key_loss]
-                    yield key_loss, sign, loss
-                except KeyError:
-                    pass
-                continue
-            loss = history[-1, key_loss]
-            yield key_loss, sign, loss
+            try:
+                loss = history[-1, key_loss]
+                yield key_loss, sign, loss
+            except KeyError:
+                if not self._is_optional(key_loss):
+                    raise
 
     def on_epoch_end(self, net, **kwargs):
         self._check_keys_missing(net.history)
@@ -453,14 +450,6 @@ class PrintLog(Callback):
         sl = np.s_[-1, check_keys]
         check_history_slice(history, sl)
 
-    def _yield_keys(self, data):
-        for key in self.default_keys:
-            if (key in data) and not key.endswith('_best'):
-                yield key
-        for key in self.keys:
-            if not key.endswith('_best'):
-                yield key
-
     def format_row(self, row, key, color):
         value = row[key]
         if not isinstance(value, Number):
@@ -476,20 +465,26 @@ class PrintLog(Callback):
             template = color.value + template + Ansi.ENDC.value
         return template.format(value)
 
+    def _yield_keys_formatted(self, row):
+        colors = cycle(Ansi)
+        color = next(colors)
+        for key in chain(self.default_keys, self.keys):
+            if key.endswith('_best'):
+                continue
+            try:
+                formatted = self.format_row(row, key, color=color)
+                yield key, formatted
+                color = next(colors)
+            except KeyError:
+                if not self._is_optional(key):
+                    raise
+
     def table(self, row):
         headers = []
         formatted = []
-        colors = cycle(Ansi)
-        for key, color in zip(self._yield_keys(row), colors):
-            if self._is_optional(key):
-                try:
-                    headers.append(key)
-                    formatted.append(self.format_row(row, key, color=color))
-                except KeyError:
-                    pass
-                continue
+        for key, formatted_row in self._yield_keys_formatted(row):
             headers.append(key)
-            formatted.append(self.format_row(row, key, color=color))
+            formatted.append(formatted_row)
 
         return tabulate(
             [formatted],
