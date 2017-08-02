@@ -1,6 +1,5 @@
 from functools import partial
 
-import numpy as np
 from sklearn.utils import safe_indexing
 import torch
 import torch.utils.data
