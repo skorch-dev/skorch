@@ -166,6 +166,7 @@ class AverageLoss(Callback):
 
     def _check_keys_missing(self, history):
         check_keys = []
+        # check loss keys and size keys alike
         for key in flatten(self.key_sizes.items()):
             if not self._is_optional(key):
                 check_keys.append(key)
@@ -373,11 +374,11 @@ class PrintLog(Callback):
 
     keys_optional: list of str or None (default=None)
       If not None, this should be a list of keys whose presence is
-      optional. By default, keys indicated in `key` are mandatory, but
-      sometimes we want optional keys. E.g., if keys refer to
-      validation data, but validation data is not always present,
-      those keys should be optional. When a key that is not optional
-      is missing, an exception will be raised.
+      optional. By default, keys indicated in `key` must be in the
+      history, but sometimes we want optional keys. E.g., if keys
+      refer to validation data, but validation data is not always
+      present, those keys should be optional. When a key that is not
+      optional is missing, an exception will be raised.
 
     sink : callable (default=print)
       The target that the output string is sent to. By default, the
