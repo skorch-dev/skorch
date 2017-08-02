@@ -765,7 +765,7 @@ class NeuralNetClassifier(NeuralNet):
         ('epoch_timer', EpochTimer()),
         ('average_loss', AverageLoss(
             key_sizes={'valid_acc': 'valid_batch_size'},
-            keys_optional=['valid_acc'],
+            keys_optional=['valid_acc', 'valid_batch_size'],
         )),
         ('accuracy', Scoring(
             name='valid_acc',
