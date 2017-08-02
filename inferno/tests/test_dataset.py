@@ -286,7 +286,7 @@ class TestNetWithList:
                 self.dense = nn.Linear(20, 2)
 
             def forward(self, X):
-                X = torch.cat((X[:, 0], X[:, 1]), 1)
+                X = torch.cat(X, 1)
                 X = F.softmax(self.dense(X))
                 return X
 
