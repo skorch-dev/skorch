@@ -94,6 +94,26 @@ def multi_indexing(data, i):
     return safe_indexing(data, i)
 
 
+def is_zero_dimensional(x):
+    """0-dimensional data structures are defined as not having a length."""
+    return not hasattr(x, '__len__')
+
+
+def is_one_dimensional(data):
+    """Checks whether the input data is a one-dimensional data structure."""
+    if isinstance(data, dict):
+        # dictionary of containers
+        return all([is_zero_dimensional(v) for v in data.values()])
+    if isinstance(data, (list, tuple)):
+        return all([is_zero_dimensional(v) for v in data])
+    if torch.is_tensor(data):
+        # torch tensor-like
+        return len(data.size()) == 1
+    if is_pandas_ndframe(data) or isinstance(data, np.ndarray):
+        return len(data.shape) == 1
+    return True
+
+
 class Dataset(torch.utils.data.Dataset):
     """General dataset wrapper that can be used in conjunction with
     pytorch's DataLoader.

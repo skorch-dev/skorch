@@ -93,6 +93,26 @@ class TestNetWithoutY:
             batch_size=1,
         )
 
+    @pytest.fixture
+    def is_one_dimensional(self):
+        from inferno.dataset import is_one_dimensional
+        return is_one_dimensional
+
+    @pytest.mark.parametrize('data, expected', [
+        (np.zeros((5)), True),
+        (np.zeros((5,5)), False),
+        ([1], True),
+        ([1,2], True),
+        ([[1],[2]], False),
+        ({1: 2, 2: 3}, True),
+        ({1: [2], 2: [3]}, False),
+        ({1: 2, 2: [3]}, False),
+        (torch.zeros(2), True),
+        (torch.zeros((2,2)), False),
+    ])
+    def test_one_dimensional(self, is_one_dimensional, data, expected):
+        assert is_one_dimensional(data) == expected
+
     def test_net_1d_tensor(self, net_1d):
         # Should not raise an exception
         X = torch.Tensor([1,2,3,4,5,6,7])
