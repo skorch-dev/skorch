@@ -433,6 +433,8 @@ class NeuralNet(Callback):
 
         kwargs = self._get_params_for('module')
         self.module_ = self.module(**kwargs)
+        if self.use_cuda:
+            self.module_.cuda()
         return self
 
     def initialize(self):
@@ -761,14 +763,23 @@ class NeuralNetClassifier(NeuralNet):
 
     default_callbacks = [
         ('epoch_timer', EpochTimer()),
-        ('average_loss', AverageLoss({'valid_acc': 'valid_batch_size'})),
+        ('average_loss', AverageLoss(
+            key_sizes={'valid_acc': 'valid_batch_size'},
+            keys_optional=['valid_acc'],
+        )),
         ('accuracy', Scoring(
             name='valid_acc',
             scoring='accuracy_score',
             pred_extractor=accuracy_pred_extractor,
         )),
-        ('best_loss', BestLoss(key_signs={'valid_acc': 1})),
-        ('print_log', PrintLog(keys=['valid_acc', 'valid_acc_best'])),
+        ('best_loss', BestLoss(
+            key_signs={'valid_acc': 1},
+            keys_optional=['valid_acc'],
+        )),
+        ('print_log', PrintLog(
+            keys=['valid_acc', 'valid_acc_best'],
+            keys_optional=['valid_acc', 'valid_acc_best'],
+        )),
     ]
 
     def __init__(
@@ -794,6 +805,15 @@ class NeuralNetClassifier(NeuralNet):
     def predict(self, X):
         return self.predict_proba(X).argmax(1)
 
+    def fit(self, X, y, **fit_params):
+        """See `NeuralNet.fit`.
+
+        In contrast to `NeuralNet.fit`, `y` is non-optional to avoid mistakenly
+        forgetting about `y`. However, `y` can be set to `None` in case it
+        is derived dynamically from `X`.
+        """
+        return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
+
 
 class NeuralNetRegressor(NeuralNet):
     def __init__(
@@ -816,3 +836,12 @@ class NeuralNetRegressor(NeuralNet):
         if get_dim(y) == 1:
             raise ValueError("The target data shouldn't be 1-dimensional; "
                              "please reshape (e.g. y.reshape(-1, 1).")
+
+    def fit(self, X, y, **fit_params):
+        """See `NeuralNet.fit`.
+
+        In contrast to `NeuralNet.fit`, `y` is non-optional to avoid mistakenly
+        forgetting about `y`. However, `y` can be set to `None` in case it
+        is derived dynamically from `X`.
+        """
+        return super(NeuralNetRegressor, self).fit(X, y, **fit_params)

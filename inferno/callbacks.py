@@ -14,6 +14,8 @@ from tabulate import tabulate
 
 from inferno.utils import Ansi
 from inferno.utils import check_history_slice
+from inferno.utils import duplicate_items
+from inferno.utils import flatten
 from inferno.utils import to_numpy
 from inferno.utils import to_var
 
@@ -109,6 +111,14 @@ class AverageLoss(Callback):
       determine the correct average in case the batch sizes are not
       the same across all batches.)
 
+    keys_optional: list of str or None (default=None)
+      If not None, this should be a list of keys whose presence is
+      optional. By default, keys indicated in `key_sizes` are
+      mandatory, but sometimes we want optional keys. E.g., if keys
+      refer to validation data, but validation data is not always
+      present, those keys should be optional. When a key that is not
+      optional is missing, an exception will be raised.
+
     Attributes
     ----------
     default_key_sizes
@@ -120,24 +130,51 @@ class AverageLoss(Callback):
     default_key_sizes = {'train_loss': 'train_batch_size',
                          'valid_loss': 'valid_batch_size'}
 
-    def __init__(self, key_sizes=None):
+    def __init__(self, key_sizes=None, keys_optional=None):
         self.key_sizes = {} if key_sizes is None else key_sizes
 
+        if keys_optional is None:
+            self.keys_optional = []
+        elif isinstance(keys_optional, str):
+            self.keys_optional = [keys_optional]
+        else:
+            self.keys_optional = keys_optional
+
+        self._check_keys_duplicated()
+
+    def _is_optional(self, key):
+        return (key in self.keys_optional) or (key in self.default_key_sizes)
+
     def _yield_key_losses_bs(self, history):
-        for key_loss, key_size in self.default_key_sizes.items():
+        key_sizes = chain(
+            self.default_key_sizes.items(), self.key_sizes.items())
+
+        for key_loss, key_size in key_sizes:
             try:
-                row = history[-1, 'batches', :, (key_loss, key_size)]
+                row = row = history[-1, 'batches', :, (key_loss, key_size)]
                 yield key_loss, list(zip(*row))
             except KeyError:
-                pass
-        for key_loss, key_size in self.key_sizes.items():
-            row = history[-1, 'batches', :, (key_loss, key_size)]
-            yield key_loss, list(zip(*row))
+                if self._is_optional(key_loss) or self._is_optional(key_size):
+                    continue
+                raise
+
+    def _check_keys_duplicated(self):
+        duplicates = duplicate_items(self.default_key_sizes, self.key_sizes)
+        if duplicates:
+            raise ValueError("AverageLoss found duplicate keys: {}"
+                             "".format(', '.join(sorted(duplicates))))
+
+    def _check_keys_missing(self, history):
+        check_keys = []
+        # check loss keys and size keys alike
+        for key in flatten(self.key_sizes.items()):
+            if not self._is_optional(key):
+                check_keys.append(key)
+        sl = np.s_[-1, 'batches', :, check_keys]
+        check_history_slice(history, sl)
 
     def on_epoch_end(self, net, **kwargs):
-        for key, size in self.key_sizes.items():
-            sl = np.s_[-1, 'batches', :, (key, size)]
-            check_history_slice(net.history, sl)
+        self._check_keys_missing(net.history)
 
         history = net.history
         for key_loss, (losses, bs) in self._yield_key_losses_bs(history):
@@ -161,6 +198,14 @@ class BestLoss(Callback):
       better. E.g., log loss should get -1, whereas accuracy should
       get 1.
 
+    keys_optional: list of str or None (default=None)
+      If not None, this should be a list of keys whose presence is
+      optional. By default, keys indicated in `key_signs` are
+      mandatory, but sometimes we want optional keys. E.g., if keys
+      refer to validation data, but validation data is not always
+      present, those keys should be optional. When a key that is not
+      optional is missing, an exception will be raised.
+
     Attributes
     ----------
     default_key_signs
@@ -172,12 +217,30 @@ class BestLoss(Callback):
     default_key_signs = {'train_loss': -1, 'valid_loss': -1}
     _op_dict = {-1: operator.lt, 1: operator.gt}
 
-    def __init__(self, key_signs=None):
+    def __init__(self, key_signs=None, keys_optional=None):
         self.key_signs = {} if key_signs is None else key_signs
+        if keys_optional is None:
+            self.keys_optional = []
+        elif isinstance(keys_optional, str):
+            self.keys_optional = [keys_optional]
+        else:
+            self.keys_optional = keys_optional
 
         self.best_losses_ = None
 
-    def initialize(self):
+        self._check_keys_duplicated()
+        self._check_signs()
+
+    def _is_optional(self, key):
+        return (key in self.keys_optional) or (key in self.default_key_signs)
+
+    def _check_keys_duplicated(self):
+        duplicates = duplicate_items(self.default_key_signs, self.key_signs)
+        if duplicates:
+            raise ValueError("BestLoss found duplicate keys: {}"
+                             "".format(', '.join(sorted(duplicates))))
+
+    def _check_signs(self):
         signs = chain(self.default_key_signs.values(), self.key_signs.values())
         signs_allowed = sorted(self._op_dict.keys())
         for sign in signs:
@@ -186,24 +249,30 @@ class BestLoss(Callback):
                     "Wrong sign {}, expected one of {}."
                     "".format(sign, ", ".join(map(str, signs_allowed))))
 
+    def initialize(self):
         items = chain(self.default_key_signs.items(), self.key_signs.items())
         self.best_losses_ = {key: -1 * sign * np.inf for key, sign in items}
         return self
 
+    def _check_keys_missing(self, history):
+        check_keys = [k for k in self.key_signs if not self._is_optional(k)]
+        sl = np.s_[-1, check_keys]
+        check_history_slice(history, sl)
+
     def _yield_key_sign_loss(self, history):
-        for key, sign in self.default_key_signs.items():
+        key_signs = chain(
+            self.default_key_signs.items(), self.key_signs.items())
+
+        for key_loss, sign in key_signs:
             try:
-                loss = history[-1, key]
-                yield key, sign, loss
+                loss = history[-1, key_loss]
+                yield key_loss, sign, loss
             except KeyError:
-                pass
-        for key, sign in self.key_signs.items():
-            loss = history[-1, key]
-            yield key, sign, loss
+                if not self._is_optional(key_loss):
+                    raise
 
     def on_epoch_end(self, net, **kwargs):
-        sl = np.s_[-1, list(self.key_signs)]
-        check_history_slice(net.history, sl)
+        self._check_keys_missing(net.history)
 
         history = net.history
         for key, sign, loss in self._yield_key_sign_loss(history):
@@ -303,6 +372,14 @@ class PrintLog(Callback):
       on `'_best'` are used to determine the best corresponding loss
       (see above).
 
+    keys_optional: list of str or None (default=None)
+      If not None, this should be a list of keys whose presence is
+      optional. By default, keys indicated in `key` must be in the
+      history, but sometimes we want optional keys. E.g., if keys
+      refer to validation data, but validation data is not always
+      present, those keys should be optional. When a key that is not
+      optional is missing, an exception will be raised.
+
     sink : callable (default=print)
       The target that the output string is sent to. By default, the
       output is printed to stdout, but the sink could also be a
@@ -333,6 +410,7 @@ class PrintLog(Callback):
     def __init__(
             self,
             keys=None,
+            keys_optional=None,
             sink=print,
             tablefmt='simple',
             floatfmt='.4f',
@@ -341,21 +419,37 @@ class PrintLog(Callback):
             self.keys = []
         else:
             self.keys = [keys] if isinstance(keys, str) else keys
+
+        if keys_optional is None:
+            self.keys_optional = []
+        elif isinstance(keys_optional, str):
+            self.keys_optional = [keys_optional]
+        else:
+            self.keys_optional = keys_optional
+
         self.sink = sink
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
+
+        self._check_keys_duplicated()
+
+    def _is_optional(self, key):
+        return (key in self.keys_optional) or (key in self.default_keys)
+
+    def _check_keys_duplicated(self):
+        duplicates = duplicate_items(self.default_keys, self.keys)
+        if duplicates:
+            raise ValueError("PrintLog found duplicate keys: {}"
+                             "".format(', '.join(sorted(duplicates))))
 
     def initialize(self):
         self.first_iteration_ = True
         return self
 
-    def _yield_keys(self, data):
-        for key in self.default_keys:
-            if (key in data) and not key.endswith('_best'):
-                yield key
-        for key in self.keys:
-            if not key.endswith('_best'):
-                yield key
+    def _check_keys_missing(self, history):
+        check_keys = [key for key in self.keys if not self._is_optional(key)]
+        sl = np.s_[-1, check_keys]
+        check_history_slice(history, sl)
 
     def format_row(self, row, key, color):
         value = row[key]
@@ -372,13 +466,27 @@ class PrintLog(Callback):
             template = color.value + template + Ansi.ENDC.value
         return template.format(value)
 
+    def _yield_keys_formatted(self, row):
+        colors = cycle(Ansi)
+        color = next(colors)
+        for key in chain(self.default_keys, self.keys):
+            if key.endswith('_best'):
+                continue
+            try:
+                formatted = self.format_row(row, key, color=color)
+                yield key, formatted
+                color = next(colors)
+            except KeyError:
+                if not self._is_optional(key):
+                    raise
+
     def table(self, row):
         headers = []
         formatted = []
-        colors = cycle(Ansi)
-        for key, color in zip(self._yield_keys(row), colors):
+        for key, formatted_row in self._yield_keys_formatted(row):
             headers.append(key)
-            formatted.append(self.format_row(row, key, color=color))
+            formatted.append(formatted_row)
+
         return tabulate(
             [formatted],
             headers=headers,
@@ -387,8 +495,7 @@ class PrintLog(Callback):
         )
 
     def on_epoch_end(self, net, *args, **kwargs):
-        sl = slice(-1, None), self.keys
-        check_history_slice(net.history, sl)
+        self._check_keys_missing(net.history)
 
         data = net.history[-1]
         tabulated = self.table(data)

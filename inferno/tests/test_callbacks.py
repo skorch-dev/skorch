@@ -85,18 +85,61 @@ class TestAverageLoss:
             get_history(avg_loss)
 
         expected = ("Key 'missing' could not be found in history; "
-                    "maybe there was a typo?")
+                    "maybe there was a typo? To make this key optional, "
+                    "add it to the 'keys_optional' parameter.")
         assert exc.value.args[0] == expected
 
     def test_missing_size(self, avg_loss_cls):
-        key_sizes = {'train_loss': 'missing'}
+        key_sizes = {'text': 'missing'}
         avg_loss = avg_loss_cls(key_sizes=key_sizes).initialize()
 
         with pytest.raises(KeyError) as exc:
             get_history(avg_loss)
 
         expected = ("Key 'missing' could not be found in history; "
-                    "maybe there was a typo?")
+                    "maybe there was a typo? To make this key optional, "
+                    "add it to the 'keys_optional' parameter.")
+        assert exc.value.args[0] == expected
+
+    def test_missing_key_optional(self, avg_loss_cls):
+        key_sizes = {'missing': 'valid_batch_size'}
+        avg_loss = avg_loss_cls(
+            key_sizes=key_sizes, keys_optional=['missing']).initialize()
+
+        # does not raise
+        get_history(avg_loss)
+
+    def test_missing_key_optional_as_str(self, avg_loss_cls):
+        key_sizes = {'missing': 'valid_batch_size'}
+        avg_loss = avg_loss_cls(
+            key_sizes=key_sizes, keys_optional='missing').initialize()
+
+        # does not raise
+        get_history(avg_loss)
+
+    def test_missing_size_optional(self, avg_loss_cls):
+        key_sizes = {'text': 'missing'}
+        avg_loss = avg_loss_cls(
+            key_sizes=key_sizes, keys_optional=['missing']).initialize()
+
+        # does not raise
+        get_history(avg_loss)
+
+    def test_1_duplicate_key(self, avg_loss_cls):
+        key_sizes = {'train_loss': 'a-batch-size'}
+        with pytest.raises(ValueError) as exc:
+            avg_loss_cls(key_sizes=key_sizes).initialize()
+
+        expected = "AverageLoss found duplicate keys: train_loss"
+        assert exc.value.args[0] == expected
+
+    def test_2_duplicate_keys(self, avg_loss_cls):
+        key_sizes = {'train_loss': 'a-batch-size',
+                     'valid_loss': 'a-batch-size'}
+        with pytest.raises(ValueError) as exc:
+            avg_loss_cls(key_sizes=key_sizes).initialize()
+
+        expected = "AverageLoss found duplicate keys: train_loss, valid_loss"
         assert exc.value.args[0] == expected
 
 
@@ -169,14 +212,45 @@ class TestBestLoss:
             get_history(avg_loss, best_loss)
 
         expected = ("Key 'missing' could not be found in history; "
-                    "maybe there was a typo?")
+                    "maybe there was a typo? To make this key optional, "
+                    "add it to the 'keys_optional' parameter.")
         assert exc.value.args[0] == expected
+
+    def test_missing_key_optional(self, best_loss_cls, avg_loss):
+        best_loss = best_loss_cls(
+            key_signs={'missing': 1}, keys_optional=['missing']).initialize()
+
+        # does not raise
+        get_history(avg_loss, best_loss)
+
+    def test_missing_key_optional_as_str(self, best_loss_cls, avg_loss):
+        best_loss = best_loss_cls(
+            key_signs={'missing': 1}, keys_optional='missing').initialize()
+
+        # does not raise
+        get_history(avg_loss, best_loss)
 
     def test_sign_not_allowed(self, best_loss_cls):
         with pytest.raises(ValueError) as exc:
             best_loss_cls(key_signs={'epoch': 2}).initialize()
 
         expected = "Wrong sign 2, expected one of -1, 1."
+        assert exc.value.args[0] == expected
+
+    def test_1_duplicate_key(self, best_loss_cls):
+        key_signs = {'train_loss': 1}
+        with pytest.raises(ValueError) as exc:
+            best_loss_cls(key_signs=key_signs).initialize()
+
+        expected = "BestLoss found duplicate keys: train_loss"
+        assert exc.value.args[0] == expected
+
+    def test_2_duplicate_keys(self, best_loss_cls):
+        key_signs = {'train_loss': 1, 'valid_loss': 1}
+        with pytest.raises(ValueError) as exc:
+            best_loss_cls(key_signs=key_signs).initialize()
+
+        expected = "BestLoss found duplicate keys: train_loss, valid_loss"
         assert exc.value.args[0] == expected
 
 
@@ -418,7 +492,6 @@ class TestPrintLog:
         with patch('inferno.callbacks.tabulate') as tab:
             from inferno.callbacks import PrintLog
             print_log = PrintLog(
-                keys=('epoch',),
                 tablefmt='latex',
                 floatfmt='.9f',
             ).initialize()
@@ -435,23 +508,54 @@ class TestPrintLog:
         print_log.on_epoch_end(Mock(history=history))
 
     def test_with_1_missing_key(self, history, print_log_cls):
-        keys = 'train_loss', 'missing-key'
-        print_log = print_log_cls(keys=keys).initialize()
+        print_log = print_log_cls(keys=['missing-key']).initialize()
         with pytest.raises(KeyError) as exc:
             print_log.on_epoch_end(Mock(history=history))
 
         expected = ("Key 'missing-key' could not be found in history; "
-                    "maybe there was a typo?")
+                    "maybe there was a typo? To make this key optional, "
+                    "add it to the 'keys_optional' parameter.")
         assert exc.value.args[0] == expected
 
     def test_with_2_missing_keys(self, history, print_log_cls):
-        keys = 'missing-key0', 'train_loss', 'missing-key1'
+        keys = 'missing-key0', 'missing-key1'
         print_log = print_log_cls(keys=keys).initialize()
         with pytest.raises(KeyError) as exc:
             print_log.on_epoch_end(Mock(history=history))
 
         expected = ("Key 'missing-key0' could not be found in history; "
-                    "maybe there was a typo?")
+                    "maybe there was a typo? To make this key optional, "
+                    "add it to the 'keys_optional' parameter.")
+        assert exc.value.args[0] == expected
+
+    def test_missing_key_optional(self, history, print_log_cls):
+        key = 'missing'
+        print_log = print_log_cls(
+            keys=[key], keys_optional=[key]).initialize()
+
+        # does not raise
+        print_log.on_epoch_end(Mock(history=history))
+
+    def test_missing_key_optional_as_str(self, history, print_log_cls):
+        key = 'missing'
+        print_log = print_log_cls(
+            keys=[key], keys_optional=key).initialize()
+
+        # does not raise
+        print_log.on_epoch_end(Mock(history=history))
+
+    def test_1_duplicate_key(self, print_log_cls):
+        with pytest.raises(ValueError) as exc:
+            print_log_cls(keys=['train_loss'])
+
+        expected = "PrintLog found duplicate keys: train_loss"
+        assert exc.value.args[0] == expected
+
+    def test_2_duplicate_keys(self, print_log_cls):
+        with pytest.raises(ValueError) as exc:
+            print_log_cls(keys=['train_loss', 'valid_loss'])
+
+        expected = "PrintLog found duplicate keys: train_loss, valid_loss"
         assert exc.value.args[0] == expected
 
     def test_no_valid(self, avg_loss, best_loss, print_log, ansi):
