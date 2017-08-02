@@ -1,7 +1,10 @@
 from functools import partial
+from numbers import Number
 
 import numpy as np
 from sklearn.utils import safe_indexing
+from sklearn.model_selection import ShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.model_selection import check_cv
 import torch
 import torch.utils.data
@@ -194,9 +197,12 @@ class CVSplit(object):
     `NeuralNet`'s internal validation but instead the corresponding
     sklearn functions (e.g. `cross_val_score`).
 
+    We additionally support a float, similar to sklearn's
+    `train_test_split`.
+
     Parameters
     ----------
-    cv : int, cross-validation generator or an iterable, optional
+    cv : int, float, cross-validation generator or an iterable, optional
       (Refer sklearn's User Guide for cross_validation for the various
       cross-validation strategies that can be used here.)
 
@@ -205,6 +211,8 @@ class CVSplit(object):
 
         - None, to use the default 3-fold cross validation,
         - integer, to specify the number of folds in a `(Stratified)KFold`,
+        - float, to represent the proportion of the dataset to include
+          in the test split.
         - An object to be used as a cross-validation generator.
         - An iterable yielding train, test splits.
 
@@ -214,14 +222,14 @@ class CVSplit(object):
       multiclass, sklearn's StratifiedKFold is used. In all other
       cases, KFold is used.
 
-    Yields
-    ------
-    TODO
-
-    """
+      """
     def __init__(self, cv=5, classifier=False):
-        self.cv = cv
         self.classifier = classifier
+
+        if isinstance(cv, Number) and (cv <= 0):
+            raise ValueError("Numbers less than 0 are not allowed for cv "
+                             "but CVSplit got {}".format(cv))
+        self.cv = cv
 
     def regular_cv(self, X, y, cv):
         """Use the normal `.split` interface for data types are
@@ -252,18 +260,47 @@ class CVSplit(object):
         X_valid, y_valid = dataset[idx_valid]
         return X_train, X_valid, y_train, y_valid
 
-    def _check_cv(self, y):
-        # TODO: Find a better solution for this mess
+    def _check_cv_float(self, y):
         stratified = False
         if y is None:
-            cv = check_cv(self.cv, classifier=self.classifier)
+            cv = check_cv(
+                ShuffleSplit(test_size=self.cv),
+                classifier=self.classifier,
+            )
             return cv, stratified
 
+        try:
+            cv = check_cv(
+                StratifiedShuffleSplit(test_size=self.cv),
+                y=y,
+                classifier=self.classifier,
+            )
+            stratified = True
+        except ValueError:
+            cv = check_cv(
+                ShuffleSplit(test_size=self.cv),
+                classifier=self.classifier,
+            )
+        return cv, stratified
+
+    def _check_cv(self, y):
         try:
             # for stratified split, y must be a numpy array
             y_arr = to_numpy(y)
         except AttributeError:
             y_arr = y
+
+        if isinstance(self.cv, Number):
+            cv_is_float = not float(self.cv).is_integer()
+            if cv_is_float:
+                return self._check_cv_float(y_arr)
+
+        # TODO: Find a better solution for this mess
+        stratified = False
+
+        if y is None:
+            cv = check_cv(self.cv, classifier=self.classifier)
+            return cv, stratified
 
         try:
             cv = check_cv(self.cv, y_arr, classifier=self.classifier)

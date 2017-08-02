@@ -499,7 +499,7 @@ class TestCVSplit:
         assert np.all(y_valid1 == y_valid2)
 
     @pytest.mark.parametrize('cv', [2, 4, 5, 10])
-    def test_eval_size_half(self, cv_split_cls, cv, data):
+    def test_different_kfolds(self, cv_split_cls, cv, data):
         if self.num_samples % cv != 0:
             raise ValueError("Num samples not divisible by {}".format(cv))
 
@@ -518,6 +518,47 @@ class TestCVSplit:
             5, classifier=True)(X, y)
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
+
+    @pytest.mark.parametrize('cv', [0.1, 0.2, 0.5, 0.75])
+    def test_different_fractions(self, cv_split_cls, cv, data):
+        if not (self.num_samples * cv).is_integer() != 0:
+            raise ValueError("Num samples cannot be evenly distributed for "
+                             "fraction {}".format(cv))
+
+        X, y = data
+        X_train, X_valid, y_train, y_valid = cv_split_cls(cv)(X, y)
+        assert len(X_train) + len(X_valid) == self.num_samples
+        assert len(y_train) + len(y_valid) == self.num_samples
+        assert len(X_valid) == len(y_valid) == self.num_samples * cv
+
+    def test_stratified_fraction(self, cv_split_cls, data):
+        X = data[0]
+        frac = 0.2
+        num_expected = self.num_samples // 4
+        y = np.hstack([np.repeat([0, 0, 0], num_expected),
+                       np.repeat([1], num_expected)])
+        X_train, X_valid, y_train, y_valid = cv_split_cls(
+            frac, classifier=True)(X, y)
+        assert y_train.sum() == 0.8 * num_expected
+        assert y_valid.sum() == 0.2 * num_expected
+
+    def test_fraction_no_y(self, cv_split_cls, data):
+        X = data[0]
+        cv = 0.2
+        m = int(cv * self.num_samples)
+        n = int((1 - cv) * self.num_samples)
+        X_train, X_valid, _, _ = cv_split_cls(cv, classifier=True)(X, None)
+        assert len(X_valid) == m
+        assert len(X_train) == n
+
+    @pytest.mark.parametrize('cv', [0, -0.001, -0.2, -3])
+    def test_bad_values_raise(self, cv_split_cls, cv):
+        with pytest.raises(ValueError) as exc:
+            cv_split_cls(cv)
+
+        expected = ("Numbers less than 0 are not allowed for cv "
+                    "but CVSplit got {}".format(cv))
+        assert exc.value.args[0] == expected
 
     def test_not_stratified(self, cv_split_cls, data):
         X = data[0]
