@@ -126,7 +126,7 @@ class AverageLoss(Callback):
       determined. If any of the losses is not present, it is
       ignored.
 
-      """
+    """
     default_key_sizes = {'train_loss': 'train_batch_size',
                          'valid_loss': 'valid_batch_size'}
 
