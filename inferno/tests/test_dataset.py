@@ -73,24 +73,30 @@ class TestNetWithoutY:
                 return F.softmax(self.dense(X.float()))
         return MyModule
 
-    @pytest.fixture
-    def net_1d(self, net_cls_1d):
+    @pytest.fixture(params=[
+        {'batch_size': 1},
+        {'batch_size': 2},
+    ])
+    def net_1d(self, request, net_cls_1d):
         from inferno import NeuralNetClassifier
         return NeuralNetClassifier(
             net_cls_1d,
             max_epochs=2,
             lr=0.1,
-            batch_size=1,
+            batch_size=request.param['batch_size'],
         )
 
-    @pytest.fixture
-    def net_2d(self, net_cls_2d):
+    @pytest.fixture(params=[
+        {'batch_size': 1},
+        {'batch_size': 2},
+    ])
+    def net_2d(self, request, net_cls_2d):
         from inferno import NeuralNetClassifier
         return NeuralNetClassifier(
             net_cls_2d,
             max_epochs=2,
             lr=0.1,
-            batch_size=1,
+            batch_size=request.param['batch_size']
         )
 
     def test_net_1d_tensor(self, net_1d):
