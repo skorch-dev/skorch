@@ -74,11 +74,18 @@ class TestNetWithoutY:
         return MyModule
 
     @pytest.fixture(params=[
-        {'batch_size': 1},
-        {'batch_size': 2},
+        {'classifier': True, 'batch_size': 1},
+        {'classifier': True, 'batch_size': 2},
+        {'classifier': False, 'batch_size': 1},
+        {'classifier': False, 'batch_size': 2},
     ])
     def net_1d(self, request, net_cls_1d):
-        from inferno import NeuralNetClassifier
+        if request.param['classifier']:
+            from inferno import NeuralNetClassifier
+            cls = NeuralNetClassifier
+        else:
+            from inferno import NeuralNetRegressor
+            cls = NeuralNetRegressor
         return NeuralNetClassifier(
             net_cls_1d,
             max_epochs=2,
@@ -87,12 +94,19 @@ class TestNetWithoutY:
         )
 
     @pytest.fixture(params=[
-        {'batch_size': 1},
-        {'batch_size': 2},
+        {'classifier': True, 'batch_size': 1},
+        {'classifier': True, 'batch_size': 2},
+        {'classifier': False, 'batch_size': 1},
+        {'classifier': False, 'batch_size': 2},
     ])
     def net_2d(self, request, net_cls_2d):
-        from inferno import NeuralNetClassifier
-        return NeuralNetClassifier(
+        if request.param['classifier']:
+            from inferno import NeuralNetClassifier
+            cls = NeuralNetClassifier
+        else:
+            from inferno import NeuralNetRegressor
+            cls = NeuralNetRegressor
+        return cls(
             net_cls_2d,
             max_epochs=2,
             lr=0.1,
