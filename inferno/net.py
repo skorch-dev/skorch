@@ -786,7 +786,7 @@ class NeuralNetClassifier(NeuralNet):
             self,
             module,
             criterion=torch.nn.NLLLoss,
-            train_split=CVSplit(0.2, classifier=True),
+            train_split=CVSplit(0.2, stratified=True),
             *args,
             **kwargs
     ):

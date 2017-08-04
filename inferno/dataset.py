@@ -4,6 +4,7 @@ from numbers import Number
 import numpy as np
 from sklearn.utils import safe_indexing
 from sklearn.model_selection import ShuffleSplit
+from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.model_selection import check_cv
 import torch
@@ -216,34 +217,72 @@ class CVSplit(object):
         - An object to be used as a cross-validation generator.
         - An iterable yielding train, test splits.
 
-    classifier : bool (default=False)
-      For integer/None inputs to cv, if the estimator is a classifier
-      (e.g. `NeuralNetClassifier`) and `y` is either binary or
-      multiclass, sklearn's StratifiedKFold is used. In all other
-      cases, KFold is used.
+    stratified : bool (default=False)
+      Whether the split should be stratified. Only works if `y` is
+      either binary or multiclass classification.
 
-      """
-    def __init__(self, cv=5, classifier=False):
-        self.classifier = classifier
+    """
+    def __init__(self, cv=5, stratified=False):
+        self.stratified = stratified
 
         if isinstance(cv, Number) and (cv <= 0):
             raise ValueError("Numbers less than 0 are not allowed for cv "
                              "but CVSplit got {}".format(cv))
         self.cv = cv
 
+    def _is_stratified(self, cv):
+        return isinstance(cv, (StratifiedKFold, StratifiedShuffleSplit))
+
+    def _is_float(self, x):
+        if not isinstance(self.cv, Number):
+            return False
+        return not float(self.cv).is_integer()
+
+    def _check_cv_float(self, y):
+        cv_cls = StratifiedShuffleSplit if self.stratified else ShuffleSplit
+        return check_cv(
+            cv_cls(test_size=self.cv),
+            y=y,
+            classifier=self.stratified,
+        )
+
+    def _check_cv_non_float(self, y):
+        return check_cv(
+            self.cv,
+            y=y,
+            classifier=self.stratified,
+        )
+
+    def check_cv(self, y):
+        y_arr = None
+        if self.stratified:
+            try:
+                y_arr = to_numpy(y)
+            except AttributeError:
+                y_arr = y
+
+        if self._is_float(self.cv):
+            return self._check_cv_float(y_arr)
+        return self._check_cv_non_float(y_arr)
+
+    def _is_regular(self, x):
+        return (x is None) or isinstance(x, np.ndarray) or is_pandas_ndframe(x)
+
     def regular_cv(self, X, y, cv):
         """Use the normal `.split` interface for data types are
         supported by sklearn.
 
         """
-        idx_train, idx_valid = next(iter(cv.split(X, y)))
+        args = (X, y) if self.stratified else (X,)
+        idx_train, idx_valid = next(iter(cv.split(*args)))
+
         X_train = safe_indexing(X, idx_train)
         X_valid = safe_indexing(X, idx_valid)
         y_train = None if y is None else safe_indexing(y, idx_train)
         y_valid = None if y is None else safe_indexing(y, idx_valid)
         return X_train, X_valid, y_train, y_valid
 
-    def special_cv(self, X, y, cv, stratified=False):
+    def special_cv(self, X, y, cv):
         """For data types not directly supported by sklearn, use
         custom split function.
 
@@ -251,73 +290,25 @@ class CVSplit(object):
         dataset = Dataset(X, y)
         num_samples = len(dataset)
         args = (np.arange(num_samples),)
-        if stratified:
-            y_arr = to_numpy(y)
-            args = args + (y_arr,)
+
+        if self._is_stratified(cv):
+            args = args + (to_numpy(y),)
         idx_train, idx_valid = next(iter(cv.split(*args)))
 
         X_train, y_train = dataset[idx_train]
         X_valid, y_valid = dataset[idx_valid]
         return X_train, X_valid, y_train, y_valid
 
-    def _check_cv_float(self, y):
-        stratified = False
-        if y is None:
-            cv = check_cv(
-                ShuffleSplit(test_size=self.cv),
-                classifier=self.classifier,
-            )
-            return cv, stratified
-
-        cv_cls = StratifiedShuffleSplit if self.classifier else ShuffleSplit
-        try:
-            cv = check_cv(
-                cv_cls(test_size=self.cv),
-                y=y,
-                classifier=self.classifier,
-            )
-            stratified = True
-        except ValueError:
-            cv = check_cv(
-                ShuffleSplit(test_size=self.cv),
-                classifier=self.classifier,
-            )
-        return cv, stratified
-
-    def _check_cv(self, y):
-        try:
-            # for stratified split, y must be a numpy array
-            y_arr = to_numpy(y)
-        except AttributeError:
-            y_arr = y
-
-        if isinstance(self.cv, Number):
-            cv_is_float = not float(self.cv).is_integer()
-            if cv_is_float:
-                return self._check_cv_float(y_arr)
-
-        # TODO: Find a better solution for this mess
-        stratified = False
-
-        if y is None:
-            cv = check_cv(self.cv, classifier=self.classifier)
-            return cv, stratified
-
-        try:
-            cv = check_cv(self.cv, y_arr, classifier=self.classifier)
-            stratified = True
-        except ValueError:
-            cv = check_cv(self.cv, classifier=self.classifier)
-        return cv, stratified
-
     def __call__(self, X, y):
-        cv, stratified = self._check_cv(y)
-        if isinstance(X, np.ndarray) or is_pandas_ndframe(X):
+        cv = self.check_cv(y)
+        if self.stratified and not self._is_stratified(cv):
+            raise ValueError("Stratified CV not possible with given y.")
+        if self._is_regular(X) and self._is_regular(y):
             # regular sklearn case
             return self.regular_cv(X, y, cv)
         else:
             # sklearn cannot properly split
-            return self.special_cv(X, y, cv, stratified=stratified)
+            return self.special_cv(X, y, cv)
 
     def __repr__(self):
         # TODO

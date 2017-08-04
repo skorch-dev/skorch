@@ -515,7 +515,7 @@ class TestCVSplit:
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
         X_train, X_valid, y_train, y_valid = cv_split_cls(
-            5, classifier=True)(X, y)
+            5, stratified=True)(X, y)
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
 
@@ -538,7 +538,7 @@ class TestCVSplit:
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
         X_train, X_valid, y_train, y_valid = cv_split_cls(
-            frac, classifier=True)(X, y)
+            frac, stratified=True)(X, y)
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
 
@@ -547,7 +547,7 @@ class TestCVSplit:
         cv = 0.2
         m = int(cv * self.num_samples)
         n = int((1 - cv) * self.num_samples)
-        X_train, X_valid, _, _ = cv_split_cls(cv, classifier=True)(X, None)
+        X_train, X_valid, _, _ = cv_split_cls(cv, stratified=False)(X, None)
         assert len(X_valid) == m
         assert len(X_train) == n
 
@@ -558,7 +558,7 @@ class TestCVSplit:
         m = int(cv * self.num_samples)
         n = int((1 - cv) * self.num_samples)
         X_train, X_valid, y_train, y_valid = cv_split_cls(
-            cv, classifier=False)(X, y)
+            cv, stratified=False)(X, y)
         assert len(X_valid) == len(y_valid) == m
         assert len(X_train) == len(y_train) == n
 
@@ -577,7 +577,7 @@ class TestCVSplit:
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
         X_train, X_valid, y_train, y_valid = cv_split_cls(
-            5, classifier=False)(X, y)
+            5, stratified=False)(X, y)
         assert y_train.sum() == num_expected
         assert y_valid.sum() == 0
 
@@ -622,7 +622,7 @@ class TestCVSplit:
                        np.repeat([1], num_expected)])
         y = to_tensor(y)
         X_train, X_valid, y_train, y_valid = cv_split_cls(
-            5, classifier=True)(X, y)
+            5, stratified=True)(X, y)
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
 
@@ -662,3 +662,43 @@ class TestCVSplit:
         assert len(X_train) + len(X_valid) == self.num_samples
         assert len(y_train) + len(y_valid) == self.num_samples
         assert len(X_valid) == len(y_valid) == m
+
+    def test_y_str_val_stratified(self, cv_split_cls, data):
+        X = data[0]
+        y = np.array(['a', 'a', 'a', 'b'] * (len(X) // 4))
+        if len(X) != len(y):
+            raise ValueError
+
+        _, _, y_train, y_valid = cv_split_cls(5, stratified=True)(X, y)
+
+        assert np.isclose(np.mean(y_train == 'b'), 0.25)
+        assert np.isclose(np.mean(y_valid == 'b'), 0.25)
+
+    def test_y_list_of_arr_does_not_raise(self, cv_split_cls, data):
+        X = data[0]
+        y = [np.zeros(len(X)), np.ones(len(X))]
+
+        cv_split_cls(5, stratified=False)(X, y)
+
+    def test_y_list_of_arr_stratified(self, cv_split_cls, data):
+        X = data[0]
+        y = [np.zeros(len(X)), np.ones(len(X))]
+        with pytest.raises(ValueError) as exc:
+            cv_split_cls(5, stratified=True)(X, y)
+
+        expected = "Stratified CV not possible with given y."
+        assert exc.value.args[0] == expected
+
+    def test_y_dict_does_not_raise(self, cv_split_cls, data):
+        X = data[0]
+        y = {'a': np.zeros(len(X)), 'b': np.ones(len(X))}
+
+        cv_split_cls(5, stratified=False)(X, y)
+
+    def test_y_dict_stratified_raises(self, cv_split_cls, data):
+        X = data[0]
+        y = {'a': np.zeros(len(X)), 'b': np.ones(len(X))}
+
+        with pytest.raises(ValueError):
+            # an sklearn error is raised
+            cv_split_cls(5, stratified=True)(X, y)
