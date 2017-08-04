@@ -792,9 +792,6 @@ class NeuralNetClassifier(NeuralNet):
                              "(and your validation) and supply it using the "
                              "`iterator_train` and `iterator_valid` "
                              "parameters respectively.")
-        elif y is None:
-            # The user implements its own mechanism for generating y.
-            return
 
     def get_loss(self, y_pred, y, train=False):
         y_pred_log = torch.log(y_pred)
