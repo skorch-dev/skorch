@@ -60,43 +60,23 @@ class TestNetWithoutY:
     ]
 
     @pytest.fixture
-    def net_cls_1d_clf(self):
+    def net_cls_1d(self):
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
                 self.dense = nn.Linear(1,1)
             def forward(self, X):
-                return F.softmax(self.dense(X.float()))
+                return self.dense(X.float())
         return MyModule
 
     @pytest.fixture
-    def net_cls_2d_clf(self):
+    def net_cls_2d(self):
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
                 self.dense = nn.Linear(2,1)
             def forward(self, X):
-                return F.softmax(self.dense(X.float()))
-        return MyModule
-
-    @pytest.fixture
-    def net_cls_1d_reg(self):
-        class MyModule(nn.Module):
-            def __init__(self):
-                super(MyModule, self).__init__()
-                self.dense = nn.Linear(1,1)
-            def forward(self, X):
-                return F.tanh(self.dense(X.float()))
-        return MyModule
-
-    @pytest.fixture
-    def net_cls_2d_reg(self):
-        class MyModule(nn.Module):
-            def __init__(self):
-                super(MyModule, self).__init__()
-                self.dense = nn.Linear(2,1)
-            def forward(self, X):
-                return F.tanh(self.dense(X.float()))
+                return self.dense(X.float())
         return MyModule
 
     @pytest.fixture
@@ -116,55 +96,49 @@ class TestNetWithoutY:
         return Loader
 
     @pytest.fixture(params=net_fixture_params)
-    def net_1d(self, request, net_cls_1d_clf, net_cls_1d_reg):
+    def net_1d(self, request, net_cls_1d):
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
-            net_cls = net_cls_1d_clf
         else:
             from inferno import NeuralNetRegressor
             wrap_cls = NeuralNetRegressor
-            net_cls = net_cls_1d_reg
 
         return wrap_cls(
-            net_cls,
+            net_cls_1d,
             max_epochs=2,
             batch_size=request.param['batch_size']
         )
 
     @pytest.fixture(params=net_fixture_params)
-    def net_2d(self, request, net_cls_2d_clf, net_cls_2d_reg):
+    def net_2d(self, request, net_cls_2d):
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
-            net_cls = net_cls_2d_clf
         else:
             from inferno import NeuralNetRegressor
             wrap_cls = NeuralNetRegressor
-            net_cls = net_cls_2d_clf
 
         return wrap_cls(
-            net_cls,
+            net_cls_2d,
             max_epochs=2,
             batch_size=request.param['batch_size']
         )
 
     @pytest.fixture(params=net_fixture_params)
-    def net_1d_custom_loader(self, request, net_cls_1d_clf, net_cls_1d_reg,
+    def net_1d_custom_loader(self, request, net_cls_1d,
                              loader_clf, loader_reg):
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
             loader = loader_clf
-            net_cls = net_cls_1d_clf
         else:
             from inferno import NeuralNetRegressor
             wrap_cls = NeuralNetRegressor
             loader = loader_reg
-            net_cls = net_cls_1d_reg
 
         return wrap_cls(
-            net_cls,
+            net_cls_1d,
             iterator_train=loader,
             iterator_test=loader,
             max_epochs=2,
@@ -172,21 +146,19 @@ class TestNetWithoutY:
         )
 
     @pytest.fixture(params=net_fixture_params)
-    def net_2d_custom_loader(self, request, net_cls_2d_clf, net_cls_2d_reg,
+    def net_2d_custom_loader(self, request, net_cls_2d,
                              loader_clf, loader_reg):
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
             loader = loader_clf
-            net_cls = net_cls_2d_clf
         else:
             from inferno import NeuralNetRegressor
             wrap_cls = NeuralNetRegressor
             loader = loader_reg
-            net_cls = net_cls_2d_reg
 
         return wrap_cls(
-            net_cls,
+            net_cls_2d,
             iterator_train=loader,
             iterator_test=loader,
             max_epochs=2,
