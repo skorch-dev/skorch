@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from sklearn.datasets import make_classification
 import torch
+import torch.utils.data
 from torch import nn
 import torch.nn.functional as F
 
@@ -51,78 +52,171 @@ class TestGetLen:
 
 class TestNetWithoutY:
 
+    net_fixture_params = [
+        {'classification': True, 'batch_size': 1},
+        {'classification': False, 'batch_size': 1},
+        {'classification': True, 'batch_size': 2},
+        {'classification': False, 'batch_size': 2},
+    ]
+
     @pytest.fixture
-    def net_cls_1d(self):
+    def net_cls_1d_clf(self):
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
                 self.dense = nn.Linear(1,1)
-
-            def forward(self, X):
-                return F.softmax(self.dense(X.unsqueeze(1).float()))
-        return MyModule
-
-    @pytest.fixture
-    def net_cls_2d(self):
-        class MyModule(nn.Module):
-            def __init__(self):
-                super(MyModule, self).__init__()
-                self.dense = nn.Linear(2,1)
-
             def forward(self, X):
                 return F.softmax(self.dense(X.float()))
         return MyModule
 
-    @pytest.fixture(params=[
-        {'classifier': True, 'batch_size': 1},
-        {'classifier': True, 'batch_size': 2},
-        {'classifier': False, 'batch_size': 1},
-        {'classifier': False, 'batch_size': 2},
-    ])
-    def net_1d(self, request, net_cls_1d):
-        if request.param['classifier']:
-            from inferno import NeuralNetClassifier
-            cls = NeuralNetClassifier
-        else:
-            from inferno import NeuralNetRegressor
-            cls = NeuralNetRegressor
-        return NeuralNetClassifier(
-            net_cls_1d,
-            max_epochs=2,
-            lr=0.1,
-            batch_size=request.param['batch_size'],
-        )
+    @pytest.fixture
+    def net_cls_2d_clf(self):
+        class MyModule(nn.Module):
+            def __init__(self):
+                super(MyModule, self).__init__()
+                self.dense = nn.Linear(2,1)
+            def forward(self, X):
+                return F.softmax(self.dense(X.float()))
+        return MyModule
 
-    @pytest.fixture(params=[
-        {'classifier': True, 'batch_size': 1},
-        {'classifier': True, 'batch_size': 2},
-        {'classifier': False, 'batch_size': 1},
-        {'classifier': False, 'batch_size': 2},
-    ])
-    def net_2d(self, request, net_cls_2d):
-        if request.param['classifier']:
+    @pytest.fixture
+    def net_cls_1d_reg(self):
+        class MyModule(nn.Module):
+            def __init__(self):
+                super(MyModule, self).__init__()
+                self.dense = nn.Linear(1,1)
+            def forward(self, X):
+                return F.tanh(self.dense(X.float()))
+        return MyModule
+
+    @pytest.fixture
+    def net_cls_2d_reg(self):
+        class MyModule(nn.Module):
+            def __init__(self):
+                super(MyModule, self).__init__()
+                self.dense = nn.Linear(2,1)
+            def forward(self, X):
+                return F.tanh(self.dense(X.float()))
+        return MyModule
+
+    @pytest.fixture
+    def loader_clf(self):
+        class Loader(torch.utils.data.DataLoader):
+            def __iter__(self):
+                z = super().__iter__()
+                return ((x, torch.zeros(x.size(0)).long()) for x, _ in z)
+        return Loader
+
+    @pytest.fixture
+    def loader_reg(self):
+        class Loader(torch.utils.data.DataLoader):
+            def __iter__(self):
+                z = super().__iter__()
+                return ((x, torch.zeros(x.size(0)).float()) for x, _ in z)
+        return Loader
+
+    @pytest.fixture(params=net_fixture_params)
+    def net_1d(self, request, net_cls_1d_clf, net_cls_1d_reg):
+        if request.param['classification']:
             from inferno import NeuralNetClassifier
-            cls = NeuralNetClassifier
+            wrap_cls = NeuralNetClassifier
+            net_cls = net_cls_1d_clf
         else:
             from inferno import NeuralNetRegressor
-            cls = NeuralNetRegressor
-        return cls(
-            net_cls_2d,
+            wrap_cls = NeuralNetRegressor
+            net_cls = net_cls_1d_reg
+
+        return wrap_cls(
+            net_cls,
             max_epochs=2,
-            lr=0.1,
             batch_size=request.param['batch_size']
         )
 
-    def test_net_1d_tensor(self, net_1d):
-        # Should not raise an exception
-        X = torch.Tensor([1,2,3,4,5,6,7])
-        net_1d.fit(X, None)
+    @pytest.fixture(params=net_fixture_params)
+    def net_2d(self, request, net_cls_2d_clf, net_cls_2d_reg):
+        if request.param['classification']:
+            from inferno import NeuralNetClassifier
+            wrap_cls = NeuralNetClassifier
+            net_cls = net_cls_2d_clf
+        else:
+            from inferno import NeuralNetRegressor
+            wrap_cls = NeuralNetRegressor
+            net_cls = net_cls_2d_clf
 
-    def test_net_2d_tensor(self, net_2d):
+        return wrap_cls(
+            net_cls,
+            max_epochs=2,
+            batch_size=request.param['batch_size']
+        )
+
+    @pytest.fixture(params=net_fixture_params)
+    def net_1d_custom_loader(self, request, net_cls_1d_clf, net_cls_1d_reg,
+                             loader_clf, loader_reg):
+        if request.param['classification']:
+            from inferno import NeuralNetClassifier
+            wrap_cls = NeuralNetClassifier
+            loader = loader_clf
+            net_cls = net_cls_1d_clf
+        else:
+            from inferno import NeuralNetRegressor
+            wrap_cls = NeuralNetRegressor
+            loader = loader_reg
+            net_cls = net_cls_1d_reg
+
+        return wrap_cls(
+            net_cls,
+            iterator_train=loader,
+            iterator_test=loader,
+            max_epochs=2,
+            batch_size=request.param['batch_size']
+        )
+
+    @pytest.fixture(params=net_fixture_params)
+    def net_2d_custom_loader(self, request, net_cls_2d_clf, net_cls_2d_reg,
+                             loader_clf, loader_reg):
+        if request.param['classification']:
+            from inferno import NeuralNetClassifier
+            wrap_cls = NeuralNetClassifier
+            loader = loader_clf
+            net_cls = net_cls_2d_clf
+        else:
+            from inferno import NeuralNetRegressor
+            wrap_cls = NeuralNetRegressor
+            loader = loader_reg
+            net_cls = net_cls_2d_reg
+
+        return wrap_cls(
+            net_cls,
+            iterator_train=loader,
+            iterator_test=loader,
+            max_epochs=2,
+            batch_size=request.param['batch_size']
+        )
+
+    def test_net_1d_tensor_raises_error(self, net_1d):
+        X = torch.Tensor([[1],[2],[3],[4],[5],[6],[7]])
+        # We expect check_data to throw an exception
+        # because we did not specify a custom data loader.
+        with pytest.raises(ValueError):
+            net_1d.fit(X, None)
+
+    def test_net_2d_tensor_raises_error(self, net_2d):
         X = torch.Tensor([[1,2],[3,4],[5,6]])
-        net_2d.fit(X, None)
+        # We expect check_data to throw an exception
+        # because we did not specify a custom data loader.
+        with pytest.raises(ValueError):
+            net_2d.fit(X, None)
 
-    # TODO: test regression with dummy y as well
+    def test_net_1d_custom_loader(self, net_1d_custom_loader):
+        X = torch.Tensor([[1],[2],[3],[4],[5],[6],[7]])
+        # Should not raise an exception.
+        net_1d_custom_loader.fit(X, None)
+
+    def test_net_2d_custom_loader(self, net_2d_custom_loader):
+        X = torch.Tensor([[1,2],[3,4],[5,6]])
+        # Should not raise an exception.
+        net_2d_custom_loader.fit(X, None)
+
 
 
 class TestMultiIndexing:
