@@ -34,7 +34,7 @@ class MyClassifier(nn.Module):
     def forward(self, X, **kwargs):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
-        X = F.relu(self.dense1(X))
+        X = self.nonlin(self.dense1(X))
         X = F.softmax(self.output(X))
         return X
 
@@ -146,8 +146,9 @@ class TestNeuralNet:
         ('on_train_end', 1),
         ('on_epoch_begin', 10),
         ('on_epoch_end', 10),
-        ('on_batch_begin', (1000 // 128 + 1) * 10 * 2),
-        ('on_batch_end', (1000 // 128 + 1) * 10 * 2),
+        # by default: 80/20 train/valid split
+        ('on_batch_begin', (800 // 128 + 1) * 10 + (200 // 128 + 1) * 10),
+        ('on_batch_end', (800 // 128 + 1) * 10 + (200 // 128 + 1) * 10),
     ])
     def test_callback_is_called(self, net_fit, method, call_count):
         method = getattr(net_fit.callbacks_[-1][1], method)
@@ -310,14 +311,30 @@ class TestNeuralNet:
         diffs = [total - a - b for total, a, b in all_losses]
         assert np.allclose(diffs, 0, atol=1e-7)
 
+    def test_net_no_valid(self, net_cls, module_cls, data):
+        net = net_cls(
+            module_cls,
+            max_epochs=10,
+            lr=0.1,
+            train_split=None,
+        )
+        X, y = data
+        net.fit(X, y)
+        assert net.history[:, 'train_loss']
+        with pytest.raises(KeyError):
+            net.history[:, 'valid_loss']
+
     def test_use_cuda_on_model(self, net_cls, module_cls):
         net_cuda = net_cls(module_cls, use_cuda=True)
         net_cuda.initialize()
         net_cpu = net_cls(module_cls, use_cuda=False)
         net_cpu.initialize()
 
-        assert type(net_cpu.module_.dense0.weight.data) == torch.FloatTensor
-        assert type(net_cuda.module_.dense0.weight.data) == torch.cuda.FloatTensor
+        type_cpu = type(net_cpu.module_.dense0.weight.data)
+        assert type_cpu == torch.FloatTensor
+
+        type_gpu = type(net_cuda.module_.dense0.weight.data)
+        assert type_gpu == torch.cuda.FloatTensor
 
     @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
@@ -347,7 +364,7 @@ class MyRegressor(nn.Module):
     def forward(self, X, **kwargs):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
-        X = self.dense1(X)
+        X = self.nonlin(self.dense1(X))
         X = self.output(X)
         return X
 

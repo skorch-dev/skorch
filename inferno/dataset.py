@@ -1,11 +1,18 @@
 from functools import partial
+from numbers import Number
 
+import numpy as np
 from sklearn.utils import safe_indexing
+from sklearn.model_selection import ShuffleSplit
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import check_cv
 import torch
 import torch.utils.data
 
 from inferno.utils import flatten
 from inferno.utils import is_pandas_ndframe
+from inferno.utils import to_numpy
 from inferno.utils import to_tensor
 
 
@@ -72,6 +79,15 @@ def multi_indexing(data, i):
     2  3  6
 
     """
+    if isinstance(i, np.ndarray):
+        if i.dtype == bool:
+            i = tuple(j.tolist() for j in i.nonzero())
+        elif i.dtype == int:
+            i = i.tolist()
+        else:
+            raise IndexError("arrays used as indices must be of integer "
+                             "(or boolean) type")
+
     if isinstance(data, dict):
         # dictionary of containers
         return {k: v[i] for k, v in data.items()}
@@ -83,6 +99,14 @@ def multi_indexing(data, i):
             pass
     if torch.is_tensor(data):
         # torch tensor-like
+        if isinstance(i, tuple):
+            # note: pytorch cannot deal with this kind of indexing; we
+            # just let the error happen, though, since we cannot do
+            # anything useful here.
+            if len(i) == 1:
+                i = i[0]
+        if isinstance(i, list):
+            i = torch.LongTensor(i)
         return data[i]
     if is_pandas_ndframe(data):
         # pandas NDFrame
@@ -168,3 +192,132 @@ class Dataset(torch.utils.data.Dataset):
             to_tensor(xi, use_cuda=self.use_cuda),
             to_tensor(yi, use_cuda=self.use_cuda),
         )
+
+
+class CVSplit(object):
+    """Class that performs the internal train/valid split.
+
+    The `cv` argument here works similarly to the regular sklearn `cv`
+    parameter in, e.g., `GridSearchCV`. However, instead of cycling
+    through all splits, only one fixed split (the first one) is
+    used. To get a full cycle through the splits, don't use
+    `NeuralNet`'s internal validation but instead the corresponding
+    sklearn functions (e.g. `cross_val_score`).
+
+    We additionally support a float, similar to sklearn's
+    `train_test_split`.
+
+    Parameters
+    ----------
+    cv : int, float, cross-validation generator or an iterable, optional
+      (Refer sklearn's User Guide for cross_validation for the various
+      cross-validation strategies that can be used here.)
+
+      Determines the cross-validation splitting strategy.
+      Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross validation,
+        - integer, to specify the number of folds in a `(Stratified)KFold`,
+        - float, to represent the proportion of the dataset to include
+          in the test split.
+        - An object to be used as a cross-validation generator.
+        - An iterable yielding train, test splits.
+
+    stratified : bool (default=False)
+      Whether the split should be stratified. Only works if `y` is
+      either binary or multiclass classification.
+
+    """
+    def __init__(self, cv=5, stratified=False):
+        self.stratified = stratified
+
+        if isinstance(cv, Number) and (cv <= 0):
+            raise ValueError("Numbers less than 0 are not allowed for cv "
+                             "but CVSplit got {}".format(cv))
+        self.cv = cv
+
+    def _is_stratified(self, cv):
+        return isinstance(cv, (StratifiedKFold, StratifiedShuffleSplit))
+
+    def _is_float(self, x):
+        if not isinstance(self.cv, Number):
+            return False
+        return not float(self.cv).is_integer()
+
+    def _check_cv_float(self, y):
+        cv_cls = StratifiedShuffleSplit if self.stratified else ShuffleSplit
+        return check_cv(
+            cv_cls(test_size=self.cv),
+            y=y,
+            classifier=self.stratified,
+        )
+
+    def _check_cv_non_float(self, y):
+        return check_cv(
+            self.cv,
+            y=y,
+            classifier=self.stratified,
+        )
+
+    def check_cv(self, y):
+        y_arr = None
+        if self.stratified:
+            # Try to convert y to numpy for sklearn's check_cv; if conversion
+            # doesn't work, still try.
+            try:
+                y_arr = to_numpy(y)
+            except AttributeError:
+                y_arr = y
+
+        if self._is_float(self.cv):
+            return self._check_cv_float(y_arr)
+        return self._check_cv_non_float(y_arr)
+
+    def _is_regular(self, x):
+        return (x is None) or isinstance(x, np.ndarray) or is_pandas_ndframe(x)
+
+    def regular_cv(self, X, y, cv):
+        """Use the normal `.split` interface for data types are
+        supported by sklearn.
+
+        """
+        args = (X, y) if self.stratified else (X,)
+        idx_train, idx_valid = next(iter(cv.split(*args)))
+
+        X_train = safe_indexing(X, idx_train)
+        X_valid = safe_indexing(X, idx_valid)
+        y_train = None if y is None else safe_indexing(y, idx_train)
+        y_valid = None if y is None else safe_indexing(y, idx_valid)
+        return X_train, X_valid, y_train, y_valid
+
+    def special_cv(self, X, y, cv):
+        """For data types not directly supported by sklearn, use
+        custom split function.
+
+        """
+        dataset = Dataset(X, y)
+        num_samples = len(dataset)
+        args = (np.arange(num_samples),)
+
+        if self._is_stratified(cv):
+            args = args + (to_numpy(y),)
+        idx_train, idx_valid = next(iter(cv.split(*args)))
+
+        X_train, y_train = dataset[idx_train]
+        X_valid, y_valid = dataset[idx_valid]
+        return X_train, X_valid, y_train, y_valid
+
+    def __call__(self, X, y):
+        cv = self.check_cv(y)
+        if self.stratified and not self._is_stratified(cv):
+            raise ValueError("Stratified CV not possible with given y.")
+        if self._is_regular(X) and self._is_regular(y):
+            # regular sklearn case
+            return self.regular_cv(X, y, cv)
+        else:
+            # sklearn cannot properly split
+            return self.special_cv(X, y, cv)
+
+    def __repr__(self):
+        # TODO
+        return super(CVSplit, self).__repr__()
