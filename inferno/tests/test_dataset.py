@@ -482,7 +482,7 @@ class TestCVSplit:
     @pytest.fixture
     def data(self):
         X = np.random.random((self.num_samples, 10))
-        assert self.num_samples % 25 == 0
+        assert self.num_samples % 4 == 0
         y = np.repeat([0, 1, 2, 3], self.num_samples // 4)
         return X, y
 
@@ -542,9 +542,13 @@ class TestCVSplit:
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
 
-    def test_fraction_no_y(self, cv_split_cls, data):
+    @pytest.mark.parametrize('cv', [0.1, 0.2, 0.5, 0.75])
+    def test_fraction_no_y(self, cv_split_cls, data, cv):
+        if not (self.num_samples * cv).is_integer() != 0:
+            raise ValueError("Num samples cannot be evenly distributed for "
+                             "fraction {}".format(cv))
+
         X = data[0]
-        cv = 0.2
         m = int(cv * self.num_samples)
         n = int((1 - cv) * self.num_samples)
         X_train, X_valid, _, _ = cv_split_cls(cv, stratified=False)(X, None)
