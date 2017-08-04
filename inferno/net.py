@@ -642,6 +642,7 @@ class NeuralNet(Callback):
         y_pred : numpy ndarray
 
         """
+        self.module_.train(False)
         return self.predict_proba(X).argmax(1)
 
     def get_optimizer(self):
