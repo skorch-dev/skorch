@@ -15,6 +15,7 @@ from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
 from inferno.dataset import Dataset
+from inferno.exceptions import NotInitializedError
 from inferno.utils import get_dim
 from inferno.utils import to_numpy
 from inferno.utils import to_var
@@ -744,6 +745,54 @@ class NeuralNet(Callback):
             module_ = pickle.loads(module_dump)
             state['module_'] = module_
         BaseEstimator.__setstate__(self, state)
+
+    def save_params(self, f):
+        """Save only the module's parameters, not the whole object.
+
+        To save the whole object, use pickle.
+
+        Parameters
+        ----------
+        f : file-like object or str
+          See `torch.save` documentation.
+
+        Example
+        -------
+        >>> before = NeuralNetClassifier(mymodule)
+        >>> before.save_params('path/to/file')
+        >>> after = NeuralNetClassifier(mymodule).initialize()
+        >>> after.load_params('path/to/file')
+
+        """
+        if not hasattr(self, 'module_'):
+            raise NotInitializedError(
+                "Cannot save parameters of an un-initialized model. "
+                "Please initialize first by calling `.initialize()`.")
+        torch.save(self.module_.state_dict(), f)
+
+    def load_params(self, f):
+        """Load only the module's parameters, not the whole object.
+
+        To save and load the whole object, use pickle.
+
+        Parameters
+        ----------
+        f : file-like object or str
+          See `torch.load` documentation.
+
+        Example
+        -------
+        >>> before = NeuralNetClassifier(mymodule)
+        >>> before.save_params('path/to/file')
+        >>> after = NeuralNetClassifier(mymodule).initialize()
+        >>> after.load_params('path/to/file')
+
+        """
+        if not hasattr(self, 'module_'):
+            raise NotInitializedError(
+                "Cannot load parameters of an un-initialized model. "
+                "Please initialize first by calling `.initialize()`.")
+        self.module_.load_state_dict(torch.load(f))
 
 
 def accuracy_pred_extractor(y):

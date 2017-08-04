@@ -151,6 +151,68 @@ class TestNeuralNet:
         with open(str(p), 'rb') as f:
             pickle.load(f)
 
+    def test_save_load_state_dict_file(
+            self, net_cls, module_cls, net_fit, data, tmpdir):
+        net = net_cls(module_cls).initialize()
+        X, y = data
+
+        score_before = accuracy_score(y, net_fit.predict(X))
+        score_untrained = accuracy_score(y, net.predict(X))
+        assert not np.isclose(score_before, score_untrained)
+
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            net_fit.save_params(f)
+        del net_fit
+        with open(str(p), 'rb') as f:
+            net.load_params(f)
+
+        score_after = accuracy_score(y, net.predict(X))
+        assert np.isclose(score_after, score_before)
+
+    def test_save_load_state_dict_str(
+            self, net_cls, module_cls, net_fit, data, tmpdir):
+        net = net_cls(module_cls).initialize()
+        X, y = data
+
+        score_before = accuracy_score(y, net_fit.predict(X))
+        score_untrained = accuracy_score(y, net.predict(X))
+        assert not np.isclose(score_before, score_untrained)
+
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        net_fit.save_params(str(p))
+        del net_fit
+        net.load_params(str(p))
+
+        score_after = accuracy_score(y, net.predict(X))
+        assert np.isclose(score_after, score_before)
+
+    def test_save_state_dict_not_init(
+            self, net_cls, module_cls, tmpdir):
+        from inferno.exceptions import NotInitializedError
+
+        net = net_cls(module_cls)
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+
+        with pytest.raises(NotInitializedError) as exc:
+            net.save_params(str(p))
+        expected = ("Cannot save parameters of an un-initialized model. "
+                    "Please initialize first by calling `.initialize()`.")
+        assert exc.value.args[0] == expected
+
+    def test_load_state_dict_not_init(
+            self, net_cls, module_cls, tmpdir):
+        from inferno.exceptions import NotInitializedError
+
+        net = net_cls(module_cls)
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+
+        with pytest.raises(NotInitializedError) as exc:
+            net.load_params(str(p))
+        expected = ("Cannot load parameters of an un-initialized model. "
+                    "Please initialize first by calling `.initialize()`.")
+        assert exc.value.args[0] == expected
+
     @pytest.mark.parametrize('method, call_count', [
         ('on_train_begin', 1),
         ('on_train_end', 1),
