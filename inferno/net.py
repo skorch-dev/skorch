@@ -767,7 +767,8 @@ class NeuralNet(Callback):
         if not hasattr(self, 'module_'):
             raise NotInitializedError(
                 "Cannot save parameters of an un-initialized model. "
-                "Please initialize first by calling `.initialize()`.")
+                "Please initialize first by calling `.initialize()` "
+                "or by fitting the model with `.fit(...)`.")
         torch.save(self.module_.state_dict(), f)
 
     def load_params(self, f):
@@ -791,7 +792,8 @@ class NeuralNet(Callback):
         if not hasattr(self, 'module_'):
             raise NotInitializedError(
                 "Cannot load parameters of an un-initialized model. "
-                "Please initialize first by calling `.initialize()`.")
+                "Please initialize first by calling `.initialize()` "
+                "or by fitting the model with `.fit(...)`.")
         self.module_.load_state_dict(torch.load(f))
 
 

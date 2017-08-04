@@ -7,6 +7,6 @@ class InfernoException(BaseException):
 
 class NotInitializedError(InfernoException):
     """Module is not initialized, please call the `.initialize`
-    method first.
+    method or train the model by calling `.fit(...)`.
 
     """
