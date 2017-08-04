@@ -141,6 +141,16 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
 
+    def test_pickle_save_and_load_uninitialized(
+            self, net_cls, module_cls, tmpdir):
+        net = net_cls(module_cls)
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            # does not raise
+            pickle.dump(net, f)
+        with open(str(p), 'rb') as f:
+            pickle.load(f)
+
     @pytest.mark.parametrize('method, call_count', [
         ('on_train_begin', 1),
         ('on_train_end', 1),
