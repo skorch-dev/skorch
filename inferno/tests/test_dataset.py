@@ -259,6 +259,21 @@ class TestMultiIndexing:
         assert exc.value.args[0] == (
             "arrays used as indices must be of integer (or boolean) type")
 
+    def test_boolean_index_2d(self, multi_indexing):
+        X = np.arange(9).reshape(3, 3)
+        i = np.eye(3).astype(bool)
+        result = multi_indexing(X, i)
+        expected = np.asarray([0, 4, 8])
+        assert np.allclose(result, expected)
+
+    def test_boolean_index_2d_with_torch_tensor(self, multi_indexing):
+        X = torch.LongTensor(np.arange(9).reshape(3, 3))
+        i = np.eye(3).astype(bool)
+
+        # pytorch cannot deal with it, raises an error
+        with pytest.raises(TypeError):
+            multi_indexing(X, i)
+
 
 class TestNetWithDict:
     @pytest.fixture(scope='module')

@@ -81,8 +81,8 @@ def multi_indexing(data, i):
     """
     if isinstance(i, np.ndarray):
         if i.dtype == bool:
-            i = i.nonzero()[0]
-        if i.dtype == int:
+            i = tuple(j.tolist() for j in i.nonzero())
+        elif i.dtype == int:
             i = i.tolist()
         else:
             raise IndexError("arrays used as indices must be of integer "
@@ -99,6 +99,12 @@ def multi_indexing(data, i):
             pass
     if torch.is_tensor(data):
         # torch tensor-like
+        if isinstance(i, tuple):
+            # note: pytorch cannot deal with this kind of indexing; we
+            # just let the error happen, though, since we cannot do
+            # anything useful here.
+            if len(i) == 1:
+                i = i[0]
         if isinstance(i, list):
             i = torch.LongTensor(i)
         return data[i]
