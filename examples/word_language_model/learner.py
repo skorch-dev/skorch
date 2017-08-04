@@ -25,10 +25,12 @@ class Learner(inferno.NeuralNet):
             return tuple(self.repackage_hidden(v) for v in h)
 
     def on_train_begin(self, *args, **kwargs):
+        super().on_train_begin(*args, **kwargs)
         if self.use_cuda:
             self.module_.cuda()
 
     def on_epoch_begin(self, net, *args, **kwargs):
+        super().on_epoch_begin(net, *args, **kwargs)
         self.hidden = self.module_.init_hidden(self.batch_size)
 
     def train_step(self, X, y, _):
@@ -70,15 +72,13 @@ class Learner(inferno.NeuralNet):
         return output.view(-1, self.ntokens)
 
     def score(self, X, y=None):
-        # We cannot use self.predict() directly as there is no y supplied to
-        # GridSearchCV. Therefore we have to collect the y values from the
-        # iterator ourself.
-        iterator = self.get_iterator(X, y, train=False)
-        y_probas = []
-        y_target = []
-        for x, y in iterator:
-            y_probas.append(self.predict(x))
-            y_target.append(y)
-        y_probas = inferno.utils.to_numpy(torch.cat(y_probas, dim=0).squeeze())
+        y_probas = self.predict(X)
+
+        # Collect the target y values as these are generated from X
+        # by the iterator.
+        #
+        # TODO: discuss this as the iterator is executed twice
+        # (once in predict() via forward() and once here to collect y).
+        y_target = [y for x, y in self.get_iterator(X, y, train=False)]
         y_target = inferno.utils.to_numpy(torch.cat(y_target, dim=0))
         return f1_score(y_probas, y_target, average='micro')

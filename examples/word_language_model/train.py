@@ -36,13 +36,15 @@ class Checkpointing(inferno.callbacks.Callback):
             with open(args.save, 'wb') as f:
                 torch.save(net.module_, f)
 
+
 corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
+def train_split(X, y):
+    return X, corpus.valid[:1000], None, None
+
 learner = Learner(
     module=RNNModel,
-    iterator_train=data.Loader,
-    iterator_test=data.Loader,
     batch_size=args.batch_size,
     use_cuda=args.cuda,
     callbacks=[LRAnnealing(), Checkpointing()],
@@ -51,13 +53,24 @@ learner = Learner(
     module__ninp=200,
     module__nhid=200,
     module__nlayers=2,
+    train_split=train_split,
+    iterator_train=data.Loader,
     iterator_train__use_cuda=args.cuda,
     iterator_train__bptt=args.bptt,
-    iterator_test__evaluation=True,
+    iterator_test=data.Loader,
     iterator_test__use_cuda=args.cuda,
     iterator_test__bptt=args.bptt)
 
-# FIXME: iterator_test does not use corpus.valid as dataset
+# NOFIXME: iterator_test does not use corpus.valid as dataset
+# REASON: we use GridSearchCV to generate validation splits
+# FIXME: but we need validation data during training (LR annealing)
+
+# FIXME: currently we have iterators for training and validation. Both of those
+# supply (X,y) pairs. We do, however, also use the validation generator in
+# predict (thus in scoring as well). Therefore we always generate `y` values
+# even though we don't need to.
+
+# TODO: easy way to write own score() that accesses the validation data only.
 
 params = [
     {

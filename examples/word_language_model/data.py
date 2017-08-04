@@ -57,7 +57,11 @@ class Loader:
         self.bptt = bptt
         self.batch_size = batch_size
         self.use_cuda = use_cuda
-        self.batches = self.batchify(torch.LongTensor(source.X), batch_size)
+        if isinstance(source.X, Variable):
+            data = source.X.data.long()
+        else:
+            data = torch.LongTensor(source.X)
+        self.batches = self.batchify(data, batch_size)
 
     def batchify(self, data, bsz):
         # Work out how cleanly we can divide the dataset into bsz parts.
