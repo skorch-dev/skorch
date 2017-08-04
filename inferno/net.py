@@ -15,6 +15,7 @@ from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
 from inferno.dataset import Dataset
 from inferno.dataset import CVSplit
+from inferno.exceptions import NotInitializedError
 from inferno.utils import get_dim
 from inferno.utils import to_numpy
 from inferno.utils import to_var
@@ -743,16 +744,68 @@ class NeuralNet(Callback):
 
     def __getstate__(self):
         state = BaseEstimator.__getstate__(self)
-        module_ = state.pop('module_')
-        module_dump = pickle.dumps(module_)
-        state['module_'] = module_dump
+        if 'module_' in state:
+            module_ = state.pop('module_')
+            module_dump = pickle.dumps(module_)
+            state['module_'] = module_dump
         return state
 
     def __setstate__(self, state):
-        module_dump = state.pop('module_')
-        module_ = pickle.loads(module_dump)
-        state['module_'] = module_
+        if 'module_' in state:
+            module_dump = state.pop('module_')
+            module_ = pickle.loads(module_dump)
+            state['module_'] = module_
         BaseEstimator.__setstate__(self, state)
+
+    def save_params(self, f):
+        """Save only the module's parameters, not the whole object.
+
+        To save the whole object, use pickle.
+
+        Parameters
+        ----------
+        f : file-like object or str
+          See `torch.save` documentation.
+
+        Example
+        -------
+        >>> before = NeuralNetClassifier(mymodule)
+        >>> before.save_params('path/to/file')
+        >>> after = NeuralNetClassifier(mymodule).initialize()
+        >>> after.load_params('path/to/file')
+
+        """
+        if not hasattr(self, 'module_'):
+            raise NotInitializedError(
+                "Cannot save parameters of an un-initialized model. "
+                "Please initialize first by calling `.initialize()` "
+                "or by fitting the model with `.fit(...)`.")
+        torch.save(self.module_.state_dict(), f)
+
+    def load_params(self, f):
+        """Load only the module's parameters, not the whole object.
+
+        To save and load the whole object, use pickle.
+
+        Parameters
+        ----------
+        f : file-like object or str
+          See `torch.load` documentation.
+
+        Example
+        -------
+        >>> before = NeuralNetClassifier(mymodule)
+        >>> before.save_params('path/to/file')
+        >>> after = NeuralNetClassifier(mymodule).initialize()
+        >>> after.load_params('path/to/file')
+
+        """
+        if not hasattr(self, 'module_'):
+            raise NotInitializedError(
+                "Cannot load parameters of an un-initialized model. "
+                "Please initialize first by calling `.initialize()` "
+                "or by fitting the model with `.fit(...)`.")
+        self.module_.load_state_dict(torch.load(f))
 
 
 def accuracy_pred_extractor(y):
