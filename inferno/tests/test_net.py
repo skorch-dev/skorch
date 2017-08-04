@@ -34,7 +34,7 @@ class MyClassifier(nn.Module):
     def forward(self, X, **kwargs):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
-        X = F.relu(self.dense1(X))
+        X = self.nonlin(self.dense1(X))
         X = F.softmax(self.output(X))
         return X
 
@@ -364,7 +364,7 @@ class MyRegressor(nn.Module):
     def forward(self, X, **kwargs):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
-        X = self.dense1(X)
+        X = self.nonlin(self.dense1(X))
         X = self.output(X)
         return X
 

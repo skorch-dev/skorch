@@ -430,7 +430,7 @@ class TestTrainSplitIsUsed:
             def forward(self, X, **kwargs):
                 X = self.nonlin(self.dense0(X))
                 X = self.dropout(X)
-                X = F.relu(self.dense1(X))
+                X = self.nonlin(self.dense1(X))
                 X = F.softmax(self.output(X))
                 return X
         return MyClassifier
