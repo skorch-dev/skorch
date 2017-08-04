@@ -256,6 +256,8 @@ class CVSplit(object):
     def check_cv(self, y):
         y_arr = None
         if self.stratified:
+            # Try to convert y to numpy for sklearn's check_cv; if conversion
+            # doesn't work, still try.
             try:
                 y_arr = to_numpy(y)
             except AttributeError:
