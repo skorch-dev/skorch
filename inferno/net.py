@@ -459,8 +459,9 @@ class NeuralNet(Callback):
         not applied).
 
         """
-        xi, yi = to_var(xi), to_var(yi)
         self.module_.eval()
+        xi = to_var(xi, use_cuda=self.use_cuda)
+        yi = to_var(yi, use_cuda=self.use_cuda)
 
         y_pred = self.infer(xi)
         return self.get_loss(y_pred, yi, train=False)
@@ -473,8 +474,9 @@ class NeuralNet(Callback):
         applied).
 
         """
-        xi, yi = to_var(xi), to_var(yi)
         self.module_.train()
+        xi = to_var(xi, use_cuda=self.use_cuda)
+        yi = to_var(yi, use_cuda=self.use_cuda)
 
         optimizer.zero_grad()
         y_pred = self.infer(xi)
@@ -493,7 +495,8 @@ class NeuralNet(Callback):
 
         """
         self.module_.train(training_behavior)
-        return self.infer(to_var(xi))
+        xi = to_var(xi, use_cuda=self.use_cuda)
+        return self.infer(xi)
 
     def fit_loop(self, X, y=None, epochs=None):
         """The proper fit loop.
@@ -615,12 +618,10 @@ class NeuralNet(Callback):
         iterator = self.get_iterator(X, train=training_behavior)
         y_infer = []
         for x, _ in iterator:
-            x = to_var(x, use_cuda=self.use_cuda)
             y_infer.append(self.evaluation_step(x, training_behavior=training_behavior))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
-        x = to_var(x)
         if isinstance(x, dict):
             return self.module_(**x)
         return self.module_(x)
