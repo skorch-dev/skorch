@@ -34,7 +34,7 @@ class MyClassifier(nn.Module):
     def forward(self, X, **kwargs):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
-        X = F.relu(self.dense1(X))
+        X = self.nonlin(self.dense1(X))
         X = F.softmax(self.output(X))
         return X
 
@@ -141,13 +141,88 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
 
+    def test_pickle_save_and_load_uninitialized(
+            self, net_cls, module_cls, tmpdir):
+        net = net_cls(module_cls)
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            # does not raise
+            pickle.dump(net, f)
+        with open(str(p), 'rb') as f:
+            pickle.load(f)
+
+    def test_save_load_state_dict_file(
+            self, net_cls, module_cls, net_fit, data, tmpdir):
+        net = net_cls(module_cls).initialize()
+        X, y = data
+
+        score_before = accuracy_score(y, net_fit.predict(X))
+        score_untrained = accuracy_score(y, net.predict(X))
+        assert not np.isclose(score_before, score_untrained)
+
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            net_fit.save_params(f)
+        del net_fit
+        with open(str(p), 'rb') as f:
+            net.load_params(f)
+
+        score_after = accuracy_score(y, net.predict(X))
+        assert np.isclose(score_after, score_before)
+
+    def test_save_load_state_dict_str(
+            self, net_cls, module_cls, net_fit, data, tmpdir):
+        net = net_cls(module_cls).initialize()
+        X, y = data
+
+        score_before = accuracy_score(y, net_fit.predict(X))
+        score_untrained = accuracy_score(y, net.predict(X))
+        assert not np.isclose(score_before, score_untrained)
+
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        net_fit.save_params(str(p))
+        del net_fit
+        net.load_params(str(p))
+
+        score_after = accuracy_score(y, net.predict(X))
+        assert np.isclose(score_after, score_before)
+
+    def test_save_state_dict_not_init(
+            self, net_cls, module_cls, tmpdir):
+        from inferno.exceptions import NotInitializedError
+
+        net = net_cls(module_cls)
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+
+        with pytest.raises(NotInitializedError) as exc:
+            net.save_params(str(p))
+        expected = ("Cannot save parameters of an un-initialized model. "
+                    "Please initialize first by calling `.initialize()` "
+                    "or by fitting the model with `.fit(...)`.")
+        assert exc.value.args[0] == expected
+
+    def test_load_state_dict_not_init(
+            self, net_cls, module_cls, tmpdir):
+        from inferno.exceptions import NotInitializedError
+
+        net = net_cls(module_cls)
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+
+        with pytest.raises(NotInitializedError) as exc:
+            net.load_params(str(p))
+        expected = ("Cannot load parameters of an un-initialized model. "
+                    "Please initialize first by calling `.initialize()` "
+                    "or by fitting the model with `.fit(...)`.")
+        assert exc.value.args[0] == expected
+
     @pytest.mark.parametrize('method, call_count', [
         ('on_train_begin', 1),
         ('on_train_end', 1),
         ('on_epoch_begin', 10),
         ('on_epoch_end', 10),
-        ('on_batch_begin', (1000 // 128 + 1) * 10 * 2),
-        ('on_batch_end', (1000 // 128 + 1) * 10 * 2),
+        # by default: 80/20 train/valid split
+        ('on_batch_begin', (800 // 128 + 1) * 10 + (200 // 128 + 1) * 10),
+        ('on_batch_end', (800 // 128 + 1) * 10 + (200 // 128 + 1) * 10),
     ])
     def test_callback_is_called(self, net_fit, method, call_count):
         method = getattr(net_fit.callbacks_[-1][1], method)
@@ -310,14 +385,30 @@ class TestNeuralNet:
         diffs = [total - a - b for total, a, b in all_losses]
         assert np.allclose(diffs, 0, atol=1e-7)
 
+    def test_net_no_valid(self, net_cls, module_cls, data):
+        net = net_cls(
+            module_cls,
+            max_epochs=10,
+            lr=0.1,
+            train_split=None,
+        )
+        X, y = data
+        net.fit(X, y)
+        assert net.history[:, 'train_loss']
+        with pytest.raises(KeyError):
+            net.history[:, 'valid_loss']
+
     def test_use_cuda_on_model(self, net_cls, module_cls):
         net_cuda = net_cls(module_cls, use_cuda=True)
         net_cuda.initialize()
         net_cpu = net_cls(module_cls, use_cuda=False)
         net_cpu.initialize()
 
-        assert type(net_cpu.module_.dense0.weight.data) == torch.FloatTensor
-        assert type(net_cuda.module_.dense0.weight.data) == torch.cuda.FloatTensor
+        type_cpu = type(net_cpu.module_.dense0.weight.data)
+        assert type_cpu == torch.FloatTensor
+
+        type_gpu = type(net_cuda.module_.dense0.weight.data)
+        assert type_gpu == torch.cuda.FloatTensor
 
     @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
@@ -347,7 +438,7 @@ class MyRegressor(nn.Module):
     def forward(self, X, **kwargs):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
-        X = self.dense1(X)
+        X = self.nonlin(self.dense1(X))
         X = self.output(X)
         return X
 

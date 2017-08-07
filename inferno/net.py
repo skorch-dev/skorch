@@ -5,7 +5,6 @@ import pickle
 import numpy as np
 from sklearn.base import BaseEstimator
 import torch
-from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
 from inferno.callbacks import AverageLoss
@@ -15,6 +14,8 @@ from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
 from inferno.dataset import Dataset
+from inferno.dataset import CVSplit
+from inferno.exceptions import NotInitializedError
 from inferno.utils import get_dim
 from inferno.utils import to_numpy
 from inferno.utils import to_var
@@ -312,6 +313,7 @@ class NeuralNet(Callback):
             batch_size=128,
             iterator_train=DataLoader,
             iterator_test=DataLoader,
+            train_split=CVSplit(0.2),
             callbacks=None,
             cold_start=True,
             use_cuda=False,
@@ -326,6 +328,7 @@ class NeuralNet(Callback):
         self.batch_size = batch_size
         self.iterator_train = iterator_train
         self.iterator_test = iterator_test
+        self.train_split = train_split
         self.callbacks = callbacks
         self.cold_start = cold_start
         self.use_cuda = use_cuda
@@ -514,17 +517,26 @@ class NeuralNet(Callback):
         self.check_data(X, y)
         epochs = epochs or self.max_epochs
         optimizer = self.get_optimizer()
+        if self.train_split:
+            X_train, X_valid, y_train, y_valid = self.train_split(X, y)
+        else:
+            X_train, X_valid, y_train, y_valid = X, None, y, None
+
         for epoch in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
-            for xi, yi in self.get_iterator(X, y, train=True):
+            for xi, yi in self.get_iterator(X_train, y_train, train=True):
                 self.notify('on_batch_begin', X=xi, y=yi, train=True)
                 loss = self.train_step(xi, yi, optimizer)
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(xi))
                 self.notify('on_batch_end', X=xi, y=yi, train=True)
 
-            for xi, yi in self.get_iterator(X, y, train=False):
+            if X_valid is None:
+                self.notify('on_epoch_end', X=X, y=y)
+                continue
+
+            for xi, yi in self.get_iterator(X_valid, y_valid, train=False):
                 self.notify('on_batch_begin', X=xi, y=yi, train=False)
                 loss = self.validation_step(xi, yi)
                 self.history.record_batch('valid_loss', loss.data[0])
@@ -744,16 +756,68 @@ class NeuralNet(Callback):
 
     def __getstate__(self):
         state = BaseEstimator.__getstate__(self)
-        module_ = state.pop('module_')
-        module_dump = pickle.dumps(module_)
-        state['module_'] = module_dump
+        if 'module_' in state:
+            module_ = state.pop('module_')
+            module_dump = pickle.dumps(module_)
+            state['module_'] = module_dump
         return state
 
     def __setstate__(self, state):
-        module_dump = state.pop('module_')
-        module_ = pickle.loads(module_dump)
-        state['module_'] = module_
+        if 'module_' in state:
+            module_dump = state.pop('module_')
+            module_ = pickle.loads(module_dump)
+            state['module_'] = module_
         BaseEstimator.__setstate__(self, state)
+
+    def save_params(self, f):
+        """Save only the module's parameters, not the whole object.
+
+        To save the whole object, use pickle.
+
+        Parameters
+        ----------
+        f : file-like object or str
+          See `torch.save` documentation.
+
+        Example
+        -------
+        >>> before = NeuralNetClassifier(mymodule)
+        >>> before.save_params('path/to/file')
+        >>> after = NeuralNetClassifier(mymodule).initialize()
+        >>> after.load_params('path/to/file')
+
+        """
+        if not hasattr(self, 'module_'):
+            raise NotInitializedError(
+                "Cannot save parameters of an un-initialized model. "
+                "Please initialize first by calling `.initialize()` "
+                "or by fitting the model with `.fit(...)`.")
+        torch.save(self.module_.state_dict(), f)
+
+    def load_params(self, f):
+        """Load only the module's parameters, not the whole object.
+
+        To save and load the whole object, use pickle.
+
+        Parameters
+        ----------
+        f : file-like object or str
+          See `torch.load` documentation.
+
+        Example
+        -------
+        >>> before = NeuralNetClassifier(mymodule)
+        >>> before.save_params('path/to/file')
+        >>> after = NeuralNetClassifier(mymodule).initialize()
+        >>> after.load_params('path/to/file')
+
+        """
+        if not hasattr(self, 'module_'):
+            raise NotInitializedError(
+                "Cannot load parameters of an un-initialized model. "
+                "Please initialize first by calling `.initialize()` "
+                "or by fitting the model with `.fit(...)`.")
+        self.module_.load_state_dict(torch.load(f))
 
 
 def accuracy_pred_extractor(y):
@@ -766,7 +830,7 @@ class NeuralNetClassifier(NeuralNet):
         ('epoch_timer', EpochTimer()),
         ('average_loss', AverageLoss(
             key_sizes={'valid_acc': 'valid_batch_size'},
-            keys_optional=['valid_acc'],
+            keys_optional=['valid_acc', 'valid_batch_size'],
         )),
         ('accuracy', Scoring(
             name='valid_acc',
@@ -787,15 +851,25 @@ class NeuralNetClassifier(NeuralNet):
             self,
             module,
             criterion=torch.nn.NLLLoss,
+            train_split=CVSplit(0.2, stratified=True),
             *args,
             **kwargs
     ):
         super(NeuralNetClassifier, self).__init__(
             module,
             criterion=criterion,
+            train_split=train_split,
             *args,
             **kwargs
         )
+
+    def check_data(self, _, y):
+        if y is None and self.iterator_train is DataLoader:
+            raise ValueError("No y-values are given (y=None). You must "
+                             "implement your own DataLoader for training "
+                             "(and your validation) and supply it using the "
+                             "`iterator_train` and `iterator_valid` "
+                             "parameters respectively.")
 
     def get_loss(self, y_pred, y, train=False):
         y_pred_log = torch.log(y_pred)
@@ -830,6 +904,16 @@ class NeuralNetRegressor(NeuralNet):
         )
 
     def check_data(self, _, y):
+        if y is None and self.iterator_train is DataLoader:
+            raise ValueError("No y-values are given (y=None). You must "
+                             "implement your own DataLoader for training "
+                             "(and your validation) and supply it using the "
+                             "`iterator_train` and `iterator_valid` "
+                             "parameters respectively.")
+        elif y is None:
+            # The user implements its own mechanism for generating y.
+            return
+
         # The problem with 1-dim float y is that the pytorch DataLoader will
         # somehow upcast it to DoubleTensor
         if get_dim(y) == 1:
