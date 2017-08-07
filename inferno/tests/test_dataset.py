@@ -99,8 +99,13 @@ class TestNetWithoutY:
                 return ((x, torch.zeros(x.size(0)).float()) for x, _ in z)
         return Loader
 
+    @pytest.fixture
+    def train_split(self):
+        from inferno.dataset import CVSplit
+        return CVSplit(0.2, stratified=False)
+
     @pytest.fixture(params=net_fixture_params)
-    def net_1d(self, request, net_cls_1d):
+    def net_1d(self, request, net_cls_1d, train_split):
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
@@ -111,11 +116,12 @@ class TestNetWithoutY:
         return wrap_cls(
             net_cls_1d,
             max_epochs=2,
+            train_split=train_split,
             batch_size=request.param['batch_size']
         )
 
     @pytest.fixture(params=net_fixture_params)
-    def net_2d(self, request, net_cls_2d):
+    def net_2d(self, request, net_cls_2d, train_split):
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
@@ -126,12 +132,13 @@ class TestNetWithoutY:
         return wrap_cls(
             net_cls_2d,
             max_epochs=2,
+            train_split=train_split,
             batch_size=request.param['batch_size']
         )
 
     @pytest.fixture(params=net_fixture_params)
     def net_1d_custom_loader(self, request, net_cls_1d,
-                             loader_clf, loader_reg):
+                             loader_clf, loader_reg, train_split):
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
@@ -146,12 +153,13 @@ class TestNetWithoutY:
             iterator_train=loader,
             iterator_test=loader,
             max_epochs=2,
+            train_split=train_split,
             batch_size=request.param['batch_size']
         )
 
     @pytest.fixture(params=net_fixture_params)
     def net_2d_custom_loader(self, request, net_cls_2d,
-                             loader_clf, loader_reg):
+                             loader_clf, loader_reg, train_split):
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
@@ -166,6 +174,7 @@ class TestNetWithoutY:
             iterator_train=loader,
             iterator_test=loader,
             max_epochs=2,
+            train_split=train_split,
             batch_size=request.param['batch_size']
         )
 
@@ -863,3 +872,33 @@ class TestCVSplit:
         with pytest.raises(ValueError):
             # an sklearn error is raised
             cv_split_cls(5, stratified=True)(X, y)
+
+    def test_y_none_cv_int(self, cv_split_cls, data):
+        cv = 5
+        X, y = data[0], None
+
+        with pytest.raises(ValueError) as exc:
+            cv_split_cls(cv, stratified=True)(X, y)
+
+        expected = "Stratified CV not possible with given y."
+        assert exc.value.args[0] == expected
+
+    def test_y_none_cv_float_regular_X(self, cv_split_cls, data):
+        cv = 0.2
+        X, y = data[0], None
+
+        with pytest.raises(ValueError) as exc:
+            cv_split_cls(cv, stratified=True)(X, y)
+
+        expected = "Stratified CV not possible with given y."
+        assert exc.value.args[0] == expected
+
+    def test_y_none_cv_float_irregular_X(self, cv_split_cls, data):
+        cv = 0.2
+        X, y = torch.zeros((100, 10)), None
+
+        with pytest.raises(ValueError) as exc:
+            cv_split_cls(cv, stratified=True)(X, y)
+
+        expected = "Stratified CV not possible with given y."
+        assert exc.value.args[0] == expected
