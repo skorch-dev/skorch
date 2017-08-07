@@ -851,6 +851,14 @@ class NeuralNetClassifier(NeuralNet):
             **kwargs
         )
 
+    def check_data(self, _, y):
+        if y is None and self.iterator_train is DataLoader:
+            raise ValueError("No y-values are given (y=None). You must "
+                             "implement your own DataLoader for training "
+                             "(and your validation) and supply it using the "
+                             "`iterator_train` and `iterator_valid` "
+                             "parameters respectively.")
+
     def get_loss(self, y_pred, y, train=False):
         y_pred_log = torch.log(y_pred)
         return self.criterion_(y_pred_log, y)
@@ -884,6 +892,16 @@ class NeuralNetRegressor(NeuralNet):
         )
 
     def check_data(self, _, y):
+        if y is None and self.iterator_train is DataLoader:
+            raise ValueError("No y-values are given (y=None). You must "
+                             "implement your own DataLoader for training "
+                             "(and your validation) and supply it using the "
+                             "`iterator_train` and `iterator_valid` "
+                             "parameters respectively.")
+        elif y is None:
+            # The user implements its own mechanism for generating y.
+            return
+
         # The problem with 1-dim float y is that the pytorch DataLoader will
         # somehow upcast it to DoubleTensor
         if get_dim(y) == 1:
