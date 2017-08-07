@@ -250,11 +250,7 @@ class CVSplit(object):
 
     def _check_cv_float(self, y):
         cv_cls = StratifiedShuffleSplit if self.stratified else ShuffleSplit
-        return check_cv(
-            cv_cls(test_size=self.cv),
-            y=y,
-            classifier=self.stratified,
-        )
+        return cv_cls(test_size=self.cv)
 
     def _check_cv_non_float(self, y):
         return check_cv(
@@ -309,12 +305,19 @@ class CVSplit(object):
 
         X_train, y_train = dataset[idx_train]
         X_valid, y_valid = dataset[idx_valid]
+        y_train = None if y is None else y_train
+        y_valid = None if y is None else y_valid
         return X_train, X_valid, y_train, y_valid
 
     def __call__(self, X, y):
+        bad_y_error = ValueError("Stratified CV not possible with given y.")
+        if (y is None) and self.stratified:
+            raise bad_y_error
+
         cv = self.check_cv(y)
         if self.stratified and not self._is_stratified(cv):
-            raise ValueError("Stratified CV not possible with given y.")
+            raise bad_y_error
+
         if self._is_regular(X) and self._is_regular(y):
             # regular sklearn case
             return self.regular_cv(X, y, cv)
