@@ -50,7 +50,7 @@ class ExamplePrinter(inferno.callbacks.Callback):
               " ".join([corpus.dictionary.idx2word[n] for n in sentence]))
 
 def train_split(X, y):
-    return X, corpus.valid[:1000], None, None
+    return X, corpus.valid, None, None
 
 learner = Learner(
     module=RNNModel,
@@ -89,7 +89,7 @@ params = [
 ]
 
 pl = GridSearchCV(learner, params)
-pl.fit(corpus.train[:1000])
+pl.fit(corpus.train)
 
 print("Results of grid search:")
 print("Best parameter configuration:", pl.best_params_)
