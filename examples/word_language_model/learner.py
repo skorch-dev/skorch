@@ -35,7 +35,7 @@ class Learner(inferno.NeuralNet):
         sample = torch.multinomial(probas, 1)[-1]
         if probas.dim() > 1:
             sample = sample[0]
-        return sample, hidden
+        return sample, self.repackage_hidden(hidden)
 
     def sample_n(self, num_words, input, temperature=1., hidden=None):
         preds = [None] * num_words
@@ -83,6 +83,10 @@ class Learner(inferno.NeuralNet):
         # TODO: decide if predict should be stateful or not.
         # I have no good answer for this. Needs discussion.
         output, self.hidden = self.module_(X, self.hidden)
+
+        # avoid huge computational graph with unnecessary backprop
+        # information when predicting from the network.
+        self.hidden = self.repackage_hidden(self.hidden)
 
         return output.view(-1, self.ntokens)
 
