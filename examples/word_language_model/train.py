@@ -44,7 +44,7 @@ class ExamplePrinter(inferno.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         seed_sentence = "the meaning of"
         indices = [corpus.dictionary.word2idx[n] for n in seed_sentence.split()]
-        indices = inferno.utils.to_var(torch.LongTensor([indices]), use_cuda=args.cuda)
+        indices = inferno.utils.to_var(torch.LongTensor([indices]).t(), use_cuda=args.cuda)
         sentence, _ = net.sample_n(num_words=10, input=indices)
         print(seed_sentence,
               " ".join([corpus.dictionary.idx2word[n] for n in sentence]))
