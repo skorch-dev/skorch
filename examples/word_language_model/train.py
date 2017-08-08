@@ -15,6 +15,8 @@ parser.add_argument('--bptt', type=int, default=35,
                     help='sequence length')
 parser.add_argument('--batch_size', type=int, default=20, metavar='N',
                     help='batch size')
+parser.add_argument('--epochs', type=int, default=10, metavar='N',
+                    help='number of epochs')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--no-cuda', dest='cuda', action='store_false',
@@ -45,6 +47,7 @@ def train_split(X, y):
 
 learner = Learner(
     module=RNNModel,
+    max_epochs=args.epochs,
     batch_size=args.batch_size,
     use_cuda=args.cuda,
     callbacks=[LRAnnealing(), Checkpointing()],
