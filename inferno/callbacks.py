@@ -463,11 +463,11 @@ class PrintLog(Callback):
         # if numeric, there could be a 'best' key
         key_best = key + '_best'
         if (key_best in row) and row[key_best]:
-            template = color.value + template + Ansi.ENDC.value
+            template = color + template + Ansi.ENDC.value
         return template.format(value)
 
     def _yield_keys_formatted(self, row):
-        colors = cycle(Ansi)
+        colors = cycle([color.value for color in Ansi if color != color.ENDC])
         color = next(colors)
         for key in chain(self.default_keys, self.keys):
             if key.endswith('_best'):
