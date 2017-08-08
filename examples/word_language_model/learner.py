@@ -61,14 +61,16 @@ class Learner(inferno.NeuralNet):
     def evaluation_step(self, X, **kwargs):
         self.module_.eval()
 
+        X = inferno.utils.to_var(X, use_cuda=self.use_cuda)
+
         # TODO: resetting the hidden layer here prevents the user from
         # manually resetting the hidden layer from outside (when generating
         # text for example).
-        hidden = self.module_.init_hidden(X.size(1))
+        self.hidden = self.module_.init_hidden(X.size(1))
 
         # TODO: decide if predict should be stateful or not.
         # I have no good answer for this. Needs discussion.
-        output, self.hidden = self.module_(X, hidden)
+        output, self.hidden = self.module_(X, self.hidden)
 
         return output.view(-1, self.ntokens)
 
