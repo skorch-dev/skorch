@@ -29,7 +29,7 @@ class Learner(inferno.NeuralNet):
         self.hidden = self.module_.init_hidden(self.batch_size)
 
     def sample(self, input, temperature=1., hidden=None):
-        hidden = self.module_.init_hidden(1) if hidden is not None else hidden
+        hidden = self.module_.init_hidden(1) if hidden is None else hidden
         output, hidden = self.module_(input, hidden)
         probas = output.squeeze().data.div(temperature).exp()
         sample = torch.multinomial(probas, 1)[-1]
