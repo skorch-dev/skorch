@@ -1,5 +1,6 @@
 import argparse
 
+import inferno
 import torch
 from torch.autograd import Variable
 
@@ -44,25 +45,21 @@ learner = learner.Learner(
     module__nhid=200,
     module__nlayers=2)
 learner.initialize()
+learner.load_params(args.checkpoint)
 
-if not args.cuda:
-    learner.module_ = torch.load(args.checkpoint, map_location=lambda storage, location: 'cpu')
-else:
-    learner.module_ = torch.load(args.checkpoint)
-
-hidden = learner.module_.init_hidden(1)
-input = Variable(torch.rand(1, 1).mul(ntokens).long(), volatile=True)
-if args.cuda:
-    input = input.cuda()
+hidden = None
+input = inferno.utils.to_var(torch.rand(1,1).mul(ntokens).long(),
+                             use_cuda=args.cuda)
 
 with open(args.outf, 'w') as outf:
     for i in range(args.words):
-        output, hidden = learner.module_(input, hidden)
-        word_weights = output.squeeze().data.div(args.temperature).exp().cpu()
-        word_idx = torch.multinomial(word_weights, 1)[0]
-        input.data.fill_(word_idx)
-        word = corpus.dictionary.idx2word[word_idx]
+        word_idx, hidden = learner.sample(input=input,
+                                          temperature=args.temperature,
+                                          hidden=hidden)
+        input = inferno.utils.to_var(torch.LongTensor([[word_idx]]),
+                                     use_cuda=args.cuda)
 
+        word = corpus.dictionary.idx2word[word_idx]
         outf.write(word + ('\n' if i % 20 == 19 else ' '))
 
         if i % args.log_interval == 0:

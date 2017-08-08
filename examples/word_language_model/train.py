@@ -27,6 +27,9 @@ args = parser.parse_args()
 
 # TODO: set seed
 
+corpus = data.Corpus(args.data)
+ntokens = len(corpus.dictionary)
+
 class LRAnnealing(inferno.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         if not net.history[-1]['valid_loss_best']:
@@ -35,12 +38,16 @@ class LRAnnealing(inferno.callbacks.Callback):
 class Checkpointing(inferno.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         if net.history[-1]['valid_loss_best']:
-            with open(args.save, 'wb') as f:
-                torch.save(net.module_, f)
+            net.save_params(args.save)
 
-
-corpus = data.Corpus(args.data)
-ntokens = len(corpus.dictionary)
+class ExamplePrinter(inferno.callbacks.Callback):
+    def on_epoch_end(self, net, **kwargs):
+        seed_sentence = "the meaning of"
+        indices = [corpus.dictionary.word2idx[n] for n in seed_sentence.split()]
+        indices = inferno.utils.to_var(torch.LongTensor([indices]), use_cuda=args.cuda)
+        sentence, _ = net.sample_n(num_words=10, input=indices)
+        print(seed_sentence,
+              " ".join([corpus.dictionary.idx2word[n] for n in sentence]))
 
 def train_split(X, y):
     return X, corpus.valid[:1000], None, None
@@ -50,7 +57,7 @@ learner = Learner(
     max_epochs=args.epochs,
     batch_size=args.batch_size,
     use_cuda=args.cuda,
-    callbacks=[LRAnnealing(), Checkpointing()],
+    callbacks=[LRAnnealing(), Checkpointing(), ExamplePrinter()],
     module__rnn_type='LSTM',
     module__ntoken=ntokens,
     module__ninp=200,

@@ -45,16 +45,11 @@ learner = learner.Learner(
     module__nhid=200,
     module__nlayers=2)
 learner.initialize()
+learner.load_params(args.checkpoint)
 
-if not args.cuda:
-    learner.module_ = torch.load(args.checkpoint, map_location=lambda storage, location: 'cpu')
-else:
-    learner.module_ = torch.load(args.checkpoint)
+words = [corpus.dictionary.idx2word[n] for n in range(10)]
 
-hidden = learner.module_.init_hidden(1)
-input = Variable(torch.rand(1, 1).mul(ntokens).long(), volatile=True)
-if args.cuda:
-    input = input.cuda()
+print(words)
 
 p = learner.predict_proba(np.array([[
     corpus.dictionary.word2idx['fish'],

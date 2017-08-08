@@ -29,9 +29,26 @@ class Learner(inferno.NeuralNet):
         if self.use_cuda:
             self.module_.cuda()
 
-    def on_epoch_begin(self, net, *args, **kwargs):
-        super().on_epoch_begin(net, *args, **kwargs)
+    def on_epoch_begin(self, *args, **kwargs):
+        super().on_epoch_begin(*args, **kwargs)
         self.hidden = self.module_.init_hidden(self.batch_size)
+
+    def sample(self, input, temperature=1., hidden=None):
+        hidden = self.module_.init_hidden(1) if hidden is not None else hidden
+        output, hidden = self.module_(input, hidden)
+        probas = output.squeeze().data.div(temperature).exp()
+        sample = torch.multinomial(probas, 1)[-1]
+        if probas.dim() > 1:
+            sample = sample[0]
+        return sample, hidden
+
+    def sample_n(self, num_words, input, temperature=1., hidden=None):
+        preds = [None] * num_words
+        for i in range(num_words):
+            preds[i], hidden = self.sample(input, hidden=hidden)
+            input = inferno.utils.to_var(torch.LongTensor([[preds[i]]]),
+                                         use_cuda=self.use_cuda)
+        return preds, hidden
 
     def train_step(self, X, y, _):
         self.module_.train()
