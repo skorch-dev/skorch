@@ -24,11 +24,6 @@ class Learner(inferno.NeuralNet):
         else:
             return tuple(self.repackage_hidden(v) for v in h)
 
-    def on_train_begin(self, *args, **kwargs):
-        super().on_train_begin(*args, **kwargs)
-        if self.use_cuda:
-            self.module_.cuda()
-
     def on_epoch_begin(self, *args, **kwargs):
         super().on_epoch_begin(*args, **kwargs)
         self.hidden = self.module_.init_hidden(self.batch_size)
