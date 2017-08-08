@@ -1,4 +1,5 @@
 import inferno
+import numpy as np
 import torch
 from torch.autograd import Variable
 from sklearn.metrics import f1_score
@@ -91,13 +92,19 @@ class Learner(inferno.NeuralNet):
         return output.view(-1, self.ntokens)
 
     def score(self, X, y=None):
-        y_probas = self.predict(X)
+        y_probas = []
+        y_target = []
 
-        # Collect the target y values as these are generated from X
-        # by the iterator.
-        #
-        # TODO: discuss this as the iterator is executed twice
-        # (once in predict() via forward() and once here to collect y).
-        y_target = [y for x, y in self.get_iterator(X, y, train=False)]
-        y_target = inferno.utils.to_numpy(torch.cat(y_target, dim=0))
+        # We collect the predictions batch-wise and store them on the host
+        # side as this data can be quite big and the GPU might run into
+        # memory issues. We do not calculate F1 on the batches as this
+        # would introduce an error to the score.
+        for X, y in self.get_iterator(X, y, train=False):
+            prediction = inferno.utils.to_numpy(self.evaluation_step(X)).argmax(1)
+            y_probas.append(prediction)
+            y_target.append(inferno.utils.to_numpy(y))
+
+        y_probas = np.concatenate(y_probas)
+        y_target = np.concatenate(y_target)
+
         return f1_score(y_probas, y_target, average='micro')
