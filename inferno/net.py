@@ -459,8 +459,9 @@ class NeuralNet(Callback):
         not applied).
 
         """
-        xi, yi = to_var(xi), to_var(yi)
         self.module_.eval()
+        xi = to_var(xi, use_cuda=self.use_cuda)
+        yi = to_var(yi, use_cuda=self.use_cuda)
 
         y_pred = self.infer(xi)
         return self.get_loss(y_pred, yi, train=False)
@@ -473,8 +474,9 @@ class NeuralNet(Callback):
         applied).
 
         """
-        xi, yi = to_var(xi), to_var(yi)
         self.module_.train()
+        xi = to_var(xi, use_cuda=self.use_cuda)
+        yi = to_var(yi, use_cuda=self.use_cuda)
 
         optimizer.zero_grad()
         y_pred = self.infer(xi)
@@ -483,7 +485,20 @@ class NeuralNet(Callback):
         optimizer.step()
         return loss
 
-    def fit_loop(self, X, y, epochs=None):
+    def evaluation_step(self, xi, training_behavior=False):
+        """Perform a forward step to produce the output used for
+        prediction and scoring.
+
+        Therefore the module is set to evaluation mode by default
+        beforehand which can be overridden to re-enable features
+        like dropout by setting `training_behavior=True`.
+
+        """
+        self.module_.train(training_behavior)
+        xi = to_var(xi, use_cuda=self.use_cuda)
+        return self.infer(xi)
+
+    def fit_loop(self, X, y=None, epochs=None):
         """The proper fit loop.
 
         Contains the logic of what actually happens during the fit
@@ -534,7 +549,7 @@ class NeuralNet(Callback):
             self.notify('on_epoch_end', X=X, y=y)
         return self
 
-    def partial_fit(self, X, y, classes=None, **fit_params):
+    def partial_fit(self, X, y=None, classes=None, **fit_params):
         """Fit the module.
 
         The module is not re-initialized, which means that this method
@@ -561,7 +576,7 @@ class NeuralNet(Callback):
         self.notify('on_train_end')
         return self
 
-    def fit(self, X, y, **fit_params):
+    def fit(self, X, y=None, **fit_params):
         """Initialize and fit the module.
 
         Unless `cold_start` is False, the module will be re-initialized.
@@ -603,12 +618,10 @@ class NeuralNet(Callback):
         iterator = self.get_iterator(X, train=training_behavior)
         y_infer = []
         for x, _ in iterator:
-            x = to_var(x, use_cuda=self.use_cuda)
-            y_infer.append(self.infer(x))
+            y_infer.append(self.evaluation_step(x, training_behavior=training_behavior))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
-        x = to_var(x)
         if isinstance(x, dict):
             return self.module_(**x)
         return self.module_(x)

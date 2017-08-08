@@ -185,11 +185,11 @@ class Dataset(torch.utils.data.Dataset):
         xi = multi_indexing(X, i)
         if y is None:
             # pytorch DataLoader cannot deal with None so we use 0 as
-            # a placeholder value. We only return a scalar value here
+            # a placeholder value. We only return a Tensor with one value
             # (as opposed to `batchsz` values) since the pytorch DataLoader
             # calls __getitem__ for each row in the batch anyway, which
             # results in a dummy `y` value for each row in the batch.
-            yi = 0
+            yi = torch.Tensor([0])
         else:
             yi = multi_indexing(y, i)
         return (

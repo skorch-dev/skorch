@@ -1,6 +1,6 @@
 import argparse
 
-import inferno
+import numpy as np
 import torch
 from torch.autograd import Variable
 
@@ -47,20 +47,22 @@ learner = learner.Learner(
 learner.initialize()
 learner.load_params(args.checkpoint)
 
-hidden = None
-input = inferno.utils.to_var(torch.rand(1,1).mul(ntokens).long(),
-                             use_cuda=args.cuda)
+words = [corpus.dictionary.idx2word[n] for n in range(10)]
 
-with open(args.outf, 'w') as outf:
-    for i in range(args.words):
-        word_idx, hidden = learner.sample(input=input,
-                                          temperature=args.temperature,
-                                          hidden=hidden)
-        input = inferno.utils.to_var(torch.LongTensor([[word_idx]]),
-                                     use_cuda=args.cuda)
+print(words)
 
-        word = corpus.dictionary.idx2word[word_idx]
-        outf.write(word + ('\n' if i % 20 == 19 else ' '))
+p = learner.predict_proba(np.array([[
+    corpus.dictionary.word2idx['fish'],
+    corpus.dictionary.word2idx['sees'],
+    corpus.dictionary.word2idx['man'],
+]]))
 
-        if i % args.log_interval == 0:
-            print('| Generated {}/{} words'.format(i, args.words))
+print(p)
+
+widx = learner.predict(np.array([[
+    corpus.dictionary.word2idx['fish'],
+    corpus.dictionary.word2idx['sees'],
+    corpus.dictionary.word2idx['man'],
+]]))
+
+print(widx, [corpus.dictionary.idx2word[n] for n in widx])

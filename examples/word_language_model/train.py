@@ -15,6 +15,8 @@ parser.add_argument('--bptt', type=int, default=35,
                     help='sequence length')
 parser.add_argument('--batch_size', type=int, default=20, metavar='N',
                     help='batch size')
+parser.add_argument('--epochs', type=int, default=10, metavar='N',
+                    help='number of epochs')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--no-cuda', dest='cuda', action='store_false',
@@ -25,6 +27,9 @@ args = parser.parse_args()
 
 # TODO: set seed
 
+corpus = data.Corpus(args.data)
+ntokens = len(corpus.dictionary)
+
 class LRAnnealing(inferno.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         if not net.history[-1]['valid_loss_best']:
@@ -33,29 +38,49 @@ class LRAnnealing(inferno.callbacks.Callback):
 class Checkpointing(inferno.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         if net.history[-1]['valid_loss_best']:
-            with open(args.save, 'wb') as f:
-                torch.save(net.module_, f)
+            net.save_params(args.save)
 
-corpus = data.Corpus(args.data)
-ntokens = len(corpus.dictionary)
+class ExamplePrinter(inferno.callbacks.Callback):
+    def on_epoch_end(self, net, **kwargs):
+        seed_sentence = "the meaning of"
+        indices = [corpus.dictionary.word2idx[n] for n in seed_sentence.split()]
+        indices = inferno.utils.to_var(torch.LongTensor([indices]).t(), use_cuda=args.cuda)
+        sentence, _ = net.sample_n(num_words=10, input=indices)
+        print(seed_sentence,
+              " ".join([corpus.dictionary.idx2word[n] for n in sentence]))
+
+def train_split(X, y):
+    return X, corpus.valid, None, None
 
 learner = Learner(
     module=RNNModel,
-    iterator_train=data.Loader,
-    iterator_test=data.Loader,
+    max_epochs=args.epochs,
     batch_size=args.batch_size,
     use_cuda=args.cuda,
-    callbacks=[LRAnnealing(), Checkpointing()],
+    callbacks=[LRAnnealing(), Checkpointing(), ExamplePrinter()],
     module__rnn_type='LSTM',
     module__ntoken=ntokens,
     module__ninp=200,
     module__nhid=200,
     module__nlayers=2,
+    train_split=train_split,
+    iterator_train=data.Loader,
     iterator_train__use_cuda=args.cuda,
     iterator_train__bptt=args.bptt,
-    iterator_test__evaluation=True,
+    iterator_test=data.Loader,
     iterator_test__use_cuda=args.cuda,
     iterator_test__bptt=args.bptt)
+
+# NOFIXME: iterator_test does not use corpus.valid as dataset
+# REASON: we use GridSearchCV to generate validation splits
+# FIXME: but we need validation data during training (LR annealing)
+
+# FIXME: currently we have iterators for training and validation. Both of those
+# supply (X,y) pairs. We do, however, also use the validation generator in
+# predict (thus in scoring as well). Therefore we always generate `y` values
+# even though we don't need to.
+
+# TODO: easy way to write own score() that accesses the validation data only.
 
 params = [
     {
@@ -64,7 +89,7 @@ params = [
 ]
 
 pl = GridSearchCV(learner, params)
-pl.fit(corpus.train[:1000], corpus.train[:1000])
+pl.fit(corpus.train)
 
 print("Results of grid search:")
 print("Best parameter configuration:", pl.best_params_)
