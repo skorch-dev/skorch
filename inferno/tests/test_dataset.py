@@ -336,9 +336,10 @@ class TestMultiIndexing:
         assert np.allclose(result[2].long().numpy(), np.arange(3, 5))
         assert result[3] == {'a': [4, 5], 'b': [7, 8]}
 
-    @pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
     @pytest.fixture
     def pd(self):
+        if not pandas_installed:
+            pytest.skip()
         import pandas as pd
         return pd
 
