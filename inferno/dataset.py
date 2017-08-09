@@ -87,6 +87,8 @@ def multi_indexing(data, i):
         else:
             raise IndexError("arrays used as indices must be of integer "
                              "(or boolean) type")
+    if isinstance(i, list):
+        i = (i,)
 
     if isinstance(data, dict):
         # dictionary of containers
@@ -97,21 +99,10 @@ def multi_indexing(data, i):
             return [multi_indexing(x, i) for x in data]
         except TypeError:
             pass
-    if torch.is_tensor(data):
-        # torch tensor-like
-        if isinstance(i, tuple):
-            # note: pytorch cannot deal with this kind of indexing; we
-            # just let the error happen, though, since we cannot do
-            # anything useful here.
-            if len(i) == 1:
-                i = i[0]
-        if isinstance(i, list):
-            i = torch.LongTensor(i)
-        return data[i]
     if is_pandas_ndframe(data):
         # pandas NDFrame
         return data.iloc[i]
-    # numpy ndarray, list
+    # torch tensor, numpy ndarray, list
     if isinstance(i, (int, slice)):
         return data[i]
     return safe_indexing(data, i)
