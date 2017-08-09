@@ -1,6 +1,4 @@
 from unittest.mock import Mock
-from unittest.mock import patch
-
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification
