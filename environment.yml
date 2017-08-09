@@ -16,7 +16,7 @@ dependencies:
 - setuptools=27.2.0=py36_0
 - sqlite=3.13.0=0
 - tk=8.5.18=0
-- pytorch=0.1.12=py361_2cu80
+- pytorch=0.2.0=py36h04dd36b_2cu75
 - wheel=0.29.0=py36_0
 - xz=5.2.2=1
 - yaml=0.1.6=0
