@@ -71,9 +71,10 @@ def to_numpy(X):
 
     if X.is_cuda:
         X = X.cpu()
-    try:
+
+    if isinstance(X, Variable):
         data = X.data
-    except AttributeError:
+    else:
         data = X
     return data.numpy()
 

@@ -421,9 +421,9 @@ class TestMultiIndexing:
         X = torch.LongTensor(np.arange(9).reshape(3, 3))
         i = np.eye(3).astype(bool)
 
-        # pytorch cannot deal with it, raises an error
-        with pytest.raises(TypeError):
-            multi_indexing(X, i)
+        res = multi_indexing(X, i)
+        expected = torch.LongTensor([0,4,8])
+        assert all(res == expected)
 
 
 class TestNetWithDict:
