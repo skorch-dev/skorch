@@ -262,11 +262,6 @@ class NeuralNet(Callback):
       tensors will be pushed to cuda tensors before being sent to the
       module.
 
-    history : None or inferno.History instance (default=None)
-      If not None, start from the given history. In general, this
-      parameter should be left at None. Only set it if you want to
-      start with a specific training history.
-
     Attributes
     ----------
     prefixes_ : list of str
@@ -317,7 +312,6 @@ class NeuralNet(Callback):
             callbacks=None,
             cold_start=True,
             use_cuda=False,
-            history=None,
             **kwargs
     ):
         self.module = module
@@ -332,7 +326,9 @@ class NeuralNet(Callback):
         self.callbacks = callbacks
         self.cold_start = cold_start
         self.use_cuda = use_cuda
-        self.history = history
+
+        history = kwargs.pop('history', None)
+        initialized = kwargs.pop('initialized_', False)
 
         for key in kwargs:
             assert not hasattr(self, key)
@@ -340,9 +336,8 @@ class NeuralNet(Callback):
             assert key.endswith('_') or key_has_prefix
         vars(self).update(kwargs)
 
-        # e.g. if object was cloned, don't overwrite this attr
-        if not hasattr(self, 'initialized_'):
-            self.initialized_ = False
+        self.history = history
+        self.initialized_ = initialized
 
     def notify(self, method_name, **cb_kwargs):
         """Call the callback method specified in `method_name` with
@@ -438,12 +433,16 @@ class NeuralNet(Callback):
             self.module_.cuda()
         return self
 
+    def initialize_history(self):
+        """Initializes the history."""
+        self.history = History()
+
     def initialize(self):
         """Initializes all components of the NeuralNet."""
         self.initialize_callbacks()
         self.initialize_criterion()
         self.initialize_module()
-        self.history = self.history if self.history is not None else History()
+        self.initialize_history()
 
         self.initialized_ = True
         return self
@@ -552,9 +551,9 @@ class NeuralNet(Callback):
     def partial_fit(self, X, y=None, classes=None, **fit_params):
         """Fit the module.
 
-        The module is not re-initialized, which means that this method
-        should be used if you want to continue training a model (warm
-        start).
+        If the module is initialized, it is not re-initialized, which
+        means that this method should be used if you want to continue
+        training a model (warm start).
 
         Parameters
         ----------
@@ -568,6 +567,9 @@ class NeuralNet(Callback):
         **fit_params : TODO
 
         """
+        if not self.initialized_:
+            self.initialize()
+
         self.notify('on_train_begin')
         try:
             self.fit_loop(X, y)
@@ -579,7 +581,8 @@ class NeuralNet(Callback):
     def fit(self, X, y=None, **fit_params):
         """Initialize and fit the module.
 
-        Unless `cold_start` is False, the module will be re-initialized.
+        If the module was already initialized, by calling fit, the
+        module will be re-initialized (unless `cold_start` is False).
 
         Parameters
         ----------
@@ -590,7 +593,7 @@ class NeuralNet(Callback):
         **fit_params : TODO
 
         """
-        if self.cold_start or not hasattr(self, 'initialized_'):
+        if self.cold_start or not self.initialized_:
             self.initialize()
 
         self.partial_fit(X, y, **fit_params)
