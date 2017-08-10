@@ -424,6 +424,76 @@ class TestNeuralNet:
         net.initialize()
         net.get_params()
 
+    def test_with_initialized_module(self, net_cls, module_cls, data):
+        X, y = data
+        net = net_cls(module_cls(), max_epochs=1)
+        net.fit(X, y)
+
+    def test_with_initialized_module_other_params(
+            self, net_cls, module_cls, data, capsys):
+        X, y = data
+        net = net_cls(module_cls(), max_epochs=1, module__num_units=123)
+        net.fit(X, y)
+        weight = net.module_.dense0.weight.data
+        assert weight.shape[0] == 123
+
+        stdout = capsys.readouterr()[0]
+        assert stdout.startswith("Re-initializing module!")
+
+    def test_with_initialized_module_non_default(
+            self, net_cls, module_cls, data, capsys):
+        X, y = data
+        net = net_cls(module_cls(num_units=123), max_epochs=1)
+        net.fit(X, y)
+        weight = net.module_.dense0.weight.data
+        assert weight.shape[0] == 123
+
+        stdout = capsys.readouterr()[0]
+        assert not stdout.startswith("Re-initializing module!")
+
+    def test_with_initialized_module_partial_fit(
+            self, net_cls, module_cls, data, capsys):
+        X, y = data
+        module = module_cls(num_units=123)
+        net = net_cls(module, max_epochs=0)
+        net.partial_fit(X, y)
+
+        for p0, p1 in zip(module.parameters(), net.module_.parameters()):
+            assert p0.data.shape == p1.data.shape
+            assert (p0 == p1).data.all()
+
+        stdout = capsys.readouterr()[0]
+        assert not stdout.startswith("Re-initializing module!")
+
+    def test_with_initialized_module_warm_start(
+            self, net_cls, module_cls, data, capsys):
+        X, y = data
+        module = module_cls(num_units=123)
+        net = net_cls(module, max_epochs=0, cold_start=False)
+        net.partial_fit(X, y)
+
+        for p0, p1 in zip(module.parameters(), net.module_.parameters()):
+            assert p0.data.shape == p1.data.shape
+            assert (p0 == p1).data.all()
+
+        stdout = capsys.readouterr()[0]
+        assert not stdout.startswith("Re-initializing module!")
+
+    def test_with_initialized_sequential(
+            self, net_cls, module_cls, data, capsys):
+        X, y = data
+        module = nn.Sequential(
+            nn.Linear(X.shape[1], 10),
+            nn.ReLu(),
+            nn.Linear(10, 2),
+            nn.Softmax(),
+        )
+        net = net_cls(module, max_epochs=1)
+        net.fit(X, y)
+
+        stdout = capsys.readouterr()[0]
+        assert not stdout.startswith("Re-initializing module!")
+
 
 class MyRegressor(nn.Module):
     def __init__(self, num_units=10, nonlin=F.relu):

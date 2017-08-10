@@ -416,11 +416,13 @@ class NeuralNet(Callback):
             callbacks_.append((name, cb))
 
         self.callbacks_ = callbacks_
+        return self
 
     def initialize_criterion(self):
         """Initializes the criterion."""
         criterion_params = self._get_params_for('criterion')
         self.criterion_ = self.criterion(**criterion_params)
+        return self
 
     def initialize_module(self):
         """Initializes the module.
@@ -429,13 +431,23 @@ class NeuralNet(Callback):
         reset.
 
         """
-        if self.initialized_:
-            print("Re-initializing module!")
-
         kwargs = self._get_params_for('module')
-        self.module_ = self.module(**kwargs)
+        module = self.module
+        is_initialized = not isinstance(module, type)
+
+        if kwargs or not is_initialized:
+            if is_initialized:
+                module = type(module)
+
+            if is_initialized or self.initialized_:
+                print("Re-initializing module!")
+
+            module = module(**kwargs)
+
         if self.use_cuda:
-            self.module_.cuda()
+            module.cuda()
+
+        self.module_ = module
         return self
 
     def initialize(self):
