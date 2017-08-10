@@ -425,6 +425,9 @@ class TestNeuralNet:
         net.get_params()
 
     def test_call_fit_twice_retrains(self, net_cls, module_cls, data):
+        # test that after second fit call, even without entering the
+        # fit loop, parameters have changed (because the module was
+        # re-initialized)
         X, y = data[0][:100], data[1][:100]
         net = net_cls(module_cls, cold_start=True).fit(X, y)
         params_before = net.module_.parameters()
