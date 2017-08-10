@@ -424,6 +424,54 @@ class TestNeuralNet:
         net.initialize()
         net.get_params()
 
+    def test_call_fit_twice_retrains(self, net_cls, module_cls, data):
+        # test that after second fit call, even without entering the
+        # fit loop, parameters have changed (because the module was
+        # re-initialized)
+        X, y = data[0][:100], data[1][:100]
+        net = net_cls(module_cls, cold_start=True).fit(X, y)
+        params_before = net.module_.parameters()
+
+        net.max_epochs = 0
+        net.fit(X, y)
+        params_after = net.module_.parameters()
+
+        assert len(net.history) == 0
+        for p0, p1 in zip(params_before, params_after):
+            assert (p0 != p1).data.any()
+
+    def test_call_fit_twice_warmstart(self, net_cls, module_cls, data):
+        X, y = data[0][:100], data[1][:100]
+        net = net_cls(module_cls, cold_start=False).fit(X, y)
+        params_before = net.module_.parameters()
+
+        net.max_epochs = 0
+        net.fit(X, y)
+        params_after = net.module_.parameters()
+
+        assert len(net.history) == 10
+        for p0, p1 in zip(params_before, params_after):
+            assert (p0 == p1).data.all()
+
+    def test_partial_fit_first_call(self, net_cls, module_cls, data):
+        # It should be possible to partial_fit without calling fit first.
+        X, y = data[0][:100], data[1][:100]
+        # does not raise
+        net_cls(module_cls, cold_start=False).partial_fit(X, y)
+
+    def test_call_partial_fit_after_fit(self, net_cls, module_cls, data):
+        X, y = data[0][:100], data[1][:100]
+        net = net_cls(module_cls, cold_start=True).fit(X, y)
+        params_before = net.module_.parameters()
+
+        net.max_epochs = 0
+        net.partial_fit(X, y)
+        params_after = net.module_.parameters()
+
+        assert len(net.history) == 10
+        for p0, p1 in zip(params_before, params_after):
+            assert (p0 == p1).data.all()
+
 
 class MyRegressor(nn.Module):
     def __init__(self, num_units=10, nonlin=F.relu):
