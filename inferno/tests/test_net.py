@@ -484,7 +484,7 @@ class TestNeuralNet:
         X, y = data
         module = nn.Sequential(
             nn.Linear(X.shape[1], 10),
-            nn.ReLu(),
+            nn.ReLU(),
             nn.Linear(10, 2),
             nn.Softmax(),
         )
