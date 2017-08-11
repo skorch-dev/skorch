@@ -1,4 +1,5 @@
 from enum import Enum
+from functools import partial
 
 import numpy as np
 import torch
@@ -42,14 +43,16 @@ def to_tensor(X, use_cuda=False):
       * dict of one of the former
 
     """
+    _to_tensor = partial(to_tensor, use_cuda=use_cuda)
+
     if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
         return X
 
     if isinstance(X, dict):
-        return {key: to_tensor(val) for key, val in X.items()}
+        return {key: _to_tensor(val) for key, val in X.items()}
 
     if isinstance(X, (list, tuple)):
-        return [to_tensor(x) for x in X]
+        return [_to_tensor(x) for x in X]
 
     if isinstance(X, np.ndarray):
         X = torch.from_numpy(X)
