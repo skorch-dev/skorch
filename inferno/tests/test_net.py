@@ -438,7 +438,7 @@ class TestNeuralNet:
         assert weight.shape[0] == 123
 
         stdout = capsys.readouterr()[0]
-        assert stdout.startswith("Re-initializing module!")
+        assert "Re-initializing module!" in stdout
 
     def test_with_initialized_module_non_default(
             self, net_cls, module_cls, data, capsys):
@@ -449,7 +449,7 @@ class TestNeuralNet:
         assert weight.shape[0] == 123
 
         stdout = capsys.readouterr()[0]
-        assert not stdout.startswith("Re-initializing module!")
+        assert "Re-initializing module!" not in stdout
 
     def test_with_initialized_module_partial_fit(
             self, net_cls, module_cls, data, capsys):
@@ -463,7 +463,7 @@ class TestNeuralNet:
             assert (p0 == p1).data.all()
 
         stdout = capsys.readouterr()[0]
-        assert not stdout.startswith("Re-initializing module!")
+        assert "Re-initializing module!" not in stdout
 
     def test_with_initialized_module_warm_start(
             self, net_cls, module_cls, data, capsys):
@@ -477,7 +477,7 @@ class TestNeuralNet:
             assert (p0 == p1).data.all()
 
         stdout = capsys.readouterr()[0]
-        assert not stdout.startswith("Re-initializing module!")
+        assert "Re-initializing module!" not in stdout
 
     def test_with_initialized_sequential(
             self, net_cls, module_cls, data, capsys):
@@ -492,7 +492,7 @@ class TestNeuralNet:
         net.fit(X, y)
 
         stdout = capsys.readouterr()[0]
-        assert not stdout.startswith("Re-initializing module!")
+        assert "Re-initializing module!" not in stdout
 
     def test_call_fit_twice_retrains(self, net_cls, module_cls, data):
         # test that after second fit call, even without entering the
