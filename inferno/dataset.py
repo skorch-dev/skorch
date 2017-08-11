@@ -267,39 +267,6 @@ class CVSplit(object):
     def _is_regular(self, x):
         return (x is None) or isinstance(x, np.ndarray) or is_pandas_ndframe(x)
 
-    def regular_cv(self, X, y, cv):
-        """Use the normal `.split` interface for data types are
-        supported by sklearn.
-
-        """
-        args = (X, y) if self.stratified else (X,)
-        idx_train, idx_valid = next(iter(cv.split(*args)))
-
-        X_train = safe_indexing(X, idx_train)
-        X_valid = safe_indexing(X, idx_valid)
-        y_train = None if y is None else safe_indexing(y, idx_train)
-        y_valid = None if y is None else safe_indexing(y, idx_valid)
-        return X_train, X_valid, y_train, y_valid
-
-    def special_cv(self, X, y, cv):
-        """For data types not directly supported by sklearn, use
-        custom split function.
-
-        """
-        dataset = Dataset(X, y)
-        num_samples = len(dataset)
-        args = (np.arange(num_samples),)
-
-        if self._is_stratified(cv):
-            args = args + (to_numpy(y),)
-        idx_train, idx_valid = next(iter(cv.split(*args)))
-
-        X_train, y_train = dataset[idx_train]
-        X_valid, y_valid = dataset[idx_valid]
-        y_train = None if y is None else y_train
-        y_valid = None if y is None else y_valid
-        return X_train, X_valid, y_train, y_valid
-
     def __call__(self, X, y):
         bad_y_error = ValueError("Stratified CV not possible with given y.")
         if (y is None) and self.stratified:
@@ -309,12 +276,23 @@ class CVSplit(object):
         if self.stratified and not self._is_stratified(cv):
             raise bad_y_error
 
-        if self._is_regular(X) and self._is_regular(y):
-            # regular sklearn case
-            return self.regular_cv(X, y, cv)
-        else:
-            # sklearn cannot properly split
-            return self.special_cv(X, y, cv)
+        len_X = get_len(X)
+        if y is not None:
+            len_y = get_len(y)
+            if len_X != len_y:
+                raise ValueError("Cannot perform a CV split if X and y "
+                                 "have different lengths.")
+
+        args = (np.arange(len_X),)
+        if self._is_stratified(cv):
+            args = args + (to_numpy(y),)
+
+        idx_train, idx_valid = next(iter(cv.split(*args)))
+        X_train = multi_indexing(X, idx_train)
+        X_valid = multi_indexing(X, idx_valid)
+        y_train = None if y is None else multi_indexing(y, idx_train)
+        y_valid = None if y is None else multi_indexing(y, idx_valid)
+        return X_train, X_valid, y_train, y_valid
 
     def __repr__(self):
         # TODO
