@@ -529,7 +529,7 @@ class NeuralNet(Callback):
 
         """
         self.check_data(X, y)
-        epochs = epochs or self.max_epochs
+        epochs = epochs if epochs is not None else self.max_epochs
         optimizer = self.get_optimizer()
         if self.train_split:
             X_train, X_valid, y_train, y_valid = self.train_split(X, y)
