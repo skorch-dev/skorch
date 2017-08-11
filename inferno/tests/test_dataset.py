@@ -556,6 +556,46 @@ class TestNetWithPandas:
         assert np.allclose(y_proba.sum(1), 1)
 
 
+class TestDataset:
+    """Note: we don't need to test multi_indexing here, since that is
+    already covered.
+
+    """
+    @pytest.fixture
+    def dataset_cls(self):
+        from inferno.dataset import Dataset
+        return Dataset
+
+    def test_len_correct(self, dataset_cls):
+        pass
+
+    def test_user_defined_len(self, dataset_cls):
+        pass
+
+    def test_inconsistent_lengths_raises(self, dataset_cls):
+        pass
+
+    def test_with_numpy_array(self, dataset_cls):
+        pass
+
+    def test_with_torch_tensor(self, dataset_cls):
+        pass
+
+    @pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
+    def test_with_pandas_df(self, dataset_cls):
+        pass
+
+    @pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
+    def test_with_pandas_series(self, dataset_cls):
+        pass
+
+    def test_with_dict(self, dataset_cls):
+        pass
+
+    def test_with_list_of_numpy_arrays(self, dataset_cls):
+        pass
+
+
 class TestTrainSplitIsUsed:
     @pytest.fixture
     def iterator(self):
