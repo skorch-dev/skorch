@@ -367,7 +367,7 @@ class TestNeuralNet:
 
     def test_change_get_loss(self, net_cls, module_cls, data):
         class MyNet(net_cls):
-            def get_loss(self, y_pred, y_true, train=False):
+            def get_loss(self, y_pred, y_true, X=None, train=False):
                 loss_a = torch.abs(y_true.float() - y_pred[:, 1]).mean()
                 loss_b = ((y_true.float() - y_pred[:, 1]) ** 2).mean()
                 if train:
