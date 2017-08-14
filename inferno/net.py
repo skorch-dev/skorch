@@ -475,7 +475,7 @@ class NeuralNet(Callback):
         yi = to_var(yi, use_cuda=self.use_cuda)
 
         y_pred = self.infer(xi)
-        return self.get_loss(y_pred, yi, train=False)
+        return self.get_loss(y_pred, yi, X=xi, train=False)
 
     def train_step(self, xi, yi, optimizer):
         """Perform a forward step using batched data, update module
@@ -491,7 +491,7 @@ class NeuralNet(Callback):
 
         optimizer.zero_grad()
         y_pred = self.infer(xi)
-        loss = self.get_loss(y_pred, yi, train=True)
+        loss = self.get_loss(y_pred, yi, X=xi, train=True)
         loss.backward()
         optimizer.step()
         return loss
@@ -683,7 +683,7 @@ class NeuralNet(Callback):
             kwargs['lr'] = self.lr
         return self.optim(self.module_.parameters(), **kwargs)
 
-    def get_loss(self, y_pred, y_true, train=False):
+    def get_loss(self, y_pred, y_true, X=None, train=False):
         """Return the loss for this batch.
 
         Parameters
@@ -693,6 +693,12 @@ class NeuralNet(Callback):
 
         y_true : torch tensor
           True target values.
+
+        X : TODO
+          Input data used to generate the prediction.
+
+        train : bool (default=False)
+          Whether train mode should be used or not.
 
         """
         return self.criterion_(y_pred, y_true)
@@ -887,7 +893,7 @@ class NeuralNetClassifier(NeuralNet):
                              "`iterator_train` and `iterator_valid` "
                              "parameters respectively.")
 
-    def get_loss(self, y_pred, y, train=False):
+    def get_loss(self, y_pred, y, X=None, train=False):
         y_pred_log = torch.log(y_pred)
         return self.criterion_(y_pred_log, y)
 
