@@ -239,6 +239,19 @@ class NeuralNet(Callback):
     iterator_test : torch DataLoader
       TODO: Will probably change.
 
+    dataset : torch Dataset (default=inferno.dataset.Dataset)
+      The dataset is necessary for the incoming data to work with
+      pytorch's `DataLoader`. It has to implement the `__len__` and
+      `__getitem__` methods. The provided dataset should be capable of
+      dealing with a lot of data types out of the box, so only change
+      this if your data is not supported.
+
+    train_split : None, function or callable (default=inferno.dataset.CVSplit(0.2))
+      If None, there is no train/validation split. Else, train_split
+      should be a function or callable that is called with X and y
+      data and should return the tuple `X_train, X_valid, y_train,
+      y_valid`. The validation data may be None.
+
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those specified in
       `default_callbacks`. Each callback should inherit from
@@ -308,6 +321,7 @@ class NeuralNet(Callback):
             batch_size=128,
             iterator_train=DataLoader,
             iterator_test=DataLoader,
+            dataset=Dataset,
             train_split=CVSplit(0.2),
             callbacks=None,
             cold_start=True,
@@ -322,6 +336,7 @@ class NeuralNet(Callback):
         self.batch_size = batch_size
         self.iterator_train = iterator_train
         self.iterator_test = iterator_test
+        self.dataset = dataset
         self.train_split = train_split
         self.callbacks = callbacks
         self.cold_start = cold_start
@@ -727,7 +742,7 @@ class NeuralNet(Callback):
           mini-batches.
 
         """
-        dataset = Dataset(X, y, use_cuda=self.use_cuda)
+        dataset = self.dataset(X, y, use_cuda=self.use_cuda)
 
         if train:
             kwargs = self._get_params_for('iterator_train')
