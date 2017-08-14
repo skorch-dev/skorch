@@ -168,6 +168,18 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return self._len
 
+    def transform(self, X, y):
+        """Additional transformations on X and y.
+
+        By default, they are cast to torch tensors. Override this if
+        you want a different behavior.
+
+        """
+        return (
+            to_tensor(X, use_cuda=self.use_cuda),
+            to_tensor(y, use_cuda=self.use_cuda),
+        )
+
     def __getitem__(self, i):
         X, y = self.X, self.y
         if is_pandas_ndframe(X):
@@ -183,10 +195,7 @@ class Dataset(torch.utils.data.Dataset):
             yi = torch.Tensor([0])
         else:
             yi = multi_indexing(y, i)
-        return (
-            to_tensor(xi, use_cuda=self.use_cuda),
-            to_tensor(yi, use_cuda=self.use_cuda),
-        )
+        return self.transform(xi, yi)
 
 
 class CVSplit(object):
