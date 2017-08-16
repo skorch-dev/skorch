@@ -45,6 +45,7 @@ def get_history(*callbacks, history_cls=history_cls, with_valid=True):
 
         h.record('epoch', epoch)
         h.record('text', text)
+        h.record('dur', 0.123)
         for cb in callbacks:
             cb.on_epoch_end(net)
 

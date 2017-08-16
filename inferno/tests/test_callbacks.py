@@ -399,16 +399,9 @@ class TestScoring:
 class TestPrintLog:
     @pytest.fixture
     def print_log_cls(self):
-        default_keys = ['epoch', 'train_loss', 'train_loss_best', 'valid_loss',
-                        'valid_loss_best']
-        with patch(
-                'inferno.callbacks.PrintLog.default_keys',
-                new_callable=PropertyMock,
-        ) as dk:
-            dk.return_value = default_keys
-
-            from inferno.callbacks import PrintLog
-            yield partial(PrintLog, sink=Mock())
+        from inferno.callbacks import PrintLog
+        keys_ignored = ['batches', 'dur', 'text']
+        return partial(PrintLog, sink=Mock(), keys_ignored=keys_ignored)
 
     @pytest.fixture
     def print_log(self, print_log_cls):
@@ -501,62 +494,24 @@ class TestPrintLog:
             assert tab.call_args_list[0][1]['tablefmt'] == 'latex'
             assert tab.call_args_list[0][1]['floatfmt'] == '.9f'
 
-    def test_with_additional_key(self, history, print_log_cls):
-        key = 'text'
-        print_log = print_log_cls(keys=key).initialize()
+    def test_with_additional_key(self, history):
+        from inferno.callbacks import PrintLog
+
+        keys_ignored = ['batches']  # 'text' and 'dur' no longer ignored
+        print_log = PrintLog(
+            sink=Mock(), keys_ignored=keys_ignored).initialize()
         # does not raise
         print_log.on_epoch_end(Mock(history=history))
 
-    def test_with_1_missing_key(self, history, print_log_cls):
-        print_log = print_log_cls(keys=['missing-key']).initialize()
-        with pytest.raises(KeyError) as exc:
-            print_log.on_epoch_end(Mock(history=history))
+        header = print_log.sink.call_args_list[0][0][0]
+        columns = header.split()
+        expected = ['epoch', 'text', 'train_loss', 'valid_loss', 'dur']
+        assert columns == expected
 
-        expected = ("Key 'missing-key' could not be found in history; "
-                    "maybe there was a typo? To make this key optional, "
-                    "add it to the 'keys_optional' parameter.")
-        assert exc.value.args[0] == expected
-
-    def test_with_2_missing_keys(self, history, print_log_cls):
-        keys = 'missing-key0', 'missing-key1'
-        print_log = print_log_cls(keys=keys).initialize()
-        with pytest.raises(KeyError) as exc:
-            print_log.on_epoch_end(Mock(history=history))
-
-        expected = ("Key 'missing-key0' could not be found in history; "
-                    "maybe there was a typo? To make this key optional, "
-                    "add it to the 'keys_optional' parameter.")
-        assert exc.value.args[0] == expected
-
-    def test_missing_key_optional(self, history, print_log_cls):
-        key = 'missing'
-        print_log = print_log_cls(
-            keys=[key], keys_optional=[key]).initialize()
-
-        # does not raise
-        print_log.on_epoch_end(Mock(history=history))
-
-    def test_missing_key_optional_as_str(self, history, print_log_cls):
-        key = 'missing'
-        print_log = print_log_cls(
-            keys=[key], keys_optional=key).initialize()
-
-        # does not raise
-        print_log.on_epoch_end(Mock(history=history))
-
-    def test_1_duplicate_key(self, print_log_cls):
-        with pytest.raises(ValueError) as exc:
-            print_log_cls(keys=['train_loss'])
-
-        expected = "PrintLog found duplicate keys: train_loss"
-        assert exc.value.args[0] == expected
-
-    def test_2_duplicate_keys(self, print_log_cls):
-        with pytest.raises(ValueError) as exc:
-            print_log_cls(keys=['train_loss', 'valid_loss'])
-
-        expected = "PrintLog found duplicate keys: train_loss, valid_loss"
-        assert exc.value.args[0] == expected
+    def test_keys_ignored_as_str(self, history, print_log_cls):
+        from inferno.callbacks import PrintLog
+        print_log = PrintLog(keys_ignored='a-key')
+        assert print_log.keys_ignored == ['a-key']
 
     def test_no_valid(self, avg_loss, best_loss, print_log, ansi):
         get_history(avg_loss, best_loss, print_log, with_valid=False)
@@ -569,21 +524,3 @@ class TestPrintLog:
         assert items[0] == '1'
         # color 1 used for item 1
         assert items[1] == list(ansi)[1].value + '0.2500' + ansi.ENDC.value
-
-    def test_with_custom_key(self, avg_loss, best_loss, print_log_cls):
-        print_log = print_log_cls(keys=['text']).initialize()
-        get_history(avg_loss, best_loss, print_log)
-
-        row = print_log.sink.call_args_list[0][0][0]
-        columns = row.split()
-        expected = ['epoch', 'train_loss', 'valid_loss', 'text']
-        assert columns == expected
-
-    def test_with_str_key(self, avg_loss, best_loss, print_log_cls):
-        print_log = print_log_cls(keys='text').initialize()
-        get_history(avg_loss, best_loss, print_log)
-
-        row = print_log.sink.call_args_list[0][0][0]
-        columns = row.split()
-        expected = ['epoch', 'train_loss', 'valid_loss', 'text']
-        assert columns == expected

@@ -358,7 +358,7 @@ class PrintLog(Callback):
     To determine the best loss, `PrintLog` looks for keys that end on
     `'_best'` and associates them with the corresponding loss. E.g.,
     `'train_loss_best'` will be matched with `'train_loss'`. The
-    `BestLoss` callback takes care of creating those entries, which is
+    `Scoring` callback takes care of creating those entries, which is
     why `PrintLog` works best in conjunction with that callback.
 
     *Note*: `PrintLog` will not result in good outputs if the number
@@ -367,18 +367,9 @@ class PrintLog(Callback):
 
     Parameters
     ----------
-    keys : list of str
-      The columns from history that should be printed. Keys that end
-      on `'_best'` are used to determine the best corresponding loss
-      (see above).
-
-    keys_optional: list of str or None (default=None)
-      If not None, this should be a list of keys whose presence is
-      optional. By default, keys indicated in `key` must be in the
-      history, but sometimes we want optional keys. E.g., if keys
-      refer to validation data, but validation data is not always
-      present, those keys should be optional. When a key that is not
-      optional is missing, an exception will be raised.
+    keys_ignored : str or list of str (default='batches')
+      Key or list of keys that should not be part of the printed
+      table. Note that keys ending on '_best' are also ignored.
 
     sink : callable (default=print)
       The target that the output string is sent to. By default, the
@@ -402,54 +393,28 @@ class PrintLog(Callback):
       ("dur"). It will also highlight the best train and valid
       loss. If any of the mentioned keys is not found, it is ignored.
 
-    """
+      """
 
     default_keys = ['epoch', 'train_loss', 'valid_loss', 'train_loss_best',
                     'valid_loss_best', 'dur']
 
     def __init__(
             self,
-            keys=None,
-            keys_optional=None,
+            keys_ignored='batches',
             sink=print,
             tablefmt='simple',
             floatfmt='.4f',
     ):
-        if keys is None:
-            self.keys = []
-        else:
-            self.keys = [keys] if isinstance(keys, str) else keys
-
-        if keys_optional is None:
-            self.keys_optional = []
-        elif isinstance(keys_optional, str):
-            self.keys_optional = [keys_optional]
-        else:
-            self.keys_optional = keys_optional
-
+        if isinstance(keys_ignored, str):
+            keys_ignored = [keys_ignored]
+        self.keys_ignored = keys_ignored
         self.sink = sink
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
 
-        self._check_keys_duplicated()
-
-    def _is_optional(self, key):
-        return (key in self.keys_optional) or (key in self.default_keys)
-
-    def _check_keys_duplicated(self):
-        duplicates = duplicate_items(self.default_keys, self.keys)
-        if duplicates:
-            raise ValueError("PrintLog found duplicate keys: {}"
-                             "".format(', '.join(sorted(duplicates))))
-
     def initialize(self):
         self.first_iteration_ = True
         return self
-
-    def _check_keys_missing(self, history):
-        check_keys = [key for key in self.keys if not self._is_optional(key)]
-        sl = np.s_[-1, check_keys]
-        check_history_slice(history, sl)
 
     def format_row(self, row, key, color):
         value = row[key]
@@ -466,19 +431,37 @@ class PrintLog(Callback):
             template = color + template + Ansi.ENDC.value
         return template.format(value)
 
+    def _sorted_keys(self, keys):
+        """Sort keys alphabetically, but put 'epoch' first and 'dur'
+        last.
+
+        Ignore keys that are in `self.ignored_keys` or that end on
+        '_best'.
+
+        """
+        sorted_keys = []
+        if ('epoch' in keys) and ('epoch' not in self.keys_ignored):
+            sorted_keys.append('epoch')
+
+        for key in sorted(keys):
+            if not (
+                    (key in ('epoch', 'dur')) or
+                    (key in self.keys_ignored) or
+                    key.endswith('_best')
+            ):
+                sorted_keys.append(key)
+
+        if ('dur' in keys) and ('dur' not in self.keys_ignored):
+            sorted_keys.append('dur')
+        return sorted_keys
+
     def _yield_keys_formatted(self, row):
         colors = cycle([color.value for color in Ansi if color != color.ENDC])
         color = next(colors)
-        for key in chain(self.default_keys, self.keys):
-            if key.endswith('_best'):
-                continue
-            try:
-                formatted = self.format_row(row, key, color=color)
-                yield key, formatted
-                color = next(colors)
-            except KeyError:
-                if not self._is_optional(key):
-                    raise
+        for key in self._sorted_keys(row.keys()):
+            formatted = self.format_row(row, key, color=color)
+            yield key, formatted
+            color = next(colors)
 
     def table(self, row):
         headers = []
@@ -495,8 +478,6 @@ class PrintLog(Callback):
         )
 
     def on_epoch_end(self, net, *args, **kwargs):
-        self._check_keys_missing(net.history)
-
         data = net.history[-1]
         tabulated = self.table(data)
 
