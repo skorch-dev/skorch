@@ -244,7 +244,9 @@ class NeuralNet(Callback):
       pytorch's `DataLoader`. It has to implement the `__len__` and
       `__getitem__` methods. The provided dataset should be capable of
       dealing with a lot of data types out of the box, so only change
-      this if your data is not supported.
+      this if your data is not supported. Additionally, dataset should
+      accept a `use_cuda` parameter to indicate whether cuda should be
+      used.
 
     train_split : None, function or callable (default=inferno.dataset.CVSplit(0.2))
       If None, there is no train/validation split. Else, train_split
@@ -548,17 +550,21 @@ class NeuralNet(Callback):
 
         """
         self.check_data(X, y)
+        use_cuda = self.use_cuda
         epochs = epochs if epochs is not None else self.max_epochs
 
         if self.train_split:
             X_train, X_valid, y_train, y_valid = self.train_split(X, y)
+            dataset_valid = self.dataset(X_valid, y_valid, use_cuda=use_cuda)
         else:
             X_train, X_valid, y_train, y_valid = X, None, y, None
+            dataset_valid = None
+        dataset_train = self.dataset(X_train, y_train, use_cuda=use_cuda)
 
         for epoch in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
-            for xi, yi in self.get_iterator(X_train, y_train, train=True):
+            for xi, yi in self.get_iterator(dataset_train, train=True):
                 self.notify('on_batch_begin', X=xi, y=yi, train=True)
                 loss = self.train_step(xi, yi, self.optim_)
                 self.history.record_batch('train_loss', loss.data[0])
@@ -569,7 +575,7 @@ class NeuralNet(Callback):
                 self.notify('on_epoch_end', X=X, y=y)
                 continue
 
-            for xi, yi in self.get_iterator(X_valid, y_valid, train=False):
+            for xi, yi in self.get_iterator(dataset_valid, train=False):
                 self.notify('on_batch_begin', X=xi, y=yi, train=False)
                 loss = self.validation_step(xi, yi)
                 self.history.record_batch('valid_loss', loss.data[0])
@@ -649,10 +655,12 @@ class NeuralNet(Callback):
         """
         self.module_.train(training_behavior)
 
-        iterator = self.get_iterator(X, train=training_behavior)
+        dataset = self.dataset(X, use_cuda=self.use_cuda)
+        iterator = self.get_iterator(dataset, train=training_behavior)
         y_infer = []
-        for x, _ in iterator:
-            y_infer.append(self.evaluation_step(x, training_behavior=training_behavior))
+        for xi, _ in iterator:
+            y_infer.append(
+                self.evaluation_step(xi, training_behavior=training_behavior))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
@@ -714,7 +722,7 @@ class NeuralNet(Callback):
         y_true = to_var(y_true, use_cuda=self.use_cuda)
         return self.criterion_(y_pred, y_true)
 
-    def get_iterator(self, X, y=None, train=False):
+    def get_iterator(self, dataset, train=False):
         """Get an iterator that allows to loop over the batches of the
         given data.
 
@@ -724,9 +732,9 @@ class NeuralNet(Callback):
 
         Parameters
         ----------
-        X : TODO
-
-        y : TODO
+        dataset : torch Dataset (default=inferno.dataset.Dataset)
+          Usually, `self.dataset`, initialized with the corresponding
+          data, is passed to `get_iterator`.
 
         train : bool (default=False)
           Whether to use `iterator_train` or `iterator_test`.
@@ -738,8 +746,6 @@ class NeuralNet(Callback):
           mini-batches.
 
         """
-        dataset = self.dataset(X, y, use_cuda=self.use_cuda)
-
         if train:
             kwargs = self._get_params_for('iterator_train')
             iterator = self.iterator_train

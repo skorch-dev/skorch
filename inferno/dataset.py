@@ -174,6 +174,10 @@ class Dataset(torch.utils.data.Dataset):
         By default, they are cast to torch tensors. Override this if
         you want a different behavior.
 
+        Note: If you use this in conjuction with pytorch's DataLoader,
+        the latter will call the dataset for each row separately,
+        which means that the incoming X and y each are single rows.
+
         """
         # pytorch DataLoader cannot deal with None so we use 0 as a
         # placeholder value. We only return a Tensor with one value
