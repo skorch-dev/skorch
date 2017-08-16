@@ -486,9 +486,6 @@ class NeuralNet(Callback):
 
         """
         self.module_.eval()
-        xi = to_var(xi, use_cuda=self.use_cuda)
-        yi = to_var(yi, use_cuda=self.use_cuda)
-
         y_pred = self.infer(xi)
         return self.get_loss(y_pred, yi, X=xi, train=False)
 
@@ -501,9 +498,6 @@ class NeuralNet(Callback):
 
         """
         self.module_.train()
-        xi = to_var(xi, use_cuda=self.use_cuda)
-        yi = to_var(yi, use_cuda=self.use_cuda)
-
         optimizer.zero_grad()
         y_pred = self.infer(xi)
         loss = self.get_loss(y_pred, yi, X=xi, train=True)
@@ -521,7 +515,6 @@ class NeuralNet(Callback):
 
         """
         self.module_.train(training_behavior)
-        xi = to_var(xi, use_cuda=self.use_cuda)
         return self.infer(xi)
 
     def fit_loop(self, X, y=None, epochs=None):
@@ -652,6 +645,7 @@ class NeuralNet(Callback):
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
+        x = to_var(x, use_cuda=self.use_cuda)
         if isinstance(x, dict):
             return self.module_(**x)
         return self.module_(x)
@@ -716,6 +710,7 @@ class NeuralNet(Callback):
           Whether train mode should be used or not.
 
         """
+        y_true = to_var(y_true, use_cuda=self.use_cuda)
         return self.criterion_(y_pred, y_true)
 
     def get_iterator(self, X, y=None, train=False):
@@ -909,6 +904,7 @@ class NeuralNetClassifier(NeuralNet):
                              "parameters respectively.")
 
     def get_loss(self, y_pred, y, X=None, train=False):
+        y = to_var(y)
         y_pred_log = torch.log(y_pred)
         return self.criterion_(y_pred_log, y)
 

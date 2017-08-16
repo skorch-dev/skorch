@@ -175,6 +175,14 @@ class Dataset(torch.utils.data.Dataset):
         you want a different behavior.
 
         """
+        # pytorch DataLoader cannot deal with None so we use 0 as a
+        # placeholder value. We only return a Tensor with one value
+        # (as opposed to `batchsz` values) since the pytorch
+        # DataLoader calls __getitem__ for each row in the batch
+        # anyway, which results in a dummy `y` value for each row in
+        # the batch.
+        y = torch.Tensor([0]) if y is None else y
+
         return (
             to_tensor(X, use_cuda=self.use_cuda),
             to_tensor(y, use_cuda=self.use_cuda),
@@ -186,15 +194,7 @@ class Dataset(torch.utils.data.Dataset):
             X = {k: X[k].values.reshape(-1, 1) for k in X}
 
         xi = multi_indexing(X, i)
-        if y is None:
-            # pytorch DataLoader cannot deal with None so we use 0 as
-            # a placeholder value. We only return a Tensor with one value
-            # (as opposed to `batchsz` values) since the pytorch DataLoader
-            # calls __getitem__ for each row in the batch anyway, which
-            # results in a dummy `y` value for each row in the batch.
-            yi = torch.Tensor([0])
-        else:
-            yi = multi_indexing(y, i)
+        yi = y if y is None else multi_indexing(y, i)
         return self.transform(xi, yi)
 
 
