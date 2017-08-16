@@ -490,3 +490,107 @@ class PrintLog(Callback):
         self.sink(tabulated.rsplit('\n', 1)[-1])
         if self.sink is print:
             sys.stdout.flush()
+
+
+class WholesomeScoring(Callback):
+    """Callback that performs generic scoring on predictions.
+
+    Parameters
+    ----------
+    name : str (default='myscore')
+      The name of the score. Determines the column name in the
+      history.
+
+    scoring : None, str, or callable (default=None)
+      If None, use the `score` method of the model. If str, it should
+      be a valid sklearn metric (e.g. "f1_score", "accuracy_score"). If
+      a callable, it should have the signature (model, X, y), and it
+      should return a scalar. This works analogously to the `scoring`
+      parameter in sklearn's `GridSearchCV` et al.
+
+    lower_is_better : bool (default=True)
+      TODO
+
+    on_train : bool (default=False)
+      Whether this should be called during train or validation.
+
+    target_extractor : callable (default=to_numpy)
+      This is called on y before it is passed to scoring.
+
+    pred_extractor : callable (default=to_numpy)
+      This is called on y_pred before it is passed to scoring.
+
+    """
+    _op_dict = {True: operator.lt, False: operator.gt}
+
+    def __init__(
+            self,
+            name='myscore',
+            scoring=None,
+            lower_is_better=True,
+            on_train=False,
+            target_extractor=to_numpy,
+            pred_extractor=to_numpy,
+    ):
+        self.name = name
+        self.scoring = scoring
+        self.lower_is_better = lower_is_better
+        self.target_extractor = target_extractor
+        self.pred_extractor = pred_extractor
+        self.on_train = on_train
+
+    def initialize(self):
+        self.best_loss_ = np.inf if self.lower_is_better else -np.inf
+        return self
+
+    def on_batch_end(self, net, X, y, train):
+        if train != self.on_train:
+            return
+
+        y = self.target_extractor(y)
+        if self.scoring is None:
+            score = net.score(X, y)
+        elif isinstance(self.scoring, str):  # TODO: make py2.7 compatible
+            # scoring is a string
+            try:
+                scorer = getattr(metrics, self.scoring)
+            except AttributeError:
+                raise NameError("Metric with name '{}' does not exist, "
+                                "use a valid sklearn metric name."
+                                "".format(self.scoring))
+            y_pred = self.pred_extractor(net.infer(to_var(X)))
+            score = scorer(y, y_pred)
+        else:
+            # scoring is a function
+            score = self.scoring(net, X, y)
+
+        net.history.record_batch(self.name, score)
+
+    def get_avg_loss(self, history):
+        if self.on_train:
+            bs_key = 'train_batch_size'
+        else:
+            bs_key = 'valid_batch_size'
+        weights = history[-1, 'batches', :, bs_key]
+        losses = history[-1, 'batches', :, self.name]
+        loss_avg = np.average(losses, weights=weights)
+        return loss_avg
+
+    def is_best_loss(self, loss):
+        op = self._op_dict[self.lower_is_better]
+        return op(loss, self.best_loss_)
+
+    def on_epoch_end(self, net, **kwargs):
+        history = net.history
+        try:
+            history[-1, 'batches', :, self.name]
+        except KeyError:
+            return
+
+        loss_avg = self.get_avg_loss(history)
+        is_best = self.is_best_loss(loss_avg)
+        if is_best:
+            self.best_loss_ = loss_avg
+
+        history.record(self.name, loss_avg)
+        history.record(self.name + '_best', is_best)

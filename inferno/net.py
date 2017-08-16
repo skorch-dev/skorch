@@ -12,7 +12,7 @@ from inferno.callbacks import BestLoss
 from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
-from inferno.callbacks import Scoring
+from inferno.callbacks import WholesomeScoring as Scoring
 from inferno.dataset import Dataset
 from inferno.dataset import CVSplit
 from inferno.exceptions import NotInitializedError
@@ -870,23 +870,16 @@ class NeuralNetClassifier(NeuralNet):
 
     default_callbacks = [
         ('epoch_timer', EpochTimer()),
-        ('average_loss', AverageLoss(
-            key_sizes={'valid_acc': 'valid_batch_size'},
-            keys_optional=['valid_acc', 'valid_batch_size'],
-        )),
-        ('accuracy', Scoring(
+        ('valid_acc', Scoring(
             name='valid_acc',
             scoring='accuracy_score',
+            lower_is_better=False,
+            on_train=False,
             pred_extractor=accuracy_pred_extractor,
         )),
-        ('best_loss', BestLoss(
-            key_signs={'valid_acc': 1},
-            keys_optional=['valid_acc'],
-        )),
-        ('print_log', PrintLog(
-            keys=['valid_acc', 'valid_acc_best'],
-            keys_optional=['valid_acc', 'valid_acc_best'],
-        )),
+        ('average_loss', AverageLoss()),
+        ('best_loss', BestLoss()),
+        ('print_log', PrintLog()),
     ]
 
     def __init__(
