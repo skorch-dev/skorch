@@ -460,6 +460,16 @@ class NeuralNet(Callback):
         self.module_ = module
         return self
 
+    def initialize_optimizer(self):
+        """Initialize the model optimizer. If `self.optim__lr` is
+        not set, use `self.lr` instead.
+
+        """
+        kwargs = self._get_params_for('optim')
+        if 'lr' not in kwargs:
+            kwargs['lr'] = self.lr
+        self.optim_ = self.optim(self.module_.parameters(), **kwargs)
+
     def initialize_history(self):
         """Initializes the history."""
         self.history = History()
@@ -469,6 +479,7 @@ class NeuralNet(Callback):
         self.initialize_callbacks()
         self.initialize_criterion()
         self.initialize_module()
+        self.initialize_optimizer()
         self.initialize_history()
 
         self.initialized_ = True
@@ -538,7 +549,7 @@ class NeuralNet(Callback):
         """
         self.check_data(X, y)
         epochs = epochs if epochs is not None else self.max_epochs
-        optimizer = self.get_optimizer()
+
         if self.train_split:
             X_train, X_valid, y_train, y_valid = self.train_split(X, y)
         else:
@@ -549,7 +560,7 @@ class NeuralNet(Callback):
 
             for xi, yi in self.get_iterator(X_train, y_train, train=True):
                 self.notify('on_batch_begin', X=xi, y=yi, train=True)
-                loss = self.train_step(xi, yi, optimizer)
+                loss = self.train_step(xi, yi, self.optim_)
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(xi))
                 self.notify('on_batch_end', X=xi, y=yi, train=True)
@@ -682,16 +693,6 @@ class NeuralNet(Callback):
         self.module_.train(False)
         return self.predict_proba(X).argmax(1)
 
-    def get_optimizer(self):
-        """Get the initialized model optimizer. If `self.optim__lr` is
-        not set, use `self.lr` instead.
-
-        """
-        kwargs = self._get_params_for('optim')
-        if 'lr' not in kwargs:
-            kwargs['lr'] = self.lr
-        return self.optim(self.module_.parameters(), **kwargs)
-
     def get_loss(self, y_pred, y_true, X=None, train=False):
         """Return the loss for this batch.
 
@@ -783,6 +784,9 @@ class NeuralNet(Callback):
             self.initialize_callbacks()
         if any(key.startswith('module') for key in special_params):
             self.initialize_module()
+            self.initialize_optimizer()
+        if any(key.startswith('optimizer') for key in special_params):
+            self.initialize_optimizer()
 
         return self
 

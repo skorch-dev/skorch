@@ -262,6 +262,29 @@ class TestNeuralNet:
         assert net.module_.nonlin is F.tanh
         assert np.isclose(net.lr, 0.2)
 
+    def test_changing_model_reinitializes_optimizer(self, net, data):
+        # The idea is that we change the model using `set_params` to
+        # add parameters. Since the optimizer depends on the model
+        # parameters it needs to be reinitialized.
+        X, y = data
+
+        net.set_params(module__nonlin=F.relu)
+        net.fit(X, y)
+
+        net.set_params(module__nonlin=nn.PReLU())
+        assert type(net.module_.nonlin) == nn.PReLU
+        d1 = net.module_.nonlin.weight.data.clone().cpu().numpy()
+
+        # make sure that we do not initialize again by making sure that
+        # the network is initialized and by using partial_fit.
+        assert net.initialized_
+        net.partial_fit(X, y)
+        d2 = net.module_.nonlin.weight.data.clone().cpu().numpy()
+
+        # all newly introduced parameters should have been trained (changed)
+        # by the optimizer after 10 epochs.
+        assert (abs(d2 - d1) > 1e-05).all()
+
     def test_module_params_in_init(self, net_cls, module_cls, data):
         X, y = data
 
