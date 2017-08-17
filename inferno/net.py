@@ -248,7 +248,7 @@ class NeuralNet(Callback):
       accept a `use_cuda` parameter to indicate whether cuda should be
       used.
 
-    train_split : None, function or callable (default=inferno.dataset.CVSplit(0.2))
+    train_split : None, function or callable (default=inferno.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
       should be a function or callable that is called with X and y
       data and should return the tuple `X_train, X_valid, y_train,
@@ -324,7 +324,7 @@ class NeuralNet(Callback):
             iterator_train=DataLoader,
             iterator_test=DataLoader,
             dataset=Dataset,
-            train_split=CVSplit(0.2),
+            train_split=CVSplit(5),
             callbacks=None,
             cold_start=True,
             use_cuda=False,
@@ -893,7 +893,7 @@ class NeuralNetClassifier(NeuralNet):
             self,
             module,
             criterion=torch.nn.NLLLoss,
-            train_split=CVSplit(0.2, stratified=True),
+            train_split=CVSplit(5, stratified=True),
             *args,
             **kwargs
     ):
