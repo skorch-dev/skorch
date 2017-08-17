@@ -1,4 +1,6 @@
 from unittest.mock import Mock
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification
@@ -941,3 +943,23 @@ class TestCVSplit:
 
         expected = "Stratified CV not possible with given y."
         assert exc.value.args[0] == expected
+
+    def test_shuffle_split_reproducible_with_random_state(self, cv_split_cls):
+        X, y = np.random.random((100, 10)), np.random.randint(0, 10, size=100)
+        cv = cv_split_cls(0.2, stratified=False)
+        Xt0, Xv0, yt0, yv0 = cv(X, y)
+        Xt1, Xv1, yt1, yv1 = cv(X, y)
+
+        assert not np.allclose(Xt0, Xt1)
+        assert not np.allclose(Xv0, Xv1)
+        assert not np.allclose(yt0, yt1)
+        assert not np.allclose(yv0, yv1)
+
+        cv = cv_split_cls(0.2, stratified=False, random_state=0)
+        Xt0, Xv0, yt0, yv0 = cv(X, y)
+        Xt1, Xv1, yt1, yv1 = cv(X, y)
+
+        assert np.allclose(Xt0, Xt1)
+        assert np.allclose(Xv0, Xv1)
+        assert np.allclose(yt0, yt1)
+        assert np.allclose(yv0, yv1)
