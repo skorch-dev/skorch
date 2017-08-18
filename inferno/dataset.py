@@ -235,9 +235,21 @@ class CVSplit(object):
       Whether the split should be stratified. Only works if `y` is
       either binary or multiclass classification.
 
-    """
-    def __init__(self, cv=5, stratified=False):
+    random_state : int, RandomState instance, or None (default=None)
+      Control the random state in case that `(Stratified)ShuffleSplit`
+      is used (which is when a float is passed to `cv`). For more
+      information, look at the sklearn documentation of
+      `(Stratified)ShuffleSplit`.
+
+      """
+    def __init__(
+            self,
+            cv=5,
+            stratified=False,
+            random_state=None,
+    ):
         self.stratified = stratified
+        self.random_state = random_state
 
         if isinstance(cv, Number) and (cv <= 0):
             raise ValueError("Numbers less than 0 are not allowed for cv "
@@ -254,7 +266,7 @@ class CVSplit(object):
 
     def _check_cv_float(self, y):
         cv_cls = StratifiedShuffleSplit if self.stratified else ShuffleSplit
-        return cv_cls(test_size=self.cv)
+        return cv_cls(test_size=self.cv, random_state=self.random_state)
 
     def _check_cv_non_float(self, y):
         return check_cv(
