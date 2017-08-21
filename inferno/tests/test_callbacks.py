@@ -1,4 +1,5 @@
 from functools import partial
+import itertools
 from unittest.mock import Mock
 from unittest.mock import PropertyMock
 from unittest.mock import patch
@@ -9,201 +10,37 @@ import pytest
 from .conftest import get_history
 
 
-class TestAverageLoss:
+class TestAllCallbacks:
     @pytest.fixture
-    def avg_loss_cls(self):
-        from inferno.callbacks import AverageLoss
-        return AverageLoss
-
-    @pytest.fixture
-    def avg_loss(self, avg_loss_cls):
-        return avg_loss_cls().initialize()
-
-    @pytest.fixture
-    def history_avg_loss(self, avg_loss):
-        return get_history(avg_loss)
-
-    def test_correct_losses(self, history_avg_loss):
-        train_losses = history_avg_loss[:, 'train_loss']
-        expected = [0.25, 0.65, -0.15]
-        assert np.allclose(train_losses, expected)
-
-        valid_losses = history_avg_loss[:, 'valid_loss']
-        expected = [7.5, 3.5, 11.5]
-        assert np.allclose(valid_losses, expected)
-
-    def test_missing_batch_size(self, avg_loss, history):
-        history.new_epoch()
-        history.new_batch()
-        history.record_batch('train_loss', 10)
-        history.record_batch('train_batch_size', 1)
-        history.new_batch()
-        history.record_batch('train_loss', 20)
-        # missing batch size, 20 is ignored
-
-        net = Mock(history=history)
-        avg_loss.on_epoch_end(net)
-
-        assert history[0, 'train_loss'] == 10
-
-    def test_average_honors_weights(self, avg_loss, history):
-        history.new_epoch()
-        history.new_batch()
-        history.record_batch('train_loss', 10)
-        history.record_batch('train_batch_size', 1)
-        history.new_batch()
-        history.record_batch('train_loss', 40)
-        history.record_batch('train_batch_size', 2)
-
-        net = Mock(history=history)
-        avg_loss.on_epoch_end(net)
-
-        assert history[0, 'train_loss'] == 30
-
-    def test_init_other_key_sizes(self, avg_loss_cls):
-        key_sizes = {'train_batch_size': 'valid_batch_size'}
-        avg_loss = avg_loss_cls(key_sizes=key_sizes).initialize()
-        history = get_history(avg_loss)
-
-        train_losses = history[:, 'train_loss']
-        expected = [0.25, 0.65, -0.15]
-        assert np.allclose(train_losses, expected)
-
-        valid_losses = history[:, 'valid_loss']
-        expected = [7.5, 3.5, 11.5]
-        assert np.allclose(valid_losses, expected)
-
-        train_batch_sizes = history[:, 'train_batch_size']
-        expected = [10.0, 10.0, 10.0]
-        assert np.allclose(train_batch_sizes, expected)
-
-    def test_missing_key(self, avg_loss_cls):
-        key_sizes = {'missing': 'valid_batch_size'}
-        avg_loss = avg_loss_cls(key_sizes=key_sizes).initialize()
-
-        with pytest.raises(KeyError) as exc:
-            get_history(avg_loss)
-
-        expected = ("Key 'missing' could not be found in history; "
-                    "maybe there was a typo? To make this key optional, "
-                    "add it to the 'keys_optional' parameter.")
-        assert exc.value.args[0] == expected
-
-    def test_missing_size(self, avg_loss_cls):
-        key_sizes = {'text': 'missing'}
-        avg_loss = avg_loss_cls(key_sizes=key_sizes).initialize()
-
-        with pytest.raises(KeyError) as exc:
-            get_history(avg_loss)
-
-        expected = ("Key 'missing' could not be found in history; "
-                    "maybe there was a typo? To make this key optional, "
-                    "add it to the 'keys_optional' parameter.")
-        assert exc.value.args[0] == expected
-
-    def test_missing_key_optional(self, avg_loss_cls):
-        key_sizes = {'missing': 'valid_batch_size'}
-        avg_loss = avg_loss_cls(
-            key_sizes=key_sizes, keys_optional=['missing']).initialize()
-
-        # does not raise
-        get_history(avg_loss)
-
-    def test_missing_key_optional_as_str(self, avg_loss_cls):
-        key_sizes = {'missing': 'valid_batch_size'}
-        avg_loss = avg_loss_cls(
-            key_sizes=key_sizes, keys_optional='missing').initialize()
-
-        # does not raise
-        get_history(avg_loss)
-
-    def test_missing_size_optional(self, avg_loss_cls):
-        key_sizes = {'text': 'missing'}
-        avg_loss = avg_loss_cls(
-            key_sizes=key_sizes, keys_optional=['missing']).initialize()
-
-        # does not raise
-        get_history(avg_loss)
-
-    def test_1_duplicate_key(self, avg_loss_cls):
-        key_sizes = {'train_loss': 'a-batch-size'}
-        with pytest.raises(ValueError) as exc:
-            avg_loss_cls(key_sizes=key_sizes).initialize()
-
-        expected = "AverageLoss found duplicate keys: train_loss"
-        assert exc.value.args[0] == expected
-
-    def test_2_duplicate_keys(self, avg_loss_cls):
-        key_sizes = {'train_loss': 'a-batch-size',
-                     'valid_loss': 'a-batch-size'}
-        with pytest.raises(ValueError) as exc:
-            avg_loss_cls(key_sizes=key_sizes).initialize()
-
-        expected = "AverageLoss found duplicate keys: train_loss, valid_loss"
-        assert exc.value.args[0] == expected
-
-
-class TestBestLoss:
-    @pytest.fixture
-    def avg_loss(self):
-        from inferno.callbacks import AverageLoss
-        return AverageLoss().initialize()
-
-    @pytest.yield_fixture
-    def best_loss_cls(self):
-        default_key_signs = {'train_loss': -1, 'valid_loss': 1}
-        with patch(
-                'inferno.callbacks.BestLoss.default_key_signs',
-                new_callable=PropertyMock,
-        ) as dks:
-            dks.return_value = default_key_signs
-            from inferno.callbacks import BestLoss
-            yield BestLoss
+    def callbacks(self):
+        import inferno.callbacks
+        callbacks = []
+        for name in dir(inferno.callbacks):
+            attr = getattr(inferno.callbacks, name)
+            if not type(attr) is type:
+                continue
+            if issubclass(attr, inferno.callbacks.Callback):
+                callbacks.append(attr)
+        return callbacks
 
     @pytest.fixture
-    def best_loss(self, best_loss_cls):
-        return best_loss_cls().initialize()
+    def on_x_methods(self):
+        return [
+            'on_train_begin',
+            'on_train_end',
+            'on_epoch_begin',
+            'on_epoch_end',
+            'on_batch_begin',
+            'on_batch_end',
+        ]
 
-    @pytest.fixture
-    def history_best_loss(self, avg_loss, best_loss):
-        return get_history(avg_loss, best_loss)
-
-    def test_best_loss_correct(self, history_best_loss):
-        train_loss_best = history_best_loss[:, 'train_loss_best']
-        expected = [True, False, True]
-        assert train_loss_best == expected
-
-        valid_loss_best = history_best_loss[:, 'valid_loss_best']
-        expected = [True, False, True]
-        assert valid_loss_best == expected
-
-    def test_other_signs(self, avg_loss):
-        default_key_signs = {'train_loss': 1, 'valid_loss': -1}
-        with patch(
-                'inferno.callbacks.BestLoss.default_key_signs',
-                new_callable=PropertyMock,
-        ) as dks:
-            dks.return_value = default_key_signs
-            from inferno.callbacks import BestLoss
-
-            best_loss = BestLoss().initialize()
-            history = get_history(avg_loss, best_loss)
-
-            train_loss_best = history[:, 'train_loss_best']
-            expected = [True, True, False]
-            assert train_loss_best == expected
-
-            valid_loss_best = history[:, 'valid_loss_best']
-            expected = [True, True, False]
-            assert valid_loss_best == expected
-
-    def test_init_other_keys(self, best_loss_cls, avg_loss):
-        best_loss = best_loss_cls(key_signs={'epoch': 1}).initialize()
-        history = get_history(avg_loss, best_loss)
-
-        epoch_best = history[:, 'epoch_best']
-        expected = [True, True, True]
-        assert epoch_best == expected
+    def test_on_x_methods_have_kwargs(self, callbacks, on_x_methods):
+        import inspect
+        for callback, method_name in itertools.product(
+                callbacks, on_x_methods):
+            method = getattr(callback, method_name)
+            argspec = inspect.getargspec(method)
+            assert argspec.keywords
 
     def test_key_missing(self, best_loss_cls, avg_loss):
         best_loss = best_loss_cls(key_signs={'missing': 1}).initialize()
