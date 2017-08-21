@@ -210,9 +210,8 @@ class Scoring(Callback):
 class PrintLog(Callback):
     """Print out useful information from the model's history.
 
-    By default, this will print the epoch, train loss, valid loss, and
-    epoch duration. In addition, `PrintLog` will take care of
-    highlighting the best loss at each epoch.
+    By default, `PrintLog` prints everything from the history except
+    for `'batches'`.
 
     To determine the best loss, `PrintLog` looks for keys that end on
     `'_best'` and associates them with the corresponding loss. E.g.,
@@ -244,19 +243,7 @@ class PrintLog(Callback):
       The number formatting. See the documentation of the `tabulate`
       package for more details.
 
-    Attributes
-    ----------
-    default_keys
-      By default, `PrintLog` prints the epoch, the train loss, the
-      valid loss, and the time it took to process the epoch
-      ("dur"). It will also highlight the best train and valid
-      loss. If any of the mentioned keys is not found, it is ignored.
-
     """
-
-    default_keys = ['epoch', 'train_loss', 'valid_loss', 'train_loss_best',
-                    'valid_loss_best', 'dur']
-
     def __init__(
             self,
             keys_ignored='batches',
