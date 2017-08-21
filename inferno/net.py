@@ -7,12 +7,10 @@ from sklearn.base import BaseEstimator
 import torch
 from torch.utils.data import DataLoader
 
-from inferno.callbacks import AverageLoss
-from inferno.callbacks import BestLoss
 from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
-from inferno.callbacks import WholesomeScoring as Scoring
+from inferno.callbacks import Scoring
 from inferno.dataset import Dataset
 from inferno.dataset import CVSplit
 from inferno.exceptions import NotInitializedError
@@ -171,6 +169,14 @@ class History(list):
                          "Pass string, int or tuple.")
 
 
+def train_loss_score(net, X=None, y=None):
+    return net.history[-1, 'batches', -1, 'train_loss']
+
+
+def valid_loss_score(net, X=None, y=None):
+    return net.history[-1, 'batches', -1, 'valid_loss']
+
+
 class NeuralNet(Callback):
     """NeuralNet base class.
 
@@ -308,8 +314,8 @@ class NeuralNet(Callback):
 
     default_callbacks = [
         ('epoch_timer', EpochTimer),
-        ('average_loss', AverageLoss),
-        ('best_loss', BestLoss),
+        ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
+        ('valid_loss', Scoring('valid_loss', valid_loss_score)),
         ('print_log', PrintLog),
     ]
 
@@ -385,6 +391,8 @@ class NeuralNet(Callback):
         #   * default and user callbacks
         #   * callbacks with and without name
         #   * initialized and uninitialized callbacks
+        #   * puts PrintLog(s) last
+        print_logs = []
         for item in self.default_callbacks + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
                 name, cb = item
@@ -394,7 +402,11 @@ class NeuralNet(Callback):
                     name = cb.__name__
                 else:
                     name = cb.__class__.__name__
-            yield name, cb
+            if isinstance(cb, PrintLog) or (cb == PrintLog):
+                print_logs.append((name, cb))
+            else:
+                yield name, cb
+        yield from print_logs
 
     def initialize_callbacks(self):
         """Initializes all callbacks and save the result in the
@@ -867,9 +879,10 @@ def accuracy_pred_extractor(y):
 
 
 class NeuralNetClassifier(NeuralNet):
-
     default_callbacks = [
         ('epoch_timer', EpochTimer()),
+        ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
+        ('valid_loss', Scoring('valid_loss', valid_loss_score)),
         ('valid_acc', Scoring(
             name='valid_acc',
             scoring='accuracy_score',
@@ -877,8 +890,6 @@ class NeuralNetClassifier(NeuralNet):
             on_train=False,
             pred_extractor=accuracy_pred_extractor,
         )),
-        ('average_loss', AverageLoss()),
-        ('best_loss', BestLoss()),
         ('print_log', PrintLog()),
     ]
 

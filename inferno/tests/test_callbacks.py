@@ -1,7 +1,6 @@
 from functools import partial
 import itertools
 from unittest.mock import Mock
-from unittest.mock import PropertyMock
 from unittest.mock import patch
 
 import numpy as np
@@ -42,54 +41,6 @@ class TestAllCallbacks:
             argspec = inspect.getargspec(method)
             assert argspec.keywords
 
-    def test_key_missing(self, best_loss_cls, avg_loss):
-        best_loss = best_loss_cls(key_signs={'missing': 1}).initialize()
-
-        with pytest.raises(KeyError) as exc:
-            get_history(avg_loss, best_loss)
-
-        expected = ("Key 'missing' could not be found in history; "
-                    "maybe there was a typo? To make this key optional, "
-                    "add it to the 'keys_optional' parameter.")
-        assert exc.value.args[0] == expected
-
-    def test_missing_key_optional(self, best_loss_cls, avg_loss):
-        best_loss = best_loss_cls(
-            key_signs={'missing': 1}, keys_optional=['missing']).initialize()
-
-        # does not raise
-        get_history(avg_loss, best_loss)
-
-    def test_missing_key_optional_as_str(self, best_loss_cls, avg_loss):
-        best_loss = best_loss_cls(
-            key_signs={'missing': 1}, keys_optional='missing').initialize()
-
-        # does not raise
-        get_history(avg_loss, best_loss)
-
-    def test_sign_not_allowed(self, best_loss_cls):
-        with pytest.raises(ValueError) as exc:
-            best_loss_cls(key_signs={'epoch': 2}).initialize()
-
-        expected = "Wrong sign 2, expected one of -1, 1."
-        assert exc.value.args[0] == expected
-
-    def test_1_duplicate_key(self, best_loss_cls):
-        key_signs = {'train_loss': 1}
-        with pytest.raises(ValueError) as exc:
-            best_loss_cls(key_signs=key_signs).initialize()
-
-        expected = "BestLoss found duplicate keys: train_loss"
-        assert exc.value.args[0] == expected
-
-    def test_2_duplicate_keys(self, best_loss_cls):
-        key_signs = {'train_loss': 1, 'valid_loss': 1}
-        with pytest.raises(ValueError) as exc:
-            best_loss_cls(key_signs=key_signs).initialize()
-
-        expected = "BestLoss found duplicate keys: train_loss, valid_loss"
-        assert exc.value.args[0] == expected
-
 
 class TestScoring:
     @pytest.yield_fixture
@@ -109,7 +60,7 @@ class TestScoring:
         return scoring_cls(
             name='mse',
             scoring='mean_squared_error',
-        )
+        ).initialize()
 
     @pytest.fixture
     def net(self):
@@ -117,43 +68,150 @@ class TestScoring:
 
         net = Mock(infer=Mock(side_effect=lambda x: x))
         history = History()
-        history.new_epoch()
         net.history = history
         return net
 
     @pytest.fixture
-    def data(self):
-        return [
-            [[3, -2.5], [6, 1.5]],
-            [[1, 0], [0, -1]],
-        ]
+    def train_loss(self, scoring_cls):
+        from inferno.net import train_loss_score
+        return scoring_cls(
+            'train_loss',
+            train_loss_score,
+            on_train=True,
+            target_extractor=lambda x: x,
+            pred_extractor=lambda x: x,
+        ).initialize()
 
     @pytest.fixture
-    def history(self, mse_scoring, net, data):
-        for x, y in data:
-            net.history.new_batch()
-            mse_scoring.on_batch_end(net, x, y, train=False)
-        return net.history
+    def valid_loss(self, scoring_cls):
+        from inferno.net import valid_loss_score
+        return scoring_cls(
+            'valid_loss',
+            valid_loss_score,
+            target_extractor=lambda x: x,
+            pred_extractor=lambda x: x,
+        ).initialize()
 
-    def test_correct_mse(self, history):
+    @pytest.fixture
+    def history(self, train_loss, valid_loss, mse_scoring):
+        return get_history(train_loss, valid_loss, mse_scoring)
+
+    def test_correct_train_loss_values(self, history):
+        train_losses = history[:, 'train_loss']
+        expected = [0.25, 0.65, -0.15]
+        assert np.allclose(train_losses, expected)
+
+    def test_correct_valid_loss_values(self, history):
+        valid_losses = history[:, 'valid_loss']
+        expected = [7.5, 3.5, 11.5]
+        assert np.allclose(valid_losses, expected)
+
+    def test_missing_batch_size(self, train_loss, history):
+        """We skip one batch size entry in history. This batch should
+        simply be ignored.
+
+        """
+        history.new_epoch()
+        history.new_batch()
+        history.record_batch('train_loss', 10)
+        history.record_batch('train_batch_size', 1)
+        history.new_batch()
+        history.record_batch('train_loss', 20)
+        # missing batch size, loss of 20 is ignored
+
+        net = Mock(history=history)
+        train_loss.on_epoch_end(net)
+
+        assert history[-1, 'train_loss'] == 10
+
+    def test_average_honors_weights(self, train_loss, history):
+        """The batches may have different batch sizes, which is why it
+        necessary to honor the batch sizes. Here we use different
+        batch sizes to verify this.
+
+        """
+        from inferno.net import History
+
+        history = History()
+        history.new_epoch()
+        history.new_batch()
+        history.record_batch('train_loss', 10)
+        history.record_batch('train_batch_size', 1)
+        history.new_batch()
+        history.record_batch('train_loss', 40)
+        history.record_batch('train_batch_size', 2)
+
+        net = Mock(history=history)
+        train_loss.on_epoch_end(net)
+
+        assert history[0, 'train_loss'] == 30
+
+    def test_best_train_loss_correct(self, history):
+        train_loss_best = history[:, 'train_loss_best']
+        expected = [True, False, True]
+        assert train_loss_best == expected
+
+    def test_best_valid_loss_correct(self, history):
+        valid_loss_best = history[:, 'valid_loss_best']
+        expected = [True, True, False]
+        assert valid_loss_best == expected
+
+    def test_best_loss_with_other_key(self, scoring_cls):
+        """Test correct best loss with a loss that simply returns the
+        epoch. Since epochs increase, only the first epoch should be
+        best.
+
+        """
+        def get_bs(net, *args, **kwargs):
+            return net.history[-1, 'batches', -1, 'valid_batch_size']
+
+        bs_loss = scoring_cls(
+            'bs_loss',
+            get_bs,
+            target_extractor=lambda x: x,
+            pred_extractor=lambda x: x,
+        ).initialize()
+        history = get_history(bs_loss)
+
+        bs_losses = history[:, 'bs_loss_best']
+        expected = [True, False, False]
+        assert bs_losses == expected
+
+    def test_correct_mse_values_for_batches(self, history):
         mse = history[:, 'batches', :, 'mse']
-        expected = [[12.5, 1.0]]
+        # for the 4 batches per epoch, the loss is constant
+        expected = [[12.5] * 4, [0.0] * 4, [1.0] * 4]
         assert np.allclose(mse, expected)
 
+    def test_correct_mse_values_for_epoch(self, history):
+        mse = history[:, 'mse']
+        expected = [12.5, 0.0, 1.0]
+        assert np.allclose(mse, expected)
+
+    def test_correct_mse_is_best(self, history):
+        is_best = history[:, 'mse_best']
+        assert is_best == [True, True, False]
+
     def test_other_score_and_name(self, scoring_cls, net):
+        """Test that we can change the scoring to accuracy score."""
         scoring = scoring_cls(
             name='acc',
             scoring='accuracy_score',
         )
         for x, y in zip(np.arange(5), reversed(np.arange(5))):
+            net.history.new_epoch()
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
 
         acc = net.history[:, 'batches', :, 'acc']
-        expected = [0.0, 0.0, 1.0, 0.0, 0.0]
+        expected = np.asarray([0.0, 0.0, 1.0, 0.0, 0.0]).reshape(-1, 1)
         assert np.allclose(acc, expected)
 
     def test_custom_scoring_func(self, scoring_cls, net):
+        """When passing a custom scoring function, it should be used
+        to determine the score.
+
+        """
         def score_func(estimator, X, y):
             return 555
 
@@ -162,6 +220,7 @@ class TestScoring:
             scoring=score_func,
         )
         for x, y in zip(np.arange(5), reversed(np.arange(5))):
+            net.history.new_epoch()
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
 
@@ -170,12 +229,17 @@ class TestScoring:
         assert np.allclose(acc, expected)
 
     def test_scoring_func_none(self, scoring_cls, net):
+        """If the scoring function is None, the `score` method of the
+        model should be used.
+
+        """
         net.score = Mock(return_value=345)
         scoring = scoring_cls(
             name='acc',
             scoring=None,
         )
         for x, y in zip(np.arange(5), reversed(np.arange(5))):
+            net.history.new_epoch()
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
 
@@ -183,54 +247,104 @@ class TestScoring:
         expected = [345] * 5
         assert np.allclose(acc, expected)
 
-    def test_score_func_does_not_exist(self, scoring_cls, net, data):
+    def test_score_func_does_not_exist(self, scoring_cls, net):
+        """When passing a string to `scoring`, it is looked up from
+        among the sklearn metrics. If it doesn't exist, we expect a
+        useful error message.
+
+        """
         scoring = scoring_cls(
             name='myscore',
             scoring='nonexistant-score',
         )
         with pytest.raises(NameError) as exc:
+            net.history.new_epoch()
             net.history.new_batch()
-            scoring.on_batch_end(net, data[0][0], data[0][1], train=False)
+            scoring.on_batch_end(net, X=[0], y=[0], train=False)
 
-        expected = ("Metric with name 'nonexistant-score' does not exist, "
+        expected = ("A metric called 'nonexistant-score' does not exist, "
                     "use a valid sklearn metric name.")
         assert str(exc.value) == expected
 
-    def test_train_is_ignored(self, mse_scoring, net, data):
-        for x, y in data:
+    def test_train_is_ignored(self, mse_scoring, net):
+        """By default, the score is determined on the validation
+        set. Train is thus ignored.
+
+        """
+        for _ in range(3):
+            net.history.new_epoch()
             net.history.new_batch()
-            mse_scoring.on_batch_end(net, x, y, train=True)
+            mse_scoring.on_batch_end(net, X=[0], y=[0], train=True)
 
         with pytest.raises(KeyError):
             net.history[:, 'batches', :, 'mse']
 
-    def test_valid_is_ignored(self, scoring_cls, net, data):
+    def test_train_is_used(self, scoring_cls, net):
+        """By default, the score is determined on the validation
+        set. When we set `on_train=True`, train data is used.
+
+        """
         mse_scoring = scoring_cls(
             name='mse',
             scoring='mean_squared_error',
             on_train=True,
         )
 
-        for x, y in data:
+        for _ in range(3):
+            net.history.new_epoch()
             net.history.new_batch()
-            mse_scoring.on_batch_end(net, x, y, train=False)
+            mse_scoring.on_batch_end(net, X=[0], y=[0], train=True)
+
+        mse_losses = net.history[:, 'batches', :, 'mse']
+        assert np.allclose(mse_losses, [0., 0., 0.])
+
+    def test_valid_is_ignored(self, scoring_cls, net):
+        """When setting `on_train=True`, the valid losses should not
+        be used.
+
+        """
+        mse_scoring = scoring_cls(
+            name='mse',
+            scoring='mean_squared_error',
+            on_train=True,
+        )
+
+        for _ in range(3):
+            net.history.new_epoch()
+            net.history.new_batch()
+            mse_scoring.on_batch_end(net, X=[0], y=[0], train=False)
 
         with pytest.raises(KeyError):
             net.history[:, 'batches', :, 'mse']
 
-    def test_target_extractor_is_called(self, mse_scoring, data, history):
+    def test_target_extractor_is_called(self, mse_scoring, history, mock_data):
         # note: the history fixture is required even if not used because it
         # triggers the calls on mse_scoring
         call_args_list = mse_scoring.target_extractor.call_args_list
-        for (_, x), call_args in zip(data, call_args_list):
-            assert x == call_args[0][0]
+        for i in range(3):  # 3 epochs
+            data = mock_data[i][1]  # the targets
+            for j in range(4):  # 4 batches
+                call_args_list[4 * i + j] == data
 
-    def test_pred_extractor_is_called(self, mse_scoring, data, history):
+    def test_pred_extractor_is_called(self, mse_scoring, history, mock_data):
         # note: the history fixture is required even if not used because it
         # triggers the calls on mse_scoring
-        call_args_list = mse_scoring.pred_extractor.call_args_list
-        for (x, _), call_args in zip(data, call_args_list):
-            assert x == call_args[0][0]
+        call_args_list = mse_scoring.target_extractor.call_args_list
+        for i in range(3):  # 3 epochs
+            data = mock_data[i][0]  # the predictions
+            for j in range(4):  # 4 batches
+                call_args_list[4 * i + j] == data
+
+    def test_is_best_ignored_when_none(self, scoring_cls, net, mock_data):
+        mse_scoring = scoring_cls(
+            name='mse',
+            scoring='mean_squared_error',
+            lower_is_better=None,
+        ).initialize()
+        history = get_history(mse_scoring)
+        with pytest.raises(KeyError):
+            # 'is_best' key should not be written
+            history[:, 'is_best']
 
 
 class TestPrintLog:
@@ -245,18 +359,34 @@ class TestPrintLog:
         return print_log_cls().initialize()
 
     @pytest.fixture
-    def avg_loss(self):
-        from inferno.callbacks import AverageLoss
-        return AverageLoss().initialize()
+    def scoring_cls(self):
+        from inferno.callbacks import Scoring
+        return Scoring
 
     @pytest.fixture
-    def best_loss(self):
-        from inferno.callbacks import BestLoss
-        return BestLoss().initialize()
+    def train_loss(self, scoring_cls):
+        from inferno.net import train_loss_score
+        return scoring_cls(
+            'train_loss',
+            train_loss_score,
+            on_train=True,
+            target_extractor=lambda x: x,
+            pred_extractor=lambda x: x,
+        ).initialize()
 
     @pytest.fixture
-    def history(self, avg_loss, best_loss, print_log):
-        return get_history(avg_loss, best_loss, print_log)
+    def valid_loss(self, scoring_cls):
+        from inferno.net import valid_loss_score
+        return scoring_cls(
+            'valid_loss',
+            valid_loss_score,
+            target_extractor=lambda x: x,
+            pred_extractor=lambda x: x,
+        ).initialize()
+
+    @pytest.fixture
+    def history(self, train_loss, valid_loss, print_log):
+        return get_history(train_loss, valid_loss, print_log)
 
     @pytest.fixture
     def sink(self, history, print_log):
@@ -350,8 +480,8 @@ class TestPrintLog:
         print_log = PrintLog(keys_ignored='a-key')
         assert print_log.keys_ignored == ['a-key']
 
-    def test_no_valid(self, avg_loss, best_loss, print_log, ansi):
-        get_history(avg_loss, best_loss, print_log, with_valid=False)
+    def test_no_valid(self, train_loss, valid_loss, print_log, ansi):
+        get_history(train_loss, valid_loss, print_log, with_valid=False)
         sink = print_log.sink
         row = sink.call_args_list[2][0][0]
         items = row.split()
