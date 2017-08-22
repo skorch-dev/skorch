@@ -88,7 +88,9 @@ class TestNeuralNet:
         callbacks = net_fit.callbacks
         net_fit.callbacks = []
         callbacks_ = net_fit.callbacks_
-        net_fit.callbacks_ = net_fit.callbacks_[:-1]
+        # remove mock callback
+        net_fit.callbacks_ = [(n, cb) for n, cb in net_fit.callbacks_
+                              if not isinstance(cb, Mock)]
         net_clone = clone(net_fit)
         net_fit.callbacks = callbacks
         net_fit.callbacks_ = callbacks_
@@ -225,7 +227,8 @@ class TestNeuralNet:
         ('on_batch_end', (800 // 128 + 1) * 10 + (200 // 128 + 1) * 10),
     ])
     def test_callback_is_called(self, net_fit, method, call_count):
-        method = getattr(net_fit.callbacks_[-1][1], method)
+        # callback -2 is the mocked callback
+        method = getattr(net_fit.callbacks_[-2][1], method)
         assert method.call_count == call_count
         assert method.call_args_list[0][0][0] is net_fit
 
@@ -339,11 +342,11 @@ class TestNeuralNet:
         assert mock.set_params.call_args_list[1][1]['spam'] == 'eggs'
 
     def test_callback_name_collides_with_default(self, net_cls, module_cls):
-        net = net_cls(module_cls, callbacks=[('average_loss', Mock())])
+        net = net_cls(module_cls, callbacks=[('train_loss', Mock())])
 
         with pytest.raises(ValueError) as exc:
             net.initialize()
-        expected = "The callback name 'average_loss' appears more than once."
+        expected = "The callback name 'train_loss' appears more than once."
         assert str(exc.value) == expected
 
     def test_callback_same_name_twice(self, net_cls, module_cls):
