@@ -199,6 +199,8 @@ class TestScoring:
             scoring='accuracy_score',
         )
         for x, y in zip(np.arange(5), reversed(np.arange(5))):
+            # The net just returns input values as output; therefore, accuracy
+            # is 1 for 2=2 and 0 elsewhere
             net.history.new_epoch()
             net.history.new_batch()
             scoring.on_batch_end(net, [x], [y], train=False)
@@ -343,7 +345,8 @@ class TestScoring:
         ).initialize()
         history = get_history(mse_scoring)
         with pytest.raises(KeyError):
-            # 'is_best' key should not be written
+            # Since lower_is_better is None, 'is_best' key should not be
+            # written
             history[:, 'is_best']
 
 
