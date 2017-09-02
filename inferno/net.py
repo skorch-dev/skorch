@@ -28,7 +28,7 @@ def valid_loss_score(net, X=None, y=None):
     return net.history[-1, 'batches', -1, 'valid_loss']
 
 
-class NeuralNet(Callback):
+class NeuralNet(object):
     """NeuralNet base class.
 
     The base class covers more generic cases. Depending on your use
@@ -230,12 +230,24 @@ class NeuralNet(Callback):
         for _, cb in self.callbacks_:
             getattr(cb, method_name)(self, **cb_kwargs)
 
+    def on_train_begin(self, net, **kwargs):
+        pass
+
+    def on_train_end(self, net, **kwargs):
+        pass
+
     def on_epoch_begin(self, net, **kwargs):
         self.history.new_epoch()
         self.history.record('epoch', len(self.history))
 
+    def on_epoch_end(self, net, **kwargs):
+        pass
+
     def on_batch_begin(self, net, train=False, **kwargs):
         self.history.new_batch()
+
+    def on_batch_end(self, net, **kwargs):
+        pass
 
     def _yield_callbacks(self):
         # handles cases:
