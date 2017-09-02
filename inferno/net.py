@@ -1,6 +1,7 @@
 """Neural net classes."""
 
 import pickle
+import re
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -758,11 +759,40 @@ class NeuralNet(object):
         self.module_.load_state_dict(torch.load(f))
 
 
+#######################
+# NeuralNetClassifier #
+#######################
+
 def accuracy_pred_extractor(y):
     return np.argmax(to_numpy(y), axis=1)
 
 
+neural_net_clf_doc_start = """NeuralNet for classification tasks
+
+    Use this specifically if you have a standard classification task,
+    with input data X and target y.
+
+"""
+
+neural_net_clf_criterion_text = """
+
+    criterion : torch criterion (class, default=torch.nn.NLLLoss)
+      Negative log likelihood loss. Note that the module should return
+      probabilities, the log is applied during `get_loss`."""
+
+
+def get_neural_net_clf_doc(doc):
+    doc = neural_net_clf_doc_start + doc.split("\n ", 4)[-1]
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    start, end = pattern.search(doc).span()
+    doc = doc[:start] + neural_net_clf_criterion_text + doc[end:]
+    return doc
+
+
+# pylint: disable=missing-docstring
 class NeuralNetClassifier(NeuralNet):
+    __doc__ = get_neural_net_clf_doc(NeuralNet.__doc__)
+
     default_callbacks = [
         ('epoch_timer', EpochTimer()),
         ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
@@ -824,7 +854,35 @@ class NeuralNetClassifier(NeuralNet):
         return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
 
 
+######################
+# NeuralNetRegressor #
+######################
+
+neural_net_reg_doc_start = """NeuralNet for regression tasks
+
+    Use this specifically if you have a standard regression task,
+    with input data X and target y. y must be 2d.
+
+"""
+
+neural_net_reg_criterion_text = """
+
+    criterion : torch criterion (class, default=torch.nn.MSELoss)
+      Mean squared error loss."""
+
+
+def get_neural_net_reg_doc(doc):
+    doc = neural_net_reg_doc_start + doc.split("\n ", 4)[-1]
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    start, end = pattern.search(doc).span()
+    doc = doc[:start] + neural_net_reg_criterion_text + doc[end:]
+    return doc
+
+
+# pylint: disable=missing-docstring
 class NeuralNetRegressor(NeuralNet):
+    __doc__ = get_neural_net_reg_doc(NeuralNet.__doc__)
+
     def __init__(
             self,
             module,
