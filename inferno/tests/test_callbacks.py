@@ -326,16 +326,16 @@ class TestScoring:
         for i in range(3):  # 3 epochs
             data = mock_data[i][1]  # the targets
             for j in range(4):  # 4 batches
-                call_args_list[4 * i + j] == data
+                assert call_args_list[4 * i + j][0][0] == data
 
     def test_pred_extractor_is_called(self, mse_scoring, history, mock_data):
         # note: the history fixture is required even if not used because it
         # triggers the calls on mse_scoring
-        call_args_list = mse_scoring.target_extractor.call_args_list
+        call_args_list = mse_scoring.pred_extractor.call_args_list
         for i in range(3):  # 3 epochs
             data = mock_data[i][0]  # the predictions
             for j in range(4):  # 4 batches
-                call_args_list[4 * i + j] == data
+                assert call_args_list[4 * i + j][0][0] == data
 
     def test_is_best_ignored_when_none(self, scoring_cls, net, mock_data):
         mse_scoring = scoring_cls(
