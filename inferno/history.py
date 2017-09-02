@@ -53,10 +53,15 @@ def filter_missing(x):
 
 
 class History(list):
-    """A list-like collection that facilitates some of the more common
-    tasks that are required.
+    """History contains the information about the training history of
+    a NeuralNet, facilitating some of the more common tasks that are
+    occur during training.
 
-    It is basically a list of dicts for each epoch, that again
+    When you want to log certain information during training (say, a
+    particular score or the norm of the gradients), you should write
+    them to the net's history object.
+
+    It is basically a list of dicts for each epoch, that, again,
     contains a list of dicts for each batch. For convenience, it has
     enhanced slicing notation and some methods to write new items.
 
