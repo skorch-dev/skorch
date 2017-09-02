@@ -208,7 +208,7 @@ function-rgx=^(?:(?P<camel_case>_?[A-Z][a-zA-Z0-9]*)|(?P<snake_case>_?[a-z][a-z0
 # 'camel_case' and 'snake_case' group names are used for consistency of naming
 # styles across functions and methods. 'exempt' indicates a name which is
 # consistent with all naming styles.
-method-rgx=^(?:(?P<exempt>__[a-z0-9_]+__|next)|(?P<camel_case>_{0,2}[A-Z][a-zA-Z0-9]*)|(?P<snake_case>_{0,2}[a-z][a-z0-9_]*))$
+method-rgx=^(?:(?P<exempt>__[a-z0-9_]+__|next)|(?P<camel_case>_{0,2}[A-Z][a-zA-Z0-9]*)|(?P<snake_case>_{0,2}[a-z][a-zX0-9_]*))$
 
 # Regular expression matching correct attribute names
 # DEFAULT:  attr-rgx=[a-z_][a-z0-9_]{2,30}$
@@ -293,7 +293,7 @@ ignored-modules=numpy,pyodbc
 
 # List of method names used to declare (i.e. assign) instance attributes.
 # DEFAULT:  defining-attr-methods=__init__,__new__,setUp
-defining-attr-methods=__init__,__new__,setUp,fit
+defining-attr-methods=__init__,__new__,setUp,fit,initialize
 
 # List of valid names for the first argument in a class method.
 # DEFAULT:  valid-classmethod-first-arg=cls
