@@ -64,7 +64,7 @@ class TestScoring:
 
     @pytest.fixture
     def net(self):
-        from inferno.net import History
+        from inferno.history import History
 
         net = Mock(infer=Mock(side_effect=lambda x: x))
         history = History()
@@ -130,7 +130,7 @@ class TestScoring:
         batch sizes to verify this.
 
         """
-        from inferno.net import History
+        from inferno.history import History
 
         history = History()
         history.new_epoch()

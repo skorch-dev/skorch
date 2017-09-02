@@ -5,7 +5,7 @@ import pytest
 
 @pytest.fixture
 def history_cls():
-    from inferno.net import History
+    from inferno.history import History
     return History
 
 
