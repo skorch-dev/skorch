@@ -1,3 +1,5 @@
+"""inferno base imports"""
+
 from .history import History
 from .net import NeuralNet
 from .net import NeuralNetClassifier

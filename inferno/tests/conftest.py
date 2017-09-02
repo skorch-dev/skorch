@@ -1,3 +1,5 @@
+"""Contains shared fixtures, hooks, etc."""
+
 from unittest.mock import Mock
 
 import pytest
@@ -10,7 +12,7 @@ def history_cls():
 
 
 @pytest.fixture
-def history(history_cls):
+def history():
     return history_cls()
 
 
@@ -23,12 +25,7 @@ def mock_data():
     ]
 
 
-def get_history(
-        *callbacks,
-        history_cls=history_cls,
-        data=mock_data(),
-        with_valid=True,
-):
+def get_history(*callbacks, with_valid=True):
     """Create a pseudo-history with variable callbacks. This does not
     necessitate training or mocking a NeuralNet, which is why we can
     call this often without losing too much time. However, this also
@@ -39,6 +36,7 @@ def get_history(
     net = Mock()
     net.history = h
     net.infer = lambda x: x
+    data = mock_data()
     data = [(range(6, 10), 1, 'hi', data[0][0], data[0][1]),
             (range(2, 6), 2, 'ho', data[1][0], data[1][1]),
             (range(10, 14), 3, 'hu', data[2][0], data[2][1])]
@@ -76,6 +74,7 @@ def get_history(
 
 pandas_installed = False
 try:
+    # pylint: disable=unused-import
     import pandas
     pandas_installed = True
 except ImportError:

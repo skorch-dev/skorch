@@ -144,6 +144,7 @@ class Scoring(Callback):
         return self
 
     def _scoring(self, net, X, y):
+        """Resolve scoring and apply it to data."""
         y = self.target_extractor(y)
         if self.scoring is None:
             score = net.score(X, y)
@@ -163,7 +164,8 @@ class Scoring(Callback):
 
         return score
 
-    def on_batch_end(self, net, X, y, train, *args, **kwargs):
+    # pylint: disable=unused-argument,arguments-differ
+    def on_batch_end(self, net, X, y, train, **kwargs):
         if train != self.on_train:
             return
 
@@ -190,7 +192,8 @@ class Scoring(Callback):
         op = self._op_dict[self.lower_is_better]
         return op(loss, self.best_loss_)
 
-    def on_epoch_end(self, net, *args, **kwargs):
+    # pylint: disable=unused-argument
+    def on_epoch_end(self, net, **kwargs):
         history = net.history
         try:
             history[-1, 'batches', :, self.name]
@@ -263,6 +266,10 @@ class PrintLog(Callback):
         return self
 
     def format_row(self, row, key, color):
+        """For a given row from the table, format it (i.e. floating
+        points and color if applicable.
+
+        """
         value = row[key]
         if not isinstance(value, Number):
             return value
@@ -323,7 +330,8 @@ class PrintLog(Callback):
             floatfmt=self.floatfmt,
         )
 
-    def on_epoch_end(self, net, *args, **kwargs):
+    # pylint: disable=unused-argument
+    def on_epoch_end(self, net, **kwargs):
         data = net.history[-1]
         tabulated = self.table(data)
 
@@ -331,6 +339,7 @@ class PrintLog(Callback):
             header, lines = tabulated.split('\n', 2)[:2]
             self.sink(header)
             self.sink(lines)
+            # pylint: disable=attribute-defined-outside-init
             self.first_iteration_ = False
 
         self.sink(tabulated.rsplit('\n', 1)[-1])

@@ -7,7 +7,6 @@ from sklearn.base import BaseEstimator
 import torch
 from torch.utils.data import DataLoader
 
-from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
@@ -20,10 +19,12 @@ from inferno.utils import to_numpy
 from inferno.utils import to_var
 
 
+# pylint: disable=unused-argument
 def train_loss_score(net, X=None, y=None):
     return net.history[-1, 'batches', -1, 'train_loss']
 
 
+# pylint: disable=unused-argument
 def valid_loss_score(net, X=None, y=None):
     return net.history[-1, 'batches', -1, 'valid_loss']
 
@@ -105,7 +106,7 @@ class NeuralNet(object):
       accept a `use_cuda` parameter to indicate whether cuda should be
       used.
 
-    train_split : None, function or callable (default=inferno.dataset.CVSplit(5))
+    train_split : None or callable (default=inferno.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
       should be a function or callable that is called with X and y
       data and should return the tuple `X_train, X_valid, y_train,
@@ -230,19 +231,24 @@ class NeuralNet(object):
         for _, cb in self.callbacks_:
             getattr(cb, method_name)(self, **cb_kwargs)
 
+    # pylint: disable=unused-argument
     def on_train_begin(self, net, **kwargs):
         pass
 
+    # pylint: disable=unused-argument
     def on_train_end(self, net, **kwargs):
         pass
 
+    # pylint: disable=unused-argument
     def on_epoch_begin(self, net, **kwargs):
         self.history.new_epoch()
         self.history.record('epoch', len(self.history))
 
+    # pylint: disable=unused-argument
     def on_epoch_end(self, net, **kwargs):
         pass
 
+    # pylint: disable=unused-argument
     def on_batch_begin(self, net, train=False, **kwargs):
         self.history.new_batch()
 
@@ -250,11 +256,15 @@ class NeuralNet(object):
         pass
 
     def _yield_callbacks(self):
-        # handles cases:
-        #   * default and user callbacks
-        #   * callbacks with and without name
-        #   * initialized and uninitialized callbacks
-        #   * puts PrintLog(s) last
+        """Yield all callbacks set on this instance.
+
+        Handles these cases:
+          * default and user callbacks
+          * callbacks with and without name
+          * initialized and uninitialized callbacks
+          * puts PrintLog(s) last
+
+        """
         print_logs = []
         for item in self.default_callbacks + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
@@ -362,7 +372,7 @@ class NeuralNet(object):
         self.initialized_ = True
         return self
 
-    def check_data(self, *data):
+    def check_data(self, X, y=None):
         pass
 
     def validation_step(self, xi, yi):
@@ -436,7 +446,7 @@ class NeuralNet(object):
             dataset_valid = None
         dataset_train = self.dataset(X_train, y_train, use_cuda=use_cuda)
 
-        for epoch in range(epochs):
+        for _ in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
             for xi, yi in self.get_iterator(dataset_train, train=True):
@@ -460,6 +470,7 @@ class NeuralNet(object):
             self.notify('on_epoch_end', X=X, y=y)
         return self
 
+    # pylint: disable=unused-argument
     def partial_fit(self, X, y=None, classes=None, **fit_params):
         """Fit the module.
 
@@ -576,6 +587,7 @@ class NeuralNet(object):
         self.module_.train(False)
         return self.predict_proba(X).argmax(1)
 
+    # pylint: disable=unused-argument
     def get_loss(self, y_pred, y_true, X=None, train=False):
         """Return the loss for this batch.
 
@@ -645,6 +657,15 @@ class NeuralNet(object):
         return BaseEstimator.get_params(self, deep=deep, **kwargs)
 
     def set_params(self, **kwargs):
+        """Set the parameters of this class.
+
+        Valid parameter keys can be listed with `get_params()`.
+
+        Returns
+        -------
+        self
+
+        """
         normal_params, special_params = {}, {}
         for key, val in kwargs.items():
             if any(key.startswith(prefix) for prefix in self.prefixes_):
@@ -772,6 +793,7 @@ class NeuralNetClassifier(NeuralNet):
             **kwargs
         )
 
+    # pylint: disable=signature-differs
     def check_data(self, _, y):
         if y is None and self.iterator_train is DataLoader:
             raise ValueError("No y-values are given (y=None). You must "
@@ -780,14 +802,15 @@ class NeuralNetClassifier(NeuralNet):
                              "`iterator_train` and `iterator_valid` "
                              "parameters respectively.")
 
-    def get_loss(self, y_pred, y, X=None, train=False):
-        y = to_var(y)
+    def get_loss(self, y_pred, y_true, X=None, train=False):
+        y_true = to_var(y_true)
         y_pred_log = torch.log(y_pred)
-        return self.criterion_(y_pred_log, y)
+        return self.criterion_(y_pred_log, y_true)
 
     def predict(self, X):
         return self.predict_proba(X).argmax(1)
 
+    # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
         """See `NeuralNet.fit`.
 
@@ -795,6 +818,9 @@ class NeuralNetClassifier(NeuralNet):
         forgetting about `y`. However, `y` can be set to `None` in case it
         is derived dynamically from `X`.
         """
+        # pylint: disable=useless-super-delegation
+        # this is actually a pylint bug:
+        # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
 
 
@@ -813,6 +839,7 @@ class NeuralNetRegressor(NeuralNet):
             **kwargs
         )
 
+    # pylint: disable=signature-differs
     def check_data(self, _, y):
         if y is None and self.iterator_train is DataLoader:
             raise ValueError("No y-values are given (y=None). You must "
@@ -830,6 +857,7 @@ class NeuralNetRegressor(NeuralNet):
             raise ValueError("The target data shouldn't be 1-dimensional; "
                              "please reshape (e.g. y.reshape(-1, 1).")
 
+    # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
         """See `NeuralNet.fit`.
 
@@ -837,4 +865,7 @@ class NeuralNetRegressor(NeuralNet):
         forgetting about `y`. However, `y` can be set to `None` in case it
         is derived dynamically from `X`.
         """
+        # pylint: disable=useless-super-delegation
+        # this is actually a pylint bug:
+        # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetRegressor, self).fit(X, y, **fit_params)

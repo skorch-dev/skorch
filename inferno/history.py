@@ -1,4 +1,7 @@
+"""Contains history class and helper functions."""
 
+
+# pylint: disable=invalid-name
 class _missingno:
     def __init__(self, e):
         self.e = e
@@ -15,6 +18,7 @@ def _incomplete_mapper(x):
     return x
 
 
+# pylint: disable=missing-docstring
 def partial_index(l, idx):
     needs_unrolling = (
         isinstance(l, list) and len(l) > 0 and isinstance(l[0], list))
@@ -41,12 +45,15 @@ def partial_index(l, idx):
         return _missingno(e)
 
 
+# pylint: disable=missing-docstring
 def filter_missing(x):
     if isinstance(x, list):
         children = [filter_missing(n) for n in x]
+        # pylint: disable=unidiomatic-typecheck
         filtered = list(filter(lambda x: type(x) != _missingno, children))
 
-        if len(children) > 0 and len(filtered) == 0:
+        if children and not filtered:
+            # pylint: disable=unidiomatic-typecheck
             return next(filter(lambda x: type(x) == _missingno, children))
         return filtered
     return x
@@ -153,6 +160,7 @@ class History(list):
             for part in i:
                 x_dirty = partial_index(x, part)
                 x = filter_missing(x_dirty)
+                # pylint: disable=unidiomatic-typecheck
                 if type(x) is _missingno:
                     raise x.e
             return x
