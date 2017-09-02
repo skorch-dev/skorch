@@ -7,31 +7,32 @@ class _missingno:
         return 'missingno'
 
 
-def partial_index(l, idx):
-    is_list_like = lambda x: isinstance(x, list)
+def _incomplete_mapper(x):
+    for xs in x:
+        # pylint: disable=unidiomatic-typecheck
+        if type(xs) is _missingno:
+            return xs
+    return x
 
-    needs_unrolling = is_list_like(l) \
-            and len(l) > 0 and is_list_like(l[0])
-    needs_indirection = is_list_like(l) \
-            and not isinstance(idx, (int, tuple, list, slice))
+
+def partial_index(l, idx):
+    needs_unrolling = (
+        isinstance(l, list) and len(l) > 0 and isinstance(l[0], list))
+    types = int, tuple, list, slice
+    needs_indirection = isinstance(l, list) and not isinstance(idx, types)
 
     if needs_unrolling or needs_indirection:
         return [partial_index(n, idx) for n in l]
 
     # join results of multiple indices
     if isinstance(idx, (tuple, list)):
-        def incomplete_mapper(x):
-            for xs in x:
-                if type(xs) is _missingno:
-                    return xs
-            return x
         zz = [partial_index(l, n) for n in idx]
-        if is_list_like(l):
+        if isinstance(l, list):
             total_join = zip(*zz)
-            inner_join = list(map(incomplete_mapper, total_join))
+            inner_join = list(map(_incomplete_mapper, total_join))
         else:
             total_join = tuple(zz)
-            inner_join = incomplete_mapper(total_join)
+            inner_join = _incomplete_mapper(total_join)
         return inner_join
 
     try:
@@ -123,7 +124,8 @@ class History(list):
 
         """
         msg = "Call new_epoch before recording for the first time."
-        assert len(self) > 0, msg
+        if not self:
+            raise ValueError(msg)
         self[-1][attr] = value
 
     def record_batch(self, attr, value):
