@@ -1,3 +1,56 @@
+
+class _missingno:
+    def __init__(self, e):
+        self.e = e
+
+    def __repr__(self):
+        return 'missingno'
+
+
+def partial_index(l, idx):
+    is_list_like = lambda x: isinstance(x, list)
+
+    needs_unrolling = is_list_like(l) \
+            and len(l) > 0 and is_list_like(l[0])
+    needs_indirection = is_list_like(l) \
+            and not isinstance(idx, (int, tuple, list, slice))
+
+    if needs_unrolling or needs_indirection:
+        return [partial_index(n, idx) for n in l]
+
+    # join results of multiple indices
+    if isinstance(idx, (tuple, list)):
+        def incomplete_mapper(x):
+            for xs in x:
+                if type(xs) is _missingno:
+                    return xs
+            return x
+        zz = [partial_index(l, n) for n in idx]
+        if is_list_like(l):
+            total_join = zip(*zz)
+            inner_join = list(map(incomplete_mapper, total_join))
+        else:
+            total_join = tuple(zz)
+            inner_join = incomplete_mapper(total_join)
+        return inner_join
+
+    try:
+        return l[idx]
+    except KeyError as e:
+        return _missingno(e)
+
+
+def filter_missing(x):
+    if isinstance(x, list):
+        children = [filter_missing(n) for n in x]
+        filtered = list(filter(lambda x: type(x) != _missingno, children))
+
+        if len(children) > 0 and len(filtered) == 0:
+            return next(filter(lambda x: type(x) == _missingno, children))
+        return filtered
+    return x
+
+
 class History(list):
     """A list-like collection that facilitates some of the more common
     tasks that are required.
@@ -88,62 +141,13 @@ class History(list):
         if isinstance(i, (int, slice)):
             return super().__getitem__(i)
 
-        class __missingno:
-            def __init__(self, e):
-                self.e = e
-            def __repr__(self):
-                return 'missingno'
-
-        def partial_index(l, idx):
-            is_list_like = lambda x: isinstance(x, list)
-
-            needs_unrolling = is_list_like(l) \
-                    and len(l) > 0 and is_list_like(l[0])
-            needs_indirection = is_list_like(l) \
-                    and not isinstance(idx, (int, tuple, list, slice))
-
-            if needs_unrolling or needs_indirection:
-                return [partial_index(n, idx) for n in l]
-
-            # join results of multiple indices
-            if isinstance(idx, (tuple, list)):
-                def incomplete_mapper(x):
-                    for xs in x:
-                        if type(xs) is __missingno:
-                            return xs
-                    return x
-                zz = [partial_index(l, n) for n in idx]
-                if is_list_like(l):
-                    total_join = zip(*zz)
-                    inner_join = list(map(incomplete_mapper, total_join))
-                else:
-                    total_join = tuple(zz)
-                    inner_join = incomplete_mapper(total_join)
-                return inner_join
-
-            try:
-                return l[idx]
-            except KeyError as e:
-                return __missingno(e)
-
-        def filter_missing(x):
-            if isinstance(x, list):
-                children = [filter_missing(n) for n in x]
-                filtered = list(filter(lambda x: type(x) != __missingno, children))
-
-                if len(children) > 0 and len(filtered) == 0:
-                    return next(filter(lambda x: type(x) == __missingno, children))
-                return filtered
-            return x
-
         x = self
         if isinstance(i, tuple):
             for part in i:
                 x_dirty = partial_index(x, part)
                 x = filter_missing(x_dirty)
-                if type(x) is __missingno:
+                if type(x) is _missingno:
                     raise x.e
             return x
         raise ValueError("Invalid parameter type passed to index. "
                          "Pass string, int or tuple.")
-
