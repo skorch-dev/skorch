@@ -494,3 +494,27 @@ class TestPrintLog:
         assert items[0] == '1'
         # color 1 used for item 1
         assert items[1] == list(ansi)[1].value + '0.2500' + ansi.ENDC.value
+
+    def test_print_not_skipped_if_verbose(self, capsys):
+        from inferno.callbacks import PrintLog
+
+        print_log = PrintLog().initialize()
+        net = Mock(history=[{'loss': 123}], verbose=1)
+
+        print_log.on_epoch_end(net)
+
+        stdout = capsys.readouterr()[0]
+        result = [x.strip() for x in stdout.split()]
+        expected = ['loss', '------', '123']
+        assert result == expected
+
+    def test_print_skipped_if_not_verbose(self, capsys):
+        from inferno.callbacks import PrintLog
+
+        print_log = PrintLog().initialize()
+        net = Mock(history=[{'loss': 123}], verbose=0)
+
+        print_log.on_epoch_end(net)
+
+        stdout = capsys.readouterr()[0]
+        assert not stdout
