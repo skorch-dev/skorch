@@ -278,6 +278,9 @@ class NeuralNet(Callback):
       module (cold start) or whether the module should be trained
       further (warm start).
 
+    verbose : int (default=1)
+      Control the verbosity level.
+
     use_cuda : bool (default=False)
       Whether usage of cuda is intended. If True, data in torch
       tensors will be pushed to cuda tensors before being sent to the
@@ -333,6 +336,7 @@ class NeuralNet(Callback):
             train_split=CVSplit(5),
             callbacks=None,
             cold_start=True,
+            verbose=1,
             use_cuda=False,
             **kwargs
     ):
@@ -348,6 +352,7 @@ class NeuralNet(Callback):
         self.train_split = train_split
         self.callbacks = callbacks
         self.cold_start = cold_start
+        self.verbose = verbose
         self.use_cuda = use_cuda
 
         history = kwargs.pop('history', None)
@@ -464,7 +469,8 @@ class NeuralNet(Callback):
                 module = type(module)
 
             if is_initialized or self.initialized_:
-                print("Re-initializing module!")
+                if self.verbose:
+                    print("Re-initializing module!")
 
             module = module(**kwargs)
 
