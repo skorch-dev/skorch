@@ -923,10 +923,22 @@ class NeuralNetClassifier(NeuralNet):
                              "`iterator_train` and `iterator_valid` "
                              "parameters respectively.")
 
+    def _prepare_target_for_loss(self, y):
+        # This is an ugly work-around (relating to #56), but
+        # currently, I see no solution that would result in a 1-dim
+        # LongTensor after passing through torch's DataLoader. If
+        # there is, we should use that instead.
+        if (y.dim() == 2) and (y.size(1) == 1):
+            # classification: y must be 1d
+            return y[:, 0]
+        # Note: If target is 2-dim with size(1) != 1, we just let it
+        # pass, even though it will fail with NLLLoss
+        return y
+
     def get_loss(self, y_pred, y, X=None, train=False):
         y = to_var(y)
         y_pred_log = torch.log(y_pred)
-        return self.criterion_(y_pred_log, y)
+        return self.criterion_(y_pred_log, self._prepare_target_for_loss(y))
 
     def predict(self, X):
         return self.predict_proba(X).argmax(-1)
