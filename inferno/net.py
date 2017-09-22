@@ -717,7 +717,7 @@ class NeuralNet(Callback):
 
         """
         self.module_.train(False)
-        return self.predict_proba(X).argmax(1)
+        return self.predict_proba(X).argmax(-1)
 
     def get_loss(self, y_pred, y_true, X=None, train=False):
         """Return the loss for this batch.
@@ -929,7 +929,7 @@ class NeuralNetClassifier(NeuralNet):
         return self.criterion_(y_pred_log, y)
 
     def predict(self, X):
-        return self.predict_proba(X).argmax(1)
+        return self.predict_proba(X).argmax(-1)
 
     def fit(self, X, y, **fit_params):
         """See `NeuralNet.fit`.
