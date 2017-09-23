@@ -924,10 +924,11 @@ class NeuralNetClassifier(NeuralNet):
                              "parameters respectively.")
 
     def _prepare_target_for_loss(self, y):
-        # This is an ugly work-around (relating to #56), but
+        # This is a temporary, ugly work-around (relating to #56), but
         # currently, I see no solution that would result in a 1-dim
         # LongTensor after passing through torch's DataLoader. If
-        # there is, we should use that instead.
+        # there is, we should use that instead. Otherwise, this will
+        # be obsolete once pytorch scalars arrive.
         if (y.dim() == 2) and (y.size(1) == 1):
             # classification: y must be 1d
             return y[:, 0]
