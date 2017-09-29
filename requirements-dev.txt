@@ -1,7 +1,8 @@
 jupyter
-matplotlib==2.0.0
+matplotlib>=2.0.2
 numpydoc
 openpyxl
+pandas
 pylint
 pytest
 pytest-cov
