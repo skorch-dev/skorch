@@ -84,6 +84,7 @@ gs.fit(X, y)
 print(gs.best_score_, gs.best_params_)
 
 ```
+
 ## Installation
 
 ### conda
@@ -93,17 +94,21 @@ your system from [here](https://conda.io/miniconda.html).
 
 #### For users
 
-```
+Note: pip installation will follow soon.
+
+```shell
 conda env create
 source activate inferno
+# install pytorch version for your system (see below)
 python setup.py install
 ```
 
 #### For developers
 
-```
+```shell
 conda env create
 source activate inferno
+# install pytorch version for your system (see below)
 conda install --file requirements-dev.txt
 python setup.py develop
 
@@ -115,15 +120,20 @@ pylint inferno  # static code checks
 
 Same as for conda, but to install main requirements, run:
 
-```
+```shell
 pip install -r requirements.txt
 ```
+
+### pytorch
 
 For installation instructions for pytorch, visit the [pytorch
 website](http://pytorch.org/).
 
 In general, this should work:
 
-```
+```shell
+# using conda:
+conda install pytorch cuda80 -c soumith
+# using pip
 pip install http://download.pytorch.org/whl/cu80/torch-0.2.0.post3-cp36-cp36m-manylinux1_x86_64.whl
 ```

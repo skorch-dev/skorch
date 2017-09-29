@@ -1,7 +1,6 @@
 name: inferno
 channels:
 - defaults
-- soumith
 dependencies:
 - libgfortran=3.0.0=1
 - mkl=2017.0.3=0
@@ -15,7 +14,6 @@ dependencies:
 - setuptools=27.2.0=py36_0
 - sqlite=3.13.0=0
 - tk=8.5.18=0
-- pytorch=0.2.0=py36h04dd36b_2cu75
 - wheel=0.29.0=py36_0
 - xz=5.2.2=1
 - zlib=1.2.8=3
