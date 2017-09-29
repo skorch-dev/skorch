@@ -4,6 +4,9 @@ A scikit-learn compatible neural network library that wraps pytorch.
 
 ## Example
 
+To see a more elaborate example, check out
+[this notebook](https://nbviewer.jupyter.org/github/dnouri/inferno/blob/master/notebooks/Basic_Usage.ipynb)
+
 ```python
 import numpy as np
 from sklearn.datasets import make_classification
