@@ -1,3 +1,5 @@
+"""Contains custom inferno Dataset and CVSplit."""
+
 from functools import partial
 from numbers import Number
 
@@ -17,16 +19,19 @@ from inferno.utils import to_tensor
 
 
 def _apply_to_data(data, func, unpack_dict=False):
-    _apply = partial(_apply_to_data, func=func, unpack_dict=unpack_dict)
+    """Apply a function to data, trying to unpack different data
+    types.
+
+    """
+    apply_ = partial(_apply_to_data, func=func, unpack_dict=unpack_dict)
     if isinstance(data, dict):
         if unpack_dict:
-            return [_apply(v) for v in data.values()]
-        else:
-            return {k: _apply(v) for k, v in data.items()}
+            return [apply_(v) for v in data.values()]
+        return {k: apply_(v) for k, v in data.items()}
     elif isinstance(data, (list, tuple)):
         try:
             # e.g.list/tuple of arrays
-            return [_apply(x) for x in data]
+            return [apply_(x) for x in data]
         except TypeError:
             return func(data)
     return func(data)
@@ -158,6 +163,7 @@ class Dataset(torch.utils.data.Dataset):
             self._length = length
             return
 
+        # pylint: disable=invalid-name
         len_X = get_len(X)
         if y is not None:
             len_y = get_len(y)
@@ -260,11 +266,11 @@ class CVSplit(object):
         return isinstance(cv, (StratifiedKFold, StratifiedShuffleSplit))
 
     def _is_float(self, x):
-        if not isinstance(self.cv, Number):
+        if not isinstance(x, Number):
             return False
-        return not float(self.cv).is_integer()
+        return not float(x).is_integer()
 
-    def _check_cv_float(self, y):
+    def _check_cv_float(self):
         cv_cls = StratifiedShuffleSplit if self.stratified else ShuffleSplit
         return cv_cls(test_size=self.cv, random_state=self.random_state)
 
@@ -276,6 +282,7 @@ class CVSplit(object):
         )
 
     def check_cv(self, y):
+        """Resolve which cross validation strategy is used."""
         y_arr = None
         if self.stratified:
             # Try to convert y to numpy for sklearn's check_cv; if conversion
@@ -286,7 +293,7 @@ class CVSplit(object):
                 y_arr = y
 
         if self._is_float(self.cv):
-            return self._check_cv_float(y_arr)
+            return self._check_cv_float()
         return self._check_cv_non_float(y_arr)
 
     def _is_regular(self, x):
@@ -301,6 +308,7 @@ class CVSplit(object):
         if self.stratified and not self._is_stratified(cv):
             raise bad_y_error
 
+        # pylint: disable=invalid-name
         len_X = get_len(X)
         if y is not None:
             len_y = get_len(y)
@@ -321,4 +329,5 @@ class CVSplit(object):
 
     def __repr__(self):
         # TODO
+        # pylint: disable=useless-super-delegation
         return super(CVSplit, self).__repr__()

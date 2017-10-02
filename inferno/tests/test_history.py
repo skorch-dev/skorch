@@ -1,3 +1,5 @@
+"""Tests for history.py."""
+
 import pytest
 
 from inferno.net import History
@@ -10,6 +12,7 @@ class TestHistory:
 
     @pytest.fixture
     def history(self):
+        """Return a history filled with epoch and batch data."""
         h = History()
         for num_epoch in range(self.test_epochs):
             h.new_epoch()
@@ -20,7 +23,7 @@ class TestHistory:
             for num_batch in range(self.test_batches):
                 h.new_batch()
                 h.record_batch('loss', num_epoch + num_batch)
-                if num_batch % 2 == 0 and (num_epoch+1) != self.test_epochs:
+                if num_batch % 2 == 0 and (num_epoch + 1) != self.test_epochs:
                     h.record_batch('extra_batch', 23)
         return h
 
@@ -92,14 +95,18 @@ class TestHistory:
 
     def test_history_non_existing_values(self, history):
         with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
             history[:, 'non-existing']
         with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
             history[0, 'extra']
 
     def test_history_non_existing_values_batch(self, history):
         with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
             history[:, 'batches', :, 'non-existing']
         with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
             history[:, 'batches', 1, 'extra_batch']
 
     def test_history_mixed_slicing(self, history, ref):
@@ -114,8 +121,10 @@ class TestHistory:
     def test_history_partial_and_full_index_batches(self, history, ref):
         loss_with_extra = history[:, 'batches', :, ('loss', 'extra_batch')]
 
-        expected_e0 = [(b['loss'], b['extra_batch']) for b in ref[0]['batches'] if 'extra_batch' in b]
-        expected_e1 = [(b['loss'], b['extra_batch']) for b in ref[1]['batches'] if 'extra_batch' in b]
+        expected_e0 = [(b['loss'], b['extra_batch']) for b in ref[0]['batches']
+                       if 'extra_batch' in b]
+        expected_e1 = [(b['loss'], b['extra_batch']) for b in ref[1]['batches']
+                       if 'extra_batch' in b]
 
         assert len(loss_with_extra) == self.test_epochs - 1
         assert loss_with_extra[0] == expected_e0
@@ -124,8 +133,10 @@ class TestHistory:
     def test_history_partial_batches(self, history, ref):
         extra_batches = history[:, 'batches', 'extra_batch']
 
-        expected_e0 = [b['extra_batch'] for b in ref[0]['batches'] if 'extra_batch' in b]
-        expected_e1 = [b['extra_batch'] for b in ref[1]['batches'] if 'extra_batch' in b]
+        expected_e0 = [b['extra_batch'] for b in ref[0]['batches']
+                       if 'extra_batch' in b]
+        expected_e1 = [b['extra_batch'] for b in ref[1]['batches']
+                       if 'extra_batch' in b]
 
         # In every epoch there are 2 batches with the 'extra_batch'
         # key except for the last epoch. We therefore two results
@@ -134,9 +145,10 @@ class TestHistory:
         assert extra_batches[0] == expected_e0
         assert extra_batches[1] == expected_e1
 
-    def test_history_partial_singular_values(self, history, ref):
+    def test_history_partial_singular_values(self, history):
         values = history[-1, ('duration', 'total_loss')]
         expected = (history[-1]['duration'], history[-1]['total_loss'])
 
+        # pylint: disable=unidiomatic-typecheck
         assert type(values) == tuple
         assert values == expected

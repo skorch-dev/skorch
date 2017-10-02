@@ -1,3 +1,10 @@
+"""inferno utilities.
+
+Should not have any dependency on other inferno packages.
+
+"""
+
+from collections.abc import Sequence
 from enum import Enum
 from functools import partial
 
@@ -5,7 +12,6 @@ import numpy as np
 import torch
 from torch import nn
 from torch.autograd import Variable
-import collections.abc
 
 
 class Ansi(Enum):
@@ -18,6 +24,11 @@ class Ansi(Enum):
 
 
 def to_var(X, use_cuda=False):
+    """Generic function to convert a input data to pytorch Variables.
+
+    Returns X when it already is a pytorch Variable.
+
+    """
     if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
         return X
 
@@ -43,21 +54,21 @@ def to_tensor(X, use_cuda=False):
       * dict of one of the former
 
     """
-    _to_tensor = partial(to_tensor, use_cuda=use_cuda)
+    to_tensor_ = partial(to_tensor, use_cuda=use_cuda)
 
     if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
         return X
 
     if isinstance(X, dict):
-        return {key: _to_tensor(val) for key, val in X.items()}
+        return {key: to_tensor_(val) for key, val in X.items()}
 
     if isinstance(X, (list, tuple)):
-        return [_to_tensor(x) for x in X]
+        return [to_tensor_(x) for x in X]
 
     if isinstance(X, np.ndarray):
         X = torch.from_numpy(X)
 
-    if isinstance(X, collections.abc.Sequence):
+    if isinstance(X, Sequence):
         X = torch.from_numpy(np.array(X))
     elif np.isscalar(X):
         X = torch.from_numpy(np.array([X]))
@@ -68,6 +79,12 @@ def to_tensor(X, use_cuda=False):
 
 
 def to_numpy(X):
+    """Generic function to convert a pytorch tensor or variable to
+    numpy.
+
+    Returns X when it already is a numpy array.
+
+    """
     if isinstance(X, np.ndarray):
         return X
 
@@ -87,6 +104,7 @@ def to_numpy(X):
 def check_history_slice(history, sl):
     # Note: May extend this for more cases.
     try:
+        # pylint: disable=pointless-statement
         history[sl]
         return
     except KeyError as exc:

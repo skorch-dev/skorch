@@ -1,3 +1,5 @@
+"""Tests for net.py"""
+
 import pickle
 from unittest.mock import Mock
 
@@ -22,6 +24,7 @@ torch.cuda.manual_seed(0)
 
 
 class MyClassifier(nn.Module):
+    """Simple classification module."""
     def __init__(self, num_units=10, nonlin=F.relu):
         super(MyClassifier, self).__init__()
 
@@ -31,7 +34,8 @@ class MyClassifier(nn.Module):
         self.dense1 = nn.Linear(num_units, 10)
         self.output = nn.Linear(10, 2)
 
-    def forward(self, X, **kwargs):
+    # pylint: disable=arguments-differ
+    def forward(self, X):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
         X = self.nonlin(self.dense1(X))
@@ -39,6 +43,7 @@ class MyClassifier(nn.Module):
         return X
 
 
+# pylint: disable=too-many-public-methods
 class TestNeuralNet:
     @pytest.fixture(scope='module')
     def data(self):
@@ -51,7 +56,7 @@ class TestNeuralNet:
         return Mock(spec=Callback)
 
     @pytest.fixture(scope='module')
-    def module_cls(self, data):
+    def module_cls(self):
         return MyClassifier
 
     @pytest.fixture(scope='module')
@@ -84,6 +89,10 @@ class TestNeuralNet:
 
     @pytest.fixture
     def net_pickleable(self, net_fit):
+        """NeuralNet instance that removes callbacks that are not
+        pickleable.
+
+        """
         # callback fixture not pickleable, remove it
         callbacks = net_fit.callbacks
         net_fit.callbacks = []
@@ -106,7 +115,7 @@ class TestNeuralNet:
         assert accuracy_score(y, y_pred) > 0.7
 
     def test_predict_proba(self, net_fit, data):
-        X, y = data
+        X = data[0]
 
         y_proba = net_fit.predict_proba(X)
         assert np.allclose(y_proba.sum(1), 1, rtol=1e-7)
@@ -117,7 +126,7 @@ class TestNeuralNet:
     def test_dropout(self, net_fit, data):
         # Note: does not test that dropout is really active during
         # training.
-        X, y = data
+        X = data[0]
 
         # check that dropout not active by default
         y_proba = to_numpy(net_fit.forward(X))
@@ -129,7 +138,7 @@ class TestNeuralNet:
         y_proba2 = to_numpy(net_fit.forward(X, training_behavior=True))
         assert not np.allclose(y_proba, y_proba2, rtol=1e-7)
 
-    def test_pickle_save_load(self, net_cls, net_pickleable, data, tmpdir):
+    def test_pickle_save_load(self, net_pickleable, data, tmpdir):
         X, y = data
         score_before = accuracy_score(y, net_pickleable.predict(X))
 
@@ -275,7 +284,7 @@ class TestNeuralNet:
         net.fit(X, y)
 
         net.set_params(module__nonlin=nn.PReLU())
-        assert type(net.module_.nonlin) == nn.PReLU
+        assert isinstance(net.module_.nonlin, nn.PReLU)
         d1 = net.module_.nonlin.weight.data.clone().cpu().numpy()
 
         # make sure that we do not initialize again by making sure that
@@ -395,6 +404,7 @@ class TestNeuralNet:
         from inferno.utils import to_var
 
         class MyNet(net_cls):
+            # pylint: disable=unused-argument
             def get_loss(self, y_pred, y_true, X=None, train=False):
                 y_true = to_var(y_true)
                 loss_a = torch.abs(y_true.float() - y_pred[:, 1]).mean()
@@ -425,6 +435,7 @@ class TestNeuralNet:
         net.fit(X, y)
         assert net.history[:, 'train_loss']
         with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
             net.history[:, 'valid_loss']
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
@@ -509,8 +520,7 @@ class TestNeuralNet:
         stdout = capsys.readouterr()[0]
         assert "Re-initializing module!" not in stdout
 
-    def test_with_initialized_sequential(
-            self, net_cls, module_cls, data, capsys):
+    def test_with_initialized_sequential(self, net_cls, data, capsys):
         X, y = data
         module = nn.Sequential(
             nn.Linear(X.shape[1], 10),
@@ -536,7 +546,7 @@ class TestNeuralNet:
         net.fit(X, y)
         params_after = net.module_.parameters()
 
-        assert len(net.history) == 0
+        assert not net.history
         for p0, p1 in zip(params_before, params_after):
             assert (p0 != p1).data.any()
 
@@ -582,6 +592,7 @@ class TestNeuralNet:
 
 
 class MyRegressor(nn.Module):
+    """Simple regression module."""
     def __init__(self, num_units=10, nonlin=F.relu):
         super(MyRegressor, self).__init__()
 
@@ -591,7 +602,8 @@ class MyRegressor(nn.Module):
         self.dense1 = nn.Linear(num_units, 10)
         self.output = nn.Linear(10, 1)
 
-    def forward(self, X, **kwargs):
+    # pylint: disable=arguments-differ
+    def forward(self, X):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
         X = self.nonlin(self.dense1(X))
@@ -610,7 +622,7 @@ class TestNeuralNetRegressor:
         return Xt, yt
 
     @pytest.fixture(scope='module')
-    def module_cls(self, data):
+    def module_cls(self):
         return MyRegressor
 
     @pytest.fixture(scope='module')
