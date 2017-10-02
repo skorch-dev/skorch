@@ -1,183 +1,37 @@
 """Neural net classes."""
 
 import pickle
+import re
 
 import numpy as np
 from sklearn.base import BaseEstimator
 import torch
 from torch.utils.data import DataLoader
 
-from inferno.callbacks import Callback
 from inferno.callbacks import EpochTimer
 from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
 from inferno.dataset import Dataset
 from inferno.dataset import CVSplit
 from inferno.exceptions import NotInitializedError
+from inferno.history import History
 from inferno.utils import get_dim
 from inferno.utils import to_numpy
 from inferno.utils import to_var
 
 
-class History(list):
-    """A list-like collection that facilitates some of the more common
-    tasks that are required.
-
-    It is basically a list of dicts for each epoch, that again
-    contains a list of dicts for each batch. For convenience, it has
-    enhanced slicing notation and some methods to write new items.
-
-    To access items from history, you may pass a tuple of up to four
-    items:
-
-      1. Slices along the epochs.
-      2. Selects columns from history epochs, may be a single one or a
-      tuple of column names.
-      3. Slices along the batches.
-      4. Selects columns from history batchs, may be a single one or a
-      tuple of column names.
-
-    You may use a combination of the four items.
-
-    If you select columns that are not present in all epochs/batches,
-    only those epochs/batches are chosen that contain said columns. If
-    this set is empty, a KeyError is raised.
-
-    Examples
-    --------
-    >>> # ACCESSING ITEMS
-    >>> # history of a fitted neural net
-    >>> history = net.history
-    >>> # get current epoch, a dict
-    >>> history[-1]
-    >>> # get train losses from all epochs, a list of floats
-    >>> history[:, 'train_loss']
-    >>> # get train and valid losses from all epochs, a list of tuples
-    >>> history[:, ('train_loss', 'valid_loss')]
-    >>> # get current batches, a list of dicts
-    >>> history[-1, 'batches']
-    >>> # get latest batch, a dict
-    >>> history[-1, 'batches', -1]
-    >>> # get train losses from current batch, a list of floats
-    >>> history[-1, 'batches', :, 'train_loss']
-    >>> # get train and valid losses from current batch, a list of tuples
-    >>> history[-1, 'batches', :, ('train_loss', 'valid_loss')]
-
-    >>> # WRITING ITEMS
-    >>> # add new epoch row
-    >>> history.new_epoch()
-    >>> # add an entry to current epoch
-    >>> history.record('my-score', 123)
-    >>> # add a batch row to the current epoch
-    >>> history.new_batch()
-    >>> # add an entry to the current batch
-    >>> history.record_batch('my-batch-score', 456)
-    >>> # overwrite entry of current batch
-    >>> history.record_batch('my-batch-score', 789)
-
-    """
-
-    def new_epoch(self):
-        """Register a new epoch row."""
-        self.append({'batches': []})
-
-    def new_batch(self):
-        """Register a new batch row for the current epoch."""
-        self[-1]['batches'].append({})
-
-    def record(self, attr, value):
-        """Add a new value to the given column for the current
-        epoch.
-
-        """
-        msg = "Call new_epoch before recording for the first time."
-        assert len(self) > 0, msg
-        self[-1][attr] = value
-
-    def record_batch(self, attr, value):
-        """Add a new value to the given column for the current
-        batch.
-
-        """
-        self[-1]['batches'][-1][attr] = value
-
-    def to_list(self):
-        """Return history object as a list."""
-        return list(self)
-
-    def __getitem__(self, i):
-        if isinstance(i, (int, slice)):
-            return super().__getitem__(i)
-
-        class __missingno:
-            def __init__(self, e):
-                self.e = e
-            def __repr__(self):
-                return 'missingno'
-
-        def partial_index(l, idx):
-            is_list_like = lambda x: isinstance(x, list)
-
-            needs_unrolling = is_list_like(l) \
-                    and len(l) > 0 and is_list_like(l[0])
-            needs_indirection = is_list_like(l) \
-                    and not isinstance(idx, (int, tuple, list, slice))
-
-            if needs_unrolling or needs_indirection:
-                return [partial_index(n, idx) for n in l]
-
-            # join results of multiple indices
-            if isinstance(idx, (tuple, list)):
-                def incomplete_mapper(x):
-                    for xs in x:
-                        if type(xs) is __missingno:
-                            return xs
-                    return x
-                zz = [partial_index(l, n) for n in idx]
-                if is_list_like(l):
-                    total_join = zip(*zz)
-                    inner_join = list(map(incomplete_mapper, total_join))
-                else:
-                    total_join = tuple(zz)
-                    inner_join = incomplete_mapper(total_join)
-                return inner_join
-
-            try:
-                return l[idx]
-            except KeyError as e:
-                return __missingno(e)
-
-        def filter_missing(x):
-            if isinstance(x, list):
-                children = [filter_missing(n) for n in x]
-                filtered = list(filter(lambda x: type(x) != __missingno, children))
-
-                if len(children) > 0 and len(filtered) == 0:
-                    return next(filter(lambda x: type(x) == __missingno, children))
-                return filtered
-            return x
-
-        x = self
-        if isinstance(i, tuple):
-            for part in i:
-                x_dirty = partial_index(x, part)
-                x = filter_missing(x_dirty)
-                if type(x) is __missingno:
-                    raise x.e
-            return x
-        raise ValueError("Invalid parameter type passed to index. "
-                         "Pass string, int or tuple.")
-
-
+# pylint: disable=unused-argument
 def train_loss_score(net, X=None, y=None):
     return net.history[-1, 'batches', -1, 'train_loss']
 
 
+# pylint: disable=unused-argument
 def valid_loss_score(net, X=None, y=None):
     return net.history[-1, 'batches', -1, 'valid_loss']
 
 
-class NeuralNet(Callback):
+# pylint: disable=too-many-instance-attributes
+class NeuralNet(object):
     """NeuralNet base class.
 
     The base class covers more generic cases. Depending on your use
@@ -254,7 +108,7 @@ class NeuralNet(Callback):
       accept a `use_cuda` parameter to indicate whether cuda should be
       used.
 
-    train_split : None, function or callable (default=inferno.dataset.CVSplit(5))
+    train_split : None or callable (default=inferno.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
       should be a function or callable that is called with X and y
       data and should return the tuple `X_train, X_valid, y_train,
@@ -322,6 +176,7 @@ class NeuralNet(Callback):
         ('print_log', PrintLog),
     ]
 
+    # pylint: disable=too-many-arguments
     def __init__(
             self,
             module,
@@ -384,19 +239,40 @@ class NeuralNet(Callback):
         for _, cb in self.callbacks_:
             getattr(cb, method_name)(self, **cb_kwargs)
 
+    # pylint: disable=unused-argument
+    def on_train_begin(self, net, **kwargs):
+        pass
+
+    # pylint: disable=unused-argument
+    def on_train_end(self, net, **kwargs):
+        pass
+
+    # pylint: disable=unused-argument
     def on_epoch_begin(self, net, **kwargs):
         self.history.new_epoch()
         self.history.record('epoch', len(self.history))
 
+    # pylint: disable=unused-argument
+    def on_epoch_end(self, net, **kwargs):
+        pass
+
+    # pylint: disable=unused-argument
     def on_batch_begin(self, net, train=False, **kwargs):
         self.history.new_batch()
 
+    def on_batch_end(self, net, **kwargs):
+        pass
+
     def _yield_callbacks(self):
-        # handles cases:
-        #   * default and user callbacks
-        #   * callbacks with and without name
-        #   * initialized and uninitialized callbacks
-        #   * puts PrintLog(s) last
+        """Yield all callbacks set on this instance.
+
+        Handles these cases:
+          * default and user callbacks
+          * callbacks with and without name
+          * initialized and uninitialized callbacks
+          * puts PrintLog(s) last
+
+        """
         print_logs = []
         for item in self.default_callbacks + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
@@ -505,7 +381,7 @@ class NeuralNet(Callback):
         self.initialized_ = True
         return self
 
-    def check_data(self, *data):
+    def check_data(self, X, y=None):
         pass
 
     def validation_step(self, xi, yi):
@@ -579,7 +455,7 @@ class NeuralNet(Callback):
             dataset_valid = None
         dataset_train = self.dataset(X_train, y_train, use_cuda=use_cuda)
 
-        for epoch in range(epochs):
+        for _ in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
             for xi, yi in self.get_iterator(dataset_train, train=True):
@@ -603,6 +479,7 @@ class NeuralNet(Callback):
             self.notify('on_epoch_end', X=X, y=y)
         return self
 
+    # pylint: disable=unused-argument
     def partial_fit(self, X, y=None, classes=None, **fit_params):
         """Fit the module.
 
@@ -719,6 +596,7 @@ class NeuralNet(Callback):
         self.module_.train(False)
         return self.predict_proba(X).argmax(-1)
 
+    # pylint: disable=unused-argument
     def get_loss(self, y_pred, y_true, X=None, train=False):
         """Return the loss for this batch.
 
@@ -788,6 +666,15 @@ class NeuralNet(Callback):
         return BaseEstimator.get_params(self, deep=deep, **kwargs)
 
     def set_params(self, **kwargs):
+        """Set the parameters of this class.
+
+        Valid parameter keys can be listed with `get_params()`.
+
+        Returns
+        -------
+        self
+
+        """
         normal_params, special_params = {}, {}
         for key, val in kwargs.items():
             if any(key.startswith(prefix) for prefix in self.prefixes_):
@@ -880,11 +767,40 @@ class NeuralNet(Callback):
         self.module_.load_state_dict(torch.load(f))
 
 
+#######################
+# NeuralNetClassifier #
+#######################
+
 def accuracy_pred_extractor(y):
     return np.argmax(to_numpy(y), axis=1)
 
 
+neural_net_clf_doc_start = """NeuralNet for classification tasks
+
+    Use this specifically if you have a standard classification task,
+    with input data X and target y.
+
+"""
+
+neural_net_clf_criterion_text = """
+
+    criterion : torch criterion (class, default=torch.nn.NLLLoss)
+      Negative log likelihood loss. Note that the module should return
+      probabilities, the log is applied during `get_loss`."""
+
+
+def get_neural_net_clf_doc(doc):
+    doc = neural_net_clf_doc_start + doc.split("\n ", 4)[-1]
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    start, end = pattern.search(doc).span()
+    doc = doc[:start] + neural_net_clf_criterion_text + doc[end:]
+    return doc
+
+
+# pylint: disable=missing-docstring
 class NeuralNetClassifier(NeuralNet):
+    __doc__ = get_neural_net_clf_doc(NeuralNet.__doc__)
+
     default_callbacks = [
         ('epoch_timer', EpochTimer()),
         ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
@@ -915,6 +831,7 @@ class NeuralNetClassifier(NeuralNet):
             **kwargs
         )
 
+    # pylint: disable=signature-differs
     def check_data(self, _, y):
         if y is None and self.iterator_train is DataLoader:
             raise ValueError("No y-values are given (y=None). You must "
@@ -923,14 +840,28 @@ class NeuralNetClassifier(NeuralNet):
                              "`iterator_train` and `iterator_valid` "
                              "parameters respectively.")
 
-    def get_loss(self, y_pred, y, X=None, train=False):
-        y = to_var(y)
+    def _prepare_target_for_loss(self, y):
+        # This is a temporary, ugly work-around (relating to #56), but
+        # currently, I see no solution that would result in a 1-dim
+        # LongTensor after passing through torch's DataLoader. If
+        # there is, we should use that instead. Otherwise, this will
+        # be obsolete once pytorch scalars arrive.
+        if (y.dim() == 2) and (y.size(1) == 1):
+            # classification: y must be 1d
+            return y[:, 0]
+        # Note: If target is 2-dim with size(1) != 1, we just let it
+        # pass, even though it will fail with NLLLoss
+        return y
+
+    def get_loss(self, y_pred, y_true, X=None, train=False):
+        y_true = to_var(y_true)
         y_pred_log = torch.log(y_pred)
-        return self.criterion_(y_pred_log, y)
+        return self.criterion_(
+          y_pred_log,
+          self._prepare_target_for_loss(y_true),
+        )
 
-    def predict(self, X):
-        return self.predict_proba(X).argmax(-1)
-
+    # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
         """See `NeuralNet.fit`.
 
@@ -938,10 +869,41 @@ class NeuralNetClassifier(NeuralNet):
         forgetting about `y`. However, `y` can be set to `None` in case it
         is derived dynamically from `X`.
         """
+        # pylint: disable=useless-super-delegation
+        # this is actually a pylint bug:
+        # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
 
 
+######################
+# NeuralNetRegressor #
+######################
+
+neural_net_reg_doc_start = """NeuralNet for regression tasks
+
+    Use this specifically if you have a standard regression task,
+    with input data X and target y. y must be 2d.
+
+"""
+
+neural_net_reg_criterion_text = """
+
+    criterion : torch criterion (class, default=torch.nn.MSELoss)
+      Mean squared error loss."""
+
+
+def get_neural_net_reg_doc(doc):
+    doc = neural_net_reg_doc_start + doc.split("\n ", 4)[-1]
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    start, end = pattern.search(doc).span()
+    doc = doc[:start] + neural_net_reg_criterion_text + doc[end:]
+    return doc
+
+
+# pylint: disable=missing-docstring
 class NeuralNetRegressor(NeuralNet):
+    __doc__ = get_neural_net_reg_doc(NeuralNet.__doc__)
+
     def __init__(
             self,
             module,
@@ -956,6 +918,7 @@ class NeuralNetRegressor(NeuralNet):
             **kwargs
         )
 
+    # pylint: disable=signature-differs
     def check_data(self, _, y):
         if y is None and self.iterator_train is DataLoader:
             raise ValueError("No y-values are given (y=None). You must "
@@ -973,6 +936,7 @@ class NeuralNetRegressor(NeuralNet):
             raise ValueError("The target data shouldn't be 1-dimensional; "
                              "please reshape (e.g. y.reshape(-1, 1).")
 
+    # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
         """See `NeuralNet.fit`.
 
@@ -980,4 +944,7 @@ class NeuralNetRegressor(NeuralNet):
         forgetting about `y`. However, `y` can be set to `None` in case it
         is derived dynamically from `X`.
         """
+        # pylint: disable=useless-super-delegation
+        # this is actually a pylint bug:
+        # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetRegressor, self).fit(X, y, **fit_params)

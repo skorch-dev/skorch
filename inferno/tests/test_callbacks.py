@@ -1,3 +1,5 @@
+"""Tests for callbacks.py"""
+
 from functools import partial
 import itertools
 from unittest.mock import Mock
@@ -12,10 +14,13 @@ from .conftest import get_history
 class TestAllCallbacks:
     @pytest.fixture
     def callbacks(self):
+        """Return all callbacks"""
         import inferno.callbacks
+
         callbacks = []
         for name in dir(inferno.callbacks):
             attr = getattr(inferno.callbacks, name)
+            # pylint: disable=unidiomatic-typecheck
             if not type(attr) is type:
                 continue
             if issubclass(attr, inferno.callbacks.Callback):
@@ -38,8 +43,7 @@ class TestAllCallbacks:
         for callback, method_name in itertools.product(
                 callbacks, on_x_methods):
             method = getattr(callback, method_name)
-            argspec = inspect.getargspec(method)
-            assert argspec.keywords
+            assert "kwargs" in inspect.signature(method).parameters
 
 
 class TestScoring:
@@ -64,7 +68,7 @@ class TestScoring:
 
     @pytest.fixture
     def net(self):
-        from inferno.net import History
+        from inferno.history import History
 
         net = Mock(infer=Mock(side_effect=lambda x: x))
         history = History()
@@ -130,7 +134,7 @@ class TestScoring:
         batch sizes to verify this.
 
         """
-        from inferno.net import History
+        from inferno.history import History
 
         history = History()
         history.new_epoch()
@@ -162,6 +166,7 @@ class TestScoring:
         best.
 
         """
+        # pylint: disable=unused-argument
         def get_bs(net, *args, **kwargs):
             return net.history[-1, 'batches', -1, 'valid_batch_size']
 
@@ -214,6 +219,7 @@ class TestScoring:
         to determine the score.
 
         """
+        # pylint: disable=unused-argument
         def score_func(estimator, X, y):
             return 555
 
@@ -279,6 +285,7 @@ class TestScoring:
             mse_scoring.on_batch_end(net, X=[0], y=[0], train=True)
 
         with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
             net.history[:, 'batches', :, 'mse']
 
     def test_train_is_used(self, scoring_cls, net):
@@ -317,8 +324,10 @@ class TestScoring:
             mse_scoring.on_batch_end(net, X=[0], y=[0], train=False)
 
         with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
             net.history[:, 'batches', :, 'mse']
 
+    # pylint: disable=unused-argument
     def test_target_extractor_is_called(self, mse_scoring, history, mock_data):
         # note: the history fixture is required even if not used because it
         # triggers the calls on mse_scoring
@@ -326,18 +335,19 @@ class TestScoring:
         for i in range(3):  # 3 epochs
             data = mock_data[i][1]  # the targets
             for j in range(4):  # 4 batches
-                call_args_list[4 * i + j] == data
+                assert call_args_list[4 * i + j][0][0] == data
 
+    # pylint: disable=unused-argument
     def test_pred_extractor_is_called(self, mse_scoring, history, mock_data):
         # note: the history fixture is required even if not used because it
         # triggers the calls on mse_scoring
-        call_args_list = mse_scoring.target_extractor.call_args_list
+        call_args_list = mse_scoring.pred_extractor.call_args_list
         for i in range(3):  # 3 epochs
             data = mock_data[i][0]  # the predictions
             for j in range(4):  # 4 batches
-                call_args_list[4 * i + j] == data
+                assert call_args_list[4 * i + j][0][0] == data
 
-    def test_is_best_ignored_when_none(self, scoring_cls, net, mock_data):
+    def test_is_best_ignored_when_none(self, scoring_cls):
         mse_scoring = scoring_cls(
             name='mse',
             scoring='mean_squared_error',
@@ -347,6 +357,7 @@ class TestScoring:
         with pytest.raises(KeyError):
             # Since lower_is_better is None, 'is_best' key should not be
             # written
+            # pylint: disable=pointless-statement
             history[:, 'is_best']
 
 
@@ -391,6 +402,7 @@ class TestPrintLog:
     def history(self, train_loss, valid_loss, print_log):
         return get_history(train_loss, valid_loss, print_log)
 
+    # pylint: disable=unused-argument
     @pytest.fixture
     def sink(self, history, print_log):
         # note: the history fixture is required even if not used because it
@@ -464,11 +476,9 @@ class TestPrintLog:
             assert tab.call_args_list[0][1]['tablefmt'] == 'latex'
             assert tab.call_args_list[0][1]['floatfmt'] == '.9f'
 
-    def test_with_additional_key(self, history):
-        from inferno.callbacks import PrintLog
-
+    def test_with_additional_key(self, history, print_log_cls):
         keys_ignored = ['batches']  # 'text' and 'dur' no longer ignored
-        print_log = PrintLog(
+        print_log = print_log_cls(
             sink=Mock(), keys_ignored=keys_ignored).initialize()
         # does not raise
         print_log.on_epoch_end(Mock(history=history))
@@ -478,9 +488,8 @@ class TestPrintLog:
         expected = ['epoch', 'text', 'train_loss', 'valid_loss', 'dur']
         assert columns == expected
 
-    def test_keys_ignored_as_str(self, history, print_log_cls):
-        from inferno.callbacks import PrintLog
-        print_log = PrintLog(keys_ignored='a-key')
+    def test_keys_ignored_as_str(self, print_log_cls):
+        print_log = print_log_cls(keys_ignored='a-key')
         assert print_log.keys_ignored == ['a-key']
 
     def test_no_valid(self, train_loss, valid_loss, print_log, ansi):

@@ -1,5 +1,6 @@
+"""Tests for dataset.py."""
+
 from unittest.mock import Mock
-from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -9,8 +10,8 @@ import torch.utils.data
 from torch import nn
 import torch.nn.functional as F
 
-from .conftest import pandas_installed
 from inferno.utils import to_tensor
+from inferno.tests.conftest import pandas_installed
 
 
 class TestGetLen:
@@ -68,7 +69,9 @@ class TestNetWithoutY:
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
-                self.dense = nn.Linear(1,1)
+                self.dense = nn.Linear(1, 1)
+
+            # pylint: disable=arguments-differ
             def forward(self, X):
                 return self.dense(X.float())
         return MyModule
@@ -78,7 +81,9 @@ class TestNetWithoutY:
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
-                self.dense = nn.Linear(2,1)
+                self.dense = nn.Linear(2, 1)
+
+            # pylint: disable=arguments-differ
             def forward(self, X):
                 return self.dense(X.float())
         return MyModule
@@ -139,6 +144,11 @@ class TestNetWithoutY:
     @pytest.fixture(params=net_fixture_params)
     def net_1d_custom_loader(self, request, net_cls_1d,
                              loader_clf, loader_reg, train_split):
+        """Parametrized fixture returning a NeuralNet
+        classifier/regressor, for different batch sizes, working on 1d
+        data.
+
+        """
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
@@ -160,6 +170,11 @@ class TestNetWithoutY:
     @pytest.fixture(params=net_fixture_params)
     def net_2d_custom_loader(self, request, net_cls_2d,
                              loader_clf, loader_reg, train_split):
+        """Parametrized fixture returning a NeuralNet
+        classifier/regressor, for different batch sizes, working on 2d
+        data.
+
+        """
         if request.param['classification']:
             from inferno import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
@@ -179,29 +194,28 @@ class TestNetWithoutY:
         )
 
     def test_net_1d_tensor_raises_error(self, net_1d):
-        X = torch.Tensor([[1],[2],[3],[4],[5],[6],[7]])
+        X = torch.arange(0, 8).view(-1, 1).long()
         # We expect check_data to throw an exception
         # because we did not specify a custom data loader.
         with pytest.raises(ValueError):
             net_1d.fit(X, None)
 
     def test_net_2d_tensor_raises_error(self, net_2d):
-        X = torch.Tensor([[1,2],[3,4],[5,6]])
+        X = torch.arange(0, 8).view(4, 2).long()
         # We expect check_data to throw an exception
         # because we did not specify a custom data loader.
         with pytest.raises(ValueError):
             net_2d.fit(X, None)
 
     def test_net_1d_custom_loader(self, net_1d_custom_loader):
-        X = torch.Tensor([[1],[2],[3],[4],[5],[6],[7]])
+        X = torch.arange(0, 8).view(-1, 1).long()
         # Should not raise an exception.
         net_1d_custom_loader.fit(X, None)
 
     def test_net_2d_custom_loader(self, net_2d_custom_loader):
-        X = torch.Tensor([[1,2],[3,4],[5,6]])
+        X = torch.arange(0, 8).view(4, 2).long()
         # Should not raise an exception.
         net_2d_custom_loader.fit(X, None)
-
 
 
 class TestMultiIndexing:
@@ -288,7 +302,7 @@ class TestMultiIndexing:
     ])
     def test_dict_of_arrays(self, multi_indexing, data, i, expected):
         result = multi_indexing(data, i)
-        result.keys() == expected.keys()
+        assert result.keys() == expected.keys()
         for k in result:
             assert np.allclose(result[k], expected[k])
 
@@ -306,7 +320,7 @@ class TestMultiIndexing:
     ])
     def test_dict_of_torch_tensors(self, multi_indexing, data, i, expected):
         result = multi_indexing(data, i)
-        result.keys() == expected.keys()
+        assert result.keys() == expected.keys()
         for k in result:
             try:
                 val = result[k].long().numpy()
@@ -423,18 +437,23 @@ class TestMultiIndexing:
         i = np.eye(3).astype(bool)
 
         res = multi_indexing(X, i)
-        expected = torch.LongTensor([0,4,8])
+        expected = torch.LongTensor([0, 4, 8])
         assert all(res == expected)
 
 
 class TestNetWithDict:
     @pytest.fixture(scope='module')
     def module_cls(self):
+        """Return a simple module that concatenates its 2 inputs in
+        forward step.
+
+        """
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
                 self.dense = nn.Linear(20, 2)
 
+            # pylint: disable=arguments-differ
             def forward(self, X0, X1):
                 X = torch.cat((X0, X1), 1)
                 X = F.softmax(self.dense(X))
@@ -472,11 +491,13 @@ class TestNetWithDict:
 class TestNetWithList:
     @pytest.fixture(scope='module')
     def module_cls(self):
+        """Return a simple module that concatenates in input."""
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
                 self.dense = nn.Linear(20, 2)
 
+            # pylint: disable=arguments-differ
             def forward(self, X):
                 X = torch.cat(X, 1)
                 X = F.softmax(self.dense(X))
@@ -514,11 +535,16 @@ class TestNetWithList:
 class TestNetWithPandas:
     @pytest.fixture(scope='module')
     def module_cls(self):
+        """Return a simple module that concatenates all input values
+        in forward step.
+
+        """
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
                 self.dense = nn.Linear(20, 2)
 
+            # pylint: disable=arguments-differ
             def forward(self, **X):
                 X = torch.cat(list(X.values()), 1)
                 X = F.softmax(self.dense(X))
@@ -601,8 +627,10 @@ class TestDataset:
 class TestTrainSplitIsUsed:
     @pytest.fixture
     def iterator(self):
+        """Return a simple iterator that yields the input data."""
         class Iterator:
             """An iterator that just yield the input data."""
+            # pylint: disable=unused-argument
             def __init__(self, dataset, *args, **kwargs):
                 self.dataset = dataset
 
@@ -624,7 +652,9 @@ class TestTrainSplitIsUsed:
 
     @pytest.fixture
     def module(self):
+        """Return a simple classifier module class."""
         class MyClassifier(nn.Module):
+            """Simple classifier module"""
             def __init__(self, input_units=20, num_units=10, nonlin=F.relu):
                 super(MyClassifier, self).__init__()
 
@@ -634,7 +664,8 @@ class TestTrainSplitIsUsed:
                 self.dense1 = nn.Linear(num_units, 10)
                 self.output = nn.Linear(10, 2)
 
-            def forward(self, X, **kwargs):
+            # pylint: disable=arguments-differ
+            def forward(self, X):
                 X = self.nonlin(self.dense0(X))
                 X = self.dropout(X)
                 X = self.nonlin(self.dense1(X))
@@ -648,7 +679,13 @@ class TestTrainSplitIsUsed:
 
     @pytest.fixture
     def net_and_mock(self, module, data, train_split, iterator):
+        """Return a NeuralNetClassifier with mocked train and
+        validation step which save the args and kwargs the methods are
+        calld with.
+
+        """
         from inferno import NeuralNetClassifier
+
         X, y = data
         net = NeuralNetClassifier(
             module,
@@ -675,7 +712,7 @@ class TestTrainSplitIsUsed:
         return net.fit(X, y), mock
 
     def test_steps_called_with_split_data(self, net_and_mock, data_split):
-        net, mock = net_and_mock
+        mock = net_and_mock[1]
         assert mock.call_count == 2  # once for train, once for valid
         assert (mock.call_args_list[0][0][1] == data_split[0]).all()
         assert (mock.call_args_list[0][0][2] == data_split[2]).all()
@@ -703,6 +740,8 @@ class TestCVSplit:
         X_train1, X_valid1, y_train1, y_valid1 = cv_split_cls(5)(X, y)
         X_train2, X_valid2, y_train2, y_valid2 = cv_split_cls(5)(X, y)
         assert np.all(X_train1 == X_train2)
+        assert np.all(X_valid1 == X_valid2)
+        assert np.all(y_train1 == y_train2)
         assert np.all(y_valid1 == y_valid2)
 
     @pytest.mark.parametrize('cv', [2, 4, 5, 10])
@@ -721,8 +760,7 @@ class TestCVSplit:
         num_expected = self.num_samples // 4
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
-        X_train, X_valid, y_train, y_valid = cv_split_cls(
-            5, stratified=True)(X, y)
+        _, _, y_train, y_valid = cv_split_cls(5, stratified=True)(X, y)
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
 
@@ -744,8 +782,7 @@ class TestCVSplit:
         num_expected = self.num_samples // 4
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
-        X_train, X_valid, y_train, y_valid = cv_split_cls(
-            frac, stratified=True)(X, y)
+        _, _, y_train, y_valid = cv_split_cls(frac, stratified=True)(X, y)
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
 
@@ -787,8 +824,7 @@ class TestCVSplit:
         num_expected = self.num_samples // 4
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
-        X_train, X_valid, y_train, y_valid = cv_split_cls(
-            5, stratified=False)(X, y)
+        _, _, y_train, y_valid = cv_split_cls(5, stratified=False)(X, y)
         assert y_train.sum() == num_expected
         assert y_valid.sum() == 0
 
@@ -832,8 +868,7 @@ class TestCVSplit:
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
         y = to_tensor(y)
-        X_train, X_valid, y_train, y_valid = cv_split_cls(
-            5, stratified=True)(X, y)
+        _, _, y_train, y_valid = cv_split_cls(5, stratified=True)(X, y)
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
 
@@ -934,7 +969,7 @@ class TestCVSplit:
         expected = "Stratified CV not possible with given y."
         assert exc.value.args[0] == expected
 
-    def test_y_none_cv_float_irregular_X(self, cv_split_cls, data):
+    def test_y_none_cv_float_irregular_X(self, cv_split_cls):
         cv = 0.2
         X, y = torch.zeros((100, 10)), None
 
