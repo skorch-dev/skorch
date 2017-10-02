@@ -84,6 +84,17 @@ class NeuralNet(object):
       Learning rate passed to the optimizer. You may use `lr` instead
       of using `optim__lr`, which would result in the same outcome.
 
+    gradient_clip_value : float (default=None)
+      If not None, clip the norm of all model parameter gradients to this
+      value. The type of the norm is determined by the
+      `gradient_clip_norm_type` parameter and defaults to L2. See
+      `torch.nn.utils.clip_grad_norm` for more information about the value of
+      this parameter.
+
+    gradient_clip_norm_type : float (default=2)
+      Norm to use when gradient clipping is active. The default is
+      to use L2-norm.
+
     max_epochs : int (default=10)
       The number of epochs to train for each `fit` call. Note that you
       may keyboard-interrupt training at any time.
@@ -183,6 +194,8 @@ class NeuralNet(object):
             criterion,
             optim=torch.optim.SGD,
             lr=0.01,
+            gradient_clip_value=None,
+            gradient_clip_norm_type=2,
             max_epochs=10,
             batch_size=128,
             iterator_train=DataLoader,
@@ -209,6 +222,8 @@ class NeuralNet(object):
         self.cold_start = cold_start
         self.verbose = verbose
         self.use_cuda = use_cuda
+        self.gradient_clip_value = gradient_clip_value
+        self.gradient_clip_norm_type = gradient_clip_norm_type
 
         history = kwargs.pop('history', None)
         initialized = kwargs.pop('initialized_', False)
@@ -409,6 +424,13 @@ class NeuralNet(object):
         y_pred = self.infer(xi)
         loss = self.get_loss(y_pred, yi, X=xi, train=True)
         loss.backward()
+
+        if self.gradient_clip_value is not None:
+            torch.nn.utils.clip_grad_norm(
+                self.module_.parameters(),
+                self.gradient_clip_value,
+                norm_type=self.gradient_clip_norm_type)
+
         optimizer.step()
         return loss
 
