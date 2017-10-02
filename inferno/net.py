@@ -193,8 +193,8 @@ class NeuralNet(object):
             criterion,
             optim=torch.optim.SGD,
             lr=0.01,
-            gradient_clip=None,
-            gradient_clip_norm=2,
+            gradient_clip_value=None,
+            gradient_clip_norm_type=2,
             max_epochs=10,
             batch_size=128,
             iterator_train=DataLoader,
@@ -221,8 +221,8 @@ class NeuralNet(object):
         self.cold_start = cold_start
         self.verbose = verbose
         self.use_cuda = use_cuda
-        self.gradient_clip = gradient_clip
-        self.gradient_clip_norm = gradient_clip_norm
+        self.gradient_clip_value = gradient_clip_value
+        self.gradient_clip_norm_type = gradient_clip_norm_type
 
         history = kwargs.pop('history', None)
         initialized = kwargs.pop('initialized_', False)
@@ -424,10 +424,11 @@ class NeuralNet(object):
         loss = self.get_loss(y_pred, yi, X=xi, train=True)
         loss.backward()
 
-        if self.gradient_clip is not None:
-            torch.nn.utils.clip_grad(self.module_.parameters(),
-                                     self.gradient_clip,
-                                     norm_type=self.gradient_clip_norm)
+        if self.gradient_clip_value is not None:
+            torch.nn.utils.clip_grad_norm(
+                self.module_.parameters(),
+                self.gradient_clip_value,
+                norm_type=self.gradient_clip_norm_type)
 
         optimizer.step()
         return loss
