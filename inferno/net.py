@@ -84,13 +84,14 @@ class NeuralNet(object):
       Learning rate passed to the optimizer. You may use `lr` instead
       of using `optim__lr`, which would result in the same outcome.
 
-    gradient_clip : float (default=None)
+    gradient_clip_value : float (default=None)
       If not None, clip the norm of all model parameter gradients to this
-      value. The type of the norm is determined by the `gradient_clip_norm`
-      parameter and defaults to L2. See `torch.nn.utils.clip_grad_norm` for
-      more information on the value of this parameter.
+      value. The type of the norm is determined by the
+      `gradient_clip_norm_type` parameter and defaults to L2. See
+      `torch.nn.utils.clip_grad_norm` for more information about the value of
+      this parameter.
 
-    gradient_clip_norm : float (default=2)
+    gradient_clip_norm_type : float (default=2)
       Norm to use when gradient clipping is active. The default is
       to use L2-norm.
 
