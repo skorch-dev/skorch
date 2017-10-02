@@ -702,7 +702,7 @@ class NeuralNet(object):
         return self
 
     def __getstate__(self):
-        state = BaseEstimator.__getstate__(self)
+        state = self.__dict__.copy()
         if 'module_' in state:
             module_ = state.pop('module_')
             module_dump = pickle.dumps(module_)
@@ -714,7 +714,7 @@ class NeuralNet(object):
             module_dump = state.pop('module_')
             module_ = pickle.loads(module_dump)
             state['module_'] = module_
-        BaseEstimator.__setstate__(self, state)
+        self.__dict__.update(state)
 
     def save_params(self, f):
         """Save only the module's parameters, not the whole object.
