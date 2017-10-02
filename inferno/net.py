@@ -427,7 +427,7 @@ class NeuralNet(object):
         if self.gradient_clip is not None:
             torch.nn.utils.clip_grad(self.module_.parameters(),
                                      self.gradient_clip,
-                                     self.gradient_clip_norm)
+                                     norm_type=self.gradient_clip_norm)
 
         optimizer.step()
         return loss
