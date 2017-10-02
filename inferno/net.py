@@ -30,6 +30,7 @@ def valid_loss_score(net, X=None, y=None):
     return net.history[-1, 'batches', -1, 'valid_loss']
 
 
+# pylint: disable=too-many-instance-attributes
 class NeuralNet(object):
     """NeuralNet base class.
 
@@ -131,6 +132,9 @@ class NeuralNet(object):
       module (cold start) or whether the module should be trained
       further (warm start).
 
+    verbose : int (default=1)
+      Control the verbosity level.
+
     use_cuda : bool (default=False)
       Whether usage of cuda is intended. If True, data in torch
       tensors will be pushed to cuda tensors before being sent to the
@@ -172,6 +176,7 @@ class NeuralNet(object):
         ('print_log', PrintLog),
     ]
 
+    # pylint: disable=too-many-arguments
     def __init__(
             self,
             module,
@@ -186,6 +191,7 @@ class NeuralNet(object):
             train_split=CVSplit(5),
             callbacks=None,
             cold_start=True,
+            verbose=1,
             use_cuda=False,
             **kwargs
     ):
@@ -201,6 +207,7 @@ class NeuralNet(object):
         self.train_split = train_split
         self.callbacks = callbacks
         self.cold_start = cold_start
+        self.verbose = verbose
         self.use_cuda = use_cuda
 
         history = kwargs.pop('history', None)
@@ -338,7 +345,8 @@ class NeuralNet(object):
                 module = type(module)
 
             if is_initialized or self.initialized_:
-                print("Re-initializing module!")
+                if self.verbose:
+                    print("Re-initializing module!")
 
             module = module(**kwargs)
 
@@ -586,7 +594,7 @@ class NeuralNet(object):
 
         """
         self.module_.train(False)
-        return self.predict_proba(X).argmax(1)
+        return self.predict_proba(X).argmax(-1)
 
     # pylint: disable=unused-argument
     def get_loss(self, y_pred, y_true, X=None, train=False):
@@ -832,13 +840,26 @@ class NeuralNetClassifier(NeuralNet):
                              "`iterator_train` and `iterator_valid` "
                              "parameters respectively.")
 
+    def _prepare_target_for_loss(self, y):
+        # This is a temporary, ugly work-around (relating to #56), but
+        # currently, I see no solution that would result in a 1-dim
+        # LongTensor after passing through torch's DataLoader. If
+        # there is, we should use that instead. Otherwise, this will
+        # be obsolete once pytorch scalars arrive.
+        if (y.dim() == 2) and (y.size(1) == 1):
+            # classification: y must be 1d
+            return y[:, 0]
+        # Note: If target is 2-dim with size(1) != 1, we just let it
+        # pass, even though it will fail with NLLLoss
+        return y
+
     def get_loss(self, y_pred, y_true, X=None, train=False):
         y_true = to_var(y_true)
         y_pred_log = torch.log(y_pred)
-        return self.criterion_(y_pred_log, y_true)
-
-    def predict(self, X):
-        return self.predict_proba(X).argmax(1)
+        return self.criterion_(
+          y_pred_log,
+          self._prepare_target_for_loss(y_true),
+        )
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):

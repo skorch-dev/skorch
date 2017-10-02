@@ -438,6 +438,7 @@ class TestNeuralNet:
             # pylint: disable=pointless-statement
             net.history[:, 'valid_loss']
 
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_use_cuda_on_model(self, net_cls, module_cls):
         net_cuda = net_cls(module_cls, use_cuda=True)
         net_cuda.initialize()
@@ -580,6 +581,14 @@ class TestNeuralNet:
         assert len(net.history) == 10
         for p0, p1 in zip(params_before, params_after):
             assert (p0 == p1).data.all()
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_binary_classification_with_cuda(self, net_cls, module_cls, data):
+        X, y = data
+        assert y.ndim == 1
+
+        net = net_cls(module_cls, max_epochs=1, use_cuda=True)
+        net.fit(X, y)
 
 
 class MyRegressor(nn.Module):

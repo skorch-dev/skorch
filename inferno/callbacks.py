@@ -330,18 +330,22 @@ class PrintLog(Callback):
             floatfmt=self.floatfmt,
         )
 
+    def _sink(self, text, verbose):
+        if (self.sink is not print) or verbose:
+            self.sink(text)
+
     # pylint: disable=unused-argument
     def on_epoch_end(self, net, **kwargs):
         data = net.history[-1]
+        verbose = net.verbose
         tabulated = self.table(data)
 
         if self.first_iteration_:
             header, lines = tabulated.split('\n', 2)[:2]
-            self.sink(header)
-            self.sink(lines)
-            # pylint: disable=attribute-defined-outside-init
+            self._sink(header, verbose)
+            self._sink(lines, verbose)
             self.first_iteration_ = False
 
-        self.sink(tabulated.rsplit('\n', 1)[-1])
+        self._sink(tabulated.rsplit('\n', 1)[-1], verbose)
         if self.sink is print:
             sys.stdout.flush()

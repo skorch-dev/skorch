@@ -4,6 +4,9 @@ A scikit-learn compatible neural network library that wraps pytorch.
 
 ## Example
 
+To see a more elaborate example, check out
+[this notebook](https://nbviewer.jupyter.org/github/dnouri/inferno/blob/master/notebooks/Basic_Usage.ipynb)
+
 ```python
 import numpy as np
 from sklearn.datasets import make_classification
@@ -122,5 +125,5 @@ website](http://pytorch.org/).
 In general, this should work:
 
 ```
-pip install http://download.pytorch.org/whl/cu80/torch-0.2.0.post1-cp36-cp36m-manylinux1_x86_64.whl
+pip install http://download.pytorch.org/whl/cu80/torch-0.2.0.post3-cp36-cp36m-manylinux1_x86_64.whl
 ```

@@ -70,6 +70,8 @@ def to_tensor(X, use_cuda=False):
 
     if isinstance(X, Sequence):
         X = torch.from_numpy(np.array(X))
+    elif np.isscalar(X):
+        X = torch.from_numpy(np.array([X]))
 
     if use_cuda:
         X = X.cuda()
