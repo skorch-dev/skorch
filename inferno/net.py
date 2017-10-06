@@ -2,6 +2,8 @@
 
 import pickle
 import re
+import tempfile
+import warnings
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -727,14 +729,27 @@ class NeuralNet(object):
         state = self.__dict__.copy()
         if 'module_' in state:
             module_ = state.pop('module_')
-            module_dump = pickle.dumps(module_)
-            state['module_'] = module_dump
+            with tempfile.SpooledTemporaryFile() as f:
+                torch.save(module_, f)
+                f.seek(0)
+                state['module_'] = f.read()
         return state
 
     def __setstate__(self, state):
         if 'module_' in state:
             module_dump = state.pop('module_')
-            module_ = pickle.loads(module_dump)
+
+            with tempfile.SpooledTemporaryFile() as f:
+                f.write(module_dump)
+                f.seek(0)
+                if state['use_cuda'] and not torch.cuda.is_available():
+                    warnings.warn(
+                        "Model configured to use CUDA but no CUDA devices "
+                        "available. Loading on CPU instead.",
+                        ResourceWarning)
+                    module_ = torch.load(f, map_location=lambda storage, loc: storage)
+                else:
+                    module_ = torch.load(f)
             state['module_'] = module_
         self.__dict__.update(state)
 
