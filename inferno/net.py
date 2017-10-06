@@ -801,7 +801,23 @@ class NeuralNet(object):
                 "Cannot load parameters of an un-initialized model. "
                 "Please initialize first by calling `.initialize()` "
                 "or by fitting the model with `.fit(...)`.")
-        self.module_.load_state_dict(torch.load(f))
+
+        cuda_req_not_met = (self.use_cuda and not torch.cuda.is_available())
+        if not self.use_cuda or cuda_req_not_met:
+            # Eiher we want to load the model to the CPU in which case
+            # we are loading in a way where it doesn't matter if the data
+            # was on the GPU or not or the model was on the GPU but there
+            # is no CUDA device available.
+            if cuda_req_not_met:
+                warnings.warn(
+                    "Model configured to use CUDA but no CUDA devices "
+                    "available. Loading on CPU instead.",
+                    ResourceWarning)
+            model = torch.load(f, lambda storage, loc: storage)
+        else:
+            model = torch.load(f)
+
+        self.module_.load_state_dict(model)
 
 
 #######################

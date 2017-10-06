@@ -162,7 +162,6 @@ class TestNeuralNet:
             pickle.dump(net, f)
         del net
 
-
         with patch('torch.cuda.is_available', lambda *_: False):
             with pytest.warns(ResourceWarning) as w:
                 with open(str(p), 'rb') as f:
@@ -245,6 +244,21 @@ class TestNeuralNet:
                     "Please initialize first by calling `.initialize()` "
                     "or by fitting the model with `.fit(...)`.")
         assert exc.value.args[0] == expected
+
+    def test_save_load_state_cuda_intercompatibility(
+            self, net_cls, module_cls, tmpdir):
+        net = net_cls(module_cls, use_cuda=True).initialize()
+
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        net.save_params(str(p))
+
+        with patch('torch.cuda.is_available', lambda *_: False):
+            with pytest.warns(ResourceWarning) as w:
+                net.load_params(str(p))
+
+        assert w.list[0].message.args[0] == (
+            'Model configured to use CUDA but no CUDA '
+            'devices available. Loading on CPU instead.')
 
     @pytest.mark.parametrize('method, call_count', [
         ('on_train_begin', 1),
