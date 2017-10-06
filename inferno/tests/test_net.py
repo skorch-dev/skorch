@@ -2,6 +2,7 @@
 
 import pickle
 from unittest.mock import Mock
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -151,6 +152,25 @@ class TestNeuralNet:
 
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
+
+    def test_pickle_save_load_cuda_intercompatibility(
+            self, net_cls, module_cls, tmpdir):
+        net = net_cls(module=module_cls, use_cuda=True).initialize()
+
+        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            pickle.dump(net, f)
+        del net
+
+
+        with patch('torch.cuda.is_available', lambda *_: False):
+            with pytest.warns(ResourceWarning) as w:
+                with open(str(p), 'rb') as f:
+                    pickle.load(f)
+
+        assert w.list[0].message.args[0] == (
+            'Model configured to use CUDA but no CUDA '
+            'devices available. Loading on CPU instead.')
 
     def test_pickle_save_and_load_uninitialized(
             self, net_cls, module_cls, tmpdir):
