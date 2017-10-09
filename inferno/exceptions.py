@@ -10,3 +10,11 @@ class NotInitializedError(InfernoException):
     method or train the model by calling `.fit(...)`.
 
     """
+
+
+class InfernoWarning(UserWarning):
+    """Base inferno warning."""
+
+
+class DeviceWarning(InfernoWarning):
+    """A problem with a device (e.g. CUDA) was detected."""

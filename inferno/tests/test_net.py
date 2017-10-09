@@ -155,6 +155,8 @@ class TestNeuralNet:
 
     def test_pickle_save_load_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
+        from inferno.exceptions import DeviceWarning
+
         net = net_cls(module=module_cls, use_cuda=True).initialize()
 
         p = tmpdir.mkdir('inferno').join('testmodel.pkl')
@@ -163,10 +165,11 @@ class TestNeuralNet:
         del net
 
         with patch('torch.cuda.is_available', lambda *_: False):
-            with pytest.warns(ResourceWarning) as w:
+            with pytest.warns(DeviceWarning) as w:
                 with open(str(p), 'rb') as f:
                     pickle.load(f)
 
+        assert len(w.list) == 1  # only 1 warning
         assert w.list[0].message.args[0] == (
             'Model configured to use CUDA but no CUDA '
             'devices available. Loading on CPU instead.')
