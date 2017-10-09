@@ -153,6 +153,7 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
 
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_pickle_save_load_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
         from inferno.exceptions import DeviceWarning
@@ -248,6 +249,7 @@ class TestNeuralNet:
                     "or by fitting the model with `.fit(...)`.")
         assert exc.value.args[0] == expected
 
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_save_load_state_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
         net = net_cls(module_cls, use_cuda=True).initialize()
