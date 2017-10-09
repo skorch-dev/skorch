@@ -1,4 +1,4 @@
-"""Contains inferno-specific exceptions."""
+"""Contains inferno-specific exceptions and warnings."""
 
 
 class InfernoException(BaseException):
