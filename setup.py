@@ -37,7 +37,7 @@ except IOError:
     CHANGES = ''
 
 setup(
-    name='inferno',
+    name='skorch',
     version=version,
     description='scikit-learn compatible neural network library for pytorch',
     packages=find_packages(),

@@ -1,4 +1,4 @@
-"""inferno base imports"""
+"""skorch base imports"""
 
 from .history import History
 from .net import NeuralNet

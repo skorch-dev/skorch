@@ -2,7 +2,7 @@
 
 import pytest
 
-from inferno.net import History
+from skorch.net import History
 
 
 class TestHistory:

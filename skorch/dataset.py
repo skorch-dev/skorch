@@ -1,4 +1,4 @@
-"""Contains custom inferno Dataset and CVSplit."""
+"""Contains custom skorch Dataset and CVSplit."""
 
 from functools import partial
 from numbers import Number
@@ -12,10 +12,10 @@ from sklearn.model_selection import check_cv
 import torch
 import torch.utils.data
 
-from inferno.utils import flatten
-from inferno.utils import is_pandas_ndframe
-from inferno.utils import to_numpy
-from inferno.utils import to_tensor
+from skorch.utils import flatten
+from skorch.utils import is_pandas_ndframe
+from skorch.utils import to_numpy
+from skorch.utils import to_tensor
 
 
 def _apply_to_data(data, func, unpack_dict=False):
