@@ -1,6 +1,5 @@
 """Neural net classes."""
 
-import pickle
 import re
 import tempfile
 import warnings
@@ -15,6 +14,7 @@ from inferno.callbacks import PrintLog
 from inferno.callbacks import Scoring
 from inferno.dataset import Dataset
 from inferno.dataset import CVSplit
+from inferno.exceptions import DeviceWarning
 from inferno.exceptions import NotInitializedError
 from inferno.history import History
 from inferno.utils import get_dim
@@ -160,6 +160,13 @@ class NeuralNet(object):
       is the `'module'` prefix, it is possible to set parameters like
       so: `NeuralNet(..., optim__momentum=0.95)`.
 
+    cuda_dependent_attributes_ : list of str
+      Contains a list of all attributes whose values depend on a CUDA
+      device. If a `NeuralNet` trained with a CUDA-enabled device is
+      unpickled on a machine without CUDA or with CUDA disabled, the
+      listed attributes are mapped to CPU.  Expand this list if you
+      want to add other cuda-dependent attributes.
+
     default_callbacks : list of str
       Callbacks that come by default. They are mainly set for the
       user's convenience. By default, an EpochTimer, AverageLoss,
@@ -181,6 +188,8 @@ class NeuralNet(object):
     """
     prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optim',
                  'criterion', 'callbacks']
+
+    cuda_dependent_attributes_ = ['module_', 'optim_']
 
     default_callbacks = [
         ('epoch_timer', EpochTimer),
@@ -727,30 +736,38 @@ class NeuralNet(object):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        if 'module_' in state:
-            module_ = state.pop('module_')
-            with tempfile.SpooledTemporaryFile() as f:
-                torch.save(module_, f)
-                f.seek(0)
-                state['module_'] = f.read()
+        for key in self.cuda_dependent_attributes_:
+            if key in state:
+                val = state.pop(key)
+                with tempfile.SpooledTemporaryFile() as f:
+                    torch.save(val, f)
+                    f.seek(0)
+                    state[key] = f.read()
+
         return state
 
     def __setstate__(self, state):
-        if 'module_' in state:
-            module_dump = state.pop('module_')
-
+        show_warning = False
+        for key in self.cuda_dependent_attributes_:
+            if key not in state:
+                continue
+            dump = state.pop(key)
             with tempfile.SpooledTemporaryFile() as f:
-                f.write(module_dump)
+                f.write(dump)
                 f.seek(0)
                 if state['use_cuda'] and not torch.cuda.is_available():
-                    warnings.warn(
-                        "Model configured to use CUDA but no CUDA devices "
-                        "available. Loading on CPU instead.",
-                        ResourceWarning)
-                    module_ = torch.load(f, map_location=lambda storage, loc: storage)
+                    show_warning = True
+                    val = torch.load(
+                        f, map_location=lambda storage, loc: storage)
                 else:
-                    module_ = torch.load(f)
-            state['module_'] = module_
+                    val = torch.load(f)
+            state[key] = val
+        if show_warning:
+            warnings.warn(
+                "Model configured to use CUDA but no CUDA devices "
+                "available. Loading on CPU instead.",
+                DeviceWarning)
+
         self.__dict__.update(state)
 
     def save_params(self, f):
