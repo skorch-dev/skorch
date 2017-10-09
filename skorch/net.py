@@ -9,17 +9,17 @@ from sklearn.base import BaseEstimator
 import torch
 from torch.utils.data import DataLoader
 
-from inferno.callbacks import EpochTimer
-from inferno.callbacks import PrintLog
-from inferno.callbacks import Scoring
-from inferno.dataset import Dataset
-from inferno.dataset import CVSplit
-from inferno.exceptions import DeviceWarning
-from inferno.exceptions import NotInitializedError
-from inferno.history import History
-from inferno.utils import get_dim
-from inferno.utils import to_numpy
-from inferno.utils import to_var
+from skorch.callbacks import EpochTimer
+from skorch.callbacks import PrintLog
+from skorch.callbacks import Scoring
+from skorch.dataset import Dataset
+from skorch.dataset import CVSplit
+from skorch.exceptions import DeviceWarning
+from skorch.exceptions import NotInitializedError
+from skorch.history import History
+from skorch.utils import get_dim
+from skorch.utils import to_numpy
+from skorch.utils import to_var
 
 
 # pylint: disable=unused-argument
@@ -112,7 +112,7 @@ class NeuralNet(object):
     iterator_test : torch DataLoader
       TODO: Will probably change.
 
-    dataset : torch Dataset (default=inferno.dataset.Dataset)
+    dataset : torch Dataset (default=skorch.dataset.Dataset)
       The dataset is necessary for the incoming data to work with
       pytorch's `DataLoader`. It has to implement the `__len__` and
       `__getitem__` methods. The provided dataset should be capable of
@@ -121,7 +121,7 @@ class NeuralNet(object):
       accept a `use_cuda` parameter to indicate whether cuda should be
       used.
 
-    train_split : None or callable (default=inferno.dataset.CVSplit(5))
+    train_split : None or callable (default=skorch.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
       should be a function or callable that is called with X and y
       data and should return the tuple `X_train, X_valid, y_train,
@@ -130,7 +130,7 @@ class NeuralNet(object):
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those specified in
       `default_callbacks`. Each callback should inherit from
-      inferno.Callback. If not None, a list of tuples (name, callback)
+      skorch.Callback. If not None, a list of tuples (name, callback)
       should be passed, where names should be unique. Callbacks may or
       may not be instantiated.
       Alternatively, it is possible to just pass a list of callbacks,
@@ -661,7 +661,7 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        dataset : torch Dataset (default=inferno.dataset.Dataset)
+        dataset : torch Dataset (default=skorch.dataset.Dataset)
           Usually, `self.dataset`, initialized with the corresponding
           data, is passed to `get_iterator`.
 

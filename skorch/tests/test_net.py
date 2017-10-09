@@ -17,7 +17,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from inferno.net import to_numpy
+from skorch.net import to_numpy
 
 
 torch.manual_seed(0)
@@ -53,7 +53,7 @@ class TestNeuralNet:
 
     @pytest.fixture(scope='module')
     def dummy_callback(self):
-        from inferno.callbacks import Callback
+        from skorch.callbacks import Callback
         return Mock(spec=Callback)
 
     @pytest.fixture(scope='module')
@@ -62,7 +62,7 @@ class TestNeuralNet:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from inferno.net import NeuralNetClassifier
+        from skorch.net import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -143,7 +143,7 @@ class TestNeuralNet:
         X, y = data
         score_before = accuracy_score(y, net_pickleable.predict(X))
 
-        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         with open(str(p), 'wb') as f:
             pickle.dump(net_pickleable, f)
         del net_pickleable
@@ -156,11 +156,11 @@ class TestNeuralNet:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_pickle_save_load_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
-        from inferno.exceptions import DeviceWarning
+        from skorch.exceptions import DeviceWarning
 
         net = net_cls(module=module_cls, use_cuda=True).initialize()
 
-        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         with open(str(p), 'wb') as f:
             pickle.dump(net, f)
         del net
@@ -178,7 +178,7 @@ class TestNeuralNet:
     def test_pickle_save_and_load_uninitialized(
             self, net_cls, module_cls, tmpdir):
         net = net_cls(module_cls)
-        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         with open(str(p), 'wb') as f:
             # does not raise
             pickle.dump(net, f)
@@ -194,7 +194,7 @@ class TestNeuralNet:
         score_untrained = accuracy_score(y, net.predict(X))
         assert not np.isclose(score_before, score_untrained)
 
-        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         with open(str(p), 'wb') as f:
             net_fit.save_params(f)
         del net_fit
@@ -213,7 +213,7 @@ class TestNeuralNet:
         score_untrained = accuracy_score(y, net.predict(X))
         assert not np.isclose(score_before, score_untrained)
 
-        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         net_fit.save_params(str(p))
         del net_fit
         net.load_params(str(p))
@@ -223,10 +223,10 @@ class TestNeuralNet:
 
     def test_save_state_dict_not_init(
             self, net_cls, module_cls, tmpdir):
-        from inferno.exceptions import NotInitializedError
+        from skorch.exceptions import NotInitializedError
 
         net = net_cls(module_cls)
-        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
 
         with pytest.raises(NotInitializedError) as exc:
             net.save_params(str(p))
@@ -237,10 +237,10 @@ class TestNeuralNet:
 
     def test_load_state_dict_not_init(
             self, net_cls, module_cls, tmpdir):
-        from inferno.exceptions import NotInitializedError
+        from skorch.exceptions import NotInitializedError
 
         net = net_cls(module_cls)
-        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
 
         with pytest.raises(NotInitializedError) as exc:
             net.load_params(str(p))
@@ -254,7 +254,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, tmpdir):
         net = net_cls(module_cls, use_cuda=True).initialize()
 
-        p = tmpdir.mkdir('inferno').join('testmodel.pkl')
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         net.save_params(str(p))
 
         with patch('torch.cuda.is_available', lambda *_: False):
@@ -440,7 +440,7 @@ class TestNeuralNet:
         print(gs.best_score_, gs.best_params_)
 
     def test_change_get_loss(self, net_cls, module_cls, data):
-        from inferno.utils import to_var
+        from skorch.utils import to_var
 
         class MyNet(net_cls):
             # pylint: disable=unused-argument
@@ -492,7 +492,7 @@ class TestNeuralNet:
 
     @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
-        from inferno.callbacks import EpochTimer
+        from skorch.callbacks import EpochTimer
 
         net = net_cls(
             module_cls,
@@ -666,7 +666,7 @@ class TestNeuralNetRegressor:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from inferno.net import NeuralNetRegressor
+        from skorch.net import NeuralNetRegressor
         return NeuralNetRegressor
 
     @pytest.fixture(scope='module')

@@ -10,14 +10,14 @@ import torch.utils.data
 from torch import nn
 import torch.nn.functional as F
 
-from inferno.utils import to_tensor
-from inferno.tests.conftest import pandas_installed
+from skorch.utils import to_tensor
+from skorch.tests.conftest import pandas_installed
 
 
 class TestGetLen:
     @pytest.fixture
     def get_len(self):
-        from inferno.dataset import get_len
+        from skorch.dataset import get_len
         return get_len
 
     @pytest.mark.parametrize('data, expected', [
@@ -106,16 +106,16 @@ class TestNetWithoutY:
 
     @pytest.fixture
     def train_split(self):
-        from inferno.dataset import CVSplit
+        from skorch.dataset import CVSplit
         return CVSplit(0.2, stratified=False)
 
     @pytest.fixture(params=net_fixture_params)
     def net_1d(self, request, net_cls_1d, train_split):
         if request.param['classification']:
-            from inferno import NeuralNetClassifier
+            from skorch import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
         else:
-            from inferno import NeuralNetRegressor
+            from skorch import NeuralNetRegressor
             wrap_cls = NeuralNetRegressor
 
         return wrap_cls(
@@ -128,10 +128,10 @@ class TestNetWithoutY:
     @pytest.fixture(params=net_fixture_params)
     def net_2d(self, request, net_cls_2d, train_split):
         if request.param['classification']:
-            from inferno import NeuralNetClassifier
+            from skorch import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
         else:
-            from inferno import NeuralNetRegressor
+            from skorch import NeuralNetRegressor
             wrap_cls = NeuralNetRegressor
 
         return wrap_cls(
@@ -150,11 +150,11 @@ class TestNetWithoutY:
 
         """
         if request.param['classification']:
-            from inferno import NeuralNetClassifier
+            from skorch import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
             loader = loader_clf
         else:
-            from inferno import NeuralNetRegressor
+            from skorch import NeuralNetRegressor
             wrap_cls = NeuralNetRegressor
             loader = loader_reg
 
@@ -176,11 +176,11 @@ class TestNetWithoutY:
 
         """
         if request.param['classification']:
-            from inferno import NeuralNetClassifier
+            from skorch import NeuralNetClassifier
             wrap_cls = NeuralNetClassifier
             loader = loader_clf
         else:
-            from inferno import NeuralNetRegressor
+            from skorch import NeuralNetRegressor
             wrap_cls = NeuralNetRegressor
             loader = loader_reg
 
@@ -221,7 +221,7 @@ class TestNetWithoutY:
 class TestMultiIndexing:
     @pytest.fixture
     def multi_indexing(self):
-        from inferno.dataset import multi_indexing
+        from skorch.dataset import multi_indexing
         return multi_indexing
 
     @pytest.mark.parametrize('data, i, expected', [
@@ -469,7 +469,7 @@ class TestNetWithDict:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from inferno.net import NeuralNetClassifier
+        from skorch.net import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -513,7 +513,7 @@ class TestNetWithList:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from inferno.net import NeuralNetClassifier
+        from skorch.net import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -566,7 +566,7 @@ class TestNetWithPandas:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from inferno.net import NeuralNetClassifier
+        from skorch.net import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -591,7 +591,7 @@ class TestDataset:
     """
     @pytest.fixture
     def dataset_cls(self):
-        from inferno.dataset import Dataset
+        from skorch.dataset import Dataset
         return Dataset
 
     def test_len_correct(self, dataset_cls):
@@ -684,7 +684,7 @@ class TestTrainSplitIsUsed:
         calld with.
 
         """
-        from inferno import NeuralNetClassifier
+        from skorch import NeuralNetClassifier
 
         X, y = data
         net = NeuralNetClassifier(
@@ -732,7 +732,7 @@ class TestCVSplit:
 
     @pytest.fixture
     def cv_split_cls(self):
-        from inferno.dataset import CVSplit
+        from skorch.dataset import CVSplit
         return CVSplit
 
     def test_reproducible(self, cv_split_cls, data):

@@ -6,7 +6,7 @@ import pytest
 class TestDuplicateItems:
     @pytest.fixture
     def duplicate_items(self):
-        from inferno.utils import duplicate_items
+        from skorch.utils import duplicate_items
         return duplicate_items
 
     @pytest.mark.parametrize('collections', [

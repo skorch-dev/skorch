@@ -1,11 +1,11 @@
-import inferno
+import skorch
 import numpy as np
 import torch
 from torch.autograd import Variable
 from sklearn.metrics import f1_score
 
 
-class Learner(inferno.NeuralNet):
+class Learner(skorch.NeuralNet):
 
     def __init__(self,
                  criterion=torch.nn.CrossEntropyLoss,
@@ -42,8 +42,8 @@ class Learner(inferno.NeuralNet):
         preds = [None] * num_words
         for i in range(num_words):
             preds[i], hidden = self.sample(input, hidden=hidden)
-            input = inferno.utils.to_var(torch.LongTensor([[preds[i]]]),
-                                         use_cuda=self.use_cuda)
+            input = skorch.utils.to_var(torch.LongTensor([[preds[i]]]),
+                                        use_cuda=self.use_cuda)
         return preds, hidden
 
     def train_step(self, X, y, _):
@@ -74,7 +74,7 @@ class Learner(inferno.NeuralNet):
     def evaluation_step(self, X, **kwargs):
         self.module_.eval()
 
-        X = inferno.utils.to_var(X, use_cuda=self.use_cuda)
+        X = skorch.utils.to_var(X, use_cuda=self.use_cuda)
 
         # TODO: resetting the hidden layer here prevents the user from
         # manually resetting the hidden layer from outside (when generating
@@ -100,9 +100,9 @@ class Learner(inferno.NeuralNet):
         # memory issues. We do not calculate F1 on the batches as this
         # would introduce an error to the score.
         for X, y in self.get_iterator(X, y, train=False):
-            prediction = inferno.utils.to_numpy(self.evaluation_step(X)).argmax(1)
+            prediction = skorch.utils.to_numpy(self.evaluation_step(X)).argmax(1)
             y_probas.append(prediction)
-            y_target.append(inferno.utils.to_numpy(y))
+            y_target.append(skorch.utils.to_numpy(y))
 
         y_probas = np.concatenate(y_probas)
         y_target = np.concatenate(y_target)

@@ -1,6 +1,6 @@
-"""inferno utilities.
+"""skorch utilities.
 
-Should not have any dependency on other inferno packages.
+Should not have any dependency on other skorch packages.
 
 """
 
