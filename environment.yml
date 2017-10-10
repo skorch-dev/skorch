@@ -1,4 +1,4 @@
-name: inferno
+name: skorch
 channels:
 - defaults
 dependencies:
