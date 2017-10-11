@@ -927,8 +927,8 @@ class NeuralNetClassifier(NeuralNet):
         y_true = to_var(y_true)
         y_pred_log = torch.log(y_pred)
         return self.criterion_(
-          y_pred_log,
-          self._prepare_target_for_loss(y_true),
+            y_pred_log,
+            self._prepare_target_for_loss(y_true),
         )
 
     # pylint: disable=signature-differs
