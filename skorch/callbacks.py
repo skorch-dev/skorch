@@ -94,6 +94,22 @@ class EpochTimer(Callback):
 class Scoring(Callback):
     """Callback that performs generic scoring on predictions.
 
+    The normal mode of operation for this callback is to compute the
+    score by applying the scoring function to the column `name` in each
+    batch in the history. This value is then normalized to the total
+    number of batches in each epoch and it is determined whether it
+    was better than the last one (this information is stored in the
+    history as well).
+
+    In case you already computed a score value for each batch you
+    can omit the score computation step by return the value from
+    the history. For example:
+
+        >>> def my_score(net, X=None, y=None):
+        ...     return net.history[-1, 'batches', -1, 'my_score']
+        >>> net = MyNet(callbacks=[
+        ...     ('my_score', Scoring('my_score', my_score, on_train=True))
+
     Parameters
     ----------
     name : str (default='myscore')
