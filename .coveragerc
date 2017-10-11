@@ -1,4 +1,4 @@
 [run]
 omit = 
-       inferno/tests/*
-       inferno/tests/*
+       skorch/tests/*
+       skorch/tests/*

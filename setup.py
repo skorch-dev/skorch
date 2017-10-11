@@ -6,10 +6,12 @@ from setuptools import setup, find_packages
 with open('VERSION', 'r') as f:
     version = f.read().rstrip()
 
+# TODO: read from requirements.txt
 install_requires = [
     'numpy',
     'scikit-learn>=0.18',
     'scipy',
+    'tabulate',
 ]
 
 tests_require = [
@@ -35,7 +37,7 @@ except IOError:
     CHANGES = ''
 
 setup(
-    name='inferno',
+    name='skorch',
     version=version,
     description='scikit-learn compatible neural network library for pytorch',
     packages=find_packages(),

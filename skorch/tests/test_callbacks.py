@@ -15,15 +15,15 @@ class TestAllCallbacks:
     @pytest.fixture
     def callbacks(self):
         """Return all callbacks"""
-        import inferno.callbacks
+        import skorch.callbacks
 
         callbacks = []
-        for name in dir(inferno.callbacks):
-            attr = getattr(inferno.callbacks, name)
+        for name in dir(skorch.callbacks):
+            attr = getattr(skorch.callbacks, name)
             # pylint: disable=unidiomatic-typecheck
             if not type(attr) is type:
                 continue
-            if issubclass(attr, inferno.callbacks.Callback):
+            if issubclass(attr, skorch.callbacks.Callback):
                 callbacks.append(attr)
         return callbacks
 
@@ -49,10 +49,10 @@ class TestAllCallbacks:
 class TestScoring:
     @pytest.yield_fixture
     def scoring_cls(self):
-        with patch('inferno.callbacks.to_var') as to_var:
+        with patch('skorch.callbacks.to_var') as to_var:
             to_var.side_effect = lambda x: x
 
-            from inferno.callbacks import Scoring
+            from skorch.callbacks import Scoring
             yield partial(
                 Scoring,
                 target_extractor=Mock(side_effect=lambda x: x),
@@ -68,7 +68,7 @@ class TestScoring:
 
     @pytest.fixture
     def net(self):
-        from inferno.history import History
+        from skorch.history import History
 
         net = Mock(infer=Mock(side_effect=lambda x: x))
         history = History()
@@ -77,7 +77,7 @@ class TestScoring:
 
     @pytest.fixture
     def train_loss(self, scoring_cls):
-        from inferno.net import train_loss_score
+        from skorch.net import train_loss_score
         return scoring_cls(
             'train_loss',
             train_loss_score,
@@ -88,7 +88,7 @@ class TestScoring:
 
     @pytest.fixture
     def valid_loss(self, scoring_cls):
-        from inferno.net import valid_loss_score
+        from skorch.net import valid_loss_score
         return scoring_cls(
             'valid_loss',
             valid_loss_score,
@@ -134,7 +134,7 @@ class TestScoring:
         batch sizes to verify this.
 
         """
-        from inferno.history import History
+        from skorch.history import History
 
         history = History()
         history.new_epoch()
@@ -364,7 +364,7 @@ class TestScoring:
 class TestPrintLog:
     @pytest.fixture
     def print_log_cls(self):
-        from inferno.callbacks import PrintLog
+        from skorch.callbacks import PrintLog
         keys_ignored = ['batches', 'dur', 'text']
         return partial(PrintLog, sink=Mock(), keys_ignored=keys_ignored)
 
@@ -374,12 +374,12 @@ class TestPrintLog:
 
     @pytest.fixture
     def scoring_cls(self):
-        from inferno.callbacks import Scoring
+        from skorch.callbacks import Scoring
         return Scoring
 
     @pytest.fixture
     def train_loss(self, scoring_cls):
-        from inferno.net import train_loss_score
+        from skorch.net import train_loss_score
         return scoring_cls(
             'train_loss',
             train_loss_score,
@@ -390,7 +390,7 @@ class TestPrintLog:
 
     @pytest.fixture
     def valid_loss(self, scoring_cls):
-        from inferno.net import valid_loss_score
+        from skorch.net import valid_loss_score
         return scoring_cls(
             'valid_loss',
             valid_loss_score,
@@ -411,7 +411,7 @@ class TestPrintLog:
 
     @pytest.fixture
     def ansi(self):
-        from inferno.utils import Ansi
+        from skorch.utils import Ansi
         return Ansi
 
     def test_call_count(self, sink):
@@ -464,8 +464,8 @@ class TestPrintLog:
         assert items[2] == '11.5000'
 
     def test_args_passed_to_tabulate(self, history):
-        with patch('inferno.callbacks.tabulate') as tab:
-            from inferno.callbacks import PrintLog
+        with patch('skorch.callbacks.tabulate') as tab:
+            from skorch.callbacks import PrintLog
             print_log = PrintLog(
                 tablefmt='latex',
                 floatfmt='.9f',
@@ -505,7 +505,7 @@ class TestPrintLog:
         assert items[1] == list(ansi)[1].value + '0.2500' + ansi.ENDC.value
 
     def test_print_not_skipped_if_verbose(self, capsys):
-        from inferno.callbacks import PrintLog
+        from skorch.callbacks import PrintLog
 
         print_log = PrintLog().initialize()
         net = Mock(history=[{'loss': 123}], verbose=1)
@@ -518,7 +518,7 @@ class TestPrintLog:
         assert result == expected
 
     def test_print_skipped_if_not_verbose(self, capsys):
-        from inferno.callbacks import PrintLog
+        from skorch.callbacks import PrintLog
 
         print_log = PrintLog().initialize()
         net = Mock(history=[{'loss': 123}], verbose=0)

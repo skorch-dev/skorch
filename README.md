@@ -1,11 +1,11 @@
-# Inferno
+# Skorch
 
 A scikit-learn compatible neural network library that wraps pytorch.
 
 ## Example
 
 To see a more elaborate example, check out
-[this notebook](https://nbviewer.jupyter.org/github/dnouri/inferno/blob/master/notebooks/Basic_Usage.ipynb)
+[this notebook](https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb)
 
 ```python
 import numpy as np
@@ -14,7 +14,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from inferno.net import NeuralNetClassifier
+from skorch.net import NeuralNetClassifier
 
 
 X, y = make_classification(1000, 20, n_informative=10, random_state=0)
@@ -98,7 +98,7 @@ Note: pip installation will follow soon.
 
 ```shell
 conda env create
-source activate inferno
+source activate skorch
 # install pytorch version for your system (see below)
 python setup.py install
 ```
@@ -107,13 +107,13 @@ python setup.py install
 
 ```shell
 conda env create
-source activate inferno
+source activate skorch
 # install pytorch version for your system (see below)
 conda install --file requirements-dev.txt
 python setup.py develop
 
 py.test  # unit tests
-pylint inferno  # static code checks
+pylint skorch  # static code checks
 ```
 
 ### pip

@@ -7,7 +7,7 @@ import pytest
 
 @pytest.fixture
 def history_cls():
-    from inferno.history import History
+    from skorch.history import History
     return History
 
 

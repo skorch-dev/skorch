@@ -1,23 +1,25 @@
 """Neural net classes."""
 
-import pickle
 import re
+import tempfile
+import warnings
 
 import numpy as np
 from sklearn.base import BaseEstimator
 import torch
 from torch.utils.data import DataLoader
 
-from inferno.callbacks import EpochTimer
-from inferno.callbacks import PrintLog
-from inferno.callbacks import Scoring
-from inferno.dataset import Dataset
-from inferno.dataset import CVSplit
-from inferno.exceptions import NotInitializedError
-from inferno.history import History
-from inferno.utils import get_dim
-from inferno.utils import to_numpy
-from inferno.utils import to_var
+from skorch.callbacks import EpochTimer
+from skorch.callbacks import PrintLog
+from skorch.callbacks import Scoring
+from skorch.dataset import Dataset
+from skorch.dataset import CVSplit
+from skorch.exceptions import DeviceWarning
+from skorch.exceptions import NotInitializedError
+from skorch.history import History
+from skorch.utils import get_dim
+from skorch.utils import to_numpy
+from skorch.utils import to_var
 
 
 # pylint: disable=unused-argument
@@ -84,6 +86,17 @@ class NeuralNet(object):
       Learning rate passed to the optimizer. You may use `lr` instead
       of using `optim__lr`, which would result in the same outcome.
 
+    gradient_clip_value : float (default=None)
+      If not None, clip the norm of all model parameter gradients to this
+      value. The type of the norm is determined by the
+      `gradient_clip_norm_type` parameter and defaults to L2. See
+      `torch.nn.utils.clip_grad_norm` for more information about the value of
+      this parameter.
+
+    gradient_clip_norm_type : float (default=2)
+      Norm to use when gradient clipping is active. The default is
+      to use L2-norm.
+
     max_epochs : int (default=10)
       The number of epochs to train for each `fit` call. Note that you
       may keyboard-interrupt training at any time.
@@ -99,7 +112,7 @@ class NeuralNet(object):
     iterator_test : torch DataLoader
       TODO: Will probably change.
 
-    dataset : torch Dataset (default=inferno.dataset.Dataset)
+    dataset : torch Dataset (default=skorch.dataset.Dataset)
       The dataset is necessary for the incoming data to work with
       pytorch's `DataLoader`. It has to implement the `__len__` and
       `__getitem__` methods. The provided dataset should be capable of
@@ -108,7 +121,7 @@ class NeuralNet(object):
       accept a `use_cuda` parameter to indicate whether cuda should be
       used.
 
-    train_split : None or callable (default=inferno.dataset.CVSplit(5))
+    train_split : None or callable (default=skorch.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
       should be a function or callable that is called with X and y
       data and should return the tuple `X_train, X_valid, y_train,
@@ -117,7 +130,7 @@ class NeuralNet(object):
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those specified in
       `default_callbacks`. Each callback should inherit from
-      inferno.Callback. If not None, a list of tuples (name, callback)
+      skorch.Callback. If not None, a list of tuples (name, callback)
       should be passed, where names should be unique. Callbacks may or
       may not be instantiated.
       Alternatively, it is possible to just pass a list of callbacks,
@@ -147,6 +160,13 @@ class NeuralNet(object):
       is the `'module'` prefix, it is possible to set parameters like
       so: `NeuralNet(..., optim__momentum=0.95)`.
 
+    cuda_dependent_attributes_ : list of str
+      Contains a list of all attributes whose values depend on a CUDA
+      device. If a `NeuralNet` trained with a CUDA-enabled device is
+      unpickled on a machine without CUDA or with CUDA disabled, the
+      listed attributes are mapped to CPU.  Expand this list if you
+      want to add other cuda-dependent attributes.
+
     default_callbacks : list of str
       Callbacks that come by default. They are mainly set for the
       user's convenience. By default, an EpochTimer, AverageLoss,
@@ -169,6 +189,8 @@ class NeuralNet(object):
     prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optim',
                  'criterion', 'callbacks']
 
+    cuda_dependent_attributes_ = ['module_', 'optim_']
+
     default_callbacks = [
         ('epoch_timer', EpochTimer),
         ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
@@ -183,6 +205,8 @@ class NeuralNet(object):
             criterion,
             optim=torch.optim.SGD,
             lr=0.01,
+            gradient_clip_value=None,
+            gradient_clip_norm_type=2,
             max_epochs=10,
             batch_size=128,
             iterator_train=DataLoader,
@@ -209,6 +233,8 @@ class NeuralNet(object):
         self.cold_start = cold_start
         self.verbose = verbose
         self.use_cuda = use_cuda
+        self.gradient_clip_value = gradient_clip_value
+        self.gradient_clip_norm_type = gradient_clip_norm_type
 
         history = kwargs.pop('history', None)
         initialized = kwargs.pop('initialized_', False)
@@ -409,6 +435,13 @@ class NeuralNet(object):
         y_pred = self.infer(xi)
         loss = self.get_loss(y_pred, yi, X=xi, train=True)
         loss.backward()
+
+        if self.gradient_clip_value is not None:
+            torch.nn.utils.clip_grad_norm(
+                self.module_.parameters(),
+                self.gradient_clip_value,
+                norm_type=self.gradient_clip_norm_type)
+
         optimizer.step()
         return loss
 
@@ -628,7 +661,7 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        dataset : torch Dataset (default=inferno.dataset.Dataset)
+        dataset : torch Dataset (default=skorch.dataset.Dataset)
           Usually, `self.dataset`, initialized with the corresponding
           data, is passed to `get_iterator`.
 
@@ -703,17 +736,38 @@ class NeuralNet(object):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        if 'module_' in state:
-            module_ = state.pop('module_')
-            module_dump = pickle.dumps(module_)
-            state['module_'] = module_dump
+        for key in self.cuda_dependent_attributes_:
+            if key in state:
+                val = state.pop(key)
+                with tempfile.SpooledTemporaryFile() as f:
+                    torch.save(val, f)
+                    f.seek(0)
+                    state[key] = f.read()
+
         return state
 
     def __setstate__(self, state):
-        if 'module_' in state:
-            module_dump = state.pop('module_')
-            module_ = pickle.loads(module_dump)
-            state['module_'] = module_
+        show_warning = False
+        for key in self.cuda_dependent_attributes_:
+            if key not in state:
+                continue
+            dump = state.pop(key)
+            with tempfile.SpooledTemporaryFile() as f:
+                f.write(dump)
+                f.seek(0)
+                if state['use_cuda'] and not torch.cuda.is_available():
+                    show_warning = True
+                    val = torch.load(
+                        f, map_location=lambda storage, loc: storage)
+                else:
+                    val = torch.load(f)
+            state[key] = val
+        if show_warning:
+            warnings.warn(
+                "Model configured to use CUDA but no CUDA devices "
+                "available. Loading on CPU instead.",
+                DeviceWarning)
+
         self.__dict__.update(state)
 
     def save_params(self, f):
@@ -764,7 +818,23 @@ class NeuralNet(object):
                 "Cannot load parameters of an un-initialized model. "
                 "Please initialize first by calling `.initialize()` "
                 "or by fitting the model with `.fit(...)`.")
-        self.module_.load_state_dict(torch.load(f))
+
+        cuda_req_not_met = (self.use_cuda and not torch.cuda.is_available())
+        if not self.use_cuda or cuda_req_not_met:
+            # Eiher we want to load the model to the CPU in which case
+            # we are loading in a way where it doesn't matter if the data
+            # was on the GPU or not or the model was on the GPU but there
+            # is no CUDA device available.
+            if cuda_req_not_met:
+                warnings.warn(
+                    "Model configured to use CUDA but no CUDA devices "
+                    "available. Loading on CPU instead.",
+                    ResourceWarning)
+            model = torch.load(f, lambda storage, loc: storage)
+        else:
+            model = torch.load(f)
+
+        self.module_.load_state_dict(model)
 
 
 #######################
@@ -857,8 +927,8 @@ class NeuralNetClassifier(NeuralNet):
         y_true = to_var(y_true)
         y_pred_log = torch.log(y_pred)
         return self.criterion_(
-          y_pred_log,
-          self._prepare_target_for_loss(y_true),
+            y_pred_log,
+            self._prepare_target_for_loss(y_true),
         )
 
     # pylint: disable=signature-differs

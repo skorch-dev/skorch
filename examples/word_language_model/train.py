@@ -1,6 +1,6 @@
 import argparse
 
-import inferno
+import skorch
 import torch
 from sklearn.model_selection import GridSearchCV
 
@@ -30,21 +30,21 @@ args = parser.parse_args()
 corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
-class LRAnnealing(inferno.callbacks.Callback):
+class LRAnnealing(skorch.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         if not net.history[-1]['valid_loss_best']:
             net.lr /= 4.0
 
-class Checkpointing(inferno.callbacks.Callback):
+class Checkpointing(skorch.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         if net.history[-1]['valid_loss_best']:
             net.save_params(args.save)
 
-class ExamplePrinter(inferno.callbacks.Callback):
+class ExamplePrinter(skorch.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         seed_sentence = "the meaning of"
         indices = [corpus.dictionary.word2idx[n] for n in seed_sentence.split()]
-        indices = inferno.utils.to_var(torch.LongTensor([indices]).t(), use_cuda=args.cuda)
+        indices = skorch.utils.to_var(torch.LongTensor([indices]).t(), use_cuda=args.cuda)
         sentence, _ = net.sample_n(num_words=10, input=indices)
         print(seed_sentence,
               " ".join([corpus.dictionary.idx2word[n] for n in sentence]))

@@ -1,6 +1,6 @@
 import argparse
 
-import inferno
+import skorch
 import torch
 from torch.autograd import Variable
 
@@ -48,16 +48,16 @@ learner.initialize()
 learner.load_params(args.checkpoint)
 
 hidden = None
-input = inferno.utils.to_var(torch.rand(1,1).mul(ntokens).long(),
-                             use_cuda=args.cuda)
+input = skorch.utils.to_var(torch.rand(1, 1).mul(ntokens).long(),
+                            use_cuda=args.cuda)
 
 with open(args.outf, 'w') as outf:
     for i in range(args.words):
         word_idx, hidden = learner.sample(input=input,
                                           temperature=args.temperature,
                                           hidden=hidden)
-        input = inferno.utils.to_var(torch.LongTensor([[word_idx]]),
-                                     use_cuda=args.cuda)
+        input = skorch.utils.to_var(torch.LongTensor([[word_idx]]),
+                                    use_cuda=args.cuda)
 
         word = corpus.dictionary.idx2word[word_idx]
         outf.write(word + ('\n' if i % 20 == 19 else ' '))

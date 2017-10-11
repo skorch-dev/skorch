@@ -11,9 +11,9 @@ from sklearn.base import BaseEstimator
 from sklearn import metrics
 from tabulate import tabulate
 
-from inferno.utils import Ansi
-from inferno.utils import to_numpy
-from inferno.utils import to_var
+from skorch.utils import Ansi
+from skorch.utils import to_numpy
+from skorch.utils import to_var
 
 
 class Callback:
