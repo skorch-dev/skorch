@@ -445,7 +445,7 @@ class TestNeuralNet:
         class MyNet(net_cls):
             # pylint: disable=unused-argument
             def get_loss(self, y_pred, y_true, X=None, train=False):
-                y_true = to_var(y_true)
+                y_true = to_var(y_true, use_cuda=False)
                 loss_a = torch.abs(y_true.float() - y_pred[:, 1]).mean()
                 loss_b = ((y_true.float() - y_pred[:, 1]) ** 2).mean()
                 if train:

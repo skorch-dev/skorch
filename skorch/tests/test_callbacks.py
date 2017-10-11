@@ -50,7 +50,7 @@ class TestScoring:
     @pytest.yield_fixture
     def scoring_cls(self):
         with patch('skorch.callbacks.to_var') as to_var:
-            to_var.side_effect = lambda x: x
+            to_var.side_effect = lambda x, use_cuda: x
 
             from skorch.callbacks import Scoring
             yield partial(
