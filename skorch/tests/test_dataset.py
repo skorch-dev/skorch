@@ -853,8 +853,8 @@ class TestCVSplit:
 
     def test_with_torch_tensors(self, cv_split_cls, data):
         X, y = data
-        X = to_tensor(X)
-        y = to_tensor(y)
+        X = to_tensor(X, use_cuda=False)
+        y = to_tensor(y, use_cuda=False)
         m = self.num_samples // 5
         n = self.num_samples - m
 
@@ -863,11 +863,11 @@ class TestCVSplit:
         assert len(X_valid) == len(y_valid) == m
 
     def test_with_torch_tensors_and_stratified(self, cv_split_cls, data):
-        X = to_tensor(data[0])
+        X = to_tensor(data[0], use_cuda=False)
         num_expected = self.num_samples // 4
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
-        y = to_tensor(y)
+        y = to_tensor(y, use_cuda=False)
         _, _, y_train, y_valid = cv_split_cls(5, stratified=True)(X, y)
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected

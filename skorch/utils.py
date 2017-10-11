@@ -23,7 +23,7 @@ class Ansi(Enum):
     ENDC = '\033[0m'
 
 
-def to_var(X, use_cuda=False):
+def to_var(X, use_cuda):
     """Generic function to convert a input data to pytorch Variables.
 
     Returns X when it already is a pytorch Variable.
@@ -34,15 +34,15 @@ def to_var(X, use_cuda=False):
 
     X = to_tensor(X, use_cuda=use_cuda)
     if isinstance(X, dict):
-        return {k: to_var(v) for k, v in X.items()}
+        return {k: to_var(v, use_cuda=use_cuda) for k, v in X.items()}
 
     if isinstance(X, (tuple, list)):
-        return [to_var(x) for x in X]
+        return [to_var(x, use_cuda=use_cuda) for x in X]
 
     return Variable(X)
 
 
-def to_tensor(X, use_cuda=False):
+def to_tensor(X, use_cuda):
     """Turn to torch Variable.
 
     Handles the cases:

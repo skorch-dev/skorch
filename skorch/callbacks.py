@@ -173,7 +173,8 @@ class Scoring(Callback):
                 raise NameError("A metric called '{}' does not exist, "
                                 "use a valid sklearn metric name."
                                 "".format(self.scoring))
-            y_pred = self.pred_extractor(net.infer(to_var(X)))
+            y_pred = self.pred_extractor(
+                net.infer(to_var(X, use_cuda=net.use_cuda)))
             score = scorer(y, y_pred)
         else:
             # scoring is a function

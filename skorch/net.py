@@ -924,7 +924,7 @@ class NeuralNetClassifier(NeuralNet):
         return y
 
     def get_loss(self, y_pred, y_true, X=None, train=False):
-        y_true = to_var(y_true)
+        y_true = to_var(y_true, use_cuda=self.use_cuda)
         y_pred_log = torch.log(y_pred)
         return self.criterion_(
             y_pred_log,
