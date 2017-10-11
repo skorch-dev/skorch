@@ -527,3 +527,75 @@ class TestPrintLog:
 
         stdout = capsys.readouterr()[0]
         assert not stdout
+
+
+@patch('skorch.NeuralNet.save_params', side_effect=lambda x: x)
+class TestCheckpoint:
+    @pytest.yield_fixture
+    def checkpoint_cls(self):
+        from skorch.callbacks import Checkpoint
+        return Checkpoint
+
+    @pytest.fixture
+    def net_cls(self):
+        from skorch.net import NeuralNetRegressor
+        import torch
+
+        class module(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.p = torch.nn.Linear(1,1)
+            def forward(self, x):
+                return self.p(x)
+
+        return partial(
+            NeuralNetRegressor,
+            module=module,
+            max_epochs=10,
+            batch_size=10)
+
+    @pytest.fixture(scope='module')
+    def data(self):
+        # have 10 examples so we can do a nice CV split
+        X = np.zeros((10, 1), dtype='float32')
+        y = np.zeros((10, 1), dtype='float32')
+        return X, y
+
+    def test_none_monitor_saves_always(self, save_params_mock, net_cls, checkpoint_cls, data):
+        net = net_cls(callbacks=[
+            checkpoint_cls(monitor=None),
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == len(net.history)
+
+    """
+    # TODO: should this fail with KeyError?
+    #       should the user be warned?
+    def test_default_without_validation_raises_meaningful_error(
+            self, save_params_mock, net_cls, checkpoint_cls, data):
+        net = net_cls(
+            callbacks=[
+                checkpoint_cls(),
+            ],
+            train_split=None
+        )
+        net.fit(*data)
+    """
+
+    def test_string_monitor_and_formatting(self, save_params_mock, net_cls, checkpoint_cls, data):
+        def epoch_3_scorer(net, X=None, y=None):
+            return 1 if net.history[-1, 'epoch'] == 3 else 0
+        from skorch.callbacks import Scoring
+        scoring = Scoring('my_score', scoring=epoch_3_scorer, on_train=True)
+
+        net = net_cls(callbacks=[
+            ('my_score', scoring),
+            checkpoint_cls(
+                monitor='my_score',
+                target='model_{last_epoch[epoch]}_{net.max_epochs}.pt'),
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 1
+        save_params_mock.assert_called_with('model_3_10.pt')
