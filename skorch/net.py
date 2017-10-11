@@ -1018,3 +1018,6 @@ class NeuralNetRegressor(NeuralNet):
         # this is actually a pylint bug:
         # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetRegressor, self).fit(X, y, **fit_params)
+
+    def predict(self, X):
+        return self.predict_proba(X)

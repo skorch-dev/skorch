@@ -704,3 +704,14 @@ class TestNeuralNetRegressor:
         assert exc.value.args[0] == (
             "The target data shouldn't be 1-dimensional; "
             "please reshape (e.g. y.reshape(-1, 1).")
+
+    def test_predict_predict_proba(self, net, data):
+        X = data[0]
+        y_pred = net.predict(X)
+
+        # predictions should not be all zeros
+        assert not np.allclose(y_pred, 0)
+
+        y_proba = net.predict_proba(X)
+        # predict and predict_proba should be identical for regression
+        assert np.allclose(y_pred, y_proba)
