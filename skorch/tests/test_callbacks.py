@@ -538,19 +538,20 @@ class TestCheckpoint:
 
     @pytest.fixture
     def net_cls(self):
+        """very simple network that trains for 10 epochs"""
         from skorch.net import NeuralNetRegressor
         import torch
 
-        class module(torch.nn.Module):
+        class Module(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.p = torch.nn.Linear(1,1)
+                self.p = torch.nn.Linear(1, 1)
             def forward(self, x):
                 return self.p(x)
 
         return partial(
             NeuralNetRegressor,
-            module=module,
+            module=Module,
             max_epochs=10,
             batch_size=10)
 
@@ -561,7 +562,8 @@ class TestCheckpoint:
         y = np.zeros((10, 1), dtype='float32')
         return X, y
 
-    def test_none_monitor_saves_always(self, save_params_mock, net_cls, checkpoint_cls, data):
+    def test_none_monitor_saves_always(
+            self, save_params_mock, net_cls, checkpoint_cls, data):
         net = net_cls(callbacks=[
             checkpoint_cls(monitor=None),
         ])
@@ -569,22 +571,27 @@ class TestCheckpoint:
 
         assert save_params_mock.call_count == len(net.history)
 
-    """
-    # TODO: should this fail with KeyError?
-    #       should the user be warned?
     def test_default_without_validation_raises_meaningful_error(
-            self, save_params_mock, net_cls, checkpoint_cls, data):
+            self, _, net_cls, checkpoint_cls, data):
         net = net_cls(
             callbacks=[
                 checkpoint_cls(),
             ],
             train_split=None
         )
-        net.fit(*data)
-    """
+        from skorch.exceptions import SkorchException
+        with pytest.raises(SkorchException) as e:
+            net.fit(*data)
+            expected = (
+                "Monitor value '{}' cannot be found in history. "
+                "Make sure you have validation data if you use "
+                "validation scores for checkpointing.".format('valid_loss_best')
+            )
+            assert str(e.value) == expected
 
-    def test_string_monitor_and_formatting(self, save_params_mock, net_cls, checkpoint_cls, data):
-        def epoch_3_scorer(net, X=None, y=None):
+    def test_string_monitor_and_formatting(
+            self, save_params_mock, net_cls, checkpoint_cls, data):
+        def epoch_3_scorer(net, *_):
             return 1 if net.history[-1, 'epoch'] == 3 else 0
         from skorch.callbacks import Scoring
         scoring = Scoring('my_score', scoring=epoch_3_scorer, on_train=True)

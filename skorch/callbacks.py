@@ -14,6 +14,7 @@ from tabulate import tabulate
 from skorch.utils import Ansi
 from skorch.utils import to_numpy
 from skorch.utils import to_var
+from skorch.exceptions import SkorchException
 
 
 class Callback:
@@ -384,10 +385,11 @@ class Checkpoint(Callback):
     >>> net = MyNet(callbacks=[Checkpoint()])
     >>> net.fit(X, y)
 
-    Example using custom monitor:
+    Example using a custom monitor where only models are saved in
+    epochs where the validation *and* the train loss is best:
 
     >>> monitor = lambda net: all(net.history[-1, (
-    ...     'train_loss_best', 'valid_loss_best')]
+    ...     'train_loss_best', 'valid_loss_best')])
     >>> net = MyNet(callbacks=[Checkpoint(monitor=monitor)])
     >>> net.fit(X, y)
 
@@ -412,14 +414,14 @@ class Checkpoint(Callback):
       In case `monitor` is set to `None`, the callback will save
       the network at every epoch.
 
-      **Note:** If you supply a lambda expression as monitor,
-      checkpointing will not work anymore as these values cannot
-      be pickled. You have to use importable functions instead.
+      **Note:** If you supply a lambda expression as monitor, you cannot
+      pickle the wrapper anymore as lambdas cannot be pickled. You can
+      mitigate this problem by using importable functions instead.
     """
     def __init__(
-        self,
-        target='model.pt',
-        monitor='valid_loss_best',
+            self,
+            target='model.pt',
+            monitor='valid_loss_best',
     ):
         self.monitor = monitor
         self.target = target
@@ -430,7 +432,13 @@ class Checkpoint(Callback):
         elif callable(self.monitor):
             do_checkpoint = self.monitor(net)
         else:
-            do_checkpoint = net.history[-1, self.monitor]
+            try:
+                do_checkpoint = net.history[-1, self.monitor]
+            except KeyError as e:
+                raise SkorchException(
+                    "Monitor value '{}' cannot be found in history. "
+                    "Make sure you have validation data if you use "
+                    "validation scores for checkpointing.".format(e.args[0]))
 
         if do_checkpoint:
             target = self.target
@@ -440,4 +448,6 @@ class Checkpoint(Callback):
                     last_epoch=net.history[-1],
                     last_batch=net.history[-1, 'batches', -1],
                 )
+            if net.verbose > 0:
+                print("Checkpoint! Saving model to {}.".format(self.target)
             net.save_params(target)
