@@ -449,5 +449,5 @@ class Checkpoint(Callback):
                     last_batch=net.history[-1, 'batches', -1],
                 )
             if net.verbose > 0:
-                print("Checkpoint! Saving model to {}.".format(self.target)
+                print("Checkpoint! Saving model to {}.".format(self.target))
             net.save_params(target)
