@@ -47,22 +47,22 @@ class NeuralNet(object):
     ```
     net = NeuralNet(
         ...,
-        optim=torch.optim.SGD,
-        optim__momentum=0.95,
+        optimizer=torch.optim.SGD,
+        optimizer__momentum=0.95,
     )
     ```
 
-    This way, when `optim` is initialized, `NeuralNet` will take care
+    This way, when `optimizer` is initialized, `NeuralNet` will take care
     of setting the `momentum` parameter to 0.95.
 
-    (Note that the double underscore notation in `optim__momentum`
+    (Note that the double underscore notation in `optimizer__momentum`
     means that the parameter `momentum` should be set on the object
-    `optim`. This is the same semantic as used by sklearn.)
+    `optimizer`. This is the same semantic as used by sklearn.)
 
     Furthermore, this allows to change those parameters later:
 
     ```
-    net.set_params(optim__momentum=0.99)
+    net.set_params(optimizer__momentum=0.99)
     ```
 
     This can be useful when you want to change certain parameters using
@@ -78,13 +78,13 @@ class NeuralNet(object):
       The uninitialized criterion (loss) used to optimize the
       module.
 
-    optim : torch optim (class, default=torch.optim.SGD)
+    optimizer : torch optim (class, default=torch.optim.SGD)
       The uninitialized optimizer (update rule) used to optimize the
       module
 
     lr : float (default=0.01)
       Learning rate passed to the optimizer. You may use `lr` instead
-      of using `optim__lr`, which would result in the same outcome.
+      of using `optimizer__lr`, which would result in the same outcome.
 
     gradient_clip_value : float (default=None)
       If not None, clip the norm of all model parameter gradients to this
@@ -158,7 +158,7 @@ class NeuralNet(object):
     prefixes_ : list of str
       Contains the prefixes to special parameters. E.g., since there
       is the `'module'` prefix, it is possible to set parameters like
-      so: `NeuralNet(..., optim__momentum=0.95)`.
+      so: `NeuralNet(..., optimizer__momentum=0.95)`.
 
     cuda_dependent_attributes_ : list of str
       Contains a list of all attributes whose values depend on a CUDA
@@ -186,10 +186,10 @@ class NeuralNet(object):
       a tuple with unique names.
 
     """
-    prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optim',
+    prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optimizer',
                  'criterion', 'callbacks']
 
-    cuda_dependent_attributes_ = ['module_', 'optim_']
+    cuda_dependent_attributes_ = ['module_', 'optimizer_']
 
     default_callbacks = [
         ('epoch_timer', EpochTimer),
@@ -203,7 +203,7 @@ class NeuralNet(object):
             self,
             module,
             criterion,
-            optim=torch.optim.SGD,
+            optimizer=torch.optim.SGD,
             lr=0.01,
             gradient_clip_value=None,
             gradient_clip_norm_type=2,
@@ -221,7 +221,7 @@ class NeuralNet(object):
     ):
         self.module = module
         self.criterion = criterion
-        self.optim = optim
+        self.optimizer = optimizer
         self.lr = lr
         self.max_epochs = max_epochs
         self.batch_size = batch_size
@@ -383,14 +383,14 @@ class NeuralNet(object):
         return self
 
     def initialize_optimizer(self):
-        """Initialize the model optimizer. If `self.optim__lr` is
+        """Initialize the model optimizer. If `self.optimizer__lr` is
         not set, use `self.lr` instead.
 
         """
-        kwargs = self._get_params_for('optim')
+        kwargs = self._get_params_for('optimizer')
         if 'lr' not in kwargs:
             kwargs['lr'] = self.lr
-        self.optim_ = self.optim(self.module_.parameters(), **kwargs)
+        self.optimizer_ = self.optimizer(self.module_.parameters(), **kwargs)
 
     def initialize_history(self):
         """Initializes the history."""
@@ -493,7 +493,7 @@ class NeuralNet(object):
 
             for xi, yi in self.get_iterator(dataset_train, train=True):
                 self.notify('on_batch_begin', X=xi, y=yi, train=True)
-                loss = self.train_step(xi, yi, self.optim_)
+                loss = self.train_step(xi, yi, self.optimizer_)
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(xi))
                 self.notify('on_batch_end', X=xi, y=yi, train=True)
