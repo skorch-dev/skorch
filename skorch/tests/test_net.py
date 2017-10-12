@@ -135,8 +135,8 @@ class TestNeuralNet:
         assert np.allclose(y_proba, y_proba2, rtol=1e-7)
 
         # check that dropout can be activated
-        y_proba = to_numpy(net_fit.forward(X, training_behavior=True))
-        y_proba2 = to_numpy(net_fit.forward(X, training_behavior=True))
+        y_proba = to_numpy(net_fit.forward(X, training=True))
+        y_proba2 = to_numpy(net_fit.forward(X, training=True))
         assert not np.allclose(y_proba, y_proba2, rtol=1e-7)
 
     def test_pickle_save_load(self, net_pickleable, data, tmpdir):

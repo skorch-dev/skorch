@@ -445,16 +445,16 @@ class NeuralNet(object):
         optimizer.step()
         return loss
 
-    def evaluation_step(self, xi, training_behavior=False):
+    def evaluation_step(self, xi, training=False):
         """Perform a forward step to produce the output used for
         prediction and scoring.
 
         Therefore the module is set to evaluation mode by default
         beforehand which can be overridden to re-enable features
-        like dropout by setting `training_behavior=True`.
+        like dropout by setting `training=True`.
 
         """
-        self.module_.train(training_behavior)
+        self.module_.train(training)
         return self.infer(xi)
 
     def fit_loop(self, X, y=None, epochs=None):
@@ -564,7 +564,7 @@ class NeuralNet(object):
         self.partial_fit(X, y, **fit_params)
         return self
 
-    def forward(self, X, training_behavior=False):
+    def forward(self, X, training=False):
         """Perform a forward steps on the module with batches derived
         from data.
 
@@ -572,7 +572,7 @@ class NeuralNet(object):
         ----------
         X : TODO
 
-        training_behavior : bool (default=False)
+        training : bool (default=False)
           Whether to set the module to train mode or not.
 
         Returns
@@ -581,14 +581,14 @@ class NeuralNet(object):
           The result from the forward step.
 
         """
-        self.module_.train(training_behavior)
+        self.module_.train(training)
 
         dataset = self.dataset(X, use_cuda=self.use_cuda)
-        iterator = self.get_iterator(dataset, train=training_behavior)
+        iterator = self.get_iterator(dataset, train=training)
         y_infer = []
         for xi, _ in iterator:
             y_infer.append(
-                self.evaluation_step(xi, training_behavior=training_behavior))
+                self.evaluation_step(xi, training=training))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
@@ -610,7 +610,7 @@ class NeuralNet(object):
         y_proba : numpy ndarray
 
         """
-        y_proba = self.forward(X, training_behavior=False)
+        y_proba = self.forward(X, training=False)
         y_proba = to_numpy(y_proba)
         return y_proba
 
