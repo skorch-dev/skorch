@@ -529,12 +529,17 @@ class TestPrintLog:
         assert not stdout
 
 
-@patch('skorch.NeuralNet.save_params', side_effect=lambda x: x)
 class TestCheckpoint:
     @pytest.yield_fixture
     def checkpoint_cls(self):
         from skorch.callbacks import Checkpoint
         return Checkpoint
+
+    @pytest.yield_fixture
+    def save_params_mock(self):
+        with patch('skorch.NeuralNet.save_params') as mock:
+            mock.side_effect = lambda x: x
+            yield mock
 
     @pytest.fixture
     def net_cls(self):
@@ -572,7 +577,7 @@ class TestCheckpoint:
         assert save_params_mock.call_count == len(net.history)
 
     def test_default_without_validation_raises_meaningful_error(
-            self, _, net_cls, checkpoint_cls, data):
+            self, net_cls, checkpoint_cls, data):
         net = net_cls(
             callbacks=[
                 checkpoint_cls(),
