@@ -21,12 +21,12 @@ class Callback:
     """Base class for callbacks.
 
     All custom callbacks should inherit from this class. The subclass
-    may override any of the `on_...` methods. It is, however, not
+    may override any of the ``on_...`` methods. It is, however, not
     necessary to override all of them, since it's okay if they don't
     have any effect.
 
-    Classes that inherit from this also gain the `get_params` and
-    `set_params` method.
+    Classes that inherit from this also gain the ``get_params`` and
+    ``set_params`` method.
 
     """
     def initialize(self):
@@ -77,7 +77,7 @@ class Callback:
 
 class EpochTimer(Callback):
     """Measures the duration of each epoch and writes it to the
-    history with the name `dur`.
+    history with the name ``dur``.
 
     """
     def __init__(self, **kwargs):
@@ -96,7 +96,7 @@ class Scoring(Callback):
     """Callback that performs generic scoring on predictions.
 
     The normal mode of operation for this callback is to compute the
-    score by applying the scoring function to the column `name` in each
+    score by applying the scoring function to the column ``name`` in each
     batch in the history. This value is then normalized to the total
     number of batches in each epoch and it is determined whether it
     was better than the last one (this information is stored in the
@@ -118,11 +118,11 @@ class Scoring(Callback):
       history.
 
     scoring : None, str, or callable (default=None)
-      If None, use the `score` method of the model. If str, it should
+      If None, use the ``score`` method of the model. If str, it should
       be a valid sklearn metric (e.g. "f1_score", "accuracy_score"). If
       a callable, it should have the signature (model, X, y), and it
-      should return a scalar. This works analogously to the `scoring`
-      parameter in sklearn's `GridSearchCV` et al.
+      should return a scalar. This works analogously to the ``scoring``
+      parameter in sklearn's ``GridSearchCV`` et al.
 
     lower_is_better : bool (default=True)
       Whether lower (e.g. log loss) or higher (e.g. accuracy) scores
@@ -231,16 +231,16 @@ class Scoring(Callback):
 class PrintLog(Callback):
     """Print out useful information from the model's history.
 
-    By default, `PrintLog` prints everything from the history except
-    for `'batches'`.
+    By default, ``PrintLog`` prints everything from the history except
+    for ``'batches'``.
 
-    To determine the best loss, `PrintLog` looks for keys that end on
-    `'_best'` and associates them with the corresponding loss. E.g.,
-    `'train_loss_best'` will be matched with `'train_loss'`. The
-    `Scoring` callback takes care of creating those entries, which is
-    why `PrintLog` works best in conjunction with that callback.
+    To determine the best loss, ``PrintLog`` looks for keys that end on
+    ``'_best'`` and associates them with the corresponding loss. E.g.,
+    ``'train_loss_best'`` will be matched with ``'train_loss'``. The
+    ``Scoring`` callback takes care of creating those entries, which is
+    why ``PrintLog`` works best in conjunction with that callback.
 
-    *Note*: `PrintLog` will not result in good outputs if the number
+    *Note*: ``PrintLog`` will not result in good outputs if the number
     of columns varies between epochs, e.g. if the valid loss is only
     present on every other epoch.
 
@@ -256,12 +256,12 @@ class PrintLog(Callback):
       logger, etc.
 
     tablefmt : str (default='simple')
-      The format of the table. See the documentation of the `tabulate`
+      The format of the table. See the documentation of the ``tabulate``
       package for more detail. Can be 'plain', 'grid', 'pipe', 'html',
       'latex', among others.
 
     floatfmt : str (default='.4f')
-      The number formatting. See the documentation of the `tabulate`
+      The number formatting. See the documentation of the ``tabulate``
       package for more details.
 
     """
@@ -306,7 +306,7 @@ class PrintLog(Callback):
         """Sort keys alphabetically, but put 'epoch' first and 'dur'
         last.
 
-        Ignore keys that are in `self.ignored_keys` or that end on
+        Ignore keys that are in ``self.ignored_keys`` or that end on
         '_best'.
 
         """
@@ -373,7 +373,7 @@ class Checkpoint(Callback):
     """Save the model during training if the given metric improved.
 
     This callback works by default in conjunction with the validation
-    scoring callback since it creates a `valid_loss_best` value
+    scoring callback since it creates a ``valid_loss_best`` value
     in the history which the callback uses to determine if this
     epoch is save-worthy.
 
@@ -402,7 +402,7 @@ class Checkpoint(Callback):
 
       If the value is a string you can also use format specifiers
       to, for example, indicate the current epoch. Accessible format
-      values are `net`, `last_epoch` and `last_batch`.
+      values are ``net``, ``last_epoch`` and ``last_batch``.
       Example to include last epoch number in file name:
 
       >>> cb = Checkpoint(target="target_{last_epoch[epoch]}.pt")
@@ -412,7 +412,7 @@ class Checkpoint(Callback):
       this epoch should to a checkpoint. The callback takes the network
       instance as parameter.
 
-      In case `monitor` is set to `None`, the callback will save
+      In case ``monitor`` is set to ``None``, the callback will save
       the network at every epoch.
 
       **Note:** If you supply a lambda expression as monitor, you cannot

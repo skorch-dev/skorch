@@ -57,7 +57,7 @@ def multi_indexing(data, i):
     * a dictionary of the former three
     * a list/tuple of the former three
 
-    `i` can be an integer or a slice.
+    ``i`` can be an integer or a slice.
 
     Example
     -------
@@ -118,8 +118,8 @@ class Dataset(torch.utils.data.Dataset):
     pytorch's DataLoader.
 
     The dataset will always yield a tuple of two values, the first
-    from the data (`X`) and the second from the target
-    (`y`). However, the target is allowed to be None. In that case,
+    from the data (``X``) and the second from the target
+    (``y``). However, the target is allowed to be None. In that case,
     Dataset will currently return a dummy tensor, since DataLoader
     does not work with Nones.
 
@@ -143,7 +143,7 @@ class Dataset(torch.utils.data.Dataset):
       Whether to use cuda.
 
     length : int or None (default=None)
-      If not None, determines the length (`len`) of the data. Should
+      If not None, determines the length (``len``) of the data. Should
       usually be left at None, in which case the length is determined
       by the data itself.
 
@@ -187,9 +187,9 @@ class Dataset(torch.utils.data.Dataset):
         """
         # pytorch DataLoader cannot deal with None so we use 0 as a
         # placeholder value. We only return a Tensor with one value
-        # (as opposed to `batchsz` values) since the pytorch
+        # (as opposed to ``batchsz`` values) since the pytorch
         # DataLoader calls __getitem__ for each row in the batch
-        # anyway, which results in a dummy `y` value for each row in
+        # anyway, which results in a dummy ``y`` value for each row in
         # the batch.
         y = torch.Tensor([0]) if y is None else y
 
@@ -211,15 +211,15 @@ class Dataset(torch.utils.data.Dataset):
 class CVSplit(object):
     """Class that performs the internal train/valid split.
 
-    The `cv` argument here works similarly to the regular sklearn `cv`
-    parameter in, e.g., `GridSearchCV`. However, instead of cycling
+    The ``cv`` argument here works similarly to the regular sklearn ``cv``
+    parameter in, e.g., ``GridSearchCV``. However, instead of cycling
     through all splits, only one fixed split (the first one) is
     used. To get a full cycle through the splits, don't use
-    `NeuralNet`'s internal validation but instead the corresponding
-    sklearn functions (e.g. `cross_val_score`).
+    ``NeuralNet``'s internal validation but instead the corresponding
+    sklearn functions (e.g. ``cross_val_score``).
 
     We additionally support a float, similar to sklearn's
-    `train_test_split`.
+    ``train_test_split``.
 
     Parameters
     ----------
@@ -231,21 +231,21 @@ class CVSplit(object):
       Possible inputs for cv are:
 
         - None, to use the default 3-fold cross validation,
-        - integer, to specify the number of folds in a `(Stratified)KFold`,
+        - integer, to specify the number of folds in a ``(Stratified)KFold``,
         - float, to represent the proportion of the dataset to include
           in the test split.
         - An object to be used as a cross-validation generator.
         - An iterable yielding train, test splits.
 
     stratified : bool (default=False)
-      Whether the split should be stratified. Only works if `y` is
+      Whether the split should be stratified. Only works if ``y`` is
       either binary or multiclass classification.
 
     random_state : int, RandomState instance, or None (default=None)
-      Control the random state in case that `(Stratified)ShuffleSplit`
-      is used (which is when a float is passed to `cv`). For more
+      Control the random state in case that ``(Stratified)ShuffleSplit``
+      is used (which is when a float is passed to ``cv``). For more
       information, look at the sklearn documentation of
-      `(Stratified)ShuffleSplit`.
+      ``(Stratified)ShuffleSplit``.
 
       """
     def __init__(

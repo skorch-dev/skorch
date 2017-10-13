@@ -6,8 +6,8 @@ class SkorchException(BaseException):
 
 
 class NotInitializedError(SkorchException):
-    """Module is not initialized, please call the `.initialize`
-    method or train the model by calling `.fit(...)`.
+    """Module is not initialized, please call the ``.initialize``
+    method or train the model by calling ``.fit(...)``.
 
     """
 
