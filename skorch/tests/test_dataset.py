@@ -161,7 +161,7 @@ class TestNetWithoutY:
         return wrap_cls(
             net_cls_1d,
             iterator_train=loader,
-            iterator_test=loader,
+            iterator_valid=loader,
             max_epochs=2,
             train_split=train_split,
             batch_size=request.param['batch_size']
@@ -187,7 +187,7 @@ class TestNetWithoutY:
         return wrap_cls(
             net_cls_2d,
             iterator_train=loader,
-            iterator_test=loader,
+            iterator_valid=loader,
             max_epochs=2,
             train_split=train_split,
             batch_size=request.param['batch_size']
@@ -692,7 +692,7 @@ class TestTrainSplitIsUsed:
             module__input_units=3,
             max_epochs=1,
             iterator_train=iterator,
-            iterator_test=iterator,
+            iterator_valid=iterator,
             train_split=train_split
         )
 

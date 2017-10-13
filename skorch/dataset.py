@@ -233,9 +233,9 @@ class CVSplit(object):
         - None, to use the default 3-fold cross validation,
         - integer, to specify the number of folds in a `(Stratified)KFold`,
         - float, to represent the proportion of the dataset to include
-          in the test split.
+          in the validation split.
         - An object to be used as a cross-validation generator.
-        - An iterable yielding train, test splits.
+        - An iterable yielding train, validation splits.
 
     stratified : bool (default=False)
       Whether the split should be stratified. Only works if `y` is

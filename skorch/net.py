@@ -103,13 +103,13 @@ class NeuralNet(object):
 
     batch_size : int (default=128)
       Mini-batch size. Use this instead of setting
-      `iterator_train__batch_size` and `iterator_test__batch_size`,
+      `iterator_train__batch_size` and `iterator_valid__batch_size`,
       which would result in the same outcome.
 
     iterator_train : torch DataLoader
       TODO: Will probably change.
 
-    iterator_test : torch DataLoader
+    iterator_valid : torch DataLoader
       TODO: Will probably change.
 
     dataset : torch Dataset (default=skorch.dataset.Dataset)
@@ -186,7 +186,7 @@ class NeuralNet(object):
       a tuple with unique names.
 
     """
-    prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optimizer',
+    prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
                  'criterion', 'callbacks']
 
     cuda_dependent_attributes_ = ['module_', 'optimizer_']
@@ -210,7 +210,7 @@ class NeuralNet(object):
             max_epochs=10,
             batch_size=128,
             iterator_train=DataLoader,
-            iterator_test=DataLoader,
+            iterator_valid=DataLoader,
             dataset=Dataset,
             train_split=CVSplit(5),
             callbacks=None,
@@ -226,7 +226,7 @@ class NeuralNet(object):
         self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.iterator_train = iterator_train
-        self.iterator_test = iterator_test
+        self.iterator_valid = iterator_valid
         self.dataset = dataset
         self.train_split = train_split
         self.callbacks = callbacks
@@ -656,7 +656,7 @@ class NeuralNet(object):
         given data.
 
         If `self.iterator_train__batch_size` and/or
-        `self.iterator_test__batch_size` are not set, use
+        `self.iterator_valid__batch_size` are not set, use
         `self.batch_size` instead.
 
         Parameters
@@ -666,7 +666,7 @@ class NeuralNet(object):
           data, is passed to `get_iterator`.
 
         train : bool (default=False)
-          Whether to use `iterator_train` or `iterator_test`.
+          Whether to use `iterator_train` or `iterator_valid`.
 
         Returns
         -------
@@ -679,8 +679,8 @@ class NeuralNet(object):
             kwargs = self._get_params_for('iterator_train')
             iterator = self.iterator_train
         else:
-            kwargs = self._get_params_for('iterator_test')
-            iterator = self.iterator_test
+            kwargs = self._get_params_for('iterator_valid')
+            iterator = self.iterator_valid
 
         if 'batch_size' not in kwargs:
             kwargs['batch_size'] = self.batch_size

@@ -67,11 +67,11 @@ learner = Learner(
     iterator_train=data.Loader,
     iterator_train__use_cuda=args.cuda,
     iterator_train__bptt=args.bptt,
-    iterator_test=data.Loader,
-    iterator_test__use_cuda=args.cuda,
-    iterator_test__bptt=args.bptt)
+    iterator_valid=data.Loader,
+    iterator_valid__use_cuda=args.cuda,
+    iterator_valid__bptt=args.bptt)
 
-# NOFIXME: iterator_test does not use corpus.valid as dataset
+# NOFIXME: iterator_valid does not use corpus.valid as dataset
 # REASON: we use GridSearchCV to generate validation splits
 # FIXME: but we need validation data during training (LR annealing)
 
