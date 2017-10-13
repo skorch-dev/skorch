@@ -410,7 +410,7 @@ class NeuralNet(object):
     def check_data(self, X, y=None):
         pass
 
-    def validation_step(self, xi, yi):
+    def validation_step(self, Xi, yi):
         """Perform a forward step using batched data and return the
         resulting loss.
 
@@ -419,10 +419,10 @@ class NeuralNet(object):
 
         """
         self.module_.eval()
-        y_pred = self.infer(xi)
-        return self.get_loss(y_pred, yi, X=xi, train=False)
+        y_pred = self.infer(Xi)
+        return self.get_loss(y_pred, yi, X=Xi, train=False)
 
-    def train_step(self, xi, yi, optimizer):
+    def train_step(self, Xi, yi, optimizer):
         """Perform a forward step using batched data, update module
         parameters, and return the loss.
 
@@ -432,8 +432,8 @@ class NeuralNet(object):
         """
         self.module_.train()
         optimizer.zero_grad()
-        y_pred = self.infer(xi)
-        loss = self.get_loss(y_pred, yi, X=xi, train=True)
+        y_pred = self.infer(Xi)
+        loss = self.get_loss(y_pred, yi, X=Xi, train=True)
         loss.backward()
 
         if self.gradient_clip_value is not None:
@@ -445,7 +445,7 @@ class NeuralNet(object):
         optimizer.step()
         return loss
 
-    def evaluation_step(self, xi, training=False):
+    def evaluation_step(self, Xi, training=False):
         """Perform a forward step to produce the output used for
         prediction and scoring.
 
@@ -455,7 +455,7 @@ class NeuralNet(object):
 
         """
         self.module_.train(training)
-        return self.infer(xi)
+        return self.infer(Xi)
 
     def fit_loop(self, X, y=None, epochs=None):
         """The proper fit loop.
@@ -491,23 +491,23 @@ class NeuralNet(object):
         for _ in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
-            for xi, yi in self.get_iterator(dataset_train, train=True):
-                self.notify('on_batch_begin', X=xi, y=yi, train=True)
-                loss = self.train_step(xi, yi, self.optimizer_)
+            for Xi, yi in self.get_iterator(dataset_train, train=True):
+                self.notify('on_batch_begin', X=Xi, y=yi, train=True)
+                loss = self.train_step(Xi, yi, self.optimizer_)
                 self.history.record_batch('train_loss', loss.data[0])
-                self.history.record_batch('train_batch_size', len(xi))
-                self.notify('on_batch_end', X=xi, y=yi, train=True)
+                self.history.record_batch('train_batch_size', len(Xi))
+                self.notify('on_batch_end', X=Xi, y=yi, train=True)
 
             if X_valid is None:
                 self.notify('on_epoch_end', X=X, y=y)
                 continue
 
-            for xi, yi in self.get_iterator(dataset_valid, train=False):
-                self.notify('on_batch_begin', X=xi, y=yi, train=False)
-                loss = self.validation_step(xi, yi)
+            for Xi, yi in self.get_iterator(dataset_valid, train=False):
+                self.notify('on_batch_begin', X=Xi, y=yi, train=False)
+                loss = self.validation_step(Xi, yi)
                 self.history.record_batch('valid_loss', loss.data[0])
-                self.history.record_batch('valid_batch_size', len(xi))
-                self.notify('on_batch_end', X=xi, y=yi, train=False)
+                self.history.record_batch('valid_batch_size', len(Xi))
+                self.notify('on_batch_end', X=Xi, y=yi, train=False)
 
             self.notify('on_epoch_end', X=X, y=y)
         return self
@@ -586,9 +586,9 @@ class NeuralNet(object):
         dataset = self.dataset(X, use_cuda=self.use_cuda)
         iterator = self.get_iterator(dataset, train=training)
         y_infer = []
-        for xi, _ in iterator:
+        for Xi, _ in iterator:
             y_infer.append(
-                self.evaluation_step(xi, training=training))
+                self.evaluation_step(Xi, training=training))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):

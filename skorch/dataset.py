@@ -203,9 +203,9 @@ class Dataset(torch.utils.data.Dataset):
         if is_pandas_ndframe(X):
             X = {k: X[k].values.reshape(-1, 1) for k in X}
 
-        xi = multi_indexing(X, i)
+        Xi = multi_indexing(X, i)
         yi = y if y is None else multi_indexing(y, i)
-        return self.transform(xi, yi)
+        return self.transform(Xi, yi)
 
 
 class CVSplit(object):
