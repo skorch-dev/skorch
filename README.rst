@@ -7,7 +7,7 @@ Example
 -------
 
 To see a more elaborate example, look `here
-notebook <https://github.com/dnouri/skorch/tree/master/notebooks/README.md>`__.
+<https://github.com/dnouri/skorch/tree/master/notebooks/README.md>`__.
 
 .. code:: python
 
