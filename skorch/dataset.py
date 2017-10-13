@@ -203,9 +203,9 @@ class Dataset(torch.utils.data.Dataset):
         if is_pandas_ndframe(X):
             X = {k: X[k].values.reshape(-1, 1) for k in X}
 
-        xi = multi_indexing(X, i)
+        Xi = multi_indexing(X, i)
         yi = y if y is None else multi_indexing(y, i)
-        return self.transform(xi, yi)
+        return self.transform(Xi, yi)
 
 
 class CVSplit(object):
@@ -233,9 +233,9 @@ class CVSplit(object):
         - None, to use the default 3-fold cross validation,
         - integer, to specify the number of folds in a ``(Stratified)KFold``,
         - float, to represent the proportion of the dataset to include
-          in the test split.
+          in the validation split.
         - An object to be used as a cross-validation generator.
-        - An iterable yielding train, test splits.
+        - An iterable yielding train, validation splits.
 
     stratified : bool (default=False)
       Whether the split should be stratified. Only works if ``y`` is

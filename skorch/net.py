@@ -64,6 +64,9 @@ class NeuralNet(object):
     This can be useful when you want to change certain parameters using
     a callback, when using the net in an sklearn grid search, etc.
 
+    By default an ``EpochTimer``, ``AverageLoss``, ``BestLoss``, and
+    ``PrintLog`` callback is installed for the user's convenience.
+
     Parameters
     ----------
     module : torch module (class or instance)
@@ -74,7 +77,7 @@ class NeuralNet(object):
       The uninitialized criterion (loss) used to optimize the
       module.
 
-    optim : torch optim (class, default=torch.optim.SGD)
+    optimizer : torch optim (class, default=torch.optim.SGD)
       The uninitialized optimizer (update rule) used to optimize the
       module
 
@@ -105,7 +108,7 @@ class NeuralNet(object):
     iterator_train : torch DataLoader
       TODO: Will probably change.
 
-    iterator_test : torch DataLoader
+    iterator_valid : torch DataLoader
       TODO: Will probably change.
 
     dataset : torch Dataset (default=skorch.dataset.Dataset)
@@ -163,11 +166,6 @@ class NeuralNet(object):
       listed attributes are mapped to CPU.  Expand this list if you
       want to add other cuda-dependent attributes.
 
-    default_callbacks : list of str
-      Callbacks that come by default. They are mainly set for the
-      user's convenience. By default, an EpochTimer, AverageLoss,
-      BestLoss, and PrintLog are set.
-
     initialized_ : bool
       Whether the NeuralNet was initialized.
 
@@ -182,31 +180,24 @@ class NeuralNet(object):
       a tuple with unique names.
 
     """
-    prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optim',
+    prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
                  'criterion', 'callbacks']
 
-    cuda_dependent_attributes_ = ['module_', 'optim_']
-
-    default_callbacks = [
-        ('epoch_timer', EpochTimer),
-        ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
-        ('valid_loss', Scoring('valid_loss', valid_loss_score)),
-        ('print_log', PrintLog),
-    ]
+    cuda_dependent_attributes_ = ['module_', 'optimizer_']
 
     # pylint: disable=too-many-arguments
     def __init__(
             self,
             module,
             criterion,
-            optim=torch.optim.SGD,
+            optimizer=torch.optim.SGD,
             lr=0.01,
             gradient_clip_value=None,
             gradient_clip_norm_type=2,
             max_epochs=10,
             batch_size=128,
             iterator_train=DataLoader,
-            iterator_test=DataLoader,
+            iterator_valid=DataLoader,
             dataset=Dataset,
             train_split=CVSplit(5),
             callbacks=None,
@@ -217,12 +208,12 @@ class NeuralNet(object):
     ):
         self.module = module
         self.criterion = criterion
-        self.optim = optim
+        self.optimizer = optimizer
         self.lr = lr
         self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.iterator_train = iterator_train
-        self.iterator_test = iterator_test
+        self.iterator_valid = iterator_valid
         self.dataset = dataset
         self.train_split = train_split
         self.callbacks = callbacks
@@ -243,6 +234,17 @@ class NeuralNet(object):
 
         self.history = history
         self.initialized_ = initialized
+
+    def get_default_callbacks(self):
+        return [
+            ('epoch_timer', EpochTimer),
+            ('train_loss', Scoring(
+                'train_loss',
+                train_loss_score,
+                on_train=True)),
+            ('valid_loss', Scoring('valid_loss', valid_loss_score)),
+            ('print_log', PrintLog),
+        ]
 
     def notify(self, method_name, **cb_kwargs):
         """Call the callback method specified in ``method_name`` with
@@ -296,7 +298,7 @@ class NeuralNet(object):
 
         """
         print_logs = []
-        for item in self.default_callbacks + (self.callbacks or []):
+        for item in self.get_default_callbacks() + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
                 name, cb = item
             else:
@@ -383,10 +385,10 @@ class NeuralNet(object):
         not set, use ``self.lr`` instead.
 
         """
-        kwargs = self._get_params_for('optim')
+        kwargs = self._get_params_for('optimizer')
         if 'lr' not in kwargs:
             kwargs['lr'] = self.lr
-        self.optim_ = self.optim(self.module_.parameters(), **kwargs)
+        self.optimizer_ = self.optimizer(self.module_.parameters(), **kwargs)
 
     def initialize_history(self):
         """Initializes the history."""
@@ -406,7 +408,7 @@ class NeuralNet(object):
     def check_data(self, X, y=None):
         pass
 
-    def validation_step(self, xi, yi):
+    def validation_step(self, Xi, yi):
         """Perform a forward step using batched data and return the
         resulting loss.
 
@@ -415,10 +417,10 @@ class NeuralNet(object):
 
         """
         self.module_.eval()
-        y_pred = self.infer(xi)
-        return self.get_loss(y_pred, yi, X=xi, train=False)
+        y_pred = self.infer(Xi)
+        return self.get_loss(y_pred, yi, X=Xi, train=False)
 
-    def train_step(self, xi, yi, optimizer):
+    def train_step(self, Xi, yi, optimizer):
         """Perform a forward step using batched data, update module
         parameters, and return the loss.
 
@@ -428,8 +430,8 @@ class NeuralNet(object):
         """
         self.module_.train()
         optimizer.zero_grad()
-        y_pred = self.infer(xi)
-        loss = self.get_loss(y_pred, yi, X=xi, train=True)
+        y_pred = self.infer(Xi)
+        loss = self.get_loss(y_pred, yi, X=Xi, train=True)
         loss.backward()
 
         if self.gradient_clip_value is not None:
@@ -441,7 +443,7 @@ class NeuralNet(object):
         optimizer.step()
         return loss
 
-    def evaluation_step(self, xi, training_behavior=False):
+    def evaluation_step(self, Xi, training=False):
         """Perform a forward step to produce the output used for
         prediction and scoring.
 
@@ -450,8 +452,8 @@ class NeuralNet(object):
         like dropout by setting ``training_behavior=True``.
 
         """
-        self.module_.train(training_behavior)
-        return self.infer(xi)
+        self.module_.train(training)
+        return self.infer(Xi)
 
     def fit_loop(self, X, y=None, epochs=None):
         """The proper fit loop.
@@ -487,23 +489,23 @@ class NeuralNet(object):
         for _ in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
-            for xi, yi in self.get_iterator(dataset_train, train=True):
-                self.notify('on_batch_begin', X=xi, y=yi, train=True)
-                loss = self.train_step(xi, yi, self.optim_)
+            for Xi, yi in self.get_iterator(dataset_train, train=True):
+                self.notify('on_batch_begin', X=Xi, y=yi, train=True)
+                loss = self.train_step(Xi, yi, self.optimizer_)
                 self.history.record_batch('train_loss', loss.data[0])
-                self.history.record_batch('train_batch_size', len(xi))
-                self.notify('on_batch_end', X=xi, y=yi, train=True)
+                self.history.record_batch('train_batch_size', len(Xi))
+                self.notify('on_batch_end', X=Xi, y=yi, train=True)
 
             if X_valid is None:
                 self.notify('on_epoch_end', X=X, y=y)
                 continue
 
-            for xi, yi in self.get_iterator(dataset_valid, train=False):
-                self.notify('on_batch_begin', X=xi, y=yi, train=False)
-                loss = self.validation_step(xi, yi)
+            for Xi, yi in self.get_iterator(dataset_valid, train=False):
+                self.notify('on_batch_begin', X=Xi, y=yi, train=False)
+                loss = self.validation_step(Xi, yi)
                 self.history.record_batch('valid_loss', loss.data[0])
-                self.history.record_batch('valid_batch_size', len(xi))
-                self.notify('on_batch_end', X=xi, y=yi, train=False)
+                self.history.record_batch('valid_batch_size', len(Xi))
+                self.notify('on_batch_end', X=Xi, y=yi, train=False)
 
             self.notify('on_epoch_end', X=X, y=y)
         return self
@@ -560,7 +562,7 @@ class NeuralNet(object):
         self.partial_fit(X, y, **fit_params)
         return self
 
-    def forward(self, X, training_behavior=False):
+    def forward(self, X, training=False):
         """Perform a forward steps on the module with batches derived
         from data.
 
@@ -568,7 +570,7 @@ class NeuralNet(object):
         ----------
         X : TODO
 
-        training_behavior : bool (default=False)
+        training : bool (default=False)
           Whether to set the module to train mode or not.
 
         Returns
@@ -577,14 +579,14 @@ class NeuralNet(object):
           The result from the forward step.
 
         """
-        self.module_.train(training_behavior)
+        self.module_.train(training)
 
         dataset = self.dataset(X, use_cuda=self.use_cuda)
-        iterator = self.get_iterator(dataset, train=training_behavior)
+        iterator = self.get_iterator(dataset, train=training)
         y_infer = []
-        for xi, _ in iterator:
+        for Xi, _ in iterator:
             y_infer.append(
-                self.evaluation_step(xi, training_behavior=training_behavior))
+                self.evaluation_step(Xi, training=training))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
@@ -606,7 +608,7 @@ class NeuralNet(object):
         y_proba : numpy ndarray
 
         """
-        y_proba = self.forward(X, training_behavior=False)
+        y_proba = self.forward(X, training=False)
         y_proba = to_numpy(y_proba)
         return y_proba
 
@@ -675,8 +677,8 @@ class NeuralNet(object):
             kwargs = self._get_params_for('iterator_train')
             iterator = self.iterator_train
         else:
-            kwargs = self._get_params_for('iterator_test')
-            iterator = self.iterator_test
+            kwargs = self._get_params_for('iterator_valid')
+            iterator = self.iterator_valid
 
         if 'batch_size' not in kwargs:
             kwargs['batch_size'] = self.batch_size
@@ -867,20 +869,6 @@ def get_neural_net_clf_doc(doc):
 class NeuralNetClassifier(NeuralNet):
     __doc__ = get_neural_net_clf_doc(NeuralNet.__doc__)
 
-    default_callbacks = [
-        ('epoch_timer', EpochTimer()),
-        ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
-        ('valid_loss', Scoring('valid_loss', valid_loss_score)),
-        ('valid_acc', Scoring(
-            name='valid_acc',
-            scoring='accuracy_score',
-            lower_is_better=False,
-            on_train=False,
-            pred_extractor=accuracy_pred_extractor,
-        )),
-        ('print_log', PrintLog()),
-    ]
-
     def __init__(
             self,
             module,
@@ -896,6 +884,24 @@ class NeuralNetClassifier(NeuralNet):
             *args,
             **kwargs
         )
+
+    def get_default_callbacks(self):
+        return [
+            ('epoch_timer', EpochTimer()),
+            ('train_loss', Scoring(
+                'train_loss',
+                train_loss_score,
+                on_train=True)),
+            ('valid_loss', Scoring('valid_loss', valid_loss_score)),
+            ('valid_acc', Scoring(
+                name='valid_acc',
+                scoring='accuracy_score',
+                lower_is_better=False,
+                on_train=False,
+                pred_extractor=accuracy_pred_extractor,
+            )),
+            ('print_log', PrintLog()),
+        ]
 
     # pylint: disable=signature-differs
     def check_data(self, _, y):
@@ -1018,3 +1024,6 @@ class NeuralNetRegressor(NeuralNet):
         # this is actually a pylint bug:
         # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetRegressor, self).fit(X, y, **fit_params)
+
+    def predict(self, X):
+        return self.predict_proba(X)

@@ -6,8 +6,8 @@ A scikit-learn compatible neural network library that wraps pytorch.
 Example
 -------
 
-To see a more elaborate example, check out `this
-notebook <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb>`__
+To see a more elaborate example, look `here
+<https://github.com/dnouri/skorch/tree/master/notebooks/README.md>`__.
 
 .. code:: python
 
