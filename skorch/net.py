@@ -47,22 +47,22 @@ class NeuralNet(object):
     ```
     net = NeuralNet(
         ...,
-        optim=torch.optim.SGD,
-        optim__momentum=0.95,
+        optimizer=torch.optim.SGD,
+        optimizer__momentum=0.95,
     )
     ```
 
-    This way, when `optim` is initialized, `NeuralNet` will take care
+    This way, when `optimizer` is initialized, `NeuralNet` will take care
     of setting the `momentum` parameter to 0.95.
 
-    (Note that the double underscore notation in `optim__momentum`
+    (Note that the double underscore notation in `optimizer__momentum`
     means that the parameter `momentum` should be set on the object
-    `optim`. This is the same semantic as used by sklearn.)
+    `optimizer`. This is the same semantic as used by sklearn.)
 
     Furthermore, this allows to change those parameters later:
 
     ```
-    net.set_params(optim__momentum=0.99)
+    net.set_params(optimizer__momentum=0.99)
     ```
 
     This can be useful when you want to change certain parameters using
@@ -81,13 +81,13 @@ class NeuralNet(object):
       The uninitialized criterion (loss) used to optimize the
       module.
 
-    optim : torch optim (class, default=torch.optim.SGD)
+    optimizer : torch optim (class, default=torch.optim.SGD)
       The uninitialized optimizer (update rule) used to optimize the
       module
 
     lr : float (default=0.01)
       Learning rate passed to the optimizer. You may use `lr` instead
-      of using `optim__lr`, which would result in the same outcome.
+      of using `optimizer__lr`, which would result in the same outcome.
 
     gradient_clip_value : float (default=None)
       If not None, clip the norm of all model parameter gradients to this
@@ -106,13 +106,13 @@ class NeuralNet(object):
 
     batch_size : int (default=128)
       Mini-batch size. Use this instead of setting
-      `iterator_train__batch_size` and `iterator_test__batch_size`,
+      `iterator_train__batch_size` and `iterator_valid__batch_size`,
       which would result in the same outcome.
 
     iterator_train : torch DataLoader
       TODO: Will probably change.
 
-    iterator_test : torch DataLoader
+    iterator_valid : torch DataLoader
       TODO: Will probably change.
 
     dataset : torch Dataset (default=skorch.dataset.Dataset)
@@ -161,7 +161,7 @@ class NeuralNet(object):
     prefixes_ : list of str
       Contains the prefixes to special parameters. E.g., since there
       is the `'module'` prefix, it is possible to set parameters like
-      so: `NeuralNet(..., optim__momentum=0.95)`.
+      so: `NeuralNet(..., optimizer__momentum=0.95)`.
 
     cuda_dependent_attributes_ : list of str
       Contains a list of all attributes whose values depend on a CUDA
@@ -184,24 +184,24 @@ class NeuralNet(object):
       a tuple with unique names.
 
     """
-    prefixes_ = ['module', 'iterator_train', 'iterator_test', 'optim',
+    prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
                  'criterion', 'callbacks']
 
-    cuda_dependent_attributes_ = ['module_', 'optim_']
+    cuda_dependent_attributes_ = ['module_', 'optimizer_']
 
     # pylint: disable=too-many-arguments
     def __init__(
             self,
             module,
             criterion,
-            optim=torch.optim.SGD,
+            optimizer=torch.optim.SGD,
             lr=0.01,
             gradient_clip_value=None,
             gradient_clip_norm_type=2,
             max_epochs=10,
             batch_size=128,
             iterator_train=DataLoader,
-            iterator_test=DataLoader,
+            iterator_valid=DataLoader,
             dataset=Dataset,
             train_split=CVSplit(5),
             callbacks=None,
@@ -212,12 +212,12 @@ class NeuralNet(object):
     ):
         self.module = module
         self.criterion = criterion
-        self.optim = optim
+        self.optimizer = optimizer
         self.lr = lr
         self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.iterator_train = iterator_train
-        self.iterator_test = iterator_test
+        self.iterator_valid = iterator_valid
         self.dataset = dataset
         self.train_split = train_split
         self.callbacks = callbacks
@@ -385,14 +385,14 @@ class NeuralNet(object):
         return self
 
     def initialize_optimizer(self):
-        """Initialize the model optimizer. If `self.optim__lr` is
+        """Initialize the model optimizer. If `self.optimizer__lr` is
         not set, use `self.lr` instead.
 
         """
-        kwargs = self._get_params_for('optim')
+        kwargs = self._get_params_for('optimizer')
         if 'lr' not in kwargs:
             kwargs['lr'] = self.lr
-        self.optim_ = self.optim(self.module_.parameters(), **kwargs)
+        self.optimizer_ = self.optimizer(self.module_.parameters(), **kwargs)
 
     def initialize_history(self):
         """Initializes the history."""
@@ -412,7 +412,7 @@ class NeuralNet(object):
     def check_data(self, X, y=None):
         pass
 
-    def validation_step(self, xi, yi):
+    def validation_step(self, Xi, yi):
         """Perform a forward step using batched data and return the
         resulting loss.
 
@@ -421,10 +421,10 @@ class NeuralNet(object):
 
         """
         self.module_.eval()
-        y_pred = self.infer(xi)
-        return self.get_loss(y_pred, yi, X=xi, train=False)
+        y_pred = self.infer(Xi)
+        return self.get_loss(y_pred, yi, X=Xi, train=False)
 
-    def train_step(self, xi, yi, optimizer):
+    def train_step(self, Xi, yi, optimizer):
         """Perform a forward step using batched data, update module
         parameters, and return the loss.
 
@@ -434,8 +434,8 @@ class NeuralNet(object):
         """
         self.module_.train()
         optimizer.zero_grad()
-        y_pred = self.infer(xi)
-        loss = self.get_loss(y_pred, yi, X=xi, train=True)
+        y_pred = self.infer(Xi)
+        loss = self.get_loss(y_pred, yi, X=Xi, train=True)
         loss.backward()
 
         if self.gradient_clip_value is not None:
@@ -447,17 +447,17 @@ class NeuralNet(object):
         optimizer.step()
         return loss
 
-    def evaluation_step(self, xi, training_behavior=False):
+    def evaluation_step(self, Xi, training=False):
         """Perform a forward step to produce the output used for
         prediction and scoring.
 
         Therefore the module is set to evaluation mode by default
         beforehand which can be overridden to re-enable features
-        like dropout by setting `training_behavior=True`.
+        like dropout by setting `training=True`.
 
         """
-        self.module_.train(training_behavior)
-        return self.infer(xi)
+        self.module_.train(training)
+        return self.infer(Xi)
 
     def fit_loop(self, X, y=None, epochs=None):
         """The proper fit loop.
@@ -493,23 +493,23 @@ class NeuralNet(object):
         for _ in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
 
-            for xi, yi in self.get_iterator(dataset_train, train=True):
-                self.notify('on_batch_begin', X=xi, y=yi, train=True)
-                loss = self.train_step(xi, yi, self.optim_)
+            for Xi, yi in self.get_iterator(dataset_train, train=True):
+                self.notify('on_batch_begin', X=Xi, y=yi, train=True)
+                loss = self.train_step(Xi, yi, self.optimizer_)
                 self.history.record_batch('train_loss', loss.data[0])
-                self.history.record_batch('train_batch_size', len(xi))
-                self.notify('on_batch_end', X=xi, y=yi, train=True)
+                self.history.record_batch('train_batch_size', len(Xi))
+                self.notify('on_batch_end', X=Xi, y=yi, train=True)
 
             if X_valid is None:
                 self.notify('on_epoch_end', X=X, y=y)
                 continue
 
-            for xi, yi in self.get_iterator(dataset_valid, train=False):
-                self.notify('on_batch_begin', X=xi, y=yi, train=False)
-                loss = self.validation_step(xi, yi)
+            for Xi, yi in self.get_iterator(dataset_valid, train=False):
+                self.notify('on_batch_begin', X=Xi, y=yi, train=False)
+                loss = self.validation_step(Xi, yi)
                 self.history.record_batch('valid_loss', loss.data[0])
-                self.history.record_batch('valid_batch_size', len(xi))
-                self.notify('on_batch_end', X=xi, y=yi, train=False)
+                self.history.record_batch('valid_batch_size', len(Xi))
+                self.notify('on_batch_end', X=Xi, y=yi, train=False)
 
             self.notify('on_epoch_end', X=X, y=y)
         return self
@@ -566,7 +566,7 @@ class NeuralNet(object):
         self.partial_fit(X, y, **fit_params)
         return self
 
-    def forward(self, X, training_behavior=False):
+    def forward(self, X, training=False):
         """Perform a forward steps on the module with batches derived
         from data.
 
@@ -574,7 +574,7 @@ class NeuralNet(object):
         ----------
         X : TODO
 
-        training_behavior : bool (default=False)
+        training : bool (default=False)
           Whether to set the module to train mode or not.
 
         Returns
@@ -583,14 +583,14 @@ class NeuralNet(object):
           The result from the forward step.
 
         """
-        self.module_.train(training_behavior)
+        self.module_.train(training)
 
         dataset = self.dataset(X, use_cuda=self.use_cuda)
-        iterator = self.get_iterator(dataset, train=training_behavior)
+        iterator = self.get_iterator(dataset, train=training)
         y_infer = []
-        for xi, _ in iterator:
+        for Xi, _ in iterator:
             y_infer.append(
-                self.evaluation_step(xi, training_behavior=training_behavior))
+                self.evaluation_step(Xi, training=training))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
@@ -612,7 +612,7 @@ class NeuralNet(object):
         y_proba : numpy ndarray
 
         """
-        y_proba = self.forward(X, training_behavior=False)
+        y_proba = self.forward(X, training=False)
         y_proba = to_numpy(y_proba)
         return y_proba
 
@@ -658,7 +658,7 @@ class NeuralNet(object):
         given data.
 
         If `self.iterator_train__batch_size` and/or
-        `self.iterator_test__batch_size` are not set, use
+        `self.iterator_valid__batch_size` are not set, use
         `self.batch_size` instead.
 
         Parameters
@@ -668,7 +668,7 @@ class NeuralNet(object):
           data, is passed to `get_iterator`.
 
         train : bool (default=False)
-          Whether to use `iterator_train` or `iterator_test`.
+          Whether to use `iterator_train` or `iterator_valid`.
 
         Returns
         -------
@@ -681,8 +681,8 @@ class NeuralNet(object):
             kwargs = self._get_params_for('iterator_train')
             iterator = self.iterator_train
         else:
-            kwargs = self._get_params_for('iterator_test')
-            iterator = self.iterator_test
+            kwargs = self._get_params_for('iterator_valid')
+            iterator = self.iterator_valid
 
         if 'batch_size' not in kwargs:
             kwargs['batch_size'] = self.batch_size
