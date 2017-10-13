@@ -68,6 +68,9 @@ class NeuralNet(object):
     This can be useful when you want to change certain parameters using
     a callback, when using the net in an sklearn grid search, etc.
 
+    By default an ``EpochTimer``, ``AverageLoss``, ``BestLoss``, and
+    ``PrintLog`` callback is installed for the user's convenience.
+
     Parameters
     ----------
     module : torch module (class or instance)
@@ -129,7 +132,7 @@ class NeuralNet(object):
 
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those specified in
-      `default_callbacks`. Each callback should inherit from
+      `get_default_callbacks`. Each callback should inherit from
       skorch.Callback. If not None, a list of tuples (name, callback)
       should be passed, where names should be unique. Callbacks may or
       may not be instantiated.
@@ -167,11 +170,6 @@ class NeuralNet(object):
       listed attributes are mapped to CPU.  Expand this list if you
       want to add other cuda-dependent attributes.
 
-    default_callbacks : list of str
-      Callbacks that come by default. They are mainly set for the
-      user's convenience. By default, an EpochTimer, AverageLoss,
-      BestLoss, and PrintLog are set.
-
     initialized_ : bool
       Whether the NeuralNet was initialized.
 
@@ -190,13 +188,6 @@ class NeuralNet(object):
                  'criterion', 'callbacks']
 
     cuda_dependent_attributes_ = ['module_', 'optim_']
-
-    default_callbacks = [
-        ('epoch_timer', EpochTimer),
-        ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
-        ('valid_loss', Scoring('valid_loss', valid_loss_score)),
-        ('print_log', PrintLog),
-    ]
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -247,6 +238,17 @@ class NeuralNet(object):
 
         self.history = history
         self.initialized_ = initialized
+
+    def get_default_callbacks(self):
+        return [
+            ('epoch_timer', EpochTimer),
+            ('train_loss', Scoring(
+                'train_loss',
+                train_loss_score,
+                on_train=True)),
+            ('valid_loss', Scoring('valid_loss', valid_loss_score)),
+            ('print_log', PrintLog),
+        ]
 
     def notify(self, method_name, **cb_kwargs):
         """Call the callback method specified in `method_name` with
@@ -300,7 +302,7 @@ class NeuralNet(object):
 
         """
         print_logs = []
-        for item in self.default_callbacks + (self.callbacks or []):
+        for item in self.get_default_callbacks() + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
                 name, cb = item
             else:
@@ -319,7 +321,7 @@ class NeuralNet(object):
         """Initializes all callbacks and save the result in the
         `callbacks_` attribute.
 
-        Both `default_callbacks` and `callbacks` are used (in that
+        Both `get_default_callbacks` and `callbacks` are used (in that
         order). Callbacks may either be initialized or not, and if
         they don't have a name, the name is inferred from the class
         name. The `initialize` method is called on all callbacks.
@@ -871,20 +873,6 @@ def get_neural_net_clf_doc(doc):
 class NeuralNetClassifier(NeuralNet):
     __doc__ = get_neural_net_clf_doc(NeuralNet.__doc__)
 
-    default_callbacks = [
-        ('epoch_timer', EpochTimer()),
-        ('train_loss', Scoring('train_loss', train_loss_score, on_train=True)),
-        ('valid_loss', Scoring('valid_loss', valid_loss_score)),
-        ('valid_acc', Scoring(
-            name='valid_acc',
-            scoring='accuracy_score',
-            lower_is_better=False,
-            on_train=False,
-            pred_extractor=accuracy_pred_extractor,
-        )),
-        ('print_log', PrintLog()),
-    ]
-
     def __init__(
             self,
             module,
@@ -900,6 +888,24 @@ class NeuralNetClassifier(NeuralNet):
             *args,
             **kwargs
         )
+
+    def get_default_callbacks(self):
+        return [
+            ('epoch_timer', EpochTimer()),
+            ('train_loss', Scoring(
+                'train_loss',
+                train_loss_score,
+                on_train=True)),
+            ('valid_loss', Scoring('valid_loss', valid_loss_score)),
+            ('valid_acc', Scoring(
+                name='valid_acc',
+                scoring='accuracy_score',
+                lower_is_better=False,
+                on_train=False,
+                pred_extractor=accuracy_pred_extractor,
+            )),
+            ('print_log', PrintLog()),
+        ]
 
     # pylint: disable=signature-differs
     def check_data(self, _, y):
