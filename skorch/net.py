@@ -566,8 +566,32 @@ class NeuralNet(object):
         self.partial_fit(X, y, **fit_params)
         return self
 
+    def forward_iter(self, X, training=False):
+        """Yield forward results from batches derived from data.
+
+        Parameters
+        ----------
+        X : TODO
+
+        training : bool (default=False)
+          Whether to set the module to train mode or not.
+
+        Yields
+        ------
+        yp : torch tensor
+          Result from a forward step on a batch.
+
+        """
+        self.module_.train(training)
+
+        dataset = self.dataset(X, use_cuda=self.use_cuda)
+        iterator = self.get_iterator(dataset, train=training)
+        for Xi, _ in iterator:
+            yp = self.evaluation_step(Xi, training=training)
+            yield yp
+
     def forward(self, X, training=False):
-        """Perform a forward steps on the module with batches derived
+        """Perform a forward step on the module with batches derived
         from data.
 
         Parameters
@@ -583,14 +607,7 @@ class NeuralNet(object):
           The result from the forward step.
 
         """
-        self.module_.train(training)
-
-        dataset = self.dataset(X, use_cuda=self.use_cuda)
-        iterator = self.get_iterator(dataset, train=training)
-        y_infer = []
-        for Xi, _ in iterator:
-            y_infer.append(
-                self.evaluation_step(Xi, training=training))
+        y_infer = list(self.forward_iter(X, training=training))
         return torch.cat(y_infer, dim=0)
 
     def infer(self, x):
@@ -612,8 +629,10 @@ class NeuralNet(object):
         y_proba : numpy ndarray
 
         """
-        y_proba = self.forward(X, training=False)
-        y_proba = to_numpy(y_proba)
+        y_probas = []
+        for yp in self.forward_iter(X, training=False):
+            y_probas.append(to_numpy(yp))
+        y_proba = np.concatenate(y_probas, 0)
         return y_proba
 
     def predict(self, X):
