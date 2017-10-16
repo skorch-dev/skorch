@@ -46,23 +46,25 @@ class NeuralNet(object):
 
     >>> net = NeuralNet(
     ...    ...,
-    ...    optim=torch.optim.SGD,
-    ...    optim__momentum=0.95,
+    ...    optimizer=torch.optimizer.SGD,
+    ...    optimizer__momentum=0.95,
     ...)
 
-    This way, when ``optim`` is initialized, ``NeuralNet`` will take care
-    of setting the ``momentum`` parameter to 0.95.
+    This way, when ``optimizer`` is initialized, ``NeuralNet`` will
+    take care of setting the ``momentum`` parameter to 0.95.
 
-    (Note that the double underscore notation in ``optim__momentum``
-    means that the parameter ``momentum`` should be set on the object
-    ``optim``. This is the same semantic as used by sklearn.)
+    (Note that the double underscore notation in
+    ``optimizer__momentum`` means that the parameter ``momentum``
+    should be set on the object ``optimizer``. This is the same
+    semantic as used by sklearn.)
 
     Furthermore, this allows to change those parameters later:
 
-    ``net.set_params(optim__momentum=0.99)``
+    ``net.set_params(optimizer__momentum=0.99)``
 
-    This can be useful when you want to change certain parameters using
-    a callback, when using the net in an sklearn grid search, etc.
+    This can be useful when you want to change certain parameters
+    using a callback, when using the net in an sklearn grid search,
+    etc.
 
     By default an ``EpochTimer``, ``AverageLoss``, ``BestLoss``, and
     ``PrintLog`` callback is installed for the user's convenience.
@@ -83,7 +85,7 @@ class NeuralNet(object):
 
     lr : float (default=0.01)
       Learning rate passed to the optimizer. You may use ``lr`` instead
-      of using ``optim__lr``, which would result in the same outcome.
+      of using ``optimizer__lr``, which would result in the same outcome.
 
     gradient_clip_value : float (default=None)
       If not None, clip the norm of all model parameter gradients to this
@@ -157,7 +159,7 @@ class NeuralNet(object):
     prefixes_ : list of str
       Contains the prefixes to special parameters. E.g., since there
       is the ``'module'`` prefix, it is possible to set parameters like
-      so: ``NeuralNet(..., optim__momentum=0.95)``.
+      so: ``NeuralNet(..., optimizer__momentum=0.95)``.
 
     cuda_dependent_attributes_ : list of str
       Contains a list of all attributes whose values depend on a CUDA
@@ -381,8 +383,8 @@ class NeuralNet(object):
         return self
 
     def initialize_optimizer(self):
-        """Initialize the model optimizer. If ``self.optim__lr`` is
-        not set, use ``self.lr`` instead.
+        """Initialize the model optimizer. If ``self.optimizer__lr``
+        is not set, use ``self.lr`` instead.
 
         """
         kwargs = self._get_params_for('optimizer')
