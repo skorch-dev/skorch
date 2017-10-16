@@ -7,7 +7,27 @@ A scikit-learn compatible neural network library that wraps pytorch.
 Introduction
 ------------
 
+The goal of ``skorch`` is to make it possible to use ``pytorch`` with
+``sklearn``. This is achieved by providing a wrapper around
+``pytorch`` that has an ``sklearn`` interface. In that sense,
+``skorch`` is the spiritual successor to nolearn_, but instead of
+using ``Lasagne`` and ``theano``, it uses ``pytorch``.
 
+``skorch`` does not re-invent the wheel, instead getting as much out
+of your way as possible. If you are familiar with ``sklearn`` and
+``pytorch``, you don't have to learn any new concepts, and the syntax
+should be well known. (If you're not familiar with those libraries, it
+is worth getting familiarized.)
+
+Additionally, ``skorch`` abstracts away the training loop, making a
+lot of boilerplate code obsolete. A simple ``net.fit(X, y)`` is
+enough. Out of the box, ``skorch`` works with many types of data, be
+it ``pytorch`` Tensors, ``numpy`` arrays, Python dicts, and so
+on. However, if you have other data, it is extend ``skorch`` to allow
+for that.
+
+Overall, ``skorch`` aims at being as flexible as ``pytorch`` while
+having a clean interface as ``sklearn``.
 
 
 User's Guide
@@ -15,8 +35,13 @@ User's Guide
 .. toctree::
    :maxdepth: 2
 
-   user/quickstart
    user/installation
+   user/quickstart
+   user/neuralnet
+   user/callbacks
+   user/dataset
+   user/history
+   user/REST
    user/FAQ
 
 
@@ -38,3 +63,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+.. _nolearn: https://github.com/dnouri/nolearn
