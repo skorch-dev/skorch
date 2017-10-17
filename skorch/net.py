@@ -129,8 +129,8 @@ class NeuralNet(object):
       y_valid``. The validation data may be None.
 
     callbacks : None or list of Callback instances (default=None)
-      More callbacks, in addition to those specified in
-      ``default_callbacks``. Each callback should inherit from
+      More callbacks, in addition to those returned by
+      ``get_default_callbacks``. Each callback should inherit from
       skorch.Callback. If not None, a list of tuples (name, callback)
       should be passed, where names should be unique. Callbacks may or
       may not be instantiated.
