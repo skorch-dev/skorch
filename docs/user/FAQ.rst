@@ -25,7 +25,7 @@ How can I continue training my model?
 
 By default, when you call ``fit`` more than once, the training starts
 from zero instead of from where it was left. This is in line with
-``sklearn`` 's behavior but not always desired. If you would like to
+``sklearn``\'s behavior but not always desired. If you would like to
 continue training, use ``partial_fit`` instead of
 ``fit``. Alternatively, there is the ``cold_start`` argument, which is
 ``True`` by default. Set it to ``False`` instead and you should be

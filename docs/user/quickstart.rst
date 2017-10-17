@@ -7,6 +7,9 @@ Quickstart
 Training a model
 ----------------
 
+Below, we define our own ``pytorch``\ ``Module`` and train it on a toy
+classification dataset using ``skorch``\'s ``NeuralNetClassifier``:
+
 .. code:: python
 
     import numpy as np
@@ -53,6 +56,9 @@ Training a model
 In an sklearn Pipeline
 ----------------------
 
+Since ``NeuralNetClassifier`` provides an ``sklearn``\-compatible
+interface, it is possible to put it into an ``sklearn``\ ``Pipeline``:
+
 .. code:: python
 
     from sklearn.pipeline import Pipeline
@@ -70,6 +76,9 @@ In an sklearn Pipeline
 
 Grid search
 -----------
+
+Another advantage of ``skorch`` is that you can perform an
+``sklearn``\ ``GridSearchCV`` or ``RandomizedSearchCV``:
 
 .. code:: python
 
