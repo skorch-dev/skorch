@@ -129,3 +129,11 @@ In contrast to a ``torch``\ ``Dataset``, a ``skorch``\ ``Dataset``
 must have a ``use_cuda`` argument, which determines whether the
 returned data should be transferred to CUDA. Should you write your own
 ``Dataset`` subclass, remember to integrate this argument.
+
+``Dataset`` applies a transform final transform on the data before
+passing it on to the ``DataLoader``. By default, it casts the data to
+a ``torch tensor`` and replaces ``y`` by a dummy variable in case it
+is None. If you would like to apply your own transformation on the
+data, you should subclass ``Dataset`` and override the ``transform``
+method, then pass your custom ``Dataset`` to ``NeuralNet`` as the
+``dataset`` argument.
