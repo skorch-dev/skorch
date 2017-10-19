@@ -106,6 +106,28 @@ class TestNeuralNet:
         net_fit.callbacks_ = callbacks_
         return net_clone
 
+    def test_net_init_one_unknown_argument(self, net_cls, module_cls):
+        with pytest.raises(TypeError) as e:
+            net_cls(module_cls, unknown_arg=123)
+
+        expected = ("__init__() got unexpected argument(s) unknown_arg."
+                    "Either you made a typo, or you added new arguments "
+                    "in a subclass; if that is the case, the subclass "
+                    "should deal with the new arguments explicitely.")
+        assert e.value.args[0] == expected
+
+    def test_net_init_two_unknown_argument(self, net_cls, module_cls):
+        with pytest.raises(TypeError) as e:
+            net_cls(module_cls, lr=0.1, mxa_epochs=5,
+                    cold_start=True, bathc_size=20)
+
+        expected = ("__init__() got unexpected argument(s) "
+                    "mxa_epochs, bathc_size."
+                    "Either you made a typo, or you added new arguments "
+                    "in a subclass; if that is the case, the subclass "
+                    "should deal with the new arguments explicitely.")
+        assert e.value.args[0] == expected
+
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass

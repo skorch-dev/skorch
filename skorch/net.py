@@ -230,10 +230,20 @@ class NeuralNet(object):
         history = kwargs.pop('history', None)
         initialized = kwargs.pop('initialized_', False)
 
+        # catch arguments that seem to not belong anywhere
+        unexpected_kwargs = []
         for key in kwargs:
-            assert not hasattr(self, key)
-            key_has_prefix = any(key.startswith(p) for p in self.prefixes_)
-            assert key.endswith('_') or key_has_prefix
+            if key.endswith('_'):
+                continue
+            if any(key.startswith(p) for p in self.prefixes_):
+                continue
+            unexpected_kwargs.append(key)
+        if unexpected_kwargs:
+            msg = ("__init__() got unexpected argument(s) {}."
+                   "Either you made a typo, or you added new arguments "
+                   "in a subclass; if that is the case, the subclass "
+                   "should deal with the new arguments explicitely.")
+            raise TypeError(msg.format(', '.join(unexpected_kwargs)))
         vars(self).update(kwargs)
 
         self.history = history
