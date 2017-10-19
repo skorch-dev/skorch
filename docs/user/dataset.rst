@@ -11,13 +11,13 @@ CVSplit
 -------
 
 This class is responsible for performing the ``NeuralNet``\'s internal
-cross validation. For this, it sticks closely to the ``sklearn``
-standards. For more information on how ``sklearn`` handles cross
+cross validation. For this, it sticks closely to the sklearn
+standards. For more information on how sklearn handles cross
 validation, look `here
 <http://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators>`_.
 
 The first argument that ``CVSplit`` takes is ``cv``. It works
-analogously to the ``cv`` argument from ``sklearn``\'s
+analogously to the ``cv`` argument from sklearn\'s
 ``GridSearchCV``, ``cross_val_score``, etc. For those not familiar,
 here is a short explanation of what you may pass:
 
@@ -33,19 +33,19 @@ determines whether a stratified split should be made (only makes sense
 for discrete targets), and a ``random_state`` argument, which is used
 in case the cross validation split has a random component.
 
-One difference to ``sklearn``\'s cross validation is that ``skorch``
-makes only a single split. In ``sklearn``, you would expect that in a
+One difference to sklearn\'s cross validation is that skorch
+makes only a single split. In sklearn, you would expect that in a
 5-fold cross validation, the model is trained 5 times on the different
 combination of folds. This is often not desirable for neural networks,
-since training takes a lot of time. Therefore, ``skorch`` only ever
+since training takes a lot of time. Therefore, skorch only ever
 makes one split.
 
-If you would like to have all splits, you can still use ``skorch`` in
-conjunction with the ``sklearn`` functions, as you would do with any
-other ``sklearn``\-compatible estimator. Just remember to set
+If you would like to have all splits, you can still use skorch in
+conjunction with the sklearn functions, as you would do with any
+other sklearn\-compatible estimator. Just remember to set
 ``train_split=None``, so that the whole dataset is used for
 training. Below is shown an example of making out-of-fold predictions
-with ``skorch`` and ``sklearn``:
+with skorch and sklearn:
 
 .. code:: python
 
@@ -62,15 +62,15 @@ with ``skorch`` and ``sklearn``:
 Dataset
 -------
 
-In ``pytorch``, we have the concept of a ``Dataset`` and a
+In PyTorch, we have the concept of a ``Dataset`` and a
 ``DataLoader``. The ``Dataset`` is purely the container of the data
 and only needs to implement ``__len__()`` and
 ``__getitem__(<int>)``. The ``DataLoader`` does the heavy lifting,
 such as sampling, shuffling, and distributed processing.
 
-``skorch`` uses the ``pytorch`` ``DataLoader``\s by default. However,
-the ``Dataset``\s provided by ``pytorch`` are not sufficient for our
-usecase; for instance, they don't work with ``numpy``
+skorch uses the PyTorch ``DataLoader``\s by default. However,
+the ``Dataset``\s provided by PyTorch are not sufficient for our
+usecase; for instance, they don't work with numpy
 ``array``\s. That's why we provide our own ``Dataset`` class. This
 container works with:
 
@@ -79,10 +79,10 @@ container works with:
 - pandas DataFrames or Series
 
 In addition, you can pass dictionaries or lists of one of those data
-types, e.g. a dictionary of ``numpy``\ ``array``\s. When you pass
+types, e.g. a dictionary of numpy ``array``\s. When you pass
 dictionaries, the keys of the dictionaries are used as the argument
 name for the ``forward`` method of the net's ``module``. Similarly,
-the column names of ``pandas``\ ``DataFrame``\s are used as argument
+the column names of pandas ``DataFrame``\s are used as argument
 names. The example below should illustrate how to use this feature:
 
 .. code:: python
@@ -120,12 +120,12 @@ Note that the keys in the dictionary ``X`` exactly match the argument
 names in the ``forward`` method. This way, you can easily work with
 several different types of input features.
 
-The ``Dataset`` from ``skorch`` makes the assumption that you always
+The ``Dataset`` from skorch makes the assumption that you always
 have an ``X`` and a ``y``, where ``X`` represents the input data and
 ``y`` the target. However, you may leave ``y=None``, in which case
 ``Dataset`` returns a dummy variable.
 
-In contrast to a ``torch``\ ``Dataset``, a ``skorch``\ ``Dataset``
+In contrast to a PyTorch ``Dataset``, a skorch ``Dataset``
 must have a ``use_cuda`` argument, which determines whether the
 returned data should be transferred to CUDA. Should you write your own
 ``Dataset`` subclass, remember to integrate this argument.
