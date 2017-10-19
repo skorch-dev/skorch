@@ -456,7 +456,7 @@ class NeuralNet(object):
 
         Therefore the module is set to evaluation mode by default
         beforehand which can be overridden to re-enable features
-        like dropout by setting ``training_behavior=True``.
+        like dropout by setting ``training=True``.
 
         """
         self.module_.train(training)
@@ -470,7 +470,7 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : input data, compatible with skorch.datase.Dataset
+        X : input data, compatible with skorch.dataset.Dataset
           By default, you should be able to pass:
 
             * numpy arrays
@@ -482,7 +482,7 @@ class NeuralNet(object):
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
-        y : target data, compatible with skorch.datase.Dataset
+        y : target data, compatible with skorch.dataset.Dataset
           The same data types as for ``X`` are supported.
 
         epochs : int or None (default=None)
@@ -538,7 +538,7 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : input data, compatible with skorch.datase.Dataset
+        X : input data, compatible with skorch.dataset.Dataset
           By default, you should be able to pass:
 
             * numpy arrays
@@ -550,7 +550,7 @@ class NeuralNet(object):
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
-        y : target data, compatible with skorch.datase.Dataset
+        y : target data, compatible with skorch.dataset.Dataset
           The same data types as for ``X`` are supported.
 
         classes : array, sahpe (n_classes,)
@@ -578,7 +578,7 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : input data, compatible with skorch.datase.Dataset
+        X : input data, compatible with skorch.dataset.Dataset
           By default, you should be able to pass:
 
             * numpy arrays
@@ -590,7 +590,7 @@ class NeuralNet(object):
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
-        y : target data, compatible with skorch.datase.Dataset
+        y : target data, compatible with skorch.dataset.Dataset
           The same data types as for ``X`` are supported.
 
         **fit_params : currently ignored
@@ -608,7 +608,7 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : input data, compatible with skorch.datase.Dataset
+        X : input data, compatible with skorch.dataset.Dataset
           By default, you should be able to pass:
 
             * numpy arrays
@@ -651,7 +651,7 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : input data, compatible with skorch.datase.Dataset
+        X : input data, compatible with skorch.dataset.Dataset
           By default, you should be able to pass:
 
             * numpy arrays
@@ -677,7 +677,7 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : input data, compatible with skorch.datase.Dataset
+        X : input data, compatible with skorch.dataset.Dataset
           By default, you should be able to pass:
 
             * numpy arrays
@@ -709,7 +709,7 @@ class NeuralNet(object):
         y_true : torch tensor
           True target values.
 
-        X : input data, compatible with skorch.datase.Dataset
+        X : input data, compatible with skorch.dataset.Dataset
           By default, you should be able to pass:
 
             * numpy arrays
