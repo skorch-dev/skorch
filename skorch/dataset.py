@@ -328,6 +328,5 @@ class CVSplit(object):
         return X_train, X_valid, y_train, y_valid
 
     def __repr__(self):
-        # TODO
         # pylint: disable=useless-super-delegation
         return super(CVSplit, self).__repr__()

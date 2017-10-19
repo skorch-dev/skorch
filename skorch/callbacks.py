@@ -165,7 +165,7 @@ class Scoring(Callback):
         y = self.target_extractor(y)
         if self.scoring is None:
             score = net.score(X, y)
-        elif isinstance(self.scoring, str):  # TODO: make py2.7 compatible
+        elif isinstance(self.scoring, str):
             # scoring is a string
             try:
                 scorer = getattr(metrics, self.scoring)

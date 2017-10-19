@@ -108,10 +108,12 @@ class NeuralNet(object):
       which would result in the same outcome.
 
     iterator_train : torch DataLoader
-      TODO: Will probably change.
+      The default ``torch.utils.data.DataLoader`` used for training
+      data.
 
     iterator_valid : torch DataLoader
-      TODO: Will probably change.
+      The default ``torch.utils.data.DataLoader`` used for validation
+      and test data, i.e. during inference.
 
     dataset : torch Dataset (default=skorch.dataset.Dataset)
       The dataset is necessary for the incoming data to work with
@@ -397,7 +399,10 @@ class NeuralNet(object):
         self.history = History()
 
     def initialize(self):
-        """Initializes all components of the NeuralNet."""
+        """Initializes all components of the NeuralNet and returns
+        self.
+
+        """
         self.initialize_callbacks()
         self.initialize_criterion()
         self.initialize_module()
@@ -465,15 +470,26 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.datase.Dataset
+          By default, you should be able to pass:
 
-        y : TODO
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.datase.Dataset
+          The same data types as for ``X`` are supported.
 
         epochs : int or None (default=None)
           If int, train for this number of epochs; if None, use
           ``self.max_epochs``.
 
-        **fit_params : TODO
+        **fit_params : currently ignored
 
         """
         self.check_data(X, y)
@@ -522,14 +538,25 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.datase.Dataset
+          By default, you should be able to pass:
 
-        y : TODO
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.datase.Dataset
+          The same data types as for ``X`` are supported.
 
         classes : array, sahpe (n_classes,)
           Solely for sklearn compatibility, currently unused.
 
-        **fit_params : TODO
+        **fit_params : currently ignored
 
         """
         if not self.initialized_:
@@ -551,11 +578,22 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.datase.Dataset
+          By default, you should be able to pass:
 
-        y : TODO
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
 
-        **fit_params : TODO
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.datase.Dataset
+          The same data types as for ``X`` are supported.
+
+        **fit_params : currently ignored
 
         """
         if self.cold_start or not self.initialized_:
@@ -570,7 +608,17 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.datase.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         training : bool (default=False)
           Whether to set the module to train mode or not.
@@ -603,7 +651,17 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.datase.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         Returns
         -------
@@ -619,7 +677,17 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.datase.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         Returns
         -------
@@ -641,8 +709,17 @@ class NeuralNet(object):
         y_true : torch tensor
           True target values.
 
-        X : TODO
-          Input data used to generate the prediction.
+        X : input data, compatible with skorch.datase.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         train : bool (default=False)
           Whether train mode should be used or not.
@@ -791,8 +868,8 @@ class NeuralNet(object):
         if not hasattr(self, 'module_'):
             raise NotInitializedError(
                 "Cannot save parameters of an un-initialized model. "
-                "Please initialize first by calling ``.initialize()`` "
-                "or by fitting the model with ``.fit(...)``.")
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
         torch.save(self.module_.state_dict(), f)
 
     def load_params(self, f):
@@ -816,8 +893,8 @@ class NeuralNet(object):
         if not hasattr(self, 'module_'):
             raise NotInitializedError(
                 "Cannot load parameters of an un-initialized model. "
-                "Please initialize first by calling ``.initialize()`` "
-                "or by fitting the model with ``.fit(...)``.")
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
 
         cuda_req_not_met = (self.use_cuda and not torch.cuda.is_available())
         if not self.use_cuda or cuda_req_not_met:
