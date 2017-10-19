@@ -59,7 +59,7 @@ Here are some examples showing how to index ``history``:
     history[-1, 'batches', :, ('train_loss', 'valid_loss')]
 
 As ``history`` essentially is a list of dictionaries, you can also
-write to it as if it were a list of dictionaries. Here too, ``skorch``
+write to it as if it were a list of dictionaries. Here too, skorch
 provides some convenience functions to make life easier. First there
 is ``history.new_epoch()``, which will add a new epoch dictionary to
 the end of the list. Also, there is ``history.new_batch()`` for adding

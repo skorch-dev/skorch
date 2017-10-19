@@ -7,8 +7,8 @@ Quickstart
 Training a model
 ----------------
 
-Below, we define our own ``pytorch``\ ``Module`` and train it on a toy
-classification dataset using ``skorch``\'s ``NeuralNetClassifier``:
+Below, we define our own PyTorch ``Module`` and train it on a toy
+classification dataset using skorch\'s ``NeuralNetClassifier``:
 
 .. code:: python
 
@@ -56,8 +56,8 @@ classification dataset using ``skorch``\'s ``NeuralNetClassifier``:
 In an sklearn Pipeline
 ----------------------
 
-Since ``NeuralNetClassifier`` provides an ``sklearn``\-compatible
-interface, it is possible to put it into an ``sklearn``\ ``Pipeline``:
+Since ``NeuralNetClassifier`` provides an sklearn-compatible
+interface, it is possible to put it into an sklearn ``Pipeline``:
 
 .. code:: python
 
@@ -77,8 +77,8 @@ interface, it is possible to put it into an ``sklearn``\ ``Pipeline``:
 Grid search
 -----------
 
-Another advantage of ``skorch`` is that you can perform an
-``sklearn``\ ``GridSearchCV`` or ``RandomizedSearchCV``:
+Another advantage of skorch is that you can perform an
+sklearn ``GridSearchCV`` or ``RandomizedSearchCV``:
 
 .. code:: python
 

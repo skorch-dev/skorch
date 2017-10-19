@@ -22,8 +22,8 @@ We recommend to use a virtual environment for this.
 From source
 ~~~~~~~~~~~
 
-If you would like to use the must recent additions to ``skorch`` or
-help development, you should install ``skorch`` from source.
+If you would like to use the must recent additions to skorch or
+help development, you should install skorch from source.
 
 Using conda
 ^^^^^^^^^^^
@@ -31,7 +31,7 @@ Using conda
 You need a working conda installation. Get the correct miniconda for
 your system from `here <https://conda.io/miniconda.html>`__.
 
-If you just want to use ``skorch``, use:
+If you just want to use skorch, use:
 
 .. code:: bash
 
@@ -60,7 +60,7 @@ If you want to help developing, run:
 Using pip
 ^^^^^^^^^
 
-If you just want to use ``skorch``, use:
+If you just want to use skorch, use:
 
 .. code:: bash
 
@@ -89,9 +89,9 @@ If you want to help developing, run:
 pytorch
 ~~~~~~~
 
-``pytorch`` is not covered by the dependencies, since the ``pytorch``
+PyTorch is not covered by the dependencies, since the PyTorch
 version you need is dependent on your system. For installation
-instructions for ``pytorch``, visit the `pytorch website
+instructions for PyTorch, visit the `pytorch website
 <http://pytorch.org/>`__.
 
 In general, this should work:
