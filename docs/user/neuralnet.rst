@@ -7,15 +7,16 @@ NeuralNet
 Using NeuralNet
 ---------------
 
-``NeuralNet`` and the derived classes are the main touch
-point for the user. They wrap the ``pytorch`` module while provide an
-interface that should be familiar for ``sklearn`` users.
+:class:`NeuralNet <skorch.net.NeuralNet>` and the derived classes are
+the main touch point for the user. They wrap the ``torch.nn.Module``
+while providing an interface that should be familiar for sklearn
+users.
 
-Define your ``pytorch``\ ``Module`` the same way as you always
-do. Then pass it to ``NeuralNet``, in conjunction with a ``pytorch``
-criterion. And finally, you can call ``fit`` and ``predict``, as with
-an ``sklearn`` estimator. The finished code could look something like
-this:
+Define your ``torch.nn.Module`` the same way as you always do. Then
+pass it to ``NeuralNet``, in conjunction with a PyTorch criterion.
+Finally, you can call :func:`fit <skorch.net.NeuralNet.fit>` and
+:func:`predict <skorch.net.NeuralNet.predict>`, as with an sklearn
+estimator. The finished code could look something like this:
 
 .. code:: python
 
@@ -29,15 +30,15 @@ this:
     net.fit(X, y)
     y_pred = net.predict(X_valid)
 
-Let's see what ``skorch`` did for us here:
+Let's see what skorch did for us here:
 
-- wraps the ``pytorch`` module in an ``sklearn`` interface
-- converts the ``numpy arrays`` to ``torch tensors``
+- wraps the PyTorch module in an sklearn interface
+- converts the numpy ``array``\s to ``torch.Tensor``\s
 - abstracts away the fit loop
 - takes care of batching the data
 
 You therefore have a lot less boilerplate code, letting you focus on
-what matters. At the same time, ``skorch`` is very flexible and can be
+what matters. At the same time, skorch is very flexible and can be
 extended with ease, getting out of your way as much as possible.
 
 Initialization
@@ -54,7 +55,7 @@ Only when the ``fit`` or ``initialize`` method are called, are the
 different attributes of the net, such as the ``module``,
 initialized. An initialzed attribute's name always ends on an
 underscore; e.g., the initialized ``module`` is called
-``module_``. (This is the same nomenclature as ``sklearn`` uses.)
+``module_``. (This is the same nomenclature as sklearn uses.)
 Thefore, you always know which attributes you set and which ones were
 created by ``NeuralNet``.
 
@@ -65,13 +66,13 @@ Most important arguments and methods
 ------------------------------------
 
 A complete explanation of all arguments and methods of ``NeuralNet``
-are found in the ``skorch`` API documentation. Here we focus on the
+are found in the skorch API documentation. Here we focus on the
 main ones.
 
 module
 ^^^^^^
 
-This is where you pass your ``pytorch`` module. Ideally, it should not be
+This is where you pass your PyTorch module. Ideally, it should not be
 instantiated. Instead, the init arguments for your module should be
 passed to ``NeuralNet`` with the ``module__`` prefix. E.g., if your
 module takes the arguments ``num_units`` and ``dropout``, the code
@@ -93,7 +94,7 @@ would look like this:
 It is, however, also possible to pass an instantiated module, e.g. a
 ``torch.nn.Sequential`` instance.
 
-Note that ``skorch`` does not automatically apply any nonlinearities
+Note that skorch does not automatically apply any nonlinearities
 to the outputs. That means that if you have a classification task, you
 should make sure that the final output nonlinearity is a
 softmax. Otherwise, when you call ``predict_proba``, you won't get
@@ -102,7 +103,7 @@ actual probabilities.
 criterion
 ^^^^^^^^^
 
-This should be a ``pytorch`` (-compatible) criterion. When you use the
+This should be a PyTorch (-compatible) criterion. When you use the
 ``NeuralNetClassifier``, the criterion is set to ``torch.nn.NLLLoss``
 by default, for ``NeuralNetRegressor``, it is ``torch.nn.MSELoss``.
 
@@ -112,7 +113,7 @@ stored in the ``criterion_`` attribute.
 optimizer
 ^^^^^^^^^
 
-This should be a ``pytorch`` optimizer,
+This should be a PyTorch optimizer,
 e.g. ``torch.optim.SGD``. After initializing the ``NeuralNet``, the
 initialized optimizer will stored in the ``optimizer_`` attribute.
 
@@ -205,7 +206,7 @@ instance*, like this:
     )
 
 This approach of passing a list of *name*, *instance* tuples should be
-familiar to users of ``sklearn``\ ``Pipeline``\s and
+familiar to users of sklearn\ ``Pipeline``\s and
 ``FeatureUnion``\s.
 
 An additonal advantage of this way of passing callbacks is that it
@@ -230,7 +231,7 @@ cold_start
 This argument determines whether each ``fit`` call leads to a
 re-initialization of the ``NeuralNet`` or not. By default, when
 calling ``fit``, the parameters of the net are initialized, so your
-previous training progress is lost (consistent with the ``sklearn``
+previous training progress is lost (consistent with the sklearn
 ``fit`` calls). In contrast, with ``cold_start=False``, each ``fit``
 call will continue from the most recent state.
 
@@ -271,14 +272,14 @@ list or dictionary of data (see :ref:`dataset <dataset>`). And if your
 task does not have an actual ``y``, you may pass ``y=None``.
 
 In addition to ``fit``, there is also the ``partial_fit`` method,
-known from some ``sklearn`` estimators. ``partial_fit`` allows you to
+known from some sklearn estimators. ``partial_fit`` allows you to
 continue training from your current status, even if you set
 ``cold_start=True``. A further use case for ``partial_fit`` is when
 your data does not fit into memory and you thus need to have several
 training steps.
 
 *Tip* :
-``skorch`` gracefully cathes the ``KeyboardInterrupt``
+skorch gracefully cathes the ``KeyboardInterrupt``
 exception. Therefore, during a training run, you can send a
 ``KeyboardInterrupt`` signal without the Python process exiting
 (typically, ``KeyboardInterrupt`` can be triggered by *ctrl+c* or, in
@@ -312,7 +313,7 @@ result from ``predict_proba``, without applying argmax.)
 saving and loading
 ^^^^^^^^^^^^^^^^^^
 
-``skorch`` provides two ways to persist your model. First it is
+skorch provides two ways to persist your model. First it is
 possible to store the model using Python's ``pickle`` function. This
 saves the whole model, including hyperparameters. This is useful when
 you don't want to initialize your model before loading its parameters,
@@ -416,14 +417,14 @@ Subclassing NeuralNet
 Apart from the ``NeuralNet`` base class, we provide
 ``NeuralNetClassifier`` and ``NeuralNetRegressor`` for typical
 classification and regressions tasks. They should work as drop-in
-replacements for ``sklearn`` classifiers and regressors.
+replacements for sklearn classifiers and regressors.
 
 The ``NeuralNet`` class is a little less opinionated about the
 incoming data, e.g. it does not determine a loss function by
 default. Therefore, if you want to write your own subclass for a
 special use case, you would typically subclass from ``NeuralNet``.
 
-``skorch`` aims at making subclassing as easy as possible, so that
+skorch aims at making subclassing as easy as possible, so that
 doesn't stand in your way. For instance, all components (``module``,
 ``optimizer``, etc.) have their own initialization method
 (``initialize_module``, ``initialize_optimizer``, etc.). That way, if
