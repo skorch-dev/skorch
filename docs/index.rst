@@ -1,5 +1,5 @@
-Welcome to skorch's documentation!
-==================================
+skorch documentation
+====================
 
 A scikit-learn compatible neural network library that wraps PyTorch.
 
