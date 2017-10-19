@@ -5,7 +5,8 @@ Callbacks
 =========
 
 Callbacks provide a flexible way to customize the behavior of your
-``NeuralNet`` training without the need to write subclasses.
+:class:`NeuralNet <skorch.net.NeuralNet>` training without the need to
+write subclasses.
 
 You will often find callbacks writing to or reading from the
 :ref:`history <history>` attribute. Therefore, if you would like to
@@ -13,12 +14,12 @@ log the net's behavior or do something based on the past behavior,
 consider using ``net.history``.
 
 This page will not explain all existing callbacks. For that, please
-look at the ``skorch`` API documentation.
+look at :mod:`skorch.callbacks`.
 
 Callback base class
 -------------------
 
-The base class for each callback is ``skorch.callbacks.Callback``. If
+The base class for each callback is :class:`skorch.callbacks.Callback`. If
 you would like to write your own callbacks, you should inherit from
 this class. A guide and practical example on how to write your own
 callbacks is shown in this `notebook
@@ -30,20 +31,21 @@ Scoring
 This is a useful callback for when the default scores determined by
 the ``NeuralNet`` are not enough. It allows you to easily add new
 metrics to be logged during training. For an example of how to add a
-new score to your model, look `here
+new score to your model, look `at this notebook
 <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb#Callbacks>`_.
 
-The first argument to ``Scoring`` is ``name`` and should be a
-string. This determines the column name of the score shown by the
-``PrintLog`` after each epoch.
+The first argument to :class:`Scoring <skorch.callbacks.Scoring>` is
+``name`` and should be a string. This determines the column name of
+the score shown by the :class:`PrintLog <skorch.callbacks.PrintLog>`
+after each epoch.
 
-Next comes the ``scoring`` parameter. For eager ``sklearn`` users,
+Next comes the ``scoring`` parameter. For eager sklearn users,
 this should be familiar, since it works exactly the same as in
-``sklearn``\'s ``GridSearchCV``, ``RandomizedSearchCV``,
+sklearn\'s ``GridSearchCV``, ``RandomizedSearchCV``,
 ``cross_val_score``, etc. For those who are unfamiliar, here is a
 short explanation:
 
-- If you pass a string, ``sklearn`` makes a look-up for a score with
+- If you pass a string, sklearn makes a look-up for a score with
   that name. Examples would be ``'f1'`` and ``'roc_auc'``.
 - If you pass ``None``, the model's ``score`` method is used. By
   default, ``NeuralNet`` and its subclasses don't provide a ``score``
@@ -54,7 +56,7 @@ short explanation:
   function should have the signature ``func(net, X, y)`` and return a
   scalar.
 
-More on ``sklearn``\'s model evaluation can be found `here
+More on sklearn\'s model evaluation can be found `in this notebook
 <http://scikit-learn.org/stable/modules/model_evaluation.html>`_.
 
 The ``lower_is_better`` parameter determines whether lower scores
@@ -74,10 +76,10 @@ Finally, you may have to provide your own ``target_extractor`` or
 ``pred_extractor``. This should be functions or callables that are
 applied to the target or prediction before they are passed to the
 scoring function. The main reason why we need this is that the
-prediction you get from the ``pytorch module`` is typically a
-``pytorch tensor``, whereas the scoring functions from ``sklearn``
-expect ``numpy array``\s. This is why, by default, predictions are
-cast to ``numpy array``\s.
+prediction you get from the PyTorch module is typically a
+``torch.Tensor``, whereas the scoring functions from sklearn
+expect ``numpy.ndarray``\s. This is why, by default, predictions are
+cast to ``numpy.ndarray``\s.
 
 
 Checkpoint

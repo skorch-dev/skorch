@@ -45,6 +45,7 @@ extensions = [
     'numpydoc',
     'sphinx.ext.linkcode',
     'sphinx.ext.autosummary',
+    'sphinx.ext.autosectionlabel',
 ]
 
 numpydoc_class_members_toctree = False
