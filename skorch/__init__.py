@@ -1,5 +1,7 @@
 """skorch base imports"""
 
+import pkg_resources
+
 from .history import History
 from .net import NeuralNet
 from .net import NeuralNetClassifier
@@ -15,3 +17,8 @@ __all__ = [
     'NeuralNetRegressor',
     'callbacks',
 ]
+
+try:
+    __version__ = pkg_resources.get_distribution('skorch').version
+except:
+    __version__ = 'n/a'
