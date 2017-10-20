@@ -77,10 +77,10 @@ class History(list):
 
       1. Slices along the epochs.
       2. Selects columns from history epochs, may be a single one or a
-      tuple of column names.
+         tuple of column names.
       3. Slices along the batches.
       4. Selects columns from history batchs, may be a single one or a
-      tuple of column names.
+         tuple of column names.
 
     You may use a combination of the four items.
 

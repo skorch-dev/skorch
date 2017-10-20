@@ -37,36 +37,34 @@ class NeuralNet(object):
     """NeuralNet base class.
 
     The base class covers more generic cases. Depending on your use
-    case, you might want to use `NeuralNetClassifier` or
-    `NeuralNetRegressor`.
+    case, you might want to use ``NeuralNetClassifier`` or
+    ``NeuralNetRegressor``.
 
     In addition to the parameters listed below, there are parameters
     with specific prefixes that are handled separately. To illustrate
     this, here is an example:
 
-    ```
-    net = NeuralNet(
-        ...,
-        optimizer=torch.optim.SGD,
-        optimizer__momentum=0.95,
-    )
-    ```
+    >>> net = NeuralNet(
+    ...    ...,
+    ...    optimizer=torch.optimizer.SGD,
+    ...    optimizer__momentum=0.95,
+    ...)
 
-    This way, when `optimizer` is initialized, `NeuralNet` will take care
-    of setting the `momentum` parameter to 0.95.
+    This way, when ``optimizer`` is initialized, ``NeuralNet`` will
+    take care of setting the ``momentum`` parameter to 0.95.
 
-    (Note that the double underscore notation in `optimizer__momentum`
-    means that the parameter `momentum` should be set on the object
-    `optimizer`. This is the same semantic as used by sklearn.)
+    (Note that the double underscore notation in
+    ``optimizer__momentum`` means that the parameter ``momentum``
+    should be set on the object ``optimizer``. This is the same
+    semantic as used by sklearn.)
 
     Furthermore, this allows to change those parameters later:
 
-    ```
-    net.set_params(optimizer__momentum=0.99)
-    ```
+    ``net.set_params(optimizer__momentum=0.99)``
 
-    This can be useful when you want to change certain parameters using
-    a callback, when using the net in an sklearn grid search, etc.
+    This can be useful when you want to change certain parameters
+    using a callback, when using the net in an sklearn grid search,
+    etc.
 
     By default an ``EpochTimer``, ``AverageLoss``, ``BestLoss``, and
     ``PrintLog`` callback is installed for the user's convenience.
@@ -86,14 +84,14 @@ class NeuralNet(object):
       module
 
     lr : float (default=0.01)
-      Learning rate passed to the optimizer. You may use `lr` instead
-      of using `optimizer__lr`, which would result in the same outcome.
+      Learning rate passed to the optimizer. You may use ``lr`` instead
+      of using ``optimizer__lr``, which would result in the same outcome.
 
     gradient_clip_value : float (default=None)
       If not None, clip the norm of all model parameter gradients to this
       value. The type of the norm is determined by the
-      `gradient_clip_norm_type` parameter and defaults to L2. See
-      `torch.nn.utils.clip_grad_norm` for more information about the value of
+      ``gradient_clip_norm_type`` parameter and defaults to L2. See
+      ``torch.nn.utils.clip_grad_norm`` for more information about the value of
       this parameter.
 
     gradient_clip_norm_type : float (default=2)
@@ -101,47 +99,49 @@ class NeuralNet(object):
       to use L2-norm.
 
     max_epochs : int (default=10)
-      The number of epochs to train for each `fit` call. Note that you
+      The number of epochs to train for each ``fit`` call. Note that you
       may keyboard-interrupt training at any time.
 
     batch_size : int (default=128)
       Mini-batch size. Use this instead of setting
-      `iterator_train__batch_size` and `iterator_valid__batch_size`,
+      ``iterator_train__batch_size`` and ``iterator_test__batch_size``,
       which would result in the same outcome.
 
     iterator_train : torch DataLoader
-      TODO: Will probably change.
+      The default ``torch.utils.data.DataLoader`` used for training
+      data.
 
     iterator_valid : torch DataLoader
-      TODO: Will probably change.
+      The default ``torch.utils.data.DataLoader`` used for validation
+      and test data, i.e. during inference.
 
     dataset : torch Dataset (default=skorch.dataset.Dataset)
       The dataset is necessary for the incoming data to work with
-      pytorch's `DataLoader`. It has to implement the `__len__` and
-      `__getitem__` methods. The provided dataset should be capable of
+      pytorch's ``DataLoader``. It has to implement the ``__len__`` and
+      ``__getitem__`` methods. The provided dataset should be capable of
       dealing with a lot of data types out of the box, so only change
       this if your data is not supported. Additionally, dataset should
-      accept a `use_cuda` parameter to indicate whether cuda should be
+      accept a ``use_cuda`` parameter to indicate whether cuda should be
       used.
 
     train_split : None or callable (default=skorch.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
       should be a function or callable that is called with X and y
-      data and should return the tuple `X_train, X_valid, y_train,
-      y_valid`. The validation data may be None.
+      data and should return the tuple ``X_train, X_valid, y_train,
+      y_valid``. The validation data may be None.
 
     callbacks : None or list of Callback instances (default=None)
-      More callbacks, in addition to those specified in
-      `get_default_callbacks`. Each callback should inherit from
+      More callbacks, in addition to those returned by
+      ``get_default_callbacks``. Each callback should inherit from
       skorch.Callback. If not None, a list of tuples (name, callback)
       should be passed, where names should be unique. Callbacks may or
       may not be instantiated.
       Alternatively, it is possible to just pass a list of callbacks,
       which results in names being inferred from the class name.
       The callback name can be used to set parameters on specific
-      callbacks (e.g., for the callback with name `'print_log'`, use
-      `net.set_params(callbacks__print_log__keys=['epoch',
-      'train_loss'])`).
+      callbacks (e.g., for the callback with name ``'print_log'``, use
+      ``net.set_params(callbacks__print_log__keys=['epoch',
+      'train_loss'])``).
 
     cold_start : bool (default=True)
       Whether each fit call should lead to a re-initialization of the
@@ -158,28 +158,28 @@ class NeuralNet(object):
 
     Attributes
     ----------
-    prefixes_ : list of str
+    prefixes\_ : list of str
       Contains the prefixes to special parameters. E.g., since there
-      is the `'module'` prefix, it is possible to set parameters like
-      so: `NeuralNet(..., optimizer__momentum=0.95)`.
+      is the ``'module'`` prefix, it is possible to set parameters like
+      so: ``NeuralNet(..., optimizer__momentum=0.95)``.
 
-    cuda_dependent_attributes_ : list of str
+    cuda_dependent_attributes\_ : list of str
       Contains a list of all attributes whose values depend on a CUDA
-      device. If a `NeuralNet` trained with a CUDA-enabled device is
+      device. If a ``NeuralNet`` trained with a CUDA-enabled device is
       unpickled on a machine without CUDA or with CUDA disabled, the
       listed attributes are mapped to CPU.  Expand this list if you
       want to add other cuda-dependent attributes.
 
-    initialized_ : bool
+    initialized\_ : bool
       Whether the NeuralNet was initialized.
 
-    module_ : torch module (instance)
+    module\_ : torch module (instance)
       The instantiated module.
 
-    criterion_ : torch criterion (instance)
+    criterion\_ : torch criterion (instance)
       The instantiated criterion.
 
-    callbacks_ : list of tuples
+    callbacks\_ : list of tuples
       The complete (i.e. default and other), initialized callbacks, in
       a tuple with unique names.
 
@@ -261,8 +261,8 @@ class NeuralNet(object):
         ]
 
     def notify(self, method_name, **cb_kwargs):
-        """Call the callback method specified in `method_name` with
-        parameters specified in `cb_kwargs`.
+        """Call the callback method specified in ``method_name`` with
+        parameters specified in ``cb_kwargs``.
 
         Method names can be one of:
         * on_train_begin
@@ -329,12 +329,12 @@ class NeuralNet(object):
 
     def initialize_callbacks(self):
         """Initializes all callbacks and save the result in the
-        `callbacks_` attribute.
+        ``callbacks_`` attribute.
 
-        Both `get_default_callbacks` and `callbacks` are used (in that
+        Both ``default_callbacks`` and ``callbacks`` are used (in that
         order). Callbacks may either be initialized or not, and if
         they don't have a name, the name is inferred from the class
-        name. The `initialize` method is called on all callbacks.
+        name. The ``initialize`` method is called on all callbacks.
 
         The final result will be a list of tuples, where each tuple
         consists of a name and an initialized callback. If names are
@@ -395,8 +395,8 @@ class NeuralNet(object):
         return self
 
     def initialize_optimizer(self):
-        """Initialize the model optimizer. If `self.optimizer__lr` is
-        not set, use `self.lr` instead.
+        """Initialize the model optimizer. If ``self.optimizer__lr``
+        is not set, use ``self.lr`` instead.
 
         """
         kwargs = self._get_params_for('optimizer')
@@ -409,7 +409,10 @@ class NeuralNet(object):
         self.history = History()
 
     def initialize(self):
-        """Initializes all components of the NeuralNet."""
+        """Initializes all components of the NeuralNet and returns
+        self.
+
+        """
         self.initialize_callbacks()
         self.initialize_criterion()
         self.initialize_module()
@@ -463,7 +466,7 @@ class NeuralNet(object):
 
         Therefore the module is set to evaluation mode by default
         beforehand which can be overridden to re-enable features
-        like dropout by setting `training=True`.
+        like dropout by setting ``training=True``.
 
         """
         self.module_.train(training)
@@ -477,15 +480,26 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
 
-        y : TODO
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.dataset.Dataset
+          The same data types as for ``X`` are supported.
 
         epochs : int or None (default=None)
           If int, train for this number of epochs; if None, use
-          `self.max_epochs`.
+          ``self.max_epochs``.
 
-        **fit_params : TODO
+        **fit_params : currently ignored
 
         """
         self.check_data(X, y)
@@ -534,14 +548,25 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
 
-        y : TODO
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.dataset.Dataset
+          The same data types as for ``X`` are supported.
 
         classes : array, sahpe (n_classes,)
           Solely for sklearn compatibility, currently unused.
 
-        **fit_params : TODO
+        **fit_params : currently ignored
 
         """
         if not self.initialized_:
@@ -559,15 +584,26 @@ class NeuralNet(object):
         """Initialize and fit the module.
 
         If the module was already initialized, by calling fit, the
-        module will be re-initialized (unless `cold_start` is False).
+        module will be re-initialized (unless ``cold_start`` is False).
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
 
-        y : TODO
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
 
-        **fit_params : TODO
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.dataset.Dataset
+          The same data types as for ``X`` are supported.
+
+        **fit_params : currently ignored
 
         """
         if self.cold_start or not self.initialized_:
@@ -606,7 +642,17 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         training : bool (default=False)
           Whether to set the module to train mode or not.
@@ -632,7 +678,17 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         Returns
         -------
@@ -650,7 +706,17 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         Returns
         -------
@@ -672,8 +738,17 @@ class NeuralNet(object):
         y_true : torch tensor
           True target values.
 
-        X : TODO
-          Input data used to generate the prediction.
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         train : bool (default=False)
           Whether train mode should be used or not.
@@ -686,18 +761,18 @@ class NeuralNet(object):
         """Get an iterator that allows to loop over the batches of the
         given data.
 
-        If `self.iterator_train__batch_size` and/or
-        `self.iterator_valid__batch_size` are not set, use
-        `self.batch_size` instead.
+        If ``self.iterator_train__batch_size`` and/or
+        ``self.iterator_test__batch_size`` are not set, use
+        ``self.batch_size`` instead.
 
         Parameters
         ----------
         dataset : torch Dataset (default=skorch.dataset.Dataset)
-          Usually, `self.dataset`, initialized with the corresponding
-          data, is passed to `get_iterator`.
+          Usually, ``self.dataset``, initialized with the corresponding
+          data, is passed to ``get_iterator``.
 
         train : bool (default=False)
-          Whether to use `iterator_train` or `iterator_valid`.
+          Whether to use ``iterator_train`` or ``iterator_test``.
 
         Returns
         -------
@@ -732,7 +807,7 @@ class NeuralNet(object):
     def set_params(self, **kwargs):
         """Set the parameters of this class.
 
-        Valid parameter keys can be listed with `get_params()`.
+        Valid parameter keys can be listed with ``get_params()``.
 
         Returns
         -------
@@ -809,7 +884,7 @@ class NeuralNet(object):
         Parameters
         ----------
         f : file-like object or str
-          See `torch.save` documentation.
+          See ``torch.save`` documentation.
 
         Example
         -------
@@ -822,8 +897,8 @@ class NeuralNet(object):
         if not hasattr(self, 'module_'):
             raise NotInitializedError(
                 "Cannot save parameters of an un-initialized model. "
-                "Please initialize first by calling `.initialize()` "
-                "or by fitting the model with `.fit(...)`.")
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
         torch.save(self.module_.state_dict(), f)
 
     def load_params(self, f):
@@ -834,7 +909,7 @@ class NeuralNet(object):
         Parameters
         ----------
         f : file-like object or str
-          See `torch.load` documentation.
+          See ``torch.load`` documentation.
 
         Example
         -------
@@ -847,8 +922,8 @@ class NeuralNet(object):
         if not hasattr(self, 'module_'):
             raise NotInitializedError(
                 "Cannot load parameters of an un-initialized model. "
-                "Please initialize first by calling `.initialize()` "
-                "or by fitting the model with `.fit(...)`.")
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
 
         cuda_req_not_met = (self.use_cuda and not torch.cuda.is_available())
         if not self.use_cuda or cuda_req_not_met:
@@ -887,7 +962,7 @@ neural_net_clf_criterion_text = """
 
     criterion : torch criterion (class, default=torch.nn.NLLLoss)
       Negative log likelihood loss. Note that the module should return
-      probabilities, the log is applied during `get_loss`."""
+      probabilities, the log is applied during ``get_loss``."""
 
 
 def get_neural_net_clf_doc(doc):
@@ -942,7 +1017,7 @@ class NeuralNetClassifier(NeuralNet):
             raise ValueError("No y-values are given (y=None). You must "
                              "implement your own DataLoader for training "
                              "(and your validation) and supply it using the "
-                             "`iterator_train` and `iterator_valid` "
+                             "``iterator_train`` and ``iterator_valid`` "
                              "parameters respectively.")
 
     def _prepare_target_for_loss(self, y):
@@ -968,11 +1043,13 @@ class NeuralNetClassifier(NeuralNet):
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
-        """See `NeuralNet.fit`.
+        """See ``NeuralNet.fit``.
 
-        In contrast to `NeuralNet.fit`, `y` is non-optional to avoid mistakenly
-        forgetting about `y`. However, `y` can be set to `None` in case it
-        is derived dynamically from `X`.
+        In contrast to ``NeuralNet.fit``, ``y`` is non-optional to
+        avoid mistakenly forgetting about ``y``. However, ``y`` can be
+        set to ``None`` in case it is derived dynamically from
+        ``X``.
+
         """
         # pylint: disable=useless-super-delegation
         # this is actually a pylint bug:
@@ -1029,7 +1106,7 @@ class NeuralNetRegressor(NeuralNet):
             raise ValueError("No y-values are given (y=None). You must "
                              "implement your own DataLoader for training "
                              "(and your validation) and supply it using the "
-                             "`iterator_train` and `iterator_valid` "
+                             "``iterator_train`` and ``iterator_valid`` "
                              "parameters respectively.")
         elif y is None:
             # The user implements its own mechanism for generating y.
@@ -1043,11 +1120,13 @@ class NeuralNetRegressor(NeuralNet):
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
-        """See `NeuralNet.fit`.
+        """See ``NeuralNet.fit``.
 
-        In contrast to `NeuralNet.fit`, `y` is non-optional to avoid mistakenly
-        forgetting about `y`. However, `y` can be set to `None` in case it
-        is derived dynamically from `X`.
+        In contrast to ``NeuralNet.fit``, ``y`` is non-optional to
+        avoid mistakenly forgetting about ``y``. However, ``y`` can be
+        set to ``None`` in case it is derived dynamically from
+        ``X``.
+
         """
         # pylint: disable=useless-super-delegation
         # this is actually a pylint bug:

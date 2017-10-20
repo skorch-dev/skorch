@@ -253,8 +253,8 @@ class TestNeuralNet:
         with pytest.raises(NotInitializedError) as exc:
             net.save_params(str(p))
         expected = ("Cannot save parameters of an un-initialized model. "
-                    "Please initialize first by calling `.initialize()` "
-                    "or by fitting the model with `.fit(...)`.")
+                    "Please initialize first by calling .initialize() "
+                    "or by fitting the model with .fit(...).")
         assert exc.value.args[0] == expected
 
     def test_load_state_dict_not_init(
@@ -267,8 +267,8 @@ class TestNeuralNet:
         with pytest.raises(NotInitializedError) as exc:
             net.load_params(str(p))
         expected = ("Cannot load parameters of an un-initialized model. "
-                    "Please initialize first by calling `.initialize()` "
-                    "or by fitting the model with `.fit(...)`.")
+                    "Please initialize first by calling .initialize() "
+                    "or by fitting the model with .fit(...).")
         assert exc.value.args[0] == expected
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
