@@ -1,4 +1,5 @@
 .. image:: ./assets/skorch.svg
+   :width: 30%
 ======
 
 A scikit-learn compatible neural network library that wraps pytorch.
