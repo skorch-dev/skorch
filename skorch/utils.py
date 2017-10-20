@@ -101,19 +101,6 @@ def to_numpy(X):
     return data.numpy()
 
 
-def check_history_slice(history, sl):
-    # Note: May extend this for more cases.
-    try:
-        # pylint: disable=pointless-statement
-        history[sl]
-        return
-    except KeyError as exc:
-        msg = ("Key '{}' could not be found in history; "
-               "maybe there was a typo? To make this key optional, "
-               "add it to the 'keys_optional' parameter.".format(exc.args[0]))
-        raise KeyError(msg)
-
-
 def get_dim(y):
     """Return the number of dimensions of a torch tensor or numpy
     array-like object.
