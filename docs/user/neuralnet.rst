@@ -1,5 +1,3 @@
-.. _neuralnet:
-
 =========
 NeuralNet
 =========
@@ -166,7 +164,7 @@ callbacks
 ^^^^^^^^^
 
 For more details on the callback classes, please look at
-:ref:`callbacks <callbacks>`.
+:ref:`callbacks <skorch.callbacks>`.
 
 By default, ``NeuralNet`` and its subclasses start with a couple of
 useful callbacks. Those are defined in the ``get_default_callbacks``
