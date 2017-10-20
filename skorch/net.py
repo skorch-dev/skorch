@@ -158,28 +158,28 @@ class NeuralNet(object):
 
     Attributes
     ----------
-    prefixes_ : list of str
+    prefixes\_ : list of str
       Contains the prefixes to special parameters. E.g., since there
       is the ``'module'`` prefix, it is possible to set parameters like
       so: ``NeuralNet(..., optimizer__momentum=0.95)``.
 
-    cuda_dependent_attributes_ : list of str
+    cuda_dependent_attributes\_ : list of str
       Contains a list of all attributes whose values depend on a CUDA
       device. If a ``NeuralNet`` trained with a CUDA-enabled device is
       unpickled on a machine without CUDA or with CUDA disabled, the
       listed attributes are mapped to CPU.  Expand this list if you
       want to add other cuda-dependent attributes.
 
-    initialized_ : bool
+    initialized\_ : bool
       Whether the NeuralNet was initialized.
 
-    module_ : torch module (instance)
+    module\_ : torch module (instance)
       The instantiated module.
 
-    criterion_ : torch criterion (instance)
+    criterion\_ : torch criterion (instance)
       The instantiated criterion.
 
-    callbacks_ : list of tuples
+    callbacks\_ : list of tuples
       The complete (i.e. default and other), initialized callbacks, in
       a tuple with unique names.
 
