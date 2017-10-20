@@ -27,7 +27,7 @@ docs_require = [
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
-    README = open(os.path.join(here, 'README.md')).read()
+    README = open(os.path.join(here, 'README.rst')).read()
 except IOError:
     README = ''
 
@@ -40,6 +40,8 @@ setup(
     name='skorch',
     version=version,
     description='scikit-learn compatible neural network library for pytorch',
+    long_description=README,
+    license='new BSD 3-Clause',
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
