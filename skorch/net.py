@@ -617,7 +617,17 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        X : TODO
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
 
         training : bool (default=False)
           Whether to set the module to train mode or not.
