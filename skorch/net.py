@@ -123,6 +123,11 @@ class NeuralNet(object):
       this if your data is not supported. Additionally, dataset should
       accept a ``use_cuda`` parameter to indicate whether cuda should be
       used.
+      You should generally pass the uninitialized ``Dataset`` class
+      and define additional arguments to X and y by prefixing them
+      with ``dataset__``. It is also possible to pass an initialzed
+      ``Dataset``, in which case no additional arguments may be
+      passed.
 
     train_split : None or callable (default=skorch.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
@@ -185,7 +190,7 @@ class NeuralNet(object):
 
     """
     prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
-                 'criterion', 'callbacks']
+                 'criterion', 'callbacks', 'dataset']
 
     cuda_dependent_attributes_ = ['module_', 'optimizer_']
 
@@ -503,16 +508,15 @@ class NeuralNet(object):
 
         """
         self.check_data(X, y)
-        use_cuda = self.use_cuda
         epochs = epochs if epochs is not None else self.max_epochs
 
         if self.train_split:
             X_train, X_valid, y_train, y_valid = self.train_split(X, y)
-            dataset_valid = self.dataset(X_valid, y_valid, use_cuda=use_cuda)
+            dataset_valid = self.get_dataset(X_valid, y_valid)
         else:
             X_train, X_valid, y_train, y_valid = X, None, y, None
             dataset_valid = None
-        dataset_train = self.dataset(X_train, y_train, use_cuda=use_cuda)
+        dataset_train = self.get_dataset(X_train, y_train)
 
         for _ in range(epochs):
             self.notify('on_epoch_begin', X=X, y=y)
@@ -640,7 +644,7 @@ class NeuralNet(object):
         """
         self.module_.train(training)
 
-        dataset = self.dataset(X, use_cuda=self.use_cuda)
+        dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, train=training)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
@@ -766,6 +770,57 @@ class NeuralNet(object):
         """
         y_true = to_var(y_true, use_cuda=self.use_cuda)
         return self.criterion_(y_pred, y_true)
+
+    def get_dataset(self, X, y=None):
+        """Get a dataset that contains the input data and is passed to
+        the iterator.
+
+        Override this if you want to initialize your dataset
+        differently.
+
+        If ``dataset__use_cuda`` is not set, use ``self.use_cuda``
+        instead.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.dataset.Dataset
+          The same data types as for ``X`` are supported.
+
+        Returns
+        -------
+        dataset
+          The initialized dataset.
+
+        """
+        dataset = self.dataset
+        is_initialized = not isinstance(dataset, type)
+
+        kwargs = self._get_params_for('dataset')
+        if kwargs and is_initialized:
+            raise TypeError("Trying to pass an initialized Dataset while "
+                            "passing Dataset arguments ({}) is not "
+                            "allowed.".format(kwargs))
+
+        if is_initialized:
+            return dataset
+
+        if 'use_cuda' not in kwargs:
+            kwargs['use_cuda'] = self.use_cuda
+
+        dataset = self.dataset(X, y, **kwargs)
+        return dataset
 
     def get_iterator(self, dataset, train=False):
         """Get an iterator that allows to loop over the batches of the

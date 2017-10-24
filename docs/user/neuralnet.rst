@@ -240,6 +240,10 @@ As the name suggests, this determines whether CUDA should be used or
 not. If ``True``, the incoming data will be transferred to CUDA before
 being passed to the ``pytorch module``.
 
+Among other things, ``use_cuda`` is passed to ``Dataset`` when it is
+initialized, but if you set ``dataset__use_cuda`` explicitely, the
+latter will have precedence.
+
 initialize()
 ^^^^^^^^^^^^
 
@@ -408,6 +412,7 @@ of ``NeuralNet``. Currently, they are:
 - ``optimizer``
 - ``criterion``
 - ``callbacks``
+- ``dataset``
 
 Subclassing NeuralNet
 ---------------------
