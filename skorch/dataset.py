@@ -160,7 +160,7 @@ class Dataset(torch.utils.data.Dataset):
         self.use_cuda = use_cuda
 
         if length is not None:
-            self._length = length
+            self._len = length
             return
 
         # pylint: disable=invalid-name
