@@ -190,7 +190,11 @@ class TestNeuralNet:
         with patch('torch.cuda.is_available', lambda *_: False):
             with pytest.warns(DeviceWarning) as w:
                 with open(str(p), 'rb') as f:
-                    pickle.load(f)
+                    m = pickle.load(f)
+
+        # The loaded model should not use CUDA anymore as it
+        # already knows CUDA is not available.
+        assert m.use_cuda == False
 
         assert len(w.list) == 1  # only 1 warning
         assert w.list[0].message.args[0] == (

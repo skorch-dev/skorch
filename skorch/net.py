@@ -853,7 +853,7 @@ class NeuralNet(object):
         return state
 
     def __setstate__(self, state):
-        show_warning = False
+        disable_cuda = False
         for key in self.cuda_dependent_attributes_:
             if key not in state:
                 continue
@@ -862,17 +862,18 @@ class NeuralNet(object):
                 f.write(dump)
                 f.seek(0)
                 if state['use_cuda'] and not torch.cuda.is_available():
-                    show_warning = True
+                    disable_cuda = True
                     val = torch.load(
                         f, map_location=lambda storage, loc: storage)
                 else:
                     val = torch.load(f)
             state[key] = val
-        if show_warning:
+        if disable_cuda:
             warnings.warn(
                 "Model configured to use CUDA but no CUDA devices "
                 "available. Loading on CPU instead.",
                 DeviceWarning)
+            state['use_cuda'] = False
 
         self.__dict__.update(state)
 
@@ -936,6 +937,7 @@ class NeuralNet(object):
                     "Model configured to use CUDA but no CUDA devices "
                     "available. Loading on CPU instead.",
                     ResourceWarning)
+                self.use_cuda = False
             model = torch.load(f, lambda storage, loc: storage)
         else:
             model = torch.load(f)
