@@ -2,7 +2,19 @@
    :width: 30%
 ======
 
+|docs|
+
 A scikit-learn compatible neural network library that wraps pytorch.
+
+.. |docs| image:: https://readthedocs.org/projects/skorch/badge/?version=latest
+    :alt: Documentation Status
+    :scale: 100%
+    :target: https://skorch.readthedocs.io/en/latest/?badge=latest
+
+Resources:
+
+- `Documentation <https://skorch.readthedocs.io/en/latest/?badge=latest>`_
+- `Source Code <https://github.com/dnouri/skorch/>`_
 
 Example
 -------
