@@ -20,8 +20,6 @@
 import os
 import sys
 
-from sphinxext.github_link import make_linkcode_resolve
-
 sys.path.insert(0, os.path.abspath('..'))
 
 
