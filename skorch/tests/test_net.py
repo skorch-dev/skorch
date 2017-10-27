@@ -1,5 +1,6 @@
 """Tests for net.py"""
 
+from functools import partial
 import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
@@ -684,6 +685,15 @@ class TestNeuralNet:
         net = net_cls(
             module_cls,
             dataset=dataset_cls(*data, use_cuda=0),
+            max_epochs=1,
+        )
+        net.fit(*data)  # does not raise
+
+    def test_net_initialized_with_partialed_dataset(
+            self, net_cls, module_cls, data, dataset_cls):
+        net = net_cls(
+            module_cls,
+            dataset=partial(dataset_cls, use_cuda=0),
             max_epochs=1,
         )
         net.fit(*data)  # does not raise

@@ -805,7 +805,7 @@ class NeuralNet(object):
 
         """
         dataset = self.dataset
-        is_initialized = not isinstance(dataset, type)
+        is_initialized = not callable(dataset)
 
         kwargs = self._get_params_for('dataset')
         if kwargs and is_initialized:
@@ -819,8 +819,7 @@ class NeuralNet(object):
         if 'use_cuda' not in kwargs:
             kwargs['use_cuda'] = self.use_cuda
 
-        dataset = self.dataset(X, y, **kwargs)
-        return dataset
+        return dataset(X, y, **kwargs)
 
     def get_iterator(self, dataset, train=False):
         """Get an iterator that allows to loop over the batches of the
