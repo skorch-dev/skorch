@@ -65,6 +65,11 @@ class TestNeuralNet:
         from skorch.net import NeuralNetClassifier
         return NeuralNetClassifier
 
+    @pytest.fixture
+    def dataset_cls(self):
+        from skorch.dataset import Dataset
+        return Dataset
+
     @pytest.fixture(scope='module')
     def net(self, net_cls, module_cls, dummy_callback):
         return net_cls(
@@ -654,6 +659,49 @@ class TestNeuralNet:
 
         net = net_cls(module_cls, max_epochs=1, use_cuda=True)
         net.fit(X, y)
+
+    def test_net_initialized_with_custom_dataset_args(
+            self, net_cls, module_cls, data, dataset_cls):
+        side_effect = []
+
+        class MyDataset(dataset_cls):
+            def __init__(self, *args, foo, **kwargs):
+                super().__init__(*args, **kwargs)
+                side_effect.append(foo)
+
+        net = net_cls(
+            module_cls,
+            dataset=MyDataset,
+            dataset__foo=123,
+            max_epochs=1,
+        )
+        net.fit(*data)
+
+        assert side_effect == [123, 123]  # train and valid
+
+    def test_net_initialized_with_initalized_dataset(
+            self, net_cls, module_cls, data, dataset_cls):
+        net = net_cls(
+            module_cls,
+            dataset=dataset_cls(*data, use_cuda=0),
+            max_epochs=1,
+        )
+        net.fit(*data)  # does not raise
+
+    def test_net_initialized_with_initalized_dataset_and_kwargs_raises(
+            self, net_cls, module_cls, data, dataset_cls):
+        net = net_cls(
+            module_cls,
+            dataset=dataset_cls(*data, use_cuda=0),
+            dataset__foo=123,
+            max_epochs=1,
+        )
+        with pytest.raises(TypeError) as exc:
+            net.fit(*data)
+
+        expected = ("Trying to pass an initialized Dataset while passing "
+                    "Dataset arguments ({'foo': 123}) is not allowed.")
+        assert exc.value.args[0] == expected
 
 
 class MyRegressor(nn.Module):
