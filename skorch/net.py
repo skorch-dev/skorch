@@ -381,7 +381,7 @@ class NeuralNet(object):
         """
         kwargs = self._get_params_for('module')
         module = self.module
-        is_initialized = not isinstance(module, type)
+        is_initialized = isinstance(module, torch.nn.Module)
 
         if kwargs or not is_initialized:
             if is_initialized:
