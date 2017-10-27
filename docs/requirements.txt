@@ -1,4 +1,4 @@
-numpy
+numpy>=1.13.3
 http://download.pytorch.org/whl/cu75/torch-0.2.0.post3-cp35-cp35m-manylinux1_x86_64.whl
 sphinx-rtd-theme==0.2.4
 numpydoc==0.6.0
