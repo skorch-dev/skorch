@@ -940,6 +940,7 @@ class NeuralNet(object):
             state['use_cuda'] = False
 
         print("Travis Test")
+        print("Useless change")
 
         self.__dict__.update(state)
 
