@@ -381,6 +381,11 @@ class TestNeuralNet:
         assert net.module_.dense1.in_features == 20
         assert net.module_.nonlin is F.tanh
 
+    def test_module_initialized_with_partial_module(self, net_cls, module_cls):
+        net = net_cls(partial(module_cls, num_units=123))
+        net.initialize()
+        assert net.module_.dense0.out_features == 123
+
     def test_criterion_init_with_params(self, net_cls, module_cls):
         mock = Mock()
         net = net_cls(module_cls, criterion=mock, criterion__spam='eggs')
