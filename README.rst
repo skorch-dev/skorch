@@ -2,9 +2,18 @@
    :width: 30%
 ======
 
-|docs|
+|build| |coverage| |docs|
 
 A scikit-learn compatible neural network library that wraps pytorch.
+
+.. |build| image:: https://travis-ci.org/dnouri/skorch.svg?branch=master
+    :alt: Build Status
+    :scale: 100%
+    :target: https://travis-ci.org/dnouri/skorch?branch=master
+
+.. |coverage| image:: ./assets/coverage.svg
+    :alt: Test Coverage
+    :scale: 100%
 
 .. |docs| image:: https://readthedocs.org/projects/skorch/badge/?version=latest
     :alt: Documentation Status
