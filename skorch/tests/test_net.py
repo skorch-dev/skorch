@@ -22,7 +22,6 @@ from skorch.net import to_numpy
 
 
 torch.manual_seed(0)
-torch.cuda.manual_seed(0)
 
 
 class MyClassifier(nn.Module):
