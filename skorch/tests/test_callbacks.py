@@ -7,56 +7,6 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from torch import nn
-
-
-###################
-# shared fixtured #
-###################
-
-@pytest.fixture
-def module_cls():
-    """Simple mock module for triggering scoring."""
-    class MyModule(nn.Module):
-        def __init__(self):
-            super(MyModule, self).__init__()
-            self.dense = nn.Linear(1, 1)
-
-        # pylint: disable=arguments-differ
-        def forward(self, X):
-            X = X + 0.0 * self.dense(X)
-            return X
-    return MyModule
-
-
-@pytest.fixture
-def myscore():
-    """Simple scoring function."""
-    # pylint: disable=unused-argument
-    def myscore(est, X, y, foo=123):
-        return 55
-    return myscore
-
-
-@pytest.fixture
-def train_split():
-    def train_split(X, y):
-        return X[:2], X[2:], y[:2], y[2:]
-    return train_split
-
-
-@pytest.fixture
-def net_cls():
-    from skorch import NeuralNetRegressor
-    NeuralNetRegressor.score = Mock(side_effect=[10, 8, 6, 11, 7])
-    return NeuralNetRegressor
-
-
-@pytest.fixture
-def data():
-    X = np.array([0, 2, 3, 0]).astype(np.float32)
-    y = np.array([-1, 0, 5, 4]).astype(np.float32).reshape(-1, 1)
-    return X, y
 
 
 class TestAllCallbacks:
@@ -302,7 +252,7 @@ class TestEpochScoring:
         from skorch.utils import to_numpy
 
         X, y = data
-        extractor = Mock(side_effect=lambda x: to_numpy(x))
+        extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(
             name='nmse',
             scoring='neg_mean_squared_error',
@@ -570,7 +520,7 @@ class TestBatchScoring:
         from skorch.utils import to_numpy
 
         X, y = data
-        extractor = Mock(side_effect=lambda x: to_numpy(x))
+        extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(
             name='nmse',
             scoring='neg_mean_squared_error',
@@ -683,7 +633,6 @@ class TestPrintLog:
                 assert item.endswith(ansi.ENDC.value)
             else:
                 # if not best, text is only float, so converting possible
-                # pylint: disable=useless-statement
                 float(item)
 
     def test_args_passed_to_tabulate(self, history):
