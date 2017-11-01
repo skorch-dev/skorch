@@ -209,13 +209,19 @@ class TestNetWithoutY:
 
     def test_net_1d_custom_loader(self, net_1d_custom_loader):
         X = torch.arange(0, 8).view(-1, 1).long()
+        # throw away all callbacks since those may raise unrelated errors
+        net_1d_custom_loader.initialize()
+        net_1d_custom_loader.callbacks_ = []
         # Should not raise an exception.
-        net_1d_custom_loader.fit(X, None)
+        net_1d_custom_loader.partial_fit(X, None)
 
     def test_net_2d_custom_loader(self, net_2d_custom_loader):
         X = torch.arange(0, 8).view(4, 2).long()
+        # throw away all callbacks since those may raise unrelated errors
+        net_2d_custom_loader.initialize()
+        net_2d_custom_loader.callbacks_ = []
         # Should not raise an exception.
-        net_2d_custom_loader.fit(X, None)
+        net_2d_custom_loader.partial_fit(X, None)
 
 
 class TestMultiIndexing:
