@@ -3,20 +3,17 @@
 from functools import partial
 from itertools import cycle
 from numbers import Number
-import operator
 import sys
 import time
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from sklearn import metrics
 from sklearn.metrics.scorer import check_scoring
 from sklearn.model_selection._validation import _score
 from tabulate import tabulate
 
 from skorch.utils import Ansi
 from skorch.utils import to_numpy
-from skorch.utils import to_var
 from skorch.exceptions import SkorchException
 
 
