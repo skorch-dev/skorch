@@ -1,5 +1,6 @@
 """Contains callback base class and callbacks."""
 
+from functools import partial
 from itertools import cycle
 from numbers import Number
 import operator
@@ -9,6 +10,8 @@ import time
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn import metrics
+from sklearn.metrics.scorer import check_scoring
+from sklearn.model_selection._validation import _score
 from tabulate import tabulate
 
 from skorch.utils import Ansi
@@ -92,32 +95,81 @@ class EpochTimer(Callback):
         net.history.record('dur', time.time() - self.epoch_start_time_)
 
 
-class Scoring(Callback):
-    """Callback that performs generic scoring on predictions.
+class ScoringBase(Callback):
+    """Base class for scoring.
 
-    The normal mode of operation for this callback is to compute the
-    score by applying the scoring function to the column ``name`` in each
-    batch in the history. This value is then normalized to the total
-    number of batches in each epoch and it is determined whether it
-    was better than the last one (this information is stored in the
-    history as well).
+    Subclass and implement an ``on_*`` method before using.
+    """
+    def __init__(
+            self,
+            scoring,
+            lower_is_better=True,
+            on_train=False,
+            name=None,
+            target_extractor=to_numpy,
+    ):
+        self.scoring = scoring
+        self.lower_is_better = lower_is_better
+        self.on_train = on_train
+        self.name = name
+        self.target_extractor = target_extractor
 
-    In case you already computed a score value for each batch you
-    can omit the score computation step by return the value from
-    the history. For example:
+    def _get_name(self):
+        if self.name is not None:
+            return self.name
+        if self.scoring is None:
+            return 'score'
+        if isinstance(self.scoring, str):
+            return self.scoring
+        if isinstance(self.scoring, partial):
+            return self.scoring.func.__name__
+        return self.scoring.__name__
 
-        >>> def my_score(net, X=None, y=None):
-        ...     return net.history[-1, 'batches', -1, 'my_score']
-        >>> net = MyNet(callbacks=[
-        ...     ('my_score', Scoring('my_score', my_score, on_train=True))
+    def initialize(self):
+        self.best_score_ = np.inf if self.lower_is_better else -np.inf
+        self.name_ = self._get_name()
+        return self
+
+    def _scoring(self, net, X_test, y_test):
+        """Resolve scoring and apply it to data."""
+        scorer = check_scoring(net, self.scoring)
+        scores = _score(
+            estimator=net,
+            X_test=X_test,
+            y_test=y_test,
+            scorer=scorer,
+            is_multimetric=False,
+        )
+        return scores
+
+    def _is_best_score(self, current_score):
+        if self.lower_is_better is None:
+            return None
+        if self.lower_is_better:
+            return current_score < self.best_score_
+        return current_score > self.best_score_
+
+
+class BatchScoring(ScoringBase):
+    """Callback that performs generic scoring on batches.
+
+    This callback determines the score after each batch and stores it
+    in the net's history in the column given by ``name``. At the end
+    of the epoch, the average of the scores are determined and also
+    stored in the history. Furthermore, it is determined whether this
+    average score is the best score yet and that information is also
+    stored in the history.
+
+    In contrast to ``EpochScoring``, this callback determines the
+    score for each batch and then averages the score at the end of the
+    epoch. This can be disadvantageous for some scores if the batch
+    size is small -- e.g. area under the ROC will return incorrect
+    scores in this case. Therefore, it is recommnded to use
+    ``EpochScoring`` unless you really need the scores for each epoch.
 
     Parameters
     ----------
-    name : str (default='myscore')
-      The name of the score. Determines the column name in the
-      history.
-
-    scoring : None, str, or callable (default=None)
+    scoring : None, str, or callable
       If None, use the ``score`` method of the model. If str, it should
       be a valid sklearn metric (e.g. "f1_score", "accuracy_score"). If
       a callable, it should have the signature (model, X, y), and it
@@ -131,101 +183,126 @@ class Scoring(Callback):
     on_train : bool (default=False)
       Whether this should be called during train or validation.
 
+    name : str or None (default=None)
+      If not an explicit string, tries to infer the name from the
+      ``scoring`` argument.
+
     target_extractor : callable (default=to_numpy)
       This is called on y before it is passed to scoring.
 
-    pred_extractor : callable (default=to_numpy)
-      This is called on y_pred before it is passed to scoring.
-
     """
-    _op_dict = {True: operator.lt, False: operator.gt}
-
-    def __init__(
-            self,
-            name='myscore',
-            scoring=None,
-            lower_is_better=True,
-            on_train=False,
-            target_extractor=to_numpy,
-            pred_extractor=to_numpy,
-    ):
-        self.name = name
-        self.scoring = scoring
-        self.lower_is_better = lower_is_better
-        self.target_extractor = target_extractor
-        self.pred_extractor = pred_extractor
-        self.on_train = on_train
-
-    def initialize(self):
-        self.best_loss_ = np.inf if self.lower_is_better else -np.inf
-        return self
-
-    def _scoring(self, net, X, y):
-        """Resolve scoring and apply it to data."""
-        y = self.target_extractor(y)
-        if self.scoring is None:
-            score = net.score(X, y)
-        elif isinstance(self.scoring, str):
-            # scoring is a string
-            try:
-                scorer = getattr(metrics, self.scoring)
-            except AttributeError:
-                raise NameError("A metric called '{}' does not exist, "
-                                "use a valid sklearn metric name."
-                                "".format(self.scoring))
-            y_pred = self.pred_extractor(
-                net.infer(to_var(X, use_cuda=net.use_cuda)))
-            score = scorer(y, y_pred)
-        else:
-            # scoring is a function
-            score = self.scoring(net, X, y)
-
-        return score
-
     # pylint: disable=unused-argument,arguments-differ
     def on_batch_end(self, net, X, y, train, **kwargs):
         if train != self.on_train:
             return
 
+        y = self.target_extractor(y)
         try:
             score = self._scoring(net, X, y)
-            net.history.record_batch(self.name, score)
+            net.history.record_batch(self.name_, score)
         except KeyError:
             pass
 
-    def get_avg_loss(self, history):
+    def get_avg_score(self, history):
         if self.on_train:
             bs_key = 'train_batch_size'
         else:
             bs_key = 'valid_batch_size'
 
-        weights, losses = list(zip(
-            *history[-1, 'batches', :, [bs_key, self.name]]))
-        loss_avg = np.average(losses, weights=weights)
-        return loss_avg
-
-    def is_best_loss(self, loss):
-        if self.lower_is_better is None:
-            return None
-        op = self._op_dict[self.lower_is_better]
-        return op(loss, self.best_loss_)
+        weights, scores = list(zip(
+            *history[-1, 'batches', :, [bs_key, self.name_]]))
+        score_avg = np.average(scores, weights=weights)
+        return score_avg
 
     # pylint: disable=unused-argument
     def on_epoch_end(self, net, **kwargs):
         history = net.history
         try:
-            history[-1, 'batches', :, self.name]
+            history[-1, 'batches', :, self.name_]
         except KeyError:
             return
 
-        loss_avg = self.get_avg_loss(history)
-        is_best = self.is_best_loss(loss_avg)
+        score_avg = self.get_avg_score(history)
+        is_best = self._is_best_score(score_avg)
         if is_best:
-            self.best_loss_ = loss_avg
+            self.best_score_ = score_avg
 
-        history.record(self.name, loss_avg)
+        history.record(self.name_, score_avg)
         if is_best is not None:
-            history.record(self.name + '_best', is_best)
+            history.record(self.name_ + '_best', is_best)
+
+
+class EpochScoring(ScoringBase):
+    """Callback that performs generic scoring on predictions.
+
+    At the end of each epoch, this callback makes a prediction on
+    train or validation data, determines the score for that prediction
+    and whether it is the best yet, and stores the result in the net's
+    history.
+
+    In case you already computed a score value for each batch you
+    can omit the score computation step by return the value from
+    the history. For example:
+
+        >>> def my_score(net, X=None, y=None):
+        ...     losses = net.history[-1, 'batches', :, 'my_score']
+        ...     batch_sizes = net.history[-1, 'batches', :, 'valid_batch_size']
+        ...     return np.average(losses, weights=batch_sizes)
+        >>> net = MyNet(callbacks=[
+        ...     ('my_score', Scoring(my_score, name='my_score'))
+
+    Parameters
+    ----------
+    scoring : None, str, or callable (default=None)
+      If None, use the ``score`` method of the model. If str, it
+      should be a valid sklearn scorer (e.g. "f1", "accuracy"). If a
+      callable, it should have the signature (model, X, y), and it
+      should return a scalar. This works analogously to the
+      ``scoring`` parameter in sklearn's ``GridSearchCV`` et al.
+
+    lower_is_better : bool (default=True)
+      Whether lower scores should be considered better or worse.
+
+    on_train : bool (default=False)
+      Whether this should be called during train or validation data.
+
+    name : str or None (default=None)
+      If not an explicit string, tries to infer the name from the
+      ``scoring`` argument.
+
+    target_extractor : callable (default=to_numpy)
+      This is called on y before it is passed to scoring.
+
+    """
+    # pylint: disable=unused-argument
+    def on_epoch_end(
+            self,
+            net,
+            X,
+            y,
+            X_valid,
+            y_valid,
+            **kwargs):
+        history = net.history
+
+        if self.on_train:
+            X_test, y_test = X, y
+        else:
+            X_test, y_test = X_valid, y_valid
+        if X_test is None:
+            return
+
+        y_test = self.target_extractor(y_test)
+        current_score = self._scoring(net, X_test, y_test)
+        history.record(self.name_, current_score)
+
+        is_best = self._is_best_score(current_score)
+        if is_best is None:
+            return
+
+        history.record(self.name_ + '_best', is_best)
+        if is_best:
+            self.best_score_ = current_score
 
 
 class PrintLog(Callback):
