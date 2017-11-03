@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn import metrics
 from tabulate import tabulate
+import tqdm
 
 from skorch.utils import Ansi
 from skorch.utils import to_numpy
@@ -452,3 +453,69 @@ class Checkpoint(Callback):
             if net.verbose > 0:
                 print("Checkpoint! Saving model to {}.".format(target))
             net.save_params(target)
+
+
+class ProgressBar(Callback):
+    """Display a progress bar for each epoch including duration, estimated
+    remaining time and user-defined metrics.
+
+    For jupyter notebooks a non-ASCII progress bar is printed instead.
+
+    Parameters:
+    -----------
+
+    batches_per_epoch : int (default=None)
+      The progress bar determines the number of batches per epoch
+      automatically after one epoch but you can also specify this
+      number yourself using this parameter.
+
+    detect_notebook : bool (default=True)
+      If enabled, the progress bar determines if its current environment
+      is a jupyter notebook and switches to a non-ASCII progress bar.
+
+    postfix_keys : list of str (default=['train_loss', 'valid_loss'])
+      You can use this list to specify additional info displayed in the
+      progress bar such as metrics and losses. A prerequisite to this is
+      that these values are residing in the history on batch level already,
+      i.e. they must be accessible via
+
+      >>> net.history[-1, 'batches', -1, key]
+    """
+
+    def __init__(self, batches_per_epoch=None, detect_notebook=True, postfix_keys=None):
+        self.batches_per_epoch = batches_per_epoch
+        self.detect_notebook = detect_notebook
+        self.postfix_keys = postfix_keys or ['train_loss', 'valid_loss']
+
+    def in_ipynb(self):
+        try:
+            return get_ipython().__class__.__name__ == 'ZMQInteractiveShell'
+        except NameError:
+            return False
+
+    def _use_notebook(self):
+        return self.in_ipynb() if self.detect_notebook else False
+
+    def _get_postfix_dict(self, net):
+        postfix = {}
+        for key in self.postfix_keys:
+            try:
+                postfix[key] = net.history[-1, 'batches', -1, key]
+            except KeyError:
+                pass
+        return postfix
+
+    def on_batch_end(self, net, *args, **kwargs):
+        self.pbar.set_postfix(self._get_postfix_dict(net))
+        self.pbar.update()
+
+    def on_epoch_begin(self, *args, **kwargs):
+        if self._use_notebook():
+            self.pbar = tqdm.tqdm_notebook(total=self.batches_per_epoch)
+        else:
+            self.pbar = tqdm.tqdm(total=self.batches_per_epoch)
+
+    def on_epoch_end(self, *args, **kwargs):
+        if self.batches_per_epoch is None:
+            self.batches_per_epoch = self.pbar.n
+        self.pbar.close()
