@@ -134,16 +134,22 @@ class TestEpochScoring:
                 net.history[:, 'score_best']
 
     def test_no_error_when_no_valid_data(
-            self, net_cls, module_cls, mse_scoring, data,
+            self, net_cls, module_cls, mse_scoring, train_split, data,
     ):
         net = net_cls(
             module_cls,
             callbacks=[mse_scoring],
-            max_epochs=1,
-            train_split=None,
+            max_epochs=3,
+            train_split=train_split,
         )
-        # does not raise
         net.fit(*data)
+
+        net.train_split = None
+        # does not raise
+        net.partial_fit(*data)
+
+        # only the first 3 epochs wrote scores
+        assert len(net.history[:, 'nmse']) == 3
 
     def test_with_accuracy_score(
             self, net_cls, module_cls, scoring_cls, train_split, data,
