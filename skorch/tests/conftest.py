@@ -8,7 +8,7 @@ from torch import nn
 
 
 ###################
-# shared fixtured #
+# shared fixtures #
 ###################
 
 @pytest.fixture
@@ -27,12 +27,12 @@ def module_cls():
 
 
 @pytest.fixture
-def myscore():
+def score55():
     """Simple scoring function."""
     # pylint: disable=unused-argument
     def func(est, X, y, foo=123):
         return 55
-    func.__name__ = 'myscore'
+    func.__name__ = 'score55'
     return func
 
 

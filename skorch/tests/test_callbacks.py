@@ -100,6 +100,7 @@ class TestEpochScoring:
         net.fit(*data)
 
         result = net.history[:, 'score']
+        # these values are the hard-coded side_effects from net.score
         expected = [10, 8, 6, 11, 7]
         assert result == expected
 
@@ -173,17 +174,17 @@ class TestEpochScoring:
         assert exc.value.args[0].startswith(msg)
 
     def test_with_score_as_custom_func(
-            self, net_cls, module_cls, scoring_cls, train_split, data, myscore,
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
     ):
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(myscore)],
+            callbacks=[scoring_cls(score55)],
             max_epochs=2,
             train_split=train_split,
         )
         net.fit(*data)
 
-        result = net.history[:, 'myscore']
+        result = net.history[:, 'score55']
         assert result == [55, 55]
 
     def test_with_name_none_returns_score_as_name(
@@ -224,28 +225,28 @@ class TestEpochScoring:
         assert net.history[:, 'neg_mean_squared_error']
 
     def test_with_with_custom_func_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data, myscore,
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
     ):
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(myscore, name=None)],
+            callbacks=[scoring_cls(score55, name=None)],
             max_epochs=2,
             train_split=train_split,
         )
         net.fit(*data)
-        assert net.history[:, 'myscore']
+        assert net.history[:, 'score55']
 
     def test_with_with_partial_custom_func_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data, myscore,
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
     ):
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(partial(myscore, foo=0), name=None)],
+            callbacks=[scoring_cls(partial(score55, foo=0), name=None)],
             max_epochs=2,
             train_split=train_split,
         )
         net.fit(*data)
-        assert net.history[:, 'myscore']
+        assert net.history[:, 'score55']
 
     def test_target_extractor_is_called(
             self, net_cls, module_cls, train_split, scoring_cls, data):
@@ -438,20 +439,20 @@ class TestBatchScoring:
         assert exc.value.args[0].startswith(msg)
 
     def test_with_score_as_custom_func(
-            self, net_cls, module_cls, scoring_cls, train_split, data, myscore,
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
     ):
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(myscore)],
+            callbacks=[scoring_cls(score55)],
             max_epochs=2,
             train_split=train_split,
         )
         net.fit(*data)
 
-        score_epochs = net.history[:, 'myscore']
+        score_epochs = net.history[:, 'score55']
         assert np.allclose(score_epochs, [55, 55])
 
-        score_batches = net.history[:, 'batches', :, 'myscore']
+        score_batches = net.history[:, 'batches', :, 'score55']
         assert np.allclose(score_batches, [[55, 55], [55, 55]])
 
     def test_with_name_none_returns_score_as_name(
@@ -492,28 +493,28 @@ class TestBatchScoring:
         assert net.history[:, 'neg_mean_squared_error']
 
     def test_with_with_custom_func_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data, myscore,
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
     ):
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(myscore, name=None)],
+            callbacks=[scoring_cls(score55, name=None)],
             max_epochs=2,
             train_split=train_split,
         )
         net.fit(*data)
-        assert net.history[:, 'myscore']
+        assert net.history[:, 'score55']
 
     def test_with_with_partial_custom_func_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data, myscore,
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
     ):
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(partial(myscore, foo=0), name=None)],
+            callbacks=[scoring_cls(partial(score55, foo=0), name=None)],
             max_epochs=2,
             train_split=train_split,
         )
         net.fit(*data)
-        assert net.history[:, 'myscore']
+        assert net.history[:, 'score55']
 
     def test_target_extractor_is_called(
             self, net_cls, module_cls, train_split, scoring_cls, data):
