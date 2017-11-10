@@ -162,7 +162,7 @@ class BatchScoring(ScoringBase):
     epoch. This can be disadvantageous for some scores if the batch
     size is small -- e.g. area under the ROC will return incorrect
     scores in this case. Therefore, it is recommnded to use
-    ``EpochScoring`` unless you really need the scores for each epoch.
+    ``EpochScoring`` unless you really need the scores for each batch.
 
     Parameters
     ----------
@@ -286,6 +286,7 @@ class EpochScoring(ScoringBase):
             X_test, y_test = X, y
         else:
             X_test, y_test = X_valid, y_valid
+
         if X_test is None:
             return
 
