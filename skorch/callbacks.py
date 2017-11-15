@@ -482,10 +482,16 @@ class ProgressBar(Callback):
       >>> net.history[-1, 'batches', -1, key]
     """
 
-    def __init__(self, batches_per_epoch=None, detect_notebook=True, postfix_keys=None):
+    def __init__(
+            self,
+            batches_per_epoch=None,
+            detect_notebook=True,
+            postfix_keys=None
+    ):
         self.batches_per_epoch = batches_per_epoch
         self.detect_notebook = detect_notebook
         self.postfix_keys = postfix_keys or ['train_loss', 'valid_loss']
+        self.pbar = None
 
     def in_ipynb(self):
         try:
@@ -505,17 +511,17 @@ class ProgressBar(Callback):
                 pass
         return postfix
 
-    def on_batch_end(self, net, *args, **kwargs):
+    def on_batch_end(self, net, **kwargs):
         self.pbar.set_postfix(self._get_postfix_dict(net))
         self.pbar.update()
 
-    def on_epoch_begin(self, *args, **kwargs):
+    def on_epoch_begin(self, net, **kwargs):
         if self._use_notebook():
             self.pbar = tqdm.tqdm_notebook(total=self.batches_per_epoch)
         else:
             self.pbar = tqdm.tqdm(total=self.batches_per_epoch)
 
-    def on_epoch_end(self, *args, **kwargs):
+    def on_epoch_end(self, net, **kwargs):
         if self.batches_per_epoch is None:
             self.batches_per_epoch = self.pbar.n
         self.pbar.close()
