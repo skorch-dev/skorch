@@ -551,6 +551,7 @@ class TestCheckpoint:
             def __init__(self):
                 super().__init__()
                 self.p = torch.nn.Linear(1, 1)
+            # pylint: disable=arguments-differ
             def forward(self, x):
                 return self.p(x)
 
@@ -611,3 +612,50 @@ class TestCheckpoint:
 
         assert save_params_mock.call_count == 1
         save_params_mock.assert_called_with('model_3_10.pt')
+
+
+class TestProgressBar:
+    @pytest.yield_fixture
+    def progressbar_cls(self):
+        from skorch.callbacks import ProgressBar
+        return ProgressBar
+
+    @pytest.fixture
+    def net_cls(self):
+        """very simple network that trains for 2 epochs"""
+        from skorch.net import NeuralNetRegressor
+        import torch
+
+        class Module(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.p = torch.nn.Linear(1, 1)
+            # pylint: disable=arguments-differ
+            def forward(self, x):
+                return self.p(x)
+
+        return partial(
+            NeuralNetRegressor,
+            module=Module,
+            max_epochs=2,
+            batch_size=10)
+
+    @pytest.fixture(scope='module')
+    def data(self):
+        # have 10 examples so we can do a nice CV split
+        X = np.zeros((10, 1), dtype='float32')
+        y = np.zeros((10, 1), dtype='float32')
+        return X, y
+
+    @pytest.mark.parametrize('postfix', [
+        [],
+        ['train_loss'],
+        ['train_loss', 'valid_loss'],
+        ['doesnotexist'],
+        ['train_loss', 'doesnotexist'],
+    ])
+    def test_invalid_postfix(self, postfix, net_cls, progressbar_cls, data):
+        net = net_cls(callbacks=[
+            progressbar_cls(postfix_keys=postfix),
+        ])
+        net.fit(*data)
