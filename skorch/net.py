@@ -450,7 +450,7 @@ class NeuralNet(object):
         y_pred = self.infer(Xi)
         return self.get_loss(y_pred, yi, X=Xi, train=False)
 
-    def train_step(self, Xi, yi, optimizer):
+    def train_step(self, Xi, yi):
         """Perform a forward step using batched data, update module
         parameters, and return the loss.
 
@@ -459,7 +459,7 @@ class NeuralNet(object):
 
         """
         self.module_.train()
-        optimizer.zero_grad()
+        self.optimizer_.zero_grad()
         y_pred = self.infer(Xi)
         loss = self.get_loss(y_pred, yi, X=Xi, train=True)
         loss.backward()
@@ -470,7 +470,7 @@ class NeuralNet(object):
                 self.gradient_clip_value,
                 norm_type=self.gradient_clip_norm_type)
 
-        optimizer.step()
+        self.optimizer_.step()
         return loss
 
     def evaluation_step(self, Xi, training=False):
@@ -538,7 +538,7 @@ class NeuralNet(object):
 
             for Xi, yi in self.get_iterator(dataset_train, train=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, train=True)
-                loss = self.train_step(Xi, yi, self.optimizer_)
+                loss = self.train_step(Xi, yi)
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, train=True)
