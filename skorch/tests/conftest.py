@@ -2,74 +2,59 @@
 
 from unittest.mock import Mock
 
+import numpy as np
 import pytest
+from torch import nn
+
+
+###################
+# shared fixtures #
+###################
+
+@pytest.fixture
+def module_cls():
+    """Simple mock module for triggering scoring."""
+    class MyModule(nn.Module):
+        def __init__(self):
+            super(MyModule, self).__init__()
+            self.dense = nn.Linear(1, 1)
+
+        # pylint: disable=arguments-differ
+        def forward(self, X):
+            X = X + 0.0 * self.dense(X)
+            return X
+    return MyModule
 
 
 @pytest.fixture
-def history_cls():
-    from skorch.history import History
-    return History
+def score55():
+    """Simple scoring function."""
+    # pylint: disable=unused-argument
+    def func(est, X, y, foo=123):
+        return 55
+    func.__name__ = 'score55'
+    return func
 
 
 @pytest.fixture
-def history():
-    return history_cls()
+def train_split():
+    def func(X, y):
+        return X[:2], X[2:], y[:2], y[2:]
+    return func
 
 
 @pytest.fixture
-def mock_data():
-    return [
-        [[3, -2.5], [6, 1.5]],
-        [[2, 3], [2, 3]],
-        [[1, 0], [0, -1]],
-    ]
+def net_cls():
+    from skorch import NeuralNetRegressor
+    NeuralNetRegressor.score = Mock(side_effect=[10, 8, 6, 11, 7])
+    return NeuralNetRegressor
 
 
-def get_history(*callbacks, with_valid=True):
-    """Create a pseudo-history with variable callbacks. This does not
-    necessitate training or mocking a NeuralNet, which is why we can
-    call this often without losing too much time. However, this also
-    replicates some of the logic related to callbacks.
-
-    """
-    h = history_cls()()
-    net = Mock()
-    net.history = h
-    net.infer = lambda x: x
-    data = mock_data()
-    data = [(range(6, 10), 1, 'hi', data[0][0], data[0][1]),
-            (range(2, 6), 2, 'ho', data[1][0], data[1][1]),
-            (range(10, 14), 3, 'hu', data[2][0], data[2][1])]
-
-    for range_, epoch, text, X, y in data:
-        h.new_epoch()
-        for cb in callbacks:
-            cb.on_epoch_begin(net)
-
-        for i in range_:
-            h.new_batch()
-            for cb in callbacks:
-                cb.on_batch_begin(net)
-
-            h.record_batch('train_loss', 1 - i / 10)
-            h.record_batch('train_batch_size', 10)
-            if with_valid:
-                h.record_batch('valid_loss', i)
-                h.record_batch('valid_batch_size', 1)
-
-            for cb in callbacks:
-                for train in (True, False):
-                    cb.on_batch_end(net, X=X, y=y, train=train)
-
-            h.record_batch('text', 'ha')
-
-        h.record('epoch', epoch)
-        h.record('text', text)
-        h.record('dur', 0.123)
-        for cb in callbacks:
-            cb.on_epoch_end(net)
-
-    return h
+@pytest.fixture
+def data():
+    X = np.array([0, 2, 3, 0]).astype(np.float32)
+    y = np.array([-1, 0, 5, 4]).astype(np.float32).reshape(-1, 1)
+    return X, y
 
 
 pandas_installed = False

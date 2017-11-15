@@ -12,6 +12,7 @@ install_requires = [
     'scikit-learn>=0.18',
     'scipy',
     'tabulate',
+    'tqdm',
 ]
 
 tests_require = [

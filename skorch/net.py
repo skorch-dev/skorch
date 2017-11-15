@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
-from skorch.callbacks import Scoring
+from skorch.callbacks import EpochScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.exceptions import DeviceWarning
@@ -24,12 +24,16 @@ from skorch.utils import to_var
 
 # pylint: disable=unused-argument
 def train_loss_score(net, X=None, y=None):
-    return net.history[-1, 'batches', -1, 'train_loss']
+    losses = net.history[-1, 'batches', :, 'train_loss']
+    batch_sizes = net.history[-1, 'batches', :, 'train_batch_size']
+    return np.average(losses, weights=batch_sizes)
 
 
 # pylint: disable=unused-argument
 def valid_loss_score(net, X=None, y=None):
-    return net.history[-1, 'batches', -1, 'valid_loss']
+    losses = net.history[-1, 'batches', :, 'valid_loss']
+    batch_sizes = net.history[-1, 'batches', :, 'valid_batch_size']
+    return np.average(losses, weights=batch_sizes)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -257,11 +261,15 @@ class NeuralNet(object):
     def get_default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer),
-            ('train_loss', Scoring(
-                'train_loss',
+            ('train_loss', EpochScoring(
                 train_loss_score,
-                on_train=True)),
-            ('valid_loss', Scoring('valid_loss', valid_loss_score)),
+                name='train_loss',
+                on_train=True,
+            )),
+            ('valid_loss', EpochScoring(
+                valid_loss_score,
+                name='valid_loss',
+            )),
             ('print_log', PrintLog),
         ]
 
@@ -442,7 +450,7 @@ class NeuralNet(object):
         y_pred = self.infer(Xi)
         return self.get_loss(y_pred, yi, X=Xi, train=False)
 
-    def train_step(self, Xi, yi, optimizer):
+    def train_step(self, Xi, yi):
         """Perform a forward step using batched data, update module
         parameters, and return the loss.
 
@@ -451,7 +459,7 @@ class NeuralNet(object):
 
         """
         self.module_.train()
-        optimizer.zero_grad()
+        self.optimizer_.zero_grad()
         y_pred = self.infer(Xi)
         loss = self.get_loss(y_pred, yi, X=Xi, train=True)
         loss.backward()
@@ -462,7 +470,7 @@ class NeuralNet(object):
                 self.gradient_clip_value,
                 norm_type=self.gradient_clip_norm_type)
 
-        optimizer.step()
+        self.optimizer_.step()
         return loss
 
     def evaluation_step(self, Xi, training=False):
@@ -518,18 +526,25 @@ class NeuralNet(object):
             dataset_valid = None
         dataset_train = self.get_dataset(X_train, y_train)
 
+        on_epoch_kwargs = {
+            'X': X_train,
+            'X_valid': X_valid,
+            'y': y_train,
+            'y_valid': y_valid,
+        }
+
         for _ in range(epochs):
-            self.notify('on_epoch_begin', X=X, y=y)
+            self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             for Xi, yi in self.get_iterator(dataset_train, train=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, train=True)
-                loss = self.train_step(Xi, yi, self.optimizer_)
+                loss = self.train_step(Xi, yi)
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, train=True)
 
             if X_valid is None:
-                self.notify('on_epoch_end', X=X, y=y)
+                self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
             for Xi, yi in self.get_iterator(dataset_valid, train=False):
@@ -539,7 +554,7 @@ class NeuralNet(object):
                 self.history.record_batch('valid_batch_size', len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, train=False)
 
-            self.notify('on_epoch_end', X=X, y=y)
+            self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
 
     # pylint: disable=unused-argument
@@ -1062,17 +1077,19 @@ class NeuralNetClassifier(NeuralNet):
     def get_default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', Scoring(
-                'train_loss',
+            ('train_loss', EpochScoring(
                 train_loss_score,
-                on_train=True)),
-            ('valid_loss', Scoring('valid_loss', valid_loss_score)),
-            ('valid_acc', Scoring(
+                name='train_loss',
+                on_train=True,
+            )),
+            ('valid_loss', EpochScoring(
+                valid_loss_score,
+                name='valid_loss',
+            )),
+            ('valid_acc', EpochScoring(
+                'accuracy',
                 name='valid_acc',
-                scoring='accuracy_score',
                 lower_is_better=False,
-                on_train=False,
-                pred_extractor=accuracy_pred_extractor,
             )),
             ('print_log', PrintLog()),
         ]
