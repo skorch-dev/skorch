@@ -8,8 +8,6 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from .conftest import get_history
-
 
 class TestAllCallbacks:
     @pytest.fixture
@@ -46,69 +44,292 @@ class TestAllCallbacks:
             assert "kwargs" in inspect.signature(method).parameters
 
 
-class TestScoring:
-    @pytest.yield_fixture
+class TestEpochScoring:
+    @pytest.fixture
     def scoring_cls(self):
-        with patch('skorch.callbacks.to_var') as to_var:
-            to_var.side_effect = lambda x, use_cuda: x
-
-            from skorch.callbacks import Scoring
-            yield partial(
-                Scoring,
-                target_extractor=Mock(side_effect=lambda x: x),
-                pred_extractor=Mock(side_effect=lambda x: x),
-            )
+        from skorch.callbacks import EpochScoring
+        return EpochScoring
 
     @pytest.fixture
     def mse_scoring(self, scoring_cls):
         return scoring_cls(
-            name='mse',
-            scoring='mean_squared_error',
+            'neg_mean_squared_error',
+            name='nmse',
+        ).initialize()
+
+    def test_correct_valid_score(
+            self, net_cls, module_cls, mse_scoring, train_split, data,
+    ):
+        net = net_cls(
+            module=module_cls,
+            callbacks=[mse_scoring],
+            train_split=train_split,
+            max_epochs=2,
+        )
+        net.fit(*data)
+
+        expected = -np.mean([(3 - 5) ** 2, (0 - 4) ** 2])
+        loss = net.history[:, 'nmse']
+        assert np.allclose(loss, expected)
+
+    def test_correct_train_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module=module_cls,
+            callbacks=[scoring_cls(
+                'mean_squared_error', on_train=True, name='nmse')],
+            train_split=train_split,
+            max_epochs=2,
+        )
+        net.fit(*data)
+
+        expected = -np.mean([(0 - -1) ** 2, (2 - 0) ** 2])
+        loss = net.history[:, 'nmse']
+        assert np.allclose(loss, expected)
+
+    def test_scoring_uses_score_when_none(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(scoring=None)],
+            max_epochs=5,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        result = net.history[:, 'score']
+        # these values are the hard-coded side_effects from net.score
+        expected = [10, 8, 6, 11, 7]
+        assert result == expected
+
+    @pytest.mark.parametrize('lower_is_better, expected', [
+        (True, [True, True, True, False, False]),
+        (False, [True, False, False, True, False]),
+        (None, []),
+    ])
+    def test_best_score_when_lower_is_better(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+            lower_is_better, expected,
+    ):
+        # set scoring to None so that mocked net.score is used
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(
+                scoring=None,
+                lower_is_better=lower_is_better)],
+            train_split=train_split,
+            max_epochs=5,
+        )
+        net.fit(*data)
+
+        if lower_is_better is not None:
+            is_best = net.history[:, 'score_best']
+            assert is_best == expected
+        else:
+            # if lower_is_better==None, don't write score
+            with pytest.raises(KeyError):
+                # pylint: disable=pointless-statement
+                net.history[:, 'score_best']
+
+    def test_no_error_when_no_valid_data(
+            self, net_cls, module_cls, mse_scoring, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[mse_scoring],
+            max_epochs=3,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        net.train_split = None
+        # does not raise
+        net.partial_fit(*data)
+
+        # only the first 3 epochs wrote scores
+        assert len(net.history[:, 'nmse']) == 3
+
+    def test_with_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls('accuracy')],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        result = net.history[:, 'accuracy']
+        assert result == [0, 0]
+
+    def test_with_score_nonexisting_string(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls('does-not-exist')],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        with pytest.raises(ValueError) as exc:
+            net.fit(*data)
+        msg = "'does-not-exist' is not a valid scoring value."
+        assert exc.value.args[0].startswith(msg)
+
+    def test_with_score_as_custom_func(
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(score55)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        result = net.history[:, 'score55']
+        assert result == [55, 55]
+
+    def test_with_name_none_returns_score_as_name(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(scoring=None, name=None)],
+            max_epochs=1,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'score']
+
+    def test_explicit_name_is_used_in_history(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(scoring=None, name='myname')],
+            max_epochs=1,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'myname']
+
+    def test_with_scoring_str_and_name_none(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(
+                scoring='neg_mean_squared_error', name=None)],
+            max_epochs=1,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'neg_mean_squared_error']
+
+    def test_with_with_custom_func_and_name_none(
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(score55, name=None)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'score55']
+
+    def test_with_with_partial_custom_func_and_name_none(
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(partial(score55, foo=0), name=None)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'score55']
+
+    def test_target_extractor_is_called(
+            self, net_cls, module_cls, train_split, scoring_cls, data):
+        from skorch.utils import to_numpy
+
+        X, y = data
+        extractor = Mock(side_effect=to_numpy)
+        scoring = scoring_cls(
+            name='nmse',
+            scoring='neg_mean_squared_error',
+            target_extractor=extractor,
+        )
+        net = net_cls(
+            module_cls, batch_size=1, train_split=train_split,
+            callbacks=[scoring], max_epochs=2)
+        net.fit(X, y)
+
+        assert extractor.call_count == 2
+
+
+class TestBatchScoring:
+    @pytest.fixture
+    def scoring_cls(self):
+        from skorch.callbacks import BatchScoring
+        return BatchScoring
+
+    @pytest.fixture
+    def mse_scoring(self, scoring_cls):
+        return scoring_cls(
+            name='nmse',
+            scoring='neg_mean_squared_error',
         ).initialize()
 
     @pytest.fixture
-    def net(self):
-        from skorch.history import History
-
-        net = Mock(infer=Mock(side_effect=lambda x: x))
-        history = History()
-        net.history = history
-        return net
+    def net(self, net_cls, module_cls, train_split, mse_scoring, data):
+        net = net_cls(
+            module_cls, batch_size=1, train_split=train_split,
+            callbacks=[mse_scoring], max_epochs=2)
+        return net.fit(*data)
 
     @pytest.fixture
     def train_loss(self, scoring_cls):
         from skorch.net import train_loss_score
         return scoring_cls(
-            'train_loss',
             train_loss_score,
+            name='train_loss',
             on_train=True,
-            target_extractor=lambda x: x,
-            pred_extractor=lambda x: x,
         ).initialize()
 
     @pytest.fixture
     def valid_loss(self, scoring_cls):
         from skorch.net import valid_loss_score
         return scoring_cls(
-            'valid_loss',
             valid_loss_score,
-            target_extractor=lambda x: x,
-            pred_extractor=lambda x: x,
+            name='valid_loss',
         ).initialize()
 
     @pytest.fixture
-    def history(self, train_loss, valid_loss, mse_scoring):
-        return get_history(train_loss, valid_loss, mse_scoring)
+    def history(self, net):
+        return net.history
 
     def test_correct_train_loss_values(self, history):
         train_losses = history[:, 'train_loss']
-        expected = [0.25, 0.65, -0.15]
+        expected = np.mean([(0 - -1) ** 2, (2 - 0) ** 2])
         assert np.allclose(train_losses, expected)
 
     def test_correct_valid_loss_values(self, history):
         valid_losses = history[:, 'valid_loss']
-        expected = [7.5, 3.5, 11.5]
+        expected = np.mean([(3 - 5) ** 2, (0 - 4) ** 2])
         assert np.allclose(valid_losses, expected)
+
+    def test_correct_mse_values_for_batches(self, history):
+        nmse = history[:, 'batches', :, 'nmse']
+        expected_per_epoch = [-(3 - 5) ** 2, -(0 - 4) ** 2]
+        # for the 2 epochs, the loss is the same
+        expected = [expected_per_epoch, expected_per_epoch]
+        assert np.allclose(nmse, expected)
 
     def test_missing_batch_size(self, train_loss, history):
         """We skip one batch size entry in history. This batch should
@@ -150,215 +371,174 @@ class TestScoring:
 
         assert history[0, 'train_loss'] == 30
 
-    def test_best_train_loss_correct(self, history):
-        train_loss_best = history[:, 'train_loss_best']
-        expected = [True, False, True]
-        assert train_loss_best == expected
+    @pytest.mark.parametrize('lower_is_better, expected', [
+        (True, [True, True, True, False, False]),
+        (False, [True, False, False, True, False]),
+        (None, []),
+    ])
+    def test_best_score_when_lower_is_better(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+            lower_is_better, expected,
+    ):
+        # set scoring to None so that mocked net.score is used
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(
+                scoring=None,
+                lower_is_better=lower_is_better)],
+            train_split=train_split,
+            max_epochs=5,
+        )
+        net.fit(*data)
 
-    def test_best_valid_loss_correct(self, history):
-        valid_loss_best = history[:, 'valid_loss_best']
-        expected = [True, True, False]
-        assert valid_loss_best == expected
+        if lower_is_better is not None:
+            is_best = net.history[:, 'score_best']
+            assert is_best == expected
+        else:
+            # if lower_is_better==None, don't write score
+            with pytest.raises(KeyError):
+                # pylint: disable=pointless-statement
+                net.history[:, 'score_best']
 
-    def test_best_loss_with_other_key(self, scoring_cls):
-        """Test correct best loss with a loss that simply returns the
-        epoch. Since epochs increase, only the first epoch should be
-        best.
+    def test_no_error_when_no_valid_data(
+            self, net_cls, module_cls, mse_scoring, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[mse_scoring],
+            max_epochs=1,
+            train_split=None,
+        )
+        # does not raise
+        net.fit(*data)
 
-        """
-        # pylint: disable=unused-argument
-        def get_bs(net, *args, **kwargs):
-            return net.history[-1, 'batches', -1, 'valid_batch_size']
+    def test_with_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls('accuracy')],
+            batch_size=1,
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
 
-        bs_loss = scoring_cls(
-            'bs_loss',
-            get_bs,
-            target_extractor=lambda x: x,
-            pred_extractor=lambda x: x,
-        ).initialize()
-        history = get_history(bs_loss)
+        score_epochs = net.history[:, 'accuracy']
+        assert np.allclose(score_epochs, [0, 0])
 
-        bs_losses = history[:, 'bs_loss_best']
-        expected = [True, False, False]
-        assert bs_losses == expected
+        score_batches = net.history[:, 'batches', :, 'accuracy']
+        assert np.allclose(score_batches, [[0, 0], [0, 0]])
 
-    def test_correct_mse_values_for_batches(self, history):
-        mse = history[:, 'batches', :, 'mse']
-        # for the 4 batches per epoch, the loss is constant
-        expected = [[12.5] * 4, [0.0] * 4, [1.0] * 4]
-        assert np.allclose(mse, expected)
+    def test_with_score_nonexisting_string(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls('does-not-exist')],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        with pytest.raises(ValueError) as exc:
+            net.fit(*data)
+        msg = "'does-not-exist' is not a valid scoring value."
+        assert exc.value.args[0].startswith(msg)
 
-    def test_correct_mse_values_for_epoch(self, history):
-        mse = history[:, 'mse']
-        expected = [12.5, 0.0, 1.0]
-        assert np.allclose(mse, expected)
+    def test_with_score_as_custom_func(
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(score55)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
 
-    def test_correct_mse_is_best(self, history):
-        is_best = history[:, 'mse_best']
-        assert is_best == [True, True, False]
+        score_epochs = net.history[:, 'score55']
+        assert np.allclose(score_epochs, [55, 55])
 
-    def test_other_score_and_name(self, scoring_cls, net):
-        """Test that we can change the scoring to accuracy score."""
+        score_batches = net.history[:, 'batches', :, 'score55']
+        assert np.allclose(score_batches, [[55, 55], [55, 55]])
+
+    def test_with_name_none_returns_score_as_name(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(scoring=None, name=None)],
+            max_epochs=1,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'score']
+
+    def test_explicit_name_is_used_in_history(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(scoring=None, name='myname')],
+            max_epochs=1,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'myname']
+
+    def test_with_scoring_str_and_name_none(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(
+                scoring='neg_mean_squared_error', name=None)],
+            max_epochs=1,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'neg_mean_squared_error']
+
+    def test_with_with_custom_func_and_name_none(
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(score55, name=None)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'score55']
+
+    def test_with_with_partial_custom_func_and_name_none(
+            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(partial(score55, foo=0), name=None)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+        assert net.history[:, 'score55']
+
+    def test_target_extractor_is_called(
+            self, net_cls, module_cls, train_split, scoring_cls, data):
+        from skorch.utils import to_numpy
+
+        X, y = data
+        extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(
-            name='acc',
-            scoring='accuracy_score',
+            name='nmse',
+            scoring='neg_mean_squared_error',
+            target_extractor=extractor,
         )
-        for x, y in zip(np.arange(5), reversed(np.arange(5))):
-            # The net just returns input values as output; therefore, accuracy
-            # is 1 for 2=2 and 0 elsewhere
-            net.history.new_epoch()
-            net.history.new_batch()
-            scoring.on_batch_end(net, [x], [y], train=False)
+        net = net_cls(
+            module_cls, batch_size=1, train_split=train_split,
+            callbacks=[scoring], max_epochs=2)
+        net.fit(X, y)
 
-        acc = net.history[:, 'batches', :, 'acc']
-        expected = np.asarray([0.0, 0.0, 1.0, 0.0, 0.0]).reshape(-1, 1)
-        assert np.allclose(acc, expected)
-
-    def test_custom_scoring_func(self, scoring_cls, net):
-        """When passing a custom scoring function, it should be used
-        to determine the score.
-
-        """
-        # pylint: disable=unused-argument
-        def score_func(estimator, X, y):
-            return 555
-
-        scoring = scoring_cls(
-            name='acc',
-            scoring=score_func,
-        )
-        for x, y in zip(np.arange(5), reversed(np.arange(5))):
-            net.history.new_epoch()
-            net.history.new_batch()
-            scoring.on_batch_end(net, [x], [y], train=False)
-
-        acc = net.history[:, 'batches', :, 'acc']
-        expected = [555] * 5
-        assert np.allclose(acc, expected)
-
-    def test_scoring_func_none(self, scoring_cls, net):
-        """If the scoring function is None, the `score` method of the
-        model should be used.
-
-        """
-        net.score = Mock(return_value=345)
-        scoring = scoring_cls(
-            name='acc',
-            scoring=None,
-        )
-        for x, y in zip(np.arange(5), reversed(np.arange(5))):
-            net.history.new_epoch()
-            net.history.new_batch()
-            scoring.on_batch_end(net, [x], [y], train=False)
-
-        acc = net.history[:, 'batches', :, 'acc']
-        expected = [345] * 5
-        assert np.allclose(acc, expected)
-
-    def test_score_func_does_not_exist(self, scoring_cls, net):
-        """When passing a string to `scoring`, it is looked up from
-        among the sklearn metrics. If it doesn't exist, we expect a
-        useful error message.
-
-        """
-        scoring = scoring_cls(
-            name='myscore',
-            scoring='nonexistant-score',
-        )
-        with pytest.raises(NameError) as exc:
-            net.history.new_epoch()
-            net.history.new_batch()
-            scoring.on_batch_end(net, X=[0], y=[0], train=False)
-
-        expected = ("A metric called 'nonexistant-score' does not exist, "
-                    "use a valid sklearn metric name.")
-        assert str(exc.value) == expected
-
-    def test_train_is_ignored(self, mse_scoring, net):
-        """By default, the score is determined on the validation
-        set. Train is thus ignored.
-
-        """
-        for _ in range(3):
-            net.history.new_epoch()
-            net.history.new_batch()
-            mse_scoring.on_batch_end(net, X=[0], y=[0], train=True)
-
-        with pytest.raises(KeyError):
-            # pylint: disable=pointless-statement
-            net.history[:, 'batches', :, 'mse']
-
-    def test_train_is_used(self, scoring_cls, net):
-        """By default, the score is determined on the validation
-        set. When we set `on_train=True`, train data is used.
-
-        """
-        mse_scoring = scoring_cls(
-            name='mse',
-            scoring='mean_squared_error',
-            on_train=True,
-        )
-
-        for _ in range(3):
-            net.history.new_epoch()
-            net.history.new_batch()
-            mse_scoring.on_batch_end(net, X=[0], y=[0], train=True)
-
-        mse_losses = net.history[:, 'batches', :, 'mse']
-        assert np.allclose(mse_losses, [0., 0., 0.])
-
-    def test_valid_is_ignored(self, scoring_cls, net):
-        """When setting `on_train=True`, the valid losses should not
-        be used.
-
-        """
-        mse_scoring = scoring_cls(
-            name='mse',
-            scoring='mean_squared_error',
-            on_train=True,
-        )
-
-        for _ in range(3):
-            net.history.new_epoch()
-            net.history.new_batch()
-            mse_scoring.on_batch_end(net, X=[0], y=[0], train=False)
-
-        with pytest.raises(KeyError):
-            # pylint: disable=pointless-statement
-            net.history[:, 'batches', :, 'mse']
-
-    # pylint: disable=unused-argument
-    def test_target_extractor_is_called(self, mse_scoring, history, mock_data):
-        # note: the history fixture is required even if not used because it
-        # triggers the calls on mse_scoring
-        call_args_list = mse_scoring.target_extractor.call_args_list
-        for i in range(3):  # 3 epochs
-            data = mock_data[i][1]  # the targets
-            for j in range(4):  # 4 batches
-                assert call_args_list[4 * i + j][0][0] == data
-
-    # pylint: disable=unused-argument
-    def test_pred_extractor_is_called(self, mse_scoring, history, mock_data):
-        # note: the history fixture is required even if not used because it
-        # triggers the calls on mse_scoring
-        call_args_list = mse_scoring.pred_extractor.call_args_list
-        for i in range(3):  # 3 epochs
-            data = mock_data[i][0]  # the predictions
-            for j in range(4):  # 4 batches
-                assert call_args_list[4 * i + j][0][0] == data
-
-    def test_is_best_ignored_when_none(self, scoring_cls):
-        mse_scoring = scoring_cls(
-            name='mse',
-            scoring='mean_squared_error',
-            lower_is_better=None,
-        ).initialize()
-        history = get_history(mse_scoring)
-        with pytest.raises(KeyError):
-            # Since lower_is_better is None, 'is_best' key should not be
-            # written
-            # pylint: disable=pointless-statement
-            history[:, 'is_best']
+        assert extractor.call_count == 2 * 2
 
 
 class TestPrintLog:
@@ -374,33 +554,30 @@ class TestPrintLog:
 
     @pytest.fixture
     def scoring_cls(self):
-        from skorch.callbacks import Scoring
-        return Scoring
+        from skorch.callbacks import EpochScoring
+        return EpochScoring
 
     @pytest.fixture
-    def train_loss(self, scoring_cls):
-        from skorch.net import train_loss_score
+    def mse_scoring(self, scoring_cls):
         return scoring_cls(
-            'train_loss',
-            train_loss_score,
-            on_train=True,
-            target_extractor=lambda x: x,
-            pred_extractor=lambda x: x,
+            'neg_mean_squared_error',
+            name='nmse',
         ).initialize()
 
     @pytest.fixture
-    def valid_loss(self, scoring_cls):
-        from skorch.net import valid_loss_score
-        return scoring_cls(
-            'valid_loss',
-            valid_loss_score,
-            target_extractor=lambda x: x,
-            pred_extractor=lambda x: x,
-        ).initialize()
+    def net(self, net_cls, module_cls, train_split, mse_scoring, print_log,
+            data):
+        net = net_cls(
+            module_cls, batch_size=1, train_split=train_split,
+            callbacks=[mse_scoring], max_epochs=2)
+        net.initialize()
+        # replace default PrintLog with test PrintLog
+        net.callbacks_[-1] = ('print_log', print_log)
+        return net.partial_fit(*data)
 
     @pytest.fixture
-    def history(self, train_loss, valid_loss, print_log):
-        return get_history(train_loss, valid_loss, print_log)
+    def history(self, net):
+        return net.history
 
     # pylint: disable=unused-argument
     @pytest.fixture
@@ -415,53 +592,55 @@ class TestPrintLog:
         return Ansi
 
     def test_call_count(self, sink):
-        # header + lines + 3 epochs
-        assert sink.call_count == 5
+        # header + lines + 2 epochs
+        assert sink.call_count == 4
 
     def test_header(self, sink):
         header = sink.call_args_list[0][0][0]
         columns = header.split()
-        expected = ['epoch', 'train_loss', 'valid_loss']
+        expected = ['epoch', 'nmse', 'train_loss', 'valid_loss']
         assert columns == expected
 
     def test_lines(self, sink):
         lines = sink.call_args_list[1][0][0].split()
-        header = sink.call_args_list[0][0][0]
-        columns = header.split()
-        expected = ['-' * (len(col) + 2) for col in columns]
+        # Lines have length 2 + length of column, or 8 if the column
+        # name is short and the values are floats.
+        expected = [
+            '-' * (len('epoch') + 2),
+            '-' * 8,
+            '-' * (len('train_loss') + 2),
+            '-' * (len('valid_loss') + 2),
+        ]
         assert lines
         assert lines == expected
 
-    def test_first_row(self, sink, ansi):
-        row = sink.call_args_list[2][0][0]
+    @pytest.mark.parametrize('epoch', [0, 1])
+    def test_first_row(self, sink, ansi, epoch, history):
+        row = sink.call_args_list[epoch + 2][0][0]
         items = row.split()
 
-        assert len(items) == 3
-        # epoch
-        assert items[0] == '1'
-        # color 1 used for item 1
-        assert items[1] == list(ansi)[1].value + '0.2500' + ansi.ENDC.value
-        # color 2 used for item 1
-        assert items[2] == list(ansi)[2].value + '7.5000' + ansi.ENDC.value
+        # epoch, nmse, valid, train
+        assert len(items) == 4
 
-    def test_second_row(self, sink, ansi):
-        row = sink.call_args_list[3][0][0]
-        items = row.split()
+        # epoch, starts at 1
+        assert items[0] == str(epoch + 1)
 
-        assert len(items) == 3
-        assert items[0] == '2'
-        # not best, hence no color
-        assert items[1] == '0.6500'
-        assert items[2] == list(ansi)[2].value + '3.5000' + ansi.ENDC.value
+        # is best
+        are_best = [
+            history[epoch, 'nmse_best'],
+            history[epoch, 'train_loss_best'],
+            history[epoch, 'valid_loss_best'],
+        ]
 
-    def test_third_row(self, sink, ansi):
-        row = sink.call_args_list[4][0][0]
-        items = row.split()
-
-        assert len(items) == 3
-        assert items[0] == '3'
-        assert items[1] == list(ansi)[1].value + '-0.1500' + ansi.ENDC.value
-        assert items[2] == '11.5000'
+        # test that cycled colors are used if best
+        for item, color, is_best in zip(items[1:], list(ansi)[1:], are_best):
+            if is_best:
+                # if best, text colored
+                assert item.startswith(color.value)
+                assert item.endswith(ansi.ENDC.value)
+            else:
+                # if not best, text is only float, so converting possible
+                float(item)
 
     def test_args_passed_to_tabulate(self, history):
         with patch('skorch.callbacks.tabulate') as tab:
@@ -477,7 +656,7 @@ class TestPrintLog:
             assert tab.call_args_list[0][1]['floatfmt'] == '.9f'
 
     def test_with_additional_key(self, history, print_log_cls):
-        keys_ignored = ['batches']  # 'text' and 'dur' no longer ignored
+        keys_ignored = ['batches']  # 'dur' no longer ignored
         print_log = print_log_cls(
             sink=Mock(), keys_ignored=keys_ignored).initialize()
         # does not raise
@@ -485,24 +664,28 @@ class TestPrintLog:
 
         header = print_log.sink.call_args_list[0][0][0]
         columns = header.split()
-        expected = ['epoch', 'text', 'train_loss', 'valid_loss', 'dur']
+        expected = ['epoch', 'nmse', 'train_loss', 'valid_loss', 'dur']
         assert columns == expected
 
     def test_keys_ignored_as_str(self, print_log_cls):
         print_log = print_log_cls(keys_ignored='a-key')
         assert print_log.keys_ignored == ['a-key']
 
-    def test_no_valid(self, train_loss, valid_loss, print_log, ansi):
-        get_history(train_loss, valid_loss, print_log, with_valid=False)
+    def test_witout_valid_data(
+            self, net_cls, module_cls, mse_scoring, print_log, data):
+        net = net_cls(
+            module_cls, batch_size=1, train_split=None,
+            callbacks=[mse_scoring], max_epochs=2)
+        net.initialize()
+        # replace default PrintLog with test PrintLog
+        net.callbacks_[-1] = ('print_log', print_log)
+        net.partial_fit(*data)
+
         sink = print_log.sink
         row = sink.call_args_list[2][0][0]
         items = row.split()
 
-        assert len(items) == 2  # no valid
-        # epoch
-        assert items[0] == '1'
-        # color 1 used for item 1
-        assert items[1] == list(ansi)[1].value + '0.2500' + ansi.ENDC.value
+        assert len(items) == 2  # no valid, only epoch and train
 
     def test_print_not_skipped_if_verbose(self, capsys):
         from skorch.callbacks import PrintLog
@@ -591,7 +774,8 @@ class TestCheckpoint:
             expected = (
                 "Monitor value '{}' cannot be found in history. "
                 "Make sure you have validation data if you use "
-                "validation scores for checkpointing.".format('valid_loss_best')
+                "validation scores for checkpointing.".format(
+                    'valid_loss_best')
             )
             assert str(e.value) == expected
 
@@ -599,13 +783,15 @@ class TestCheckpoint:
             self, save_params_mock, net_cls, checkpoint_cls, data):
         def epoch_3_scorer(net, *_):
             return 1 if net.history[-1, 'epoch'] == 3 else 0
-        from skorch.callbacks import Scoring
-        scoring = Scoring('my_score', scoring=epoch_3_scorer, on_train=True)
+
+        from skorch.callbacks import EpochScoring
+        scoring = EpochScoring(
+            scoring=epoch_3_scorer, on_train=True)
 
         net = net_cls(callbacks=[
             ('my_score', scoring),
             checkpoint_cls(
-                monitor='my_score',
+                monitor='epoch_3_scorer',
                 target='model_{last_epoch[epoch]}_{net.max_epochs}.pt'),
         ])
         net.fit(*data)
