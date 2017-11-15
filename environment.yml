@@ -17,5 +17,6 @@ dependencies:
 - wheel=0.29.0=py36_0
 - xz=5.2.2=1
 - zlib=1.2.8=3
+- tqdm=4.14.0
 - pip:
   - tabulate==0.7.7
