@@ -566,7 +566,6 @@ class ProgressBar(Callback):
         self.batches_per_epoch = batches_per_epoch
         self.detect_notebook = detect_notebook
         self.postfix_keys = postfix_keys or ['train_loss', 'valid_loss']
-        self.pbar = None
 
     def in_ipynb(self):
         try:
