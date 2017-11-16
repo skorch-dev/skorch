@@ -291,7 +291,12 @@ class EpochScoring(ScoringBase):
         if X_test is None:
             return
 
-        y_test = self.target_extractor(y_test)
+        # In case we have an unsupervised task we ignore
+        # target extraction and depend on the user to know
+        # which metric is suitable in this case.
+        if y_test is not None:
+            y_test = self.target_extractor(y_test)
+
         current_score = self._scoring(net, X_test, y_test)
         history.record(self.name_, current_score)
 
