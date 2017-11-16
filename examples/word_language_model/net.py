@@ -91,25 +91,10 @@ class Net(skorch.NeuralNet):
         return preds, hidden
 
     def score(self, X, y=None):
-        y_probas = []
-        y_target = []
-
-        # We collect the predictions batch-wise and store them on the host
-        # side as this data can be quite big and the GPU might run into
-        # memory issues. We do not calculate F1 on the batches as this
-        # would introduce an error to the score.
-
         ds = self.get_dataset(X)
         target_iterator = self.get_iterator(ds, train=False)
-        pred_iterator = self.forward_iter(X)
 
-        for (_, y_true), y_pred in zip(target_iterator, pred_iterator):
-            y_pred_cls = skorch.utils.to_numpy(y_pred).argmax(-1)
+        y_true = np.concatenate([skorch.utils.to_numpy(y) for _, y in target_iterator])
+        y_pred = self.predict(X)
 
-            y_probas.append(y_pred_cls)
-            y_target.append(skorch.utils.to_numpy(y_true))
-
-        y_probas = np.concatenate(y_probas)
-        y_target = np.concatenate(y_target)
-
-        return f1_score(y_probas, y_target, average='micro')
+        return f1_score(y_true, y_pred, average='micro')
