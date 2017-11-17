@@ -752,8 +752,11 @@ class NeuralNet(object):
         y_pred : numpy ndarray
 
         """
-        self.module_.train(False)
-        return self.predict_proba(X).argmax(-1)
+        y_preds = []
+        for yp in self.forward_iter(X, training=False):
+            y_preds.append(to_numpy(yp.max(-1)[-1]))
+        y_pred = np.concatenate(y_preds, 0)
+        return y_pred
 
     # pylint: disable=unused-argument
     def get_loss(self, y_pred, y_true, X=None, train=False):
