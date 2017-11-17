@@ -105,7 +105,7 @@ pl.fit(corpus.train[:args.data_limit].numpy())
 
 print("Results of grid search:")
 print("Best parameter configuration:", pl.best_params_)
-print("Achieved score:", pl.best_score_)
+print("Achieved F1 score:", pl.best_score_)
 
 print("Saving best model to '{}'.".format(args.save))
 pl.best_estimator_.save_params(args.save)
