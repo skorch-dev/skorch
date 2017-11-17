@@ -20,6 +20,7 @@ from skorch.history import History
 from skorch.utils import get_dim
 from skorch.utils import to_numpy
 from skorch.utils import to_var
+from skorch.utils import params_for
 
 
 # pylint: disable=unused-argument
@@ -872,10 +873,7 @@ class NeuralNet(object):
         return iterator(dataset, **kwargs)
 
     def _get_params_for(self, prefix):
-        if not prefix.endswith('__'):
-            prefix += '__'
-        return {key[len(prefix):]: val for key, val in self.__dict__.items()
-                if key.startswith(prefix)}
+        return params_for(prefix, self.__dict__)
 
     def _get_param_names(self):
         return self.__dict__.keys()
