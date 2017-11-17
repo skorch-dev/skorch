@@ -6,7 +6,7 @@ from sklearn.model_selection import GridSearchCV
 
 import data
 from model import RNNModel
-from learner import Learner
+from net import Net
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/penn',
@@ -17,6 +17,8 @@ parser.add_argument('--batch_size', type=int, default=20, metavar='N',
                     help='batch size')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs')
+parser.add_argument('--data-limit', type=int, default=-1,
+                    help='Limit the input data to length N.')
 parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--no-cuda', dest='cuda', action='store_false',
@@ -25,7 +27,7 @@ parser.add_argument('--save', type=str,  default='model.pt',
                     help='path to save the final model')
 args = parser.parse_args()
 
-# TODO: set seed
+torch.manual_seed(args.seed)
 
 corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
@@ -34,11 +36,6 @@ class LRAnnealing(skorch.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         if not net.history[-1]['valid_loss_best']:
             net.lr /= 4.0
-
-class Checkpointing(skorch.callbacks.Callback):
-    def on_epoch_end(self, net, **kwargs):
-        if net.history[-1]['valid_loss_best']:
-            net.save_params(args.save)
 
 class ExamplePrinter(skorch.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
@@ -49,21 +46,42 @@ class ExamplePrinter(skorch.callbacks.Callback):
         print(seed_sentence,
               " ".join([corpus.dictionary.idx2word[n] for n in sentence]))
 
-def train_split(X, y):
-    return X, corpus.valid, None, None
 
-learner = Learner(
+def my_train_split(X, y):
+    # Return (corpus.train, corpus.valid) in case the network
+    # is fitted using net.fit(corpus.train).
+    #
+    # TODO: remove dummy y values once #112 is fixed.
+    #
+    import numpy as np
+    return X, corpus.valid, np.zeros(len(X)), np.zeros(len(corpus.valid))
+
+net = Net(
     module=RNNModel,
     max_epochs=args.epochs,
     batch_size=args.batch_size,
     use_cuda=args.cuda,
-    callbacks=[LRAnnealing(), Checkpointing(), ExamplePrinter()],
+    callbacks=[
+        skorch.callbacks.Checkpoint(),
+        skorch.callbacks.ProgressBar(),
+        LRAnnealing(),
+        ExamplePrinter()
+    ],
     module__rnn_type='LSTM',
     module__ntoken=ntokens,
     module__ninp=200,
     module__nhid=200,
     module__nlayers=2,
-    train_split=train_split,
+
+    # Use (corpus.train, corpus.valid) as validation split.
+    # Even though we are doing a grid search, we use an internal
+    # validation set to determine when to save (Checkpoint callback)
+    # and when to decrease the learning rate (LRAnnealing callback).
+    train_split=my_train_split,
+
+    # To demonstrate that skorch is able to use already available
+    # data loaders as well, we use the data loader from the word
+    # language model.
     iterator_train=data.Loader,
     iterator_train__use_cuda=args.cuda,
     iterator_train__bptt=args.bptt,
@@ -71,16 +89,9 @@ learner = Learner(
     iterator_valid__use_cuda=args.cuda,
     iterator_valid__bptt=args.bptt)
 
-# NOFIXME: iterator_valid does not use corpus.valid as dataset
-# REASON: we use GridSearchCV to generate validation splits
-# FIXME: but we need validation data during training (LR annealing)
 
-# FIXME: currently we have iterators for training and validation. Both of those
-# supply (X,y) pairs. We do, however, also use the validation generator in
-# predict (thus in scoring as well). Therefore we always generate `y` values
-# even though we don't need to.
-
-# TODO: easy way to write own score() that accesses the validation data only.
+# Demonstrate the use of grid search by testing different learning
+# rates while saving the best model at the end.
 
 params = [
     {
@@ -88,9 +99,14 @@ params = [
     },
 ]
 
-pl = GridSearchCV(learner, params)
-pl.fit(corpus.train)
+pl = GridSearchCV(net, params)
+
+pl.fit(corpus.train[:args.data_limit].numpy())
 
 print("Results of grid search:")
 print("Best parameter configuration:", pl.best_params_)
-print("Achieved score:", pl.best_score_)
+print("Achieved F1 score:", pl.best_score_)
+
+print("Saving best model to '{}'.".format(args.save))
+pl.best_estimator_.save_params(args.save)
+

@@ -20,6 +20,7 @@ from skorch.history import History
 from skorch.utils import get_dim
 from skorch.utils import to_numpy
 from skorch.utils import to_var
+from skorch.utils import params_for
 
 
 # pylint: disable=unused-argument
@@ -752,8 +753,11 @@ class NeuralNet(object):
         y_pred : numpy ndarray
 
         """
-        self.module_.train(False)
-        return self.predict_proba(X).argmax(-1)
+        y_preds = []
+        for yp in self.forward_iter(X, training=False):
+            y_preds.append(to_numpy(yp.max(-1)[-1]))
+        y_pred = np.concatenate(y_preds, 0)
+        return y_pred
 
     # pylint: disable=unused-argument
     def get_loss(self, y_pred, y_true, X=None, train=False):
@@ -872,10 +876,7 @@ class NeuralNet(object):
         return iterator(dataset, **kwargs)
 
     def _get_params_for(self, prefix):
-        if not prefix.endswith('__'):
-            prefix += '__'
-        return {key[len(prefix):]: val for key, val in self.__dict__.items()
-                if key.startswith(prefix)}
+        return params_for(prefix, self.__dict__)
 
     def _get_param_names(self):
         return self.__dict__.keys()
