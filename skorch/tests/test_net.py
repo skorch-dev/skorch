@@ -367,6 +367,12 @@ class TestNeuralNet:
         # by the optimizer after 10 epochs.
         assert (abs(d2 - d1) > 1e-05).all()
 
+    def test_setting_optimizer_needs_model(self, net_cls, module_cls):
+        net = net_cls(module_cls)
+        assert not hasattr(net, 'module_')
+        # should not break
+        net.set_params(optimizer=torch.optim.SGD)
+
     def test_module_params_in_init(self, net_cls, module_cls, data):
         X, y = data
 
