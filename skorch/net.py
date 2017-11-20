@@ -916,6 +916,12 @@ class NeuralNet(object):
             self.initialize_module()
             self.initialize_optimizer()
         if any(key.startswith('optimizer') for key in special_params):
+            # Model selectors such as GridSearchCV will set the
+            # parameters before .initialize() is called, therefore we
+            # need to make sure that we have an initialized model here
+            # as the optimizer depends on it.
+            if not hasattr(self, 'module_'):
+                self.initialize_module()
             self.initialize_optimizer()
 
         return self
