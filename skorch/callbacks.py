@@ -535,6 +535,9 @@ class ProgressBar(Callback):
     remaining time and user-defined metrics.
 
     For jupyter notebooks a non-ASCII progress bar is printed instead.
+    To use this feature, you need to have `ipywidgets
+    <https://ipywidgets.readthedocs.io/en/stable/user_install.html>`
+    installed.
 
     Parameters:
     -----------

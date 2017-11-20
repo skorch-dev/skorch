@@ -148,3 +148,21 @@ def duplicate_items(*collections):
         else:
             seen.add(item)
     return duplicates
+
+
+def params_for(prefix, kwargs):
+    """Extract parameters that belong to a given sklearn module prefix from
+    ``kwargs``. This is useful to obtain parameters that belong to a
+    submodule.
+
+    Example usage
+    -------------
+    >>> kwargs = {'encoder__a': 3, 'encoder__b': 4, 'decoder__a': 5}
+    >>> params_for('encoder', kwargs)
+    {'a': 3, 'b': 4}
+
+    """
+    if not prefix.endswith('__'):
+        prefix += '__'
+    return {key[len(prefix):]: val for key, val in kwargs.items()
+            if key.startswith(prefix)}

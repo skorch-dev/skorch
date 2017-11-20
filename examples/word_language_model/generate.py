@@ -6,7 +6,7 @@ from torch.autograd import Variable
 
 import data
 import model
-import learner
+import net
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/penn',
@@ -30,12 +30,12 @@ parser.add_argument('--log-interval', type=int, default=100,
 
 args = parser.parse_args()
 
-# TODO: set seed
+torch.manual_seed(args.seed)
 
 corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
-learner = learner.Learner(
+net = net.Net(
     module=model.RNNModel,
     batch_size=1,
     use_cuda=args.cuda,
@@ -44,8 +44,8 @@ learner = learner.Learner(
     module__ninp=200,
     module__nhid=200,
     module__nlayers=2)
-learner.initialize()
-learner.load_params(args.checkpoint)
+net.initialize()
+net.load_params(args.checkpoint)
 
 hidden = None
 input = skorch.utils.to_var(torch.rand(1, 1).mul(ntokens).long(),
@@ -53,11 +53,13 @@ input = skorch.utils.to_var(torch.rand(1, 1).mul(ntokens).long(),
 
 with open(args.outf, 'w') as outf:
     for i in range(args.words):
-        word_idx, hidden = learner.sample(input=input,
-                                          temperature=args.temperature,
-                                          hidden=hidden)
-        input = skorch.utils.to_var(torch.LongTensor([[word_idx]]),
-                                    use_cuda=args.cuda)
+        word_idx, hidden = net.sample(
+                input=input,
+                temperature=args.temperature,
+                hidden=hidden)
+        input = skorch.utils.to_var(
+                torch.LongTensor([[word_idx]]),
+                use_cuda=args.cuda)
 
         word = corpus.dictionary.idx2word[word_idx]
         outf.write(word + ('\n' if i % 20 == 19 else ' '))
