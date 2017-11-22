@@ -153,7 +153,7 @@ class NeuralNet(object):
       ``net.set_params(callbacks__print_log__keys=['epoch',
       'train_loss'])``).
 
-    cold_start : bool (default=True)
+    warm_start : bool (default=False)
       Whether each fit call should lead to a re-initialization of the
       module (cold start) or whether the module should be trained
       further (warm start).
@@ -215,7 +215,7 @@ class NeuralNet(object):
             dataset=Dataset,
             train_split=CVSplit(5),
             callbacks=None,
-            cold_start=True,
+            warm_start=False,
             verbose=1,
             use_cuda=False,
             **kwargs
@@ -231,7 +231,7 @@ class NeuralNet(object):
         self.dataset = dataset
         self.train_split = train_split
         self.callbacks = callbacks
-        self.cold_start = cold_start
+        self.warm_start = warm_start
         self.verbose = verbose
         self.use_cuda = use_cuda
         self.gradient_clip_value = gradient_clip_value
@@ -604,7 +604,7 @@ class NeuralNet(object):
         """Initialize and fit the module.
 
         If the module was already initialized, by calling fit, the
-        module will be re-initialized (unless ``cold_start`` is False).
+        module will be re-initialized (unless ``warm_start`` is True).
 
         Parameters
         ----------
@@ -626,7 +626,7 @@ class NeuralNet(object):
         **fit_params : currently ignored
 
         """
-        if self.cold_start or not self.initialized_:
+        if not self.warm_start or not self.initialized_:
             self.initialize()
 
         self.partial_fit(X, y, **fit_params)

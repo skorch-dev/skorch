@@ -124,7 +124,7 @@ class TestNeuralNet:
     def test_net_init_two_unknown_argument(self, net_cls, module_cls):
         with pytest.raises(TypeError) as e:
             net_cls(module_cls, lr=0.1, mxa_epochs=5,
-                    cold_start=True, bathc_size=20)
+                    warm_start=False, bathc_size=20)
 
         expected = ("__init__() got unexpected argument(s) "
                     "mxa_epochs, bathc_size."
@@ -591,7 +591,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, data, capsys):
         X, y = data
         module = module_cls(num_units=123)
-        net = net_cls(module, max_epochs=0, cold_start=False)
+        net = net_cls(module, max_epochs=0, warm_start=True)
         net.partial_fit(X, y)
 
         for p0, p1 in zip(module.parameters(), net.module_.parameters()):
@@ -620,7 +620,7 @@ class TestNeuralNet:
         # fit loop, parameters have changed (because the module was
         # re-initialized)
         X, y = data[0][:100], data[1][:100]
-        net = net_cls(module_cls, cold_start=True).fit(X, y)
+        net = net_cls(module_cls, warm_start=False).fit(X, y)
         params_before = net.module_.parameters()
 
         net.max_epochs = 0
@@ -633,7 +633,7 @@ class TestNeuralNet:
 
     def test_call_fit_twice_warmstart(self, net_cls, module_cls, data):
         X, y = data[0][:100], data[1][:100]
-        net = net_cls(module_cls, cold_start=False).fit(X, y)
+        net = net_cls(module_cls, warm_start=True).fit(X, y)
         params_before = net.module_.parameters()
 
         net.max_epochs = 0
@@ -648,11 +648,11 @@ class TestNeuralNet:
         # It should be possible to partial_fit without calling fit first.
         X, y = data[0][:100], data[1][:100]
         # does not raise
-        net_cls(module_cls, cold_start=False).partial_fit(X, y)
+        net_cls(module_cls, warm_start=True).partial_fit(X, y)
 
     def test_call_partial_fit_after_fit(self, net_cls, module_cls, data):
         X, y = data[0][:100], data[1][:100]
-        net = net_cls(module_cls, cold_start=True).fit(X, y)
+        net = net_cls(module_cls, warm_start=False).fit(X, y)
         params_before = net.module_.parameters()
 
         net.max_epochs = 0
