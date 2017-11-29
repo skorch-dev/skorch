@@ -309,7 +309,7 @@ class NeuralNet(object):
         pass
 
     # pylint: disable=unused-argument
-    def on_batch_begin(self, net, train=False, **kwargs):
+    def on_batch_begin(self, net, training=False, **kwargs):
         self.history.new_batch()
 
     def on_batch_end(self, net, **kwargs):
@@ -449,7 +449,7 @@ class NeuralNet(object):
         """
         self.module_.eval()
         y_pred = self.infer(Xi)
-        return self.get_loss(y_pred, yi, X=Xi, train=False)
+        return self.get_loss(y_pred, yi, X=Xi, training=False)
 
     def train_step(self, Xi, yi):
         """Perform a forward step using batched data, update module
@@ -462,7 +462,7 @@ class NeuralNet(object):
         self.module_.train()
         self.optimizer_.zero_grad()
         y_pred = self.infer(Xi)
-        loss = self.get_loss(y_pred, yi, X=Xi, train=True)
+        loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
 
         if self.gradient_clip_value is not None:
@@ -538,22 +538,22 @@ class NeuralNet(object):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             for Xi, yi in self.get_iterator(dataset_train, training=True):
-                self.notify('on_batch_begin', X=Xi, y=yi, train=True)
+                self.notify('on_batch_begin', X=Xi, y=yi, training=True)
                 loss = self.train_step(Xi, yi)
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, train=True)
+                self.notify('on_batch_end', X=Xi, y=yi, training=True)
 
             if X_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
-                self.notify('on_batch_begin', X=Xi, y=yi, train=False)
+                self.notify('on_batch_begin', X=Xi, y=yi, training=False)
                 loss = self.validation_step(Xi, yi)
                 self.history.record_batch('valid_loss', loss.data[0])
                 self.history.record_batch('valid_batch_size', len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, train=False)
+                self.notify('on_batch_end', X=Xi, y=yi, training=False)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
@@ -760,7 +760,7 @@ class NeuralNet(object):
         return y_pred
 
     # pylint: disable=unused-argument
-    def get_loss(self, y_pred, y_true, X=None, train=False):
+    def get_loss(self, y_pred, y_true, X=None, training=False):
         """Return the loss for this batch.
 
         Parameters
@@ -1123,7 +1123,7 @@ class NeuralNetClassifier(NeuralNet):
         # pass, even though it will fail with NLLLoss
         return y
 
-    def get_loss(self, y_pred, y_true, X=None, train=False):
+    def get_loss(self, y_pred, y_true, X=None, training=False):
         y_true = to_var(y_true, use_cuda=self.use_cuda)
         y_pred_log = torch.log(y_pred)
         return self.criterion_(

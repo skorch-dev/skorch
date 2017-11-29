@@ -190,8 +190,8 @@ class BatchScoring(ScoringBase):
 
     """
     # pylint: disable=unused-argument,arguments-differ
-    def on_batch_end(self, net, X, y, train, **kwargs):
-        if train != self.on_train:
+    def on_batch_end(self, net, X, y, training, **kwargs):
+        if training != self.on_train:
             return
 
         y = self.target_extractor(y)
