@@ -289,7 +289,7 @@ class CVSplit(object):
             # doesn't work, still try.
             try:
                 y_arr = to_numpy(y)
-            except AttributeError:
+            except (AttributeError, TypeError):
                 y_arr = y
 
         if self._is_float(self.cv):

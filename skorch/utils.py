@@ -23,6 +23,11 @@ class Ansi(Enum):
     ENDC = '\033[0m'
 
 
+def is_torch_data_type(x):
+    # pylint: disable=protected-access
+    return isinstance(x, (torch.tensor._TensorBase, Variable))
+
+
 def to_var(X, use_cuda):
     """Generic function to convert a input data to pytorch Variables.
 
@@ -73,6 +78,9 @@ def to_tensor(X, use_cuda):
     elif np.isscalar(X):
         X = torch.from_numpy(np.array([X]))
 
+    if not is_torch_data_type(X):
+        raise TypeError("Cannot convert this data type to a torch tensor.")
+
     if use_cuda:
         X = X.cuda()
     return X
@@ -90,6 +98,9 @@ def to_numpy(X):
 
     if is_pandas_ndframe(X):
         return X.values
+
+    if not is_torch_data_type(X):
+        raise TypeError("Cannot convert this data type to a numpy array.")
 
     if X.is_cuda:
         X = X.cpu()
