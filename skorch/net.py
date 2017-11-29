@@ -537,7 +537,7 @@ class NeuralNet(object):
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
-            for Xi, yi in self.get_iterator(dataset_train, train=True):
+            for Xi, yi in self.get_iterator(dataset_train, training=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, train=True)
                 loss = self.train_step(Xi, yi)
                 self.history.record_batch('train_loss', loss.data[0])
@@ -548,7 +548,7 @@ class NeuralNet(object):
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
-            for Xi, yi in self.get_iterator(dataset_valid, train=False):
+            for Xi, yi in self.get_iterator(dataset_valid, training=False):
                 self.notify('on_batch_begin', X=Xi, y=yi, train=False)
                 loss = self.validation_step(Xi, yi)
                 self.history.record_batch('valid_loss', loss.data[0])
@@ -661,7 +661,7 @@ class NeuralNet(object):
         self.module_.train(training)
 
         dataset = self.get_dataset(X)
-        iterator = self.get_iterator(dataset, train=training)
+        iterator = self.get_iterator(dataset, training=training)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
             yield yp
@@ -840,7 +840,7 @@ class NeuralNet(object):
 
         return dataset(X, y, **kwargs)
 
-    def get_iterator(self, dataset, train=False):
+    def get_iterator(self, dataset, training=False):
         """Get an iterator that allows to loop over the batches of the
         given data.
 
@@ -854,7 +854,7 @@ class NeuralNet(object):
           Usually, ``self.dataset``, initialized with the corresponding
           data, is passed to ``get_iterator``.
 
-        train : bool (default=False)
+        training : bool (default=False)
           Whether to use ``iterator_train`` or ``iterator_test``.
 
         Returns
@@ -864,7 +864,7 @@ class NeuralNet(object):
           mini-batches.
 
         """
-        if train:
+        if training:
             kwargs = self._get_params_for('iterator_train')
             iterator = self.iterator_train
         else:
