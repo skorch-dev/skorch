@@ -115,7 +115,7 @@ class TestNeuralNet:
         with pytest.raises(TypeError) as e:
             net_cls(module_cls, unknown_arg=123)
 
-        expected = ("__init__() got unexpected argument(s) unknown_arg."
+        expected = ("__init__() got unexpected argument(s) unknown_arg. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
                     "should deal with the new arguments explicitely.")
@@ -127,7 +127,7 @@ class TestNeuralNet:
                     warm_start=False, bathc_size=20)
 
         expected = ("__init__() got unexpected argument(s) "
-                    "mxa_epochs, bathc_size."
+                    "mxa_epochs, bathc_size. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
                     "should deal with the new arguments explicitely.")
