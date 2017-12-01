@@ -272,6 +272,30 @@ class TestEpochScoring:
 
         assert extractor.call_count == 2
 
+    def test_without_target_data_works(
+            self, net_cls, module_cls, scoring_cls, data,
+    ):
+        def myscore(_, X, y=None):
+            assert y is None
+            return np.mean(X)
+
+        def mysplit(X, y):
+            # set y_valid to None
+            return X, X, y, None
+
+        X, y = data
+        net = net_cls(
+            module=module_cls,
+            callbacks=[scoring_cls(myscore)],
+            train_split=mysplit,
+            max_epochs=2,
+        )
+        net.fit(X, y)
+
+        expected = np.mean(X)
+        loss = net.history[:, 'myscore']
+        assert np.allclose(loss, expected)
+
 
 class TestBatchScoring:
     @pytest.fixture

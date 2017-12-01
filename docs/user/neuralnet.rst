@@ -223,14 +223,14 @@ default callbacks. This is so that user-defined callbacks can make use
 of the things provided by the default callbacks. The only exception is
 the default callback ``PrintLog``, which is always called last.
 
-cold_start
+warm_start
 ^^^^^^^^^^
 
 This argument determines whether each ``fit`` call leads to a
 re-initialization of the ``NeuralNet`` or not. By default, when
 calling ``fit``, the parameters of the net are initialized, so your
 previous training progress is lost (consistent with the sklearn
-``fit`` calls). In contrast, with ``cold_start=False``, each ``fit``
+``fit`` calls). In contrast, with ``warm_start=True``, each ``fit``
 call will continue from the most recent state.
 
 use_cuda
@@ -276,7 +276,7 @@ task does not have an actual ``y``, you may pass ``y=None``.
 In addition to ``fit``, there is also the ``partial_fit`` method,
 known from some sklearn estimators. ``partial_fit`` allows you to
 continue training from your current status, even if you set
-``cold_start=True``. A further use case for ``partial_fit`` is when
+``warm_start=False``. A further use case for ``partial_fit`` is when
 your data does not fit into memory and you thus need to have several
 training steps.
 

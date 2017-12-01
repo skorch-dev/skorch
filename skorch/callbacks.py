@@ -272,7 +272,7 @@ class EpochScoring(ScoringBase):
       This is called on y before it is passed to scoring.
 
     """
-    # pylint: disable=unused-argument
+    # pylint: disable=unused-argument,arguments-differ
     def on_epoch_end(
             self,
             net,
@@ -291,7 +291,10 @@ class EpochScoring(ScoringBase):
         if X_test is None:
             return
 
-        y_test = self.target_extractor(y_test)
+        if y_test is not None:
+            # We allow y_test to be None but the scoring function has
+            # to be able to deal with it (i.e. called without y_test).
+            y_test = self.target_extractor(y_test)
         current_score = self._scoring(net, X_test, y_test)
         history.record(self.name_, current_score)
 
