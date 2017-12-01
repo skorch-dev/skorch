@@ -17,6 +17,7 @@ from skorch.dataset import CVSplit
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
+from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import to_numpy
 from skorch.utils import to_var
@@ -917,10 +918,10 @@ class NeuralNet(object):
             self.initialize_criterion()
         if any(key.startswith('callbacks') for key in special_params):
             self.initialize_callbacks()
-        if any(key.startswith('module') for key in special_params):
+        if any('module' in key.split('__') for key in special_params):
             self.initialize_module()
             self.initialize_optimizer()
-        if any(key.startswith('optimizer') for key in special_params):
+        if any('optimizer' in key.split('__') for key in special_params):
             # Model selectors such as GridSearchCV will set the
             # parameters before .initialize() is called, therefore we
             # need to make sure that we have an initialized model here
@@ -1230,3 +1231,55 @@ class NeuralNetRegressor(NeuralNet):
 
     def predict(self, X):
         return self.predict_proba(X)
+
+
+class NeuralNetPipeline(NeuralNet):
+    @property
+    def named_steps(self):
+        from sklearn.utils import Bunch  
+        return Bunch(**dict(self.module_.named_modules()))
+
+    @property
+    def prefixes_(self):
+        prefixes = NeuralNet.prefixes_[:]
+        for name, _ in self.module:
+            prefixes.append(name + '__module')
+        return prefixes
+
+    def check_kwargs(self, kwargs):
+        super().check_kwargs(kwargs)
+
+        dups = duplicate_items([name for name, _ in self.module])
+        if dups:
+            raise ValueError("There are duplicate module names: {}".format(
+                ', '.join(dups)))
+
+        for name, module in self.module:
+            if not isinstance(module, torch.nn.Module):
+                raise TypeError(
+                    "Module {} is not a pytorch module.".format(name))
+
+    def initialize_module(self):
+        modules = []
+        for name, module in self.module:
+            kwargs = self._get_params_for('module')
+            kwargs.update(self._get_params_for(name + '__module'))
+            is_initialized = isinstance(module, torch.nn.Module)
+
+            if kwargs or not is_initialized:
+                if is_initialized:
+                    module = type(module)
+
+                if is_initialized or self.initialized_:
+                    if self.verbose:
+                        print("Re-initializing {} module!".format(name))
+
+                module = module(**kwargs)
+
+            if self.use_cuda:
+                module.cuda()
+            modules.append((name, module))
+
+        from collections import OrderedDict  
+        self.module_ = torch.nn.Sequential(OrderedDict(modules))
+        return self

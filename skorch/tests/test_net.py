@@ -19,6 +19,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from skorch.net import to_numpy
+from skorch.net import to_var
 
 
 torch.manual_seed(0)
@@ -482,8 +483,6 @@ class TestNeuralNet:
         print(gs.best_score_, gs.best_params_)
 
     def test_change_get_loss(self, net_cls, module_cls, data):
-        from skorch.utils import to_var
-
         class MyNet(net_cls):
             # pylint: disable=unused-argument
             def get_loss(self, y_pred, y_true, X=None, train=False):
@@ -812,3 +811,131 @@ class TestNeuralNetRegressor:
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
         assert np.allclose(y_pred, y_proba)
+
+
+class TestNeuralNetPipeline:
+    @pytest.fixture
+    def pipe_cls(self):
+        from skorch.net import NeuralNetPipeline
+
+        class MyNeuralNetPipeline(NeuralNetPipeline):
+            # pylint: disable=unused-argument
+            def get_loss(self, y_pred, y_true, X, train=False):
+                X = to_var(X, use_cuda=self.use_cuda)
+                return self.criterion_(X, y_pred)
+        return MyNeuralNetPipeline
+
+    @pytest.fixture
+    def encoder(self):
+        class Encoder(nn.Module):
+            def __init__(self, num_units=10):
+                super().__init__()
+                self.linear = nn.Linear(10, num_units)
+
+            def forward(self, X):
+                Xt = self.linear(X)
+                return X + 1 + Xt
+        return Encoder()
+
+    @pytest.fixture
+    def decoder(self):
+        class Decoder(nn.Module):
+            def __init__(self, num_units=10):
+                super().__init__()
+                self.linear = nn.Linear(num_units, 10)
+
+            def forward(self, X):
+                Xt = self.linear(X)
+                return Xt
+        return Decoder()
+
+    @pytest.fixture
+    def criterion(self):
+        class ReconstructionError(nn.Module):
+            def forward(self, x, y):
+                return ((x - y) ** 2).mean()
+        return ReconstructionError
+
+    @pytest.fixture
+    def data(self):
+        return np.random.random((100, 10)).astype(np.float32), None
+
+    @pytest.fixture
+    def modules(self, encoder, decoder):
+        return [('encoder', encoder), ('decoder', decoder)]
+
+    @pytest.fixture
+    def pipe(self, pipe_cls, modules, criterion):
+        return pipe_cls(
+            modules,
+            criterion=criterion,
+            max_epochs=20,
+            callbacks__train_loss__target_extractor=lambda x: None,
+            callbacks__valid_loss__target_extractor=lambda x: None,
+        )
+
+    def test_named_steps(self):
+        pass
+
+    def test_init_duplicate_names_raises(self):
+        pass
+
+    def test_init_not_module_raises(self):
+        pass
+
+    def test_net_learns(self, pipe, data):
+        pipe.fit(*data)
+        for mode in ('train_loss', 'valid_loss'):
+            first_loss = pipe.history[0, mode]
+            last_loss = pipe.history[-1, mode]
+            assert first_loss > 2 * last_loss
+
+            mean_improvement = np.mean(pipe.history[:, mode + '_best'])
+            assert mean_improvement > 0.7
+
+    def test_set_encoder_params(self, pipe_cls, modules, criterion):
+        pipe = pipe_cls(
+            modules,
+            criterion=criterion,
+            encoder__module__num_units=55,
+        ).initialize()
+        assert pipe.named_steps.encoder.linear.weight.size(0) == 55
+
+    def test_set_decoder_params(self, pipe_cls, modules, criterion):
+        pipe = pipe_cls(
+            modules,
+            criterion=criterion,
+            decoder__module__num_units=33,
+        ).initialize()
+        assert pipe.named_steps.decoder.linear.weight.size(1) == 33
+
+    def test_set_encoder_decoder_params(self, pipe_cls, modules, criterion):
+        pipe = pipe_cls(
+            modules,
+            criterion=criterion,
+            encoder__module__num_units=22,
+            decoder__module__num_units=11,
+        ).initialize()
+        assert pipe.named_steps.encoder.linear.weight.size(0) == 22
+        assert pipe.named_steps.decoder.linear.weight.size(1) == 11
+
+    def test_set_module_params(self, pipe_cls, modules, criterion):
+        pipe = pipe_cls(
+            modules,
+            criterion=criterion,
+        ).initialize()
+        pipe.set_params(
+            encoder__module__num_units=66,
+            decoder__module__num_units=77,
+        )
+        assert pipe.named_steps.encoder.linear.weight.size(0) == 66
+        assert pipe.named_steps.decoder.linear.weight.size(1) == 77
+
+    def test_pickle_save_load(self):
+        pass
+
+    def test_pickle_save_and_load_uninitialized(self):
+        pass
+
+    def test_save_load_state_dict_file(self):
+        pass
