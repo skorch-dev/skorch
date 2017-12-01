@@ -240,6 +240,13 @@ class NeuralNet(object):
         history = kwargs.pop('history', None)
         initialized = kwargs.pop('initialized_', False)
 
+        self.check_kwargs(kwargs)
+        vars(self).update(kwargs)
+
+        self.history = history
+        self.initialized_ = initialized
+
+    def check_kwargs(self, kwargs):
         # catch arguments that seem to not belong anywhere
         unexpected_kwargs = []
         for key in kwargs:
@@ -254,10 +261,6 @@ class NeuralNet(object):
                    "in a subclass; if that is the case, the subclass "
                    "should deal with the new arguments explicitely.")
             raise TypeError(msg.format(', '.join(unexpected_kwargs)))
-        vars(self).update(kwargs)
-
-        self.history = history
-        self.initialized_ = initialized
 
     def get_default_callbacks(self):
         return [
@@ -451,6 +454,13 @@ class NeuralNet(object):
         y_pred = self.infer(Xi)
         return self.get_loss(y_pred, yi, X=Xi, train=False)
 
+    def _grad_clip(self):
+        if self.gradient_clip_value is not None:
+            torch.nn.utils.clip_grad_norm(
+                self.module_.parameters(),
+                self.gradient_clip_value,
+                norm_type=self.gradient_clip_norm_type)
+
     def train_step(self, Xi, yi):
         """Perform a forward step using batched data, update module
         parameters, and return the loss.
@@ -464,12 +474,7 @@ class NeuralNet(object):
         y_pred = self.infer(Xi)
         loss = self.get_loss(y_pred, yi, X=Xi, train=True)
         loss.backward()
-
-        if self.gradient_clip_value is not None:
-            torch.nn.utils.clip_grad_norm(
-                self.module_.parameters(),
-                self.gradient_clip_value,
-                norm_type=self.gradient_clip_norm_type)
+        self._grad_clip()
 
         self.optimizer_.step()
         return loss
