@@ -446,8 +446,8 @@ the loss is determined. Below we show an example of overriding
             super().__init__(*args, **kwargs)
             self.lambda1 = lambda1
 
-        def get_loss(self, y_pred, y_true, X=None, train=False):
-            loss = super().get_loss(y_pred, y_true, X=X, train=train)
+        def get_loss(self, y_pred, y_true, X=None, training=False):
+            loss = super().get_loss(y_pred, y_true, X=X, training=training)
             loss += self.lambda1 * sum([w.abs().sum() for w in self.module_.parameters()])
             return loss
 

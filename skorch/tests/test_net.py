@@ -486,11 +486,11 @@ class TestNeuralNet:
 
         class MyNet(net_cls):
             # pylint: disable=unused-argument
-            def get_loss(self, y_pred, y_true, X=None, train=False):
+            def get_loss(self, y_pred, y_true, X=None, training=False):
                 y_true = to_var(y_true, use_cuda=False)
                 loss_a = torch.abs(y_true.float() - y_pred[:, 1]).mean()
                 loss_b = ((y_true.float() - y_pred[:, 1]) ** 2).mean()
-                if train:
+                if training:
                     self.history.record_batch('loss_a', to_numpy(loss_a)[0])
                     self.history.record_batch('loss_b', to_numpy(loss_b)[0])
                 return loss_a + loss_b
