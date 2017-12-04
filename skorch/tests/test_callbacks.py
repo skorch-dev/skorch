@@ -870,17 +870,17 @@ class TestProgressBar:
         ])
         net.fit(*data)
 
-
     @pytest.mark.parametrize('scheme', [
         'count',
         'auto',
-        2, # correct number of batches_per_epoch (20 // 10)
-        3, # offset by +1, should still work
-        1, # offset by -1, should still work
+        None,
+        2,  # correct number of batches_per_epoch (20 // 10)
+        3,  # offset by +1, should still work
+        1,  # offset by -1, should still work
     ])
-    def test_different_count_schemes(self, scheme, net_cls, progressbar_cls, data):
+    def test_different_count_schemes(
+            self, scheme, net_cls, progressbar_cls, data):
         net = net_cls(callbacks=[
             progressbar_cls(batches_per_epoch=scheme),
         ])
         net.fit(*data)
-
