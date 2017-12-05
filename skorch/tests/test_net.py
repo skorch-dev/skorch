@@ -40,7 +40,7 @@ class MyClassifier(nn.Module):
         X = self.nonlin(self.dense0(X))
         X = self.dropout(X)
         X = self.nonlin(self.dense1(X))
-        X = F.softmax(self.output(X))
+        X = F.softmax(self.output(X), dim=-1)
         return X
 
 
@@ -607,7 +607,7 @@ class TestNeuralNet:
             nn.Linear(X.shape[1], 10),
             nn.ReLU(),
             nn.Linear(10, 2),
-            nn.Softmax(),
+            nn.Softmax(dim=-1),
         )
         net = net_cls(module, max_epochs=1)
         net.fit(X, y)
