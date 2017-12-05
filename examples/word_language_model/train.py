@@ -50,11 +50,7 @@ class ExamplePrinter(skorch.callbacks.Callback):
 def my_train_split(X, y):
     # Return (corpus.train, corpus.valid) in case the network
     # is fitted using net.fit(corpus.train).
-    #
-    # TODO: remove dummy y values once #112 is fixed.
-    #
-    import numpy as np
-    return X, corpus.valid, np.zeros(len(X)), np.zeros(len(corpus.valid))
+    return X, corpus.valid, None, None
 
 net = Net(
     module=RNNModel,

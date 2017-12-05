@@ -92,7 +92,7 @@ class Net(skorch.NeuralNet):
 
     def score(self, X, y=None):
         ds = self.get_dataset(X)
-        target_iterator = self.get_iterator(ds, train=False)
+        target_iterator = self.get_iterator(ds, training=False)
 
         y_true = np.concatenate([skorch.utils.to_numpy(y) for _, y in target_iterator])
         y_pred = self.predict(X)
