@@ -200,6 +200,6 @@ In general, this should work (assuming CUDA 9):
 .. code:: bash
 
     # using conda:
-    conda install pytorch cuda90 -c soumith
+    conda install pytorch cuda90 -c pytorch
     # using pip
     pip install http://download.pytorch.org/whl/cu90/torch-0.3.0.post4-cp36-cp36m-linux_x86_64.whl

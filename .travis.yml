@@ -21,6 +21,6 @@ install:
   - source activate skorch-env
   - conda install --file=requirements-dev.txt
   - python setup.py install
-  - conda install -c soumith pytorch
+  - conda install -c pytorch pytorch
 script:
   - pytest
