@@ -545,11 +545,10 @@ class ProgressBar(Callback):
     Parameters:
     -----------
 
-    batches_per_epoch : int, str (default='auto')
+    batches_per_epoch : int (default=None)
       The progress bar determines the number of batches per epoch
-      automatically by observing ``X.size(0)`` but you can also set
-      it to ``'count'`` where the number of iterations is determined
-      after one epoch. You can also provide this number manually.
+      automatically after one epoch but you can also specify this
+      number yourself using this parameter.
 
     detect_notebook : bool (default=True)
       If enabled, the progress bar determines if its current environment
@@ -566,7 +565,7 @@ class ProgressBar(Callback):
 
     def __init__(
             self,
-            batches_per_epoch='auto',
+            batches_per_epoch=None,
             detect_notebook=True,
             postfix_keys=None
     ):
@@ -583,11 +582,6 @@ class ProgressBar(Callback):
     def _use_notebook(self):
         return self.in_ipynb() if self.detect_notebook else False
 
-    def _get_batch_size(self, net, training):
-        name = 'iterator_train' if training else 'iterator_valid'
-        net_params = net.get_params()
-        return net_params.get(name + '__batch_size', net_params['batch_size'])
-
     def _get_postfix_dict(self, net):
         postfix = {}
         for key in self.postfix_keys:
@@ -602,16 +596,12 @@ class ProgressBar(Callback):
         self.pbar.update()
 
     def on_epoch_begin(self, net, **kwargs):
-        if self.batches_per_epoch == 'auto':
-            batch_size = self._get_batch_size(net, kwargs['training'])
-            self.batches_per_epoch = kwargs['X'].size(0) / batch_size
-
         if self._use_notebook():
             self.pbar = tqdm.tqdm_notebook(total=self.batches_per_epoch)
         else:
             self.pbar = tqdm.tqdm(total=self.batches_per_epoch)
 
     def on_epoch_end(self, net, **kwargs):
-        if self.batches_per_epoch == 'count':
+        if self.batches_per_epoch is None:
             self.batches_per_epoch = self.pbar.n
         self.pbar.close()
