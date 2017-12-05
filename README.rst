@@ -195,11 +195,11 @@ version you need is dependent on your system. For installation
 instructions for ``pytorch``, visit the `pytorch website
 <http://pytorch.org/>`__.
 
-In general, this should work:
+In general, this should work (assuming CUDA 9):
 
 .. code:: bash
 
     # using conda:
-    conda install pytorch cuda80 -c soumith
+    conda install pytorch cuda90 -c soumith
     # using pip
-    pip install http://download.pytorch.org/whl/cu80/torch-0.2.0.post3-cp36-cp36m-manylinux1_x86_64.whl
+    pip install http://download.pytorch.org/whl/cu90/torch-0.3.0.post4-cp36-cp36m-linux_x86_64.whl
