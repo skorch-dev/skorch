@@ -78,7 +78,7 @@ class TestEpochScoring:
         net = net_cls(
             module=module_cls,
             callbacks=[scoring_cls(
-                'mean_squared_error', on_train=True, name='nmse')],
+                'neg_mean_squared_error', on_train=True, name='nmse')],
             train_split=train_split,
             max_epochs=2,
         )
