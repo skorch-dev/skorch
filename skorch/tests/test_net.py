@@ -732,7 +732,7 @@ class TestNeuralNet:
             module__num_units=55,
         )
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'> (uninitialized) (
+        expected = """<class 'skorch.net.NeuralNetClassifier'>[uninitialized](
   module=<class 'skorch.tests.test_net.MyClassifier'>,
   module__num_units=55,
 )"""
@@ -745,12 +745,12 @@ class TestNeuralNet:
         )
         net.initialize()
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'> (initialized) (
-  module_=MyClassifier (
-    (dense0): Linear (20 -> 42)
-    (dropout): Dropout (p = 0.5)
-    (dense1): Linear (42 -> 10)
-    (output): Linear (10 -> 2)
+        expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyClassifier(
+    (dense0): Linear(in_features=20, out_features=42)
+    (dropout): Dropout(p=0.5)
+    (dense1): Linear(in_features=42, out_features=10)
+    (output): Linear(in_features=10, out_features=2)
   ),
 )"""
         assert result == expected
@@ -764,13 +764,13 @@ class TestNeuralNet:
         )
         net.fit(X[:50], y[:50])
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'> (initialized) (
-  module_=MyClassifier (
-    (dense0): Linear (20 -> 11)
-    (nonlin): PReLU (1)
-    (dropout): Dropout (p = 0.5)
-    (dense1): Linear (11 -> 10)
-    (output): Linear (10 -> 2)
+        expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyClassifier(
+    (dense0): Linear(in_features=20, out_features=11)
+    (nonlin): PReLU(num_parameters=1)
+    (dropout): Dropout(p=0.5)
+    (dense1): Linear(in_features=11, out_features=10)
+    (output): Linear(in_features=10, out_features=2)
   ),
 )"""
         assert result == expected
