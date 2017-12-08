@@ -726,6 +726,55 @@ class TestNeuralNet:
                     "Dataset arguments ({'foo': 123}) is not allowed.")
         assert exc.value.args[0] == expected
 
+    def test_repr_uninitialized_works(self, net_cls, module_cls):
+        net = net_cls(
+            module_cls,
+            module__num_units=55,
+        )
+        result = net.__repr__()
+        expected = """<class 'skorch.net.NeuralNetClassifier'> (uninitialized) (
+  module=<class 'skorch.tests.test_net.MyClassifier'>,
+  module__num_units=55,
+)"""
+        assert result == expected
+
+    def test_repr_initialized_works(self, net_cls, module_cls):
+        net = net_cls(
+            module_cls,
+            module__num_units=42,
+        )
+        net.initialize()
+        result = net.__repr__()
+        expected = """<class 'skorch.net.NeuralNetClassifier'> (initialized) (
+  module_=MyClassifier (
+    (dense0): Linear (20 -> 42)
+    (dropout): Dropout (p = 0.5)
+    (dense1): Linear (42 -> 10)
+    (output): Linear (10 -> 2)
+  ),
+)"""
+        assert result == expected
+
+    def test_repr_fitted_works(self, net_cls, module_cls, data):
+        X, y = data
+        net = net_cls(
+            module_cls,
+            module__num_units=11,
+            module__nonlin=nn.PReLU(),
+        )
+        net.fit(X[:50], y[:50])
+        result = net.__repr__()
+        expected = """<class 'skorch.net.NeuralNetClassifier'> (initialized) (
+  module_=MyClassifier (
+    (dense0): Linear (20 -> 11)
+    (nonlin): PReLU (1)
+    (dropout): Dropout (p = 0.5)
+    (dense1): Linear (11 -> 10)
+    (output): Linear (10 -> 2)
+  ),
+)"""
+        assert result == expected
+
 
 class MyRegressor(nn.Module):
     """Simple regression module."""

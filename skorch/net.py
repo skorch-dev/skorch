@@ -1030,6 +1030,31 @@ class NeuralNet(object):
 
         self.module_.load_state_dict(model)
 
+    def __repr__(self):
+        params = self.get_params(deep=False)
+
+        to_include = ['module']
+        to_exclude = []
+        parts = [str(self.__class__) + ' (uninitialized) (']
+        if self.initialized_:
+            parts = [str(self.__class__) + ' (initialized) (']
+            to_include = ['module_']
+            to_exclude = ['module__']
+
+        for key, val in sorted(params.items()):
+            if not any(key.startswith(prefix) for prefix in to_include):
+                continue
+            if any(key.startswith(prefix) for prefix in to_exclude):
+                continue
+
+            val = str(val)
+            if '\n' in val:
+                val = '\n  '.join(val.split('\n'))
+            parts.append('  {}={},'.format(key, val))
+
+        parts.append(')')
+        return '\n'.join(parts)
+
 
 #######################
 # NeuralNetClassifier #
