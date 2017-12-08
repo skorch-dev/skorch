@@ -92,8 +92,6 @@ def multi_indexing(data, i):
         else:
             raise IndexError("arrays used as indices must be of integer "
                              "(or boolean) type")
-    if isinstance(i, list):
-        i = (i,)
 
     if isinstance(data, dict):
         # dictionary of containers
