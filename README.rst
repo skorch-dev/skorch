@@ -1,4 +1,4 @@
-.. image:: ./assets/skorch.svg
+.. image:: https://github.com/dnouri/skorch/blob/master/assets/skorch.svg
    :width: 30%
 ======
 
@@ -11,7 +11,7 @@ A scikit-learn compatible neural network library that wraps PyTorch.
     :scale: 100%
     :target: https://travis-ci.org/dnouri/skorch?branch=master
 
-.. |coverage| image:: ./assets/coverage.svg
+.. |coverage| image:: https://github.com/dnouri/skorch/blob/master/assets/coverage.svg
     :alt: Test Coverage
     :scale: 100%
 

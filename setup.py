@@ -45,6 +45,7 @@ setup(
     license='new BSD 3-Clause',
     packages=find_packages(),
     include_package_data=True,
+    url="https://github.com/dnouri/skorch",
     zip_safe=False,
     install_requires=install_requires,
     extras_require={
