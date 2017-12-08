@@ -18,7 +18,8 @@ __all__ = [
     'callbacks',
 ]
 
+
 try:
     __version__ = pkg_resources.get_distribution('skorch').version
-except:
+except:  # pylint: disable=bare-except
     __version__ = 'n/a'

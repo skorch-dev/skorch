@@ -199,7 +199,7 @@ class TestNeuralNet:
 
         # The loaded model should not use CUDA anymore as it
         # already knows CUDA is not available.
-        assert m.use_cuda == False
+        assert m.use_cuda is False
 
         assert len(w.list) == 1  # only 1 warning
         assert w.list[0].message.args[0] == (
