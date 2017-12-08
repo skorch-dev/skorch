@@ -1035,9 +1035,9 @@ class NeuralNet(object):
 
         to_include = ['module']
         to_exclude = []
-        parts = [str(self.__class__) + ' (uninitialized) (']
+        parts = [str(self.__class__) + '[uninitialized](']
         if self.initialized_:
-            parts = [str(self.__class__) + ' (initialized) (']
+            parts = [str(self.__class__) + '[initialized](']
             to_include = ['module_']
             to_exclude = ['module__']
 

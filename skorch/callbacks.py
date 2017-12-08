@@ -609,10 +609,12 @@ class ProgressBar(Callback):
                 pass
         return postfix
 
+    # pylint: disable=attribute-defined-outside-init
     def on_batch_end(self, net, **kwargs):
         self.pbar.set_postfix(self._get_postfix_dict(net))
         self.pbar.update()
 
+    # pylint: disable=attribute-defined-outside-init
     def on_epoch_begin(self, net, X=None, X_valid=None, **kwargs):
         # Assume it is a number until proven otherwise.
         batches_per_epoch = self.batches_per_epoch

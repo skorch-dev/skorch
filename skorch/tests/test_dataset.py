@@ -462,7 +462,7 @@ class TestNetWithDict:
             # pylint: disable=arguments-differ
             def forward(self, X0, X1):
                 X = torch.cat((X0, X1), 1)
-                X = F.softmax(self.dense(X))
+                X = F.softmax(self.dense(X), dim=-1)
                 return X
 
         return MyModule
@@ -506,7 +506,7 @@ class TestNetWithList:
             # pylint: disable=arguments-differ
             def forward(self, X):
                 X = torch.cat(X, 1)
-                X = F.softmax(self.dense(X))
+                X = F.softmax(self.dense(X), dim=-1)
                 return X
 
         return MyModule
@@ -553,7 +553,7 @@ class TestNetWithPandas:
             # pylint: disable=arguments-differ
             def forward(self, **X):
                 X = torch.cat(list(X.values()), 1)
-                X = F.softmax(self.dense(X))
+                X = F.softmax(self.dense(X), dim=-1)
                 return X
 
         return MyModule
@@ -675,7 +675,7 @@ class TestTrainSplitIsUsed:
                 X = self.nonlin(self.dense0(X))
                 X = self.dropout(X)
                 X = self.nonlin(self.dense1(X))
-                X = F.softmax(self.output(X))
+                X = F.softmax(self.output(X), dim=-1)
                 return X
         return MyClassifier
 
