@@ -22,17 +22,17 @@ class SliceDict(dict):
 
     """
     def __init__(self, **kwargs):
-        shapes = [value.shape[0] for value in kwargs.values()]
-        shapes_set = set(shapes)
-        if shapes_set and (len(shapes_set) != 1):
+        lengths = [value.shape[0] for value in kwargs.values()]
+        lengths_set = set(lengths)
+        if lengths_set and (len(lengths_set) != 1):
             raise ValueError(
-                "Initialized with items of different shapes: {}"
-                "".format(', '.join(map(str, sorted(shapes_set)))))
+                "Initialized with items of different lengths: {}"
+                "".format(', '.join(map(str, sorted(lengths_set)))))
 
-        if not shapes:
+        if not lengths:
             self._len = 0
         else:
-            self._len = shapes[0]
+            self._len = lengths[0]
 
         super(SliceDict, self).__init__(**kwargs)
 

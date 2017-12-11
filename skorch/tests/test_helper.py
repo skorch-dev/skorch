@@ -32,7 +32,7 @@ class TestSliceDict:
         with pytest.raises(ValueError) as exc:
             sldict_cls(f0=np.ones((10, 5)), f1=np.ones((11, 5)))
         assert str(exc.value) == (
-            "Initialized with items of different shapes: 10, 11")
+            "Initialized with items of different lengths: 10, 11")
 
     @pytest.mark.parametrize('item', [
         np.ones(4),
