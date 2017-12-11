@@ -11,6 +11,9 @@ class SliceDict(dict):
     Use this if your input data is a dictionary and you have problems
     with sklearn not being able to slice it. Wrap your dict with
     SliceDict and it should usually work.
+    
+    Note: SliceDict cannot be indexed by integers, if you want one
+    row, say row 3, use `[3:4]`.
 
     Examples
     --------
@@ -41,6 +44,9 @@ class SliceDict(dict):
 
     def __getitem__(self, sl):
         if isinstance(sl, int):
+            # Indexing with integers is not well-defined because that
+            # recudes the dimension of arrays by one, messing up
+            # lengths and shapes.
             raise ValueError("SliceDict cannot be indexed by integers.")
         if isinstance(sl, str):
             return super(SliceDict, self).__getitem__(sl)
