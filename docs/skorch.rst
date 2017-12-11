@@ -10,3 +10,4 @@ skorch
    history
    net
    utils
+   helper
