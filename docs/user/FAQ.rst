@@ -49,3 +49,15 @@ notation (as known from sklearn):
 Note that we have an ``iterator_train`` for the training data and an
 ``iterator_valid`` for validation and test data. In general, you only
 want to shuffle the train data, which is what the code above does.
+
+
+How do I use sklearn GridSeachCV when my data is in a dictionary?
+-----------------------------------------------------------------
+
+skorch supports dicts as input but sklearn doesn't. To get around
+that, try to wrap your dictionary into a ``SliceDict``. This is a data
+container that partly behaves like a dict, partly like an ndarray. For
+more details on how to do this, have a look at the coresponding
+`data section
+<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Working-with-sklearn-FunctionTransformer-and-GridSearch>`__
+in the notebook.

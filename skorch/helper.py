@@ -12,8 +12,8 @@ class SliceDict(dict):
     with sklearn not being able to slice it. Wrap your dict with
     SliceDict and it should usually work.
 
-    Example
-    -------
+    Examples
+    --------
     >>> X = {'key0': val0, 'key1': val1}
     >>> search = GridSearchCV(net, params, ...)
     >>> search.fit(X, y)  # raises error
