@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification
+from scipy import sparse
 import torch
 import torch.utils.data
 from torch import nn
@@ -35,6 +36,7 @@ class TestGetLen:
         ([[0, 1, 2], [3, 4, 5]], 3),
         ({'0': [0, 1, 2], '1': (3, 4, 5)}, 3),
         (([0, 1, 2], np.zeros(3), torch.zeros(3), {'0': (1, 2, 3)}), 3),
+        (sparse.csr_matrix(np.zeros((5, 3))), 5),
     ])
     def test_valid_lengths(self, get_len, data, expected):
         length = get_len(data)
@@ -445,6 +447,28 @@ class TestMultiIndexing:
         res = multi_indexing(X, i)
         expected = torch.LongTensor([0, 4, 8])
         assert all(res == expected)
+
+    @pytest.mark.parametrize('data, i, expected', [
+        (
+            np.arange(12).reshape(4, 3),
+            slice(None),
+            np.arange(12).reshape(4, 3),
+        ),
+        (
+            np.arange(12).reshape(4, 3),
+            np.s_[2],
+            np.array([6, 7, 8]),
+        ),
+        (
+            np.arange(12).reshape(4, 3),
+            np.s_[-2:],
+            np.array([[6, 7, 8], [9, 10, 11]]),
+        ),
+    ])
+    def test_csr_matrix(self, multi_indexing, data, i, expected):
+        data = sparse.csr_matrix(data)
+        result = multi_indexing(data, i).toarray()
+        assert np.allclose(result, expected)
 
 
 class TestNetWithDict:

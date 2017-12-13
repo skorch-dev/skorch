@@ -9,6 +9,7 @@ from enum import Enum
 from functools import partial
 
 import numpy as np
+from scipy import sparse
 import torch
 from torch import nn
 from torch.autograd import Variable
@@ -47,6 +48,19 @@ def to_var(X, use_cuda):
     return Variable(X)
 
 
+def to_torch_sparse_tensor(M):
+    """Convert Scipy sparse matrix to torch sparse tensor.
+
+    Credit: https://gist.github.com/shchur/9428f6f00dd8e6ea617640d51fc7c8a9
+
+    """
+    M = M.tocoo().astype(np.float32)
+    indices = torch.from_numpy(np.vstack((M.row, M.col))).long()
+    values = torch.from_numpy(M.data)
+    shape = torch.Size(M.shape)
+    return torch.sparse.FloatTensor(indices, values, shape)
+
+
 def to_tensor(X, use_cuda):
     """Turn to torch Variable.
 
@@ -72,6 +86,9 @@ def to_tensor(X, use_cuda):
 
     if isinstance(X, np.ndarray):
         X = torch.from_numpy(X)
+
+    if sparse.issparse(X):
+        X = to_torch_sparse_tensor(X)
 
     if isinstance(X, Sequence):
         X = torch.from_numpy(np.array(X))

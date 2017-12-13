@@ -4,6 +4,7 @@ from functools import partial
 from numbers import Number
 
 import numpy as np
+from scipy import sparse
 from sklearn.utils import safe_indexing
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import StratifiedKFold
@@ -37,8 +38,18 @@ def _apply_to_data(data, func, unpack_dict=False):
     return func(data)
 
 
+def _is_sparse(x):
+    return isinstance(x, torch.sparse._SparseBase) or sparse.issparse(x)
+
+
+def _len(x):
+    if _is_sparse(x):
+        return x.shape[0]
+    return len(x)
+
+
 def get_len(data):
-    lens = [_apply_to_data(data, len, unpack_dict=True)]
+    lens = [_apply_to_data(data, _len, unpack_dict=True)]
     lens = list(flatten(lens))
     len_set = set(lens)
     if len(len_set) != 1:
