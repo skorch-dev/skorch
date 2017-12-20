@@ -17,6 +17,7 @@ from skorch.dataset import CVSplit
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
+from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import to_numpy
 from skorch.utils import to_var
@@ -439,29 +440,53 @@ class NeuralNet(object):
     def check_data(self, X, y=None):
         pass
 
-    def validation_step(self, Xi, yi):
+    def validation_step(self, Xi, yi, **fit_params):
         """Perform a forward step using batched data and return the
         resulting loss.
 
         The module is set to be in evaluation mode (e.g. dropout is
         not applied).
 
+        Parameters
+        ----------
+        Xi : input data
+          A batch of the input data.
+
+        yi : target data
+          A batch of the target data.
+
+        **fit_params : dict
+          Additional parameters passed to the ``forward`` method of
+          the module and to the train_split call.
+
         """
         self.module_.eval()
-        y_pred = self.infer(Xi)
+        y_pred = self.infer(Xi, **fit_params)
         return self.get_loss(y_pred, yi, X=Xi, training=False)
 
-    def train_step(self, Xi, yi):
+    def train_step(self, Xi, yi, **fit_params):
         """Perform a forward step using batched data, update module
         parameters, and return the loss.
 
         The module is set to be in train mode (e.g. dropout is
         applied).
 
+        Parameters
+        ----------
+        Xi : input data
+          A batch of the input data.
+
+        yi : target data
+          A batch of the target data.
+
+        **fit_params : dict
+          Additional parameters passed to the ``forward`` method of
+          the module and to the train_split call.
+
         """
         self.module_.train()
         self.optimizer_.zero_grad()
-        y_pred = self.infer(Xi)
+        y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
 
@@ -486,7 +511,7 @@ class NeuralNet(object):
         self.module_.train(training)
         return self.infer(Xi)
 
-    def fit_loop(self, X, y=None, epochs=None):
+    def fit_loop(self, X, y=None, epochs=None, **fit_params):
         """The proper fit loop.
 
         Contains the logic of what actually happens during the fit
@@ -513,14 +538,17 @@ class NeuralNet(object):
           If int, train for this number of epochs; if None, use
           ``self.max_epochs``.
 
-        **fit_params : currently ignored
+        **fit_params : dict
+          Additional parameters passed to the ``forward`` method of
+          the module and to the train_split call.
 
         """
         self.check_data(X, y)
         epochs = epochs if epochs is not None else self.max_epochs
 
         if self.train_split:
-            X_train, X_valid, y_train, y_valid = self.train_split(X, y)
+            X_train, X_valid, y_train, y_valid = self.train_split(
+                X, y, **fit_params)
             dataset_valid = self.get_dataset(X_valid, y_valid)
         else:
             X_train, X_valid, y_train, y_valid = X, None, y, None
@@ -539,7 +567,7 @@ class NeuralNet(object):
 
             for Xi, yi in self.get_iterator(dataset_train, training=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=True)
-                loss = self.train_step(Xi, yi)
+                loss = self.train_step(Xi, yi, **fit_params)
                 self.history.record_batch('train_loss', loss.data[0])
                 self.history.record_batch('train_batch_size', len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=True)
@@ -550,7 +578,7 @@ class NeuralNet(object):
 
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=False)
-                loss = self.validation_step(Xi, yi)
+                loss = self.validation_step(Xi, yi, **fit_params)
                 self.history.record_batch('valid_loss', loss.data[0])
                 self.history.record_batch('valid_batch_size', len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=False)
@@ -586,7 +614,9 @@ class NeuralNet(object):
         classes : array, sahpe (n_classes,)
           Solely for sklearn compatibility, currently unused.
 
-        **fit_params : currently ignored
+        **fit_params : dict
+          Additional parameters passed to the ``forward`` method of
+          the module and to the train_split call.
 
         """
         if not self.initialized_:
@@ -594,7 +624,7 @@ class NeuralNet(object):
 
         self.notify('on_train_begin')
         try:
-            self.fit_loop(X, y)
+            self.fit_loop(X, y, **fit_params)
         except KeyboardInterrupt:
             pass
         self.notify('on_train_end')
@@ -623,7 +653,9 @@ class NeuralNet(object):
         y : target data, compatible with skorch.dataset.Dataset
           The same data types as for ``X`` are supported.
 
-        **fit_params : currently ignored
+        **fit_params : dict
+          Additional parameters passed to the ``forward`` method of
+          the module and to the train_split call.
 
         """
         if not self.warm_start or not self.initialized_:
@@ -696,11 +728,35 @@ class NeuralNet(object):
         y_infer = list(self.forward_iter(X, training=training))
         return torch.cat(y_infer, dim=0)
 
-    def infer(self, x):
+    def _merge_x_and_fit_params(self, x, fit_params):
+        duplicates = duplicate_items(x, fit_params)
+        if duplicates:
+            msg = "X and fit_params contain duplicate keys: "
+            msg += ', '.join(duplicates)
+            raise ValueError(msg)
+
+        x_dict = dict(x)  # shallow copy
+        x_dict.update(fit_params)
+        return x_dict
+
+    def infer(self, x, **fit_params):
+        """Perform a single inference step on a batch of data.
+
+        Parameters
+        ----------
+        x : input data
+          A batch of the input data.
+
+        **fit_params : dict
+          Additional parameters passed to the ``forward`` method of
+          the module and to the train_split call.
+
+        """
         x = to_var(x, use_cuda=self.use_cuda)
         if isinstance(x, dict):
-            return self.module_(**x)
-        return self.module_(x)
+            x_dict = self._merge_x_and_fit_params(x, fit_params)
+            return self.module_(**x_dict)
+        return self.module_(x, **fit_params)
 
     def predict_proba(self, X):
         """Where applicable, return probability estimates for
