@@ -2,7 +2,7 @@
    :width: 30%
 ======
 
-|build| |coverage| |docs|
+|build| |coverage| |docs| |powered|
 
 A scikit-learn compatible neural network library that wraps PyTorch.
 
@@ -19,6 +19,11 @@ A scikit-learn compatible neural network library that wraps PyTorch.
     :alt: Documentation Status
     :scale: 100%
     :target: https://skorch.readthedocs.io/en/latest/?badge=latest
+
+.. |powered| image:: https://github.com/dnouri/skorch/blob/master/assets/powered.svg
+    :alt: Powered by
+    :scale: 100%
+    :target: https://github.com/ottogroup/
 
 Resources:
 
