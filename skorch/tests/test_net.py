@@ -775,6 +775,112 @@ class TestNeuralNet:
 )"""
         assert result == expected
 
+    def test_fit_params_passed_to_module(self, net_cls, data):
+        X, y = data
+        side_effect = []
+
+        class FPModule(MyClassifier):
+            # pylint: disable=arguments-differ
+            def forward(self, X, **fit_params):
+                side_effect.append(fit_params)
+                return super().forward(X)
+
+        net = net_cls(FPModule, max_epochs=1, batch_size=50, train_split=None)
+        # remove callbacks to have better control over side_effect
+        net.initialize()
+        net.callbacks_ = []
+        net.fit(X[:100], y[:100], foo=1, bar=2)
+        net.fit(X[:100], y[:100], bar=3, baz=4)
+
+        assert len(side_effect) == 4  # 2 epochs à 2 batches
+        assert side_effect[0] == dict(foo=1, bar=2)
+        assert side_effect[1] == dict(foo=1, bar=2)
+        assert side_effect[2] == dict(bar=3, baz=4)
+        assert side_effect[3] == dict(bar=3, baz=4)
+
+    def test_fit_params_passed_to_module_in_pipeline(self, net_cls, data):
+        X, y = data
+        side_effect = []
+
+        class FPModule(MyClassifier):
+            # pylint: disable=arguments-differ
+            def forward(self, X, **fit_params):
+                side_effect.append(fit_params)
+                return super().forward(X)
+
+        net = net_cls(FPModule, max_epochs=1, batch_size=50, train_split=None)
+        net.initialize()
+        net.callbacks_ = []
+        pipe = Pipeline([
+            ('net', net),
+        ])
+        pipe.fit(X[:100], y[:100], net__foo=1, net__bar=2)
+        pipe.fit(X[:100], y[:100], net__bar=3, net__baz=4)
+
+        assert len(side_effect) == 4  # 2 epochs à 2 batches
+        assert side_effect[0] == dict(foo=1, bar=2)
+        assert side_effect[1] == dict(foo=1, bar=2)
+        assert side_effect[2] == dict(bar=3, baz=4)
+        assert side_effect[3] == dict(bar=3, baz=4)
+
+    def test_fit_params_passed_to_train_split(self, net_cls, data):
+        X, y = data
+        side_effect = []
+
+        def fp_train_split(X, y, **fit_params):
+            side_effect.append(fit_params)
+            return X[:50], X[50:], y[:50], y[50:]
+
+        class FPModule(MyClassifier):
+            # pylint: disable=unused-argument,arguments-differ
+            def forward(self, X, **fit_params):
+                return super().forward(X)
+
+        net = net_cls(
+            FPModule,
+            max_epochs=1,
+            batch_size=50,
+            train_split=fp_train_split,
+        )
+        net.initialize()
+        net.callbacks_ = []
+        net.fit(X[:100], y[:100], foo=1, bar=2)
+        net.fit(X[:100], y[:100], bar=3, baz=4)
+
+        assert len(side_effect) == 2  # 2 epochs
+        assert side_effect[0] == dict(foo=1, bar=2)
+        assert side_effect[1] == dict(bar=3, baz=4)
+
+    def test_data_dict_and_fit_params(self, net_cls, data):
+        X, y = data
+
+        class FPModule(MyClassifier):
+            # pylint: disable=unused-argument,arguments-differ
+            def forward(self, X0, X1, **fit_params):
+                assert fit_params.get('foo') == 3
+                return super().forward(X0)
+
+        net = net_cls(FPModule, max_epochs=1, batch_size=50, train_split=None)
+        # does not raise
+        net.fit({'X0': X, 'X1': X}, y, foo=3)
+
+    def test_data_dict_and_fit_params_conflicting_names_raises(
+            self, net_cls, data):
+        X, y = data
+
+        class FPModule(MyClassifier):
+            # pylint: disable=unused-argument,arguments-differ
+            def forward(self, X0, X1, **fit_params):
+                return super().forward(X0)
+
+        net = net_cls(FPModule, max_epochs=1, batch_size=50, train_split=None)
+
+        with pytest.raises(ValueError) as exc:
+            net.fit({'X0': X, 'X1': X}, y, X1=3)
+
+        expected = "X and fit_params contain duplicate keys: X1"
+        assert exc.value.args[0] == expected
+
 
 class MyRegressor(nn.Module):
     """Simple regression module."""
