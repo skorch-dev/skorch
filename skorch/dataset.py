@@ -297,7 +297,7 @@ class CVSplit(object):
     def _is_regular(self, x):
         return (x is None) or isinstance(x, np.ndarray) or is_pandas_ndframe(x)
 
-    def __call__(self, X, y):
+    def __call__(self, X, y, groups=None):
         bad_y_error = ValueError("Stratified CV not possible with given y.")
         if (y is None) and self.stratified:
             raise bad_y_error
@@ -318,7 +318,7 @@ class CVSplit(object):
         if self._is_stratified(cv):
             args = args + (to_numpy(y),)
 
-        idx_train, idx_valid = next(iter(cv.split(*args)))
+        idx_train, idx_valid = next(iter(cv.split(*args, groups=groups)))
         X_train = multi_indexing(X, idx_train)
         X_valid = multi_indexing(X, idx_valid)
         y_train = None if y is None else multi_indexing(y, idx_train)
