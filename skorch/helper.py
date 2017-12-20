@@ -11,7 +11,7 @@ class SliceDict(dict):
     Use this if your input data is a dictionary and you have problems
     with sklearn not being able to slice it. Wrap your dict with
     SliceDict and it should usually work.
-    
+
     Note: SliceDict cannot be indexed by integers, if you want one
     row, say row 3, use `[3:4]`.
 
