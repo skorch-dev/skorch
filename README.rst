@@ -1,6 +1,7 @@
 .. image:: https://github.com/dnouri/skorch/blob/master/assets/skorch.svg
    :width: 30%
-======
+
+------------
 
 |build| |coverage| |docs| |powered|
 
@@ -25,13 +26,16 @@ A scikit-learn compatible neural network library that wraps PyTorch.
     :scale: 100%
     :target: https://github.com/ottogroup/
 
-Resources:
+=========
+Resources
+=========
 
 - `Documentation <https://skorch.readthedocs.io/en/latest/?badge=latest>`_
 - `Source Code <https://github.com/dnouri/skorch/>`_
 
+=======
 Example
--------
+=======
 
 To see a more elaborate example, look `here
 <https://github.com/dnouri/skorch/tree/master/notebooks/README.md>`__.
@@ -111,11 +115,12 @@ With grid search
     gs.fit(X, y)
     print(gs.best_score_, gs.best_params_)
 
+============
 Installation
-------------
+============
 
 pip installation
-~~~~~~~~~~~~~~~~
+================
 
 To install with pip, run:
 
@@ -126,13 +131,13 @@ To install with pip, run:
 We recommend to use a virtual environment for this.
 
 From source
-~~~~~~~~~~~
+===========
 
 If you would like to use the must recent additions to skorch or
 help development, you should install skorch from source.
 
 Using conda
-^^^^^^^^^^^
+===========
 
 You need a working conda installation. Get the correct miniconda for
 your system from `here <https://conda.io/miniconda.html>`__.
@@ -164,7 +169,7 @@ If you want to help developing, run:
     pylint skorch  # static code checks
 
 Using pip
-^^^^^^^^^
+=========
 
 If you just want to use skorch, use:
 
@@ -193,7 +198,7 @@ If you want to help developing, run:
     pylint skorch  # static code checks
 
 PyTorch
-~~~~~~~
+=======
 
 PyTorch is not covered by the dependencies, since the PyTorch
 version you need is dependent on your system. For installation
