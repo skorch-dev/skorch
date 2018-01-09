@@ -4,7 +4,7 @@ channels:
 dependencies:
 - libgfortran=3.0.0=1
 - mkl
-- numpy=1.14.0
+- numpy=1.13.1=py36_0
 - openssl=1.0.2l=0
 - pip=9.0.1=py36_1
 - python=3.6.2=0
