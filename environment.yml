@@ -3,7 +3,7 @@ channels:
 - defaults
 dependencies:
 - libgfortran=3.0.0=1
-- mkl=2017.0.3=0
+- mkl
 - numpy=1.14.0
 - openssl=1.0.2l=0
 - pip=9.0.1=py36_1
