@@ -21,6 +21,6 @@ install:
   - source activate skorch-env
   - conda install --file=requirements-dev.txt
   - python setup.py install
-  - conda install -c pytorch 'pytorch>=0.3.0'
+  - conda install -c pytorch pytorch
 script:
   - pytest
