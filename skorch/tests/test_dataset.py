@@ -1004,3 +1004,18 @@ class TestCVSplit:
         assert np.allclose(Xv0, Xv1)
         assert np.allclose(yt0, yt1)
         assert np.allclose(yv0, yv1)
+
+    def test_group_kfold(self, cv_split_cls, data):
+        from sklearn.model_selection import GroupKFold
+
+        X, y = data
+        n = len(X) // 2
+        groups = np.asarray(
+            [0 for _ in range(n)] + [1 for _ in range(len(X) - n)])
+        X_train, X_valid, y_train, y_valid = cv_split_cls(
+            GroupKFold(n_splits=2))(X, y, groups)
+
+        assert np.allclose(X[:n], X_train)
+        assert np.allclose(y[:n], y_train)
+        assert np.allclose(X[n:], X_valid)
+        assert np.allclose(y[n:], y_valid)
