@@ -21,7 +21,71 @@ The base class for each callback is :class:`skorch.callbacks.Callback`. If
 you would like to write your own callbacks, you should inherit from
 this class. A guide and practical example on how to write your own
 callbacks is shown in this `notebook
-<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Writing-a-custom-callback>`_.
+<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Writing-a-custom-callback>`_. In general, remember this:
+
+
+* They should inherit from the base class.
+* They should implement at least one of the _on_ methods provided by
+  the parent class (see below).
+* As argument, the methods first get the NeuralNet instance, and,
+  where appropriate, the local data (e.g. the data from the current
+  batch). The method should also have **kwargs in the signature for
+  potentially unused arguments.
+
+Callback methods to override
+----------------------------
+
+The following methods could potentially be overriden when implementing
+your own callbacks.
+
+initialize
+^^^^^^^^^^
+
+If you have attributes that should be reset when the model is
+re-initialized, those attributes should be set in the this method.
+
+on_train_begin
+^^^^^^^^^^^^^^
+
+Called once at the start of the training process (e.g. when calling fit).
+
+on_train_end
+^^^^^^^^^^^^
+
+Called once at the end of the training process.
+
+on_epoch_begin
+^^^^^^^^^^^^^^
+
+Called once at the start of the epoch, i.e. possibly several times per
+fit call. Gets training and validation data as additional input.
+
+on_epoch_end
+^^^^^^^^^^^^
+
+Called once at the end of the epoch, i.e. possibly several times per
+fit call. Gets training and validation data as additional input.
+
+on_batch_begin
+^^^^^^^^^^^^^^
+
+Called once before each batch of data is processed, i.e. possibly
+several times per epoch. Gets batch data as additional input.
+
+
+on_batch_end
+^^^^^^^^^^^^
+
+Called once after each batch of data is processed, i.e. possibly
+several times per epoch. Gets batch data as additional input.
+
+on_grad_computed
+^^^^^^^^^^^^^^^^
+
+Called once per batch after gradients have been computed but before an
+update step was performed. Gets the module parameters as additional
+input. Useful if you want to tinker with gradients.
+
 
 Scoring
 -------
