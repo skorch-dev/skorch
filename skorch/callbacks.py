@@ -66,7 +66,7 @@ class Callback:
         pass
 
     def on_grad_computed(self, net, parameters, **kwargs):
-        """Called once per epoch after gradients have been computed but before
+        """Called once per batch after gradients have been computed but before
         an update step was performed.
 
         """
