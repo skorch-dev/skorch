@@ -883,6 +883,28 @@ class TestNeuralNet:
         expected = "X and fit_params contain duplicate keys: X1"
         assert exc.value.args[0] == expected
 
+    # XXX remove once deprecation for grad norm clipping is phased out
+    def test_init_grad_clip_and_norm_deprecated(self, net_cls, module_cls):
+        with pytest.raises(ValueError) as exc:
+            net_cls(module_cls, gradient_clip_value=1)
+
+        msg = ("The parameters gradient_clip_value and "
+               "gradient_clip_norm_type are no longer supported. Use "
+               "skorch.callbacks.GradientNormClipping instead.")
+        assert exc.value.args[0] == msg
+
+    # XXX remove once deprecation for grad norm clipping is phased out
+    def test_set_params_grad_clip_and_norm_deprecated(
+            self, net_cls, module_cls):
+        net = net_cls(module_cls)
+        with pytest.raises(ValueError) as exc:
+            net.set_params(gradient_clip_value=0)
+
+        msg = ("The parameters gradient_clip_value and "
+               "gradient_clip_norm_type are no longer supported. Use "
+               "skorch.callbacks.GradientNormClipping instead.")
+        assert exc.value.args[0] == msg
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.
