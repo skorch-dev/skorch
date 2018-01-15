@@ -8,6 +8,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from skorch.utils import to_numpy
+
 
 class TestAllCallbacks:
     @pytest.fixture
@@ -260,8 +262,6 @@ class TestEpochScoring:
 
     def test_target_extractor_is_called(
             self, net_cls, module_cls, train_split, scoring_cls, data):
-        from skorch.utils import to_numpy
-
         X, y = data
         extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(
@@ -552,8 +552,6 @@ class TestBatchScoring:
 
     def test_target_extractor_is_called(
             self, net_cls, module_cls, train_split, scoring_cls, data):
-        from skorch.utils import to_numpy
-
         X, y = data
         extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(

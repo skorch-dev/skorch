@@ -151,31 +151,12 @@ class TestSliceDict:
         expected_keys = {'f0', 'f1'}
         assert found_keys == expected_keys
 
-    def test_grid_search_with_dict_works(self, sldict_cls, data):
+    def test_grid_search_with_dict_works(
+            self, sldict_cls, data, classifier_module):
         from sklearn.model_selection import GridSearchCV
         from skorch import NeuralNetClassifier
-        from torch import nn
 
-        class MyClassifier(nn.Module):
-            """Simple classification module."""
-            def __init__(self, num_units=10, nonlin=nn.functional.relu):
-                super(MyClassifier, self).__init__()
-
-                self.dense0 = nn.Linear(20, num_units)
-                self.nonlin = nonlin
-                self.dropout = nn.Dropout(0.5)
-                self.dense1 = nn.Linear(num_units, 10)
-                self.output = nn.Linear(10, 2)
-
-            # pylint: disable=arguments-differ
-            def forward(self, X):
-                X = self.nonlin(self.dense0(X))
-                X = self.dropout(X)
-                X = self.nonlin(self.dense1(X))
-                X = nn.functional.softmax(self.output(X), dim=-1)
-                return X
-
-        net = NeuralNetClassifier(MyClassifier)
+        net = NeuralNetClassifier(classifier_module)
         X, y = data
         X = sldict_cls(X=X)
         params = {
