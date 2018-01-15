@@ -7,8 +7,6 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from sklearn.datasets import make_classification
-from sklearn.datasets import make_regression
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
@@ -25,7 +23,12 @@ torch.manual_seed(0)
 
 
 class MyClassifier(nn.Module):
-    """Simple classification module."""
+    """Simple classification module.
+
+    We cannot use the module fixtures from conftest because they are
+    not pickleable.
+
+    """
     def __init__(self, num_units=10, nonlin=F.relu):
         super(MyClassifier, self).__init__()
 
@@ -47,9 +50,8 @@ class MyClassifier(nn.Module):
 # pylint: disable=too-many-public-methods
 class TestNeuralNet:
     @pytest.fixture(scope='module')
-    def data(self):
-        X, y = make_classification(1000, 20, n_informative=10, random_state=0)
-        return X.astype(np.float32), y
+    def data(self, classifier_data):
+        return classifier_data
 
     @pytest.fixture(scope='module')
     def dummy_callback(self):
@@ -883,7 +885,12 @@ class TestNeuralNet:
 
 
 class MyRegressor(nn.Module):
-    """Simple regression module."""
+    """Simple regression module.
+
+    We cannot use the module fixtures from conftest because they are
+    not pickleable.
+
+    """
     def __init__(self, num_units=10, nonlin=F.relu):
         super(MyRegressor, self).__init__()
 
@@ -904,13 +911,8 @@ class MyRegressor(nn.Module):
 
 class TestNeuralNetRegressor:
     @pytest.fixture(scope='module')
-    def data(self):
-        X, y = make_regression(
-            1000, 20, n_informative=10, bias=0, random_state=0)
-        X, y = X.astype(np.float32), y.astype(np.float32).reshape(-1, 1)
-        Xt = StandardScaler().fit_transform(X)
-        yt = StandardScaler().fit_transform(y)
-        return Xt, yt
+    def data(self, regression_data):
+        return regression_data
 
     @pytest.fixture(scope='module')
     def module_cls(self):

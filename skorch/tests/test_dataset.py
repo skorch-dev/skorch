@@ -657,27 +657,8 @@ class TestTrainSplitIsUsed:
         return X[:2], X[2:], y[:2], y[2:]
 
     @pytest.fixture
-    def module(self):
-        """Return a simple classifier module class."""
-        class MyClassifier(nn.Module):
-            """Simple classifier module"""
-            def __init__(self, input_units=20, num_units=10, nonlin=F.relu):
-                super(MyClassifier, self).__init__()
-
-                self.dense0 = nn.Linear(input_units, num_units)
-                self.nonlin = nonlin
-                self.dropout = nn.Dropout(0.5)
-                self.dense1 = nn.Linear(num_units, 10)
-                self.output = nn.Linear(10, 2)
-
-            # pylint: disable=arguments-differ
-            def forward(self, X):
-                X = self.nonlin(self.dense0(X))
-                X = self.dropout(X)
-                X = self.nonlin(self.dense1(X))
-                X = F.softmax(self.output(X), dim=-1)
-                return X
-        return MyClassifier
+    def module(self, classifier_module):
+        return classifier_module
 
     @pytest.fixture
     def train_split(self, data_split):
