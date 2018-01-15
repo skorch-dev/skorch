@@ -94,15 +94,14 @@ class NeuralNet(object):
       of using ``optimizer__lr``, which would result in the same outcome.
 
     gradient_clip_value : float (default=None)
-      If not None, clip the norm of all model parameter gradients to this
-      value. The type of the norm is determined by the
-      ``gradient_clip_norm_type`` parameter and defaults to L2. See
-      ``torch.nn.utils.clip_grad_norm`` for more information about the value of
-      this parameter.
+      The parameters gradient_clip_value and gradient_clip_norm_type
+      are no longer supported. Use
+      ``skorch.callbacks.GradientNormClipping`` instead.
 
     gradient_clip_norm_type : float (default=2)
-      Norm to use when gradient clipping is active. The default is
-      to use L2-norm.
+      The parameters gradient_clip_value and gradient_clip_norm_type
+      are no longer supported. Use
+      ``skorch.callbacks.GradientNormClipping`` instead.
 
     max_epochs : int (default=10)
       The number of epochs to train for each ``fit`` call. Note that you
@@ -207,8 +206,6 @@ class NeuralNet(object):
             criterion,
             optimizer=torch.optim.SGD,
             lr=0.01,
-            gradient_clip_value=None,
-            gradient_clip_norm_type=2,
             max_epochs=10,
             batch_size=128,
             iterator_train=DataLoader,
@@ -235,9 +232,8 @@ class NeuralNet(object):
         self.warm_start = warm_start
         self.verbose = verbose
         self.use_cuda = use_cuda
-        self.gradient_clip_value = gradient_clip_value
-        self.gradient_clip_norm_type = gradient_clip_norm_type
 
+        self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
         initialized = kwargs.pop('initialized_', False)
 
@@ -314,6 +310,9 @@ class NeuralNet(object):
         self.history.new_batch()
 
     def on_batch_end(self, net, **kwargs):
+        pass
+
+    def on_grad_computed(self, net, parameters, **kwargs):
         pass
 
     def _yield_callbacks(self):
@@ -489,12 +488,7 @@ class NeuralNet(object):
         y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
-
-        if self.gradient_clip_value is not None:
-            torch.nn.utils.clip_grad_norm(
-                self.module_.parameters(),
-                self.gradient_clip_value,
-                norm_type=self.gradient_clip_norm_type)
+        self.notify('on_grad_computed', parameters=self.module_.parameters())
 
         self.optimizer_.step()
         return loss
@@ -940,6 +934,15 @@ class NeuralNet(object):
     def get_params(self, deep=True, **kwargs):
         return BaseEstimator.get_params(self, deep=deep, **kwargs)
 
+    # XXX remove once deprecation for grad norm clipping is phased out
+    # Also remember to update NeuralNet docstring
+    def _check_deprecated_params(self, **kwargs):
+        if kwargs.get('gradient_clip_value') is not None:
+            msg = ("The parameters gradient_clip_value and "
+                   "gradient_clip_norm_type are no longer supported. Use "
+                   "skorch.callbacks.GradientNormClipping instead.")
+            raise ValueError(msg)
+
     def set_params(self, **kwargs):
         """Set the parameters of this class.
 
@@ -950,6 +953,7 @@ class NeuralNet(object):
         self
 
         """
+        self._check_deprecated_params(**kwargs)
         normal_params, special_params = {}, {}
         for key, val in kwargs.items():
             if any(key.startswith(prefix) for prefix in self.prefixes_):
