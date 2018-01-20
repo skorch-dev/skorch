@@ -1,5 +1,6 @@
 import numpy as np
 from torch.optim.lr_scheduler import *
+from torch.optim.lr_scheduler import _LRScheduler
 from skorch.callbacks import Callback
 
 __all__ = ['LRScheduler']
@@ -86,5 +87,5 @@ class WarmRestartLR(_LRScheduler):
             epoch_idx -= current_period
             current_period *= self.period_mult
         current_lrs = self._get_current_lr(self.min_lr, self.max_lr,
-            epoch_idx, current_period)
+            current_period, epoch_idx)
         return current_lrs.tolist()
