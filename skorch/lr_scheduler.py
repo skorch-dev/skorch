@@ -11,7 +11,7 @@ class LRScheduler(Callback):
     policy.
     """
 
-    def initialize(self, policy='warm_restart'):
+    def __init__(self, policy='warm_restart'):
         self.policy = policy
         self._lr_scheduler = None
 
@@ -31,8 +31,8 @@ class LRScheduler(Callback):
             return MultiStepLR(optimizer=optimizer, **kwargs)
         if self.policy == 'exponential':
             return ExponentialLR(optimizer=optimizer, **kwargs)
-        if self.policy == 'cosine_annealing':
-            return CosineAnnealingLR(optimizer=optimizer, **kwargs)
+        #if self.policy == 'cosine_annealing':
+        #    return CosineAnnealingLR(optimizer=optimizer, **kwargs)
         if self.policy == 'reduce_plateau':
             return ReduceLROnPlateau(optimizer=optimizer, **kwargs)
         if self.policy == 'warm_restart':

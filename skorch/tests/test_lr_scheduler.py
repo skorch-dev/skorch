@@ -1,32 +1,62 @@
-from unittest.mock import Mock
-from unittest.mock import patch
-
+from torch.optim.lr_scheduler import *
+import torch.nn.functional as F
+import torch.nn as nn
 from torch.optim import SGD
 import torch
 
-from skorch.lr_scheduler import WarmRestartLR
-
+from skorch.lr_scheduler import WarmRestartLR, LRScheduler
+from sklearn.datasets import make_classification
+from skorch.net import NeuralNetClassifier
 import numpy as np
 import pytest
 
 #TODO: Copying from pytorch test/test_optim. Should be working
 class SchedulerTestNet(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, num_units=10, nonlin=F.relu):
         super(SchedulerTestNet, self).__init__()
-        self.conv1 = torch.nn.Conv2d(1, 1, 1)
-        self.conv2 = torch.nn.Conv2d(1, 1, 1)
 
-    def forward(self, x):
-        return self.conv2(F.relu(self.conv1(x)))
+        self.dense0 = nn.Linear(20, num_units)
+        self.nonlin = nonlin
+        self.dropout = nn.Dropout(0.5)
+        self.dense1 = nn.Linear(num_units, 10)
+        self.output = nn.Linear(10, 2)
+
+    def forward(self, X):
+        X = self.nonlin(self.dense0(X))
+        X = self.dropout(X)
+        X = self.nonlin(self.dense1(X))
+        X = F.softmax(self.output(X), dim=-1)
+        return X
+
+class TestLRCallbacks:
+
+    def test_lr_callback_init_policies(self):
+        lr_scheduler_types = {
+            'lambda': LambdaLR,
+            'step': StepLR,
+            'multi_step': MultiStepLR,
+            'exponential': ExponentialLR,
+            #'cosine_annealing': CosineAnnealingLR,
+            'reduce_plateau': ReduceLROnPlateau,
+            'warm_restart': WarmRestartLR,
+        }
+        for policy, instance in lr_scheduler_types.items():
+            self._lr_callback_init_policies(policy, instance)
+
+    def _lr_callback_init_policies(self, policy, instance):
+        X, y = make_classification(1000, 20, n_informative=10, random_state=0)
+        X = X.astype(np.float32)
+        lr_policy = LRScheduler(policy)
+        net = NeuralNetClassifier(
+            SchedulerTestNet,  max_epochs=1, callbacks=[lr_policy]
+        )
+        net.fit(X, y)
+        assert any(list(map(lambda x: isinstance(x, instance), net.callbacks_)))
 
 class TestWarmRestartLR():
     def setup_class(self):
         self.net = SchedulerTestNet()
-        self.opt = SGD(
-            [{'params': self.net.conv1.parameters()},
-                {'params': self.net.conv2.parameters(), 'lr': 0.5}],
-            lr = 0.05
-        )
+        self.opt = SGD(net.parameters(), lr = 0.05)
 
     def test_warm_restart_lr(self):
         epochs = 12
