@@ -25,12 +25,12 @@ callbacks is shown in this `notebook
 
 
 * They should inherit from the base class.
-* They should implement at least one of the _on_ methods provided by
-  the parent class (see below).
+* They should implement at least one of the :code:`on_` methods
+  provided by the parent class (see below).
 * As argument, the methods first get the NeuralNet instance, and,
   where appropriate, the local data (e.g. the data from the current
-  batch). The method should also have **kwargs in the signature for
-  potentially unused arguments.
+  batch). The method should also have :code:`**kwargs` in the
+  signature for potentially unused arguments.
 
 Callback methods to override
 ----------------------------
@@ -42,7 +42,7 @@ initialize
 ^^^^^^^^^^
 
 If you have attributes that should be reset when the model is
-re-initialized, those attributes should be set in the this method.
+re-initialized, those attributes should be set in this method.
 
 on_train_begin
 ^^^^^^^^^^^^^^
