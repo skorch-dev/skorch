@@ -2,6 +2,7 @@ import numpy as np
 from torch.optim.lr_scheduler import *
 from torch.optim.lr_scheduler import _LRScheduler
 from skorch.callbacks import Callback
+from skorch.net import train_loss_score
 
 __all__ = ['LRScheduler']
 
@@ -19,24 +20,58 @@ class LRScheduler(Callback):
         self._lr_scheduler = self._get_scheduler(net, **kwargs)
 
     def on_epoch_begin(self, net, **kwargs):
-        self._lr_scheduler.step()
+        epoch = len(net.history)-1
+        if self.policy == 'reduce_plateau':
+            metrics = train_loss_score(net) if epoch else np.inf
+            self._lr_scheduler.step(metrics, epoch)
+        else:
+            self._lr_scheduler.step(epoch)
 
     def _get_scheduler(self, net, **kwargs):
         optimizer = net.optimizer_
+        last_epoch = kwargs.get('last_epoch', -1)
         if self.policy == 'lambda':
-            return LambdaLR(optimizer=optimizer, **kwargs)
+            lr_lambda = kwargs.get('lambda', lambda x: 1e-1)
+            return LambdaLR(optimizer, lr_lambda, last_epoch)
+
         if self.policy == 'step':
-            return StepLR(optimizer=optimizer, **kwargs)
+            step_size = kwargs.get('step_size', 30)
+            gamma = kwargs.get('gamma', 1e-1)
+            return StepLR(optimizer, step_size, gamma, last_epoch)
+
         if self.policy == 'multi_step':
-            return MultiStepLR(optimizer=optimizer, **kwargs)
+            milestone = kwargs.get('milestone', [30, 90])
+            gamma = kwargs.get('gamma', 1e-1)
+            return MultiStepLR(optimizer, milestone, gamma, last_epoch)
+
         if self.policy == 'exponential':
-            return ExponentialLR(optimizer=optimizer, **kwargs)
-        #if self.policy == 'cosine_annealing':
-        #    return CosineAnnealingLR(optimizer=optimizer, **kwargs)
+            gamma = kwargs.get('gamma', 1e-1)
+            return ExponentialLR(optimizer, gamma, last_epoch)
+
         if self.policy == 'reduce_plateau':
-            return ReduceLROnPlateau(optimizer=optimizer, **kwargs)
+            mode = kwargs.get('mode', 'min')
+            factor = kwargs.get('factor', 1e-1)
+            patience = kwargs.get('patience', 10)
+            verbose = kwargs.get('verbose', False)
+            threshold = kwargs.get('threshold', 1e-4)
+            threshold_mode = kwargs.get('threshold_mode', 'rel')
+            cooldown = kwargs.get('cooldown', 0)
+            min_lr = kwargs.get('min_lr', 0)
+            eps = kwargs.get('eps', 1e-8)
+            return ReduceLROnPlateau(
+                optimizer, mode, factor, patience, verbose, threshold,
+                threshold_mode, cooldown, min_lr, eps
+            )
+
         if self.policy == 'warm_restart':
-            return WarmRestartLR(optimizer=optimizer, **kwargs)
+            min_lr = kwargs.get('min_lr', 0.0)
+            max_lr = kwargs.get('max_lr', 0.05)
+            base_period = kwargs.get('base_period', 10)
+            period_mult = kwargs.get('period_mult', 2)
+            return WarmRestartLR(
+                optimizer, min_lr, max_lr, base_period,
+                period_mult, last_epoch
+            )
 
 class WarmRestartLR(_LRScheduler):
     """Sets the learning rate of each parameter group according to

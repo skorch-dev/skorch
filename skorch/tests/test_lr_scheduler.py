@@ -36,7 +36,6 @@ class TestLRCallbacks:
             'step': StepLR,
             'multi_step': MultiStepLR,
             'exponential': ExponentialLR,
-            #'cosine_annealing': CosineAnnealingLR,
             'reduce_plateau': ReduceLROnPlateau,
             'warm_restart': WarmRestartLR,
         }
@@ -51,12 +50,16 @@ class TestLRCallbacks:
             SchedulerTestNet,  max_epochs=1, callbacks=[lr_policy]
         )
         net.fit(X, y)
-        assert any(list(map(lambda x: isinstance(x, instance), net.callbacks_)))
+        assert any(list(map(
+            lambda x: isinstance(
+                getattr(x[1], '_lr_scheduler', None), instance),
+            net.callbacks_
+        )))
 
 class TestWarmRestartLR():
     def setup_class(self):
         self.net = SchedulerTestNet()
-        self.opt = SGD(net.parameters(), lr = 0.05)
+        self.opt = SGD(self.net.parameters(), lr = 0.05)
 
     def test_warm_restart_lr(self):
         epochs = 12
