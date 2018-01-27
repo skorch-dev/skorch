@@ -8,6 +8,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from skorch.utils import to_numpy
+
 
 class TestAllCallbacks:
     @pytest.fixture
@@ -34,6 +36,7 @@ class TestAllCallbacks:
             'on_epoch_end',
             'on_batch_begin',
             'on_batch_end',
+            'on_grad_computed',
         ]
 
     def test_on_x_methods_have_kwargs(self, callbacks, on_x_methods):
@@ -260,8 +263,6 @@ class TestEpochScoring:
 
     def test_target_extractor_is_called(
             self, net_cls, module_cls, train_split, scoring_cls, data):
-        from skorch.utils import to_numpy
-
         X, y = data
         extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(
@@ -552,8 +553,6 @@ class TestBatchScoring:
 
     def test_target_extractor_is_called(
             self, net_cls, module_cls, train_split, scoring_cls, data):
-        from skorch.utils import to_numpy
-
         X, y = data
         extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(
@@ -888,3 +887,46 @@ class TestProgressBar:
             progressbar_cls(batches_per_epoch=scheme),
         ])
         net.fit(*data)
+
+
+class TestGradientNormClipping:
+    @pytest.yield_fixture
+    def grad_clip_cls_and_mock(self):
+        with patch('skorch.callbacks.clip_grad_norm') as cgn:
+            from skorch.callbacks import GradientNormClipping
+            yield GradientNormClipping, cgn
+
+    def test_parameters_passed_correctly_to_torch_cgn(
+            self, grad_clip_cls_and_mock):
+        grad_norm_clip_cls, cgn = grad_clip_cls_and_mock
+
+        clipping = grad_norm_clip_cls(
+            gradient_clip_value=55, gradient_clip_norm_type=99)
+        parameters = [1, 2, 3]
+        clipping.on_grad_computed(None, parameters=parameters)
+
+        assert cgn.call_args_list[0][0][0] == parameters
+        assert cgn.call_args_list[0][1]['max_norm'] == 55
+        assert cgn.call_args_list[0][1]['norm_type'] == 99
+
+    def test_no_parameter_updates_when_norm_0(
+            self, classifier_module, classifier_data):
+        from copy import deepcopy
+        from skorch import NeuralNetClassifier
+        from skorch.callbacks import GradientNormClipping
+
+        net = NeuralNetClassifier(
+            classifier_module,
+            callbacks=[('grad_norm', GradientNormClipping(0))],
+            train_split=None,
+            warm_start=True,
+            max_epochs=1,
+        )
+        net.initialize()
+
+        params_before = deepcopy(list(net.module_.parameters()))
+        net.fit(*classifier_data)
+        params_after = net.module_.parameters()
+        for p0, p1 in zip(params_before, params_after):
+            p0, p1 = to_numpy(p0), to_numpy(p1)
+            assert np.allclose(p0, p1)

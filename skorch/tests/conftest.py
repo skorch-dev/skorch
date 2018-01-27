@@ -4,7 +4,11 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+from sklearn.datasets import make_classification
+from sklearn.datasets import make_regression
+from sklearn.preprocessing import StandardScaler
 from torch import nn
+F = nn.functional
 
 
 ###################
@@ -24,6 +28,47 @@ def module_cls():
             X = X + 0.0 * self.dense(X)
             return X
     return MyModule
+
+
+@pytest.fixture(scope='module')
+def classifier_module():
+    """Return a simple classifier module class."""
+    class MyClassifier(nn.Module):
+        """Simple classification module."""
+        def __init__(self, input_units=20, num_units=10, nonlin=F.relu):
+            super(MyClassifier, self).__init__()
+
+            self.dense0 = nn.Linear(input_units, num_units)
+            self.nonlin = nonlin
+            self.dropout = nn.Dropout(0.5)
+            self.dense1 = nn.Linear(num_units, 10)
+            self.output = nn.Linear(10, 2)
+
+        # pylint: disable=arguments-differ
+        def forward(self, X):
+            X = self.nonlin(self.dense0(X))
+            X = self.dropout(X)
+            X = self.nonlin(self.dense1(X))
+            X = F.softmax(self.output(X), dim=-1)
+            return X
+
+    return MyClassifier
+
+
+@pytest.fixture(scope='module')
+def classifier_data():
+    X, y = make_classification(1000, 20, n_informative=10, random_state=0)
+    return X.astype(np.float32), y
+
+
+@pytest.fixture(scope='module')
+def regression_data():
+    X, y = make_regression(
+        1000, 20, n_informative=10, bias=0, random_state=0)
+    X, y = X.astype(np.float32), y.astype(np.float32).reshape(-1, 1)
+    Xt = StandardScaler().fit_transform(X)
+    yt = StandardScaler().fit_transform(y)
+    return Xt, yt
 
 
 @pytest.fixture
