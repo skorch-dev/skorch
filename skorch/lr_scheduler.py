@@ -121,6 +121,7 @@ class WarmRestartLR(_LRScheduler):
         while epoch_idx / current_period > 1.0:
             epoch_idx -= current_period
             current_period *= self.period_mult
-        current_lrs = self._get_current_lr(self.min_lr, self.max_lr,
-            current_period, epoch_idx)
+        current_lrs = self._get_current_lr(
+            self.min_lr, self.max_lr, current_period, epoch_idx
+        )
         return current_lrs.tolist()

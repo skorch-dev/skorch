@@ -77,13 +77,20 @@ class TestWarmRestartLR():
         scheduler = WarmRestartLR(
             self.opt, min_lr, max_lr, base_period, period_mult
         )
+        self._test(scheduler, targets, epochs)
 
     def _test(self, scheduler, targets, epochs=10):
         for epoch in range(epochs):
             scheduler.step(epoch)
             for param_group, target in zip(self.opt.param_groups, targets):
-                 self.assertAlmostEqual(
-                    target[epoch], param_group['lr'],
-                    msg='LR is wrong in epoch {}: expected {}, got {}'.format(
-                        epoch, target[epoch], param_group['lr']), delta=1e-5
-                    )
+                 pytest.approx(target[epoch], param_group['lr'])
+
+    def test_raise_incompatible_len_on_min_lr_err(self):
+        with pytest.raises(ValueError) as excinfo:
+            scheduler = WarmRestartLR(self.opt, min_lr=[1e-1, 1e-2, 1e-3])
+        assert 'min_lr' in str(excinfo.value)
+
+    def test_raise_incompatible_len_on_max_lr_err(self):
+        with pytest.raises(ValueError) as excinfo:
+            scheduler = WarmRestartLR(self.opt, max_lr=[1e-1, 1e-2, 1e-3])
+        assert 'max_lr' in str(excinfo.value)
