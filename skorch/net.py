@@ -14,6 +14,7 @@ from skorch.callbacks import PrintLog
 from skorch.callbacks import EpochScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
+from skorch.dataset import get_len
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
@@ -563,7 +564,7 @@ class NeuralNet(object):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=True)
                 loss = self.train_step(Xi, yi, **fit_params)
                 self.history.record_batch('train_loss', loss.data[0])
-                self.history.record_batch('train_batch_size', len(Xi))
+                self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=True)
 
             if X_valid is None:
@@ -574,7 +575,7 @@ class NeuralNet(object):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=False)
                 loss = self.validation_step(Xi, yi, **fit_params)
                 self.history.record_batch('valid_loss', loss.data[0])
-                self.history.record_batch('valid_batch_size', len(Xi))
+                self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=False)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
