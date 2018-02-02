@@ -304,13 +304,11 @@ to a ``numpy`` array. Alternatively, consider using the
 ``forward_iter`` method to generate outputs from the ``module``, or
 directly call ``net.module_(X)``.
 
-The ``predict`` method tries to return the class labels by applying
-the argmax over the last axis of the result of
-``predict_proba``. Obviously, this only makes sense if
+In case of ``NeuralNetClassifier``, the ``predict`` method tries to
+return the class labels by applying the argmax over the last axis of
+the result of ``predict_proba``. Obviously, this only makes sense if
 ``predict_proba`` returns class probabilities. If this is not true,
-you should just use ``predict_proba``. (Since it deals with regression
-tasks, ``NeuralNetRegressor``\'s ``predict`` method just returns the
-result from ``predict_proba``, without applying argmax.)
+you should just use ``predict_proba``.
 
 saving and loading
 ^^^^^^^^^^^^^^^^^^
