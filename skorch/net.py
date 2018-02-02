@@ -752,8 +752,12 @@ class NeuralNet(object):
         return self.module_(x, **fit_params)
 
     def predict_proba(self, X):
-        """Where applicable, return probability estimates for
-        samples.
+        """Return the output of the module's forward method as a numpy
+        array.
+
+        If forward returns multiple outputs as a tuple, it is assumed
+        that the first output contains the relevant information. The
+        other values are ignored.
 
         Parameters
         ----------
@@ -802,11 +806,7 @@ class NeuralNet(object):
         y_pred : numpy ndarray
 
         """
-        y_preds = []
-        for yp in self.forward_iter(X, training=False):
-            y_preds.append(to_numpy(yp.max(-1)[-1]))
-        y_pred = np.concatenate(y_preds, 0)
-        return y_pred
+        return self.predict_proba(X)
 
     # pylint: disable=unused-argument
     def get_loss(self, y_pred, y_true, X=None, training=False):
@@ -1230,6 +1230,70 @@ class NeuralNetClassifier(NeuralNet):
         # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
 
+    def predict_proba(self, X):
+        """Where applicable, return probability estimates for
+        samples.
+
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information. The other values are ignored.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        Returns
+        -------
+        y_proba : numpy ndarray
+
+        """
+        # Only the docstring changed from parent.
+        # pylint: disable=useless-super-delegation
+        return super().predict_proba(X)
+
+    def predict(self, X):
+        """Where applicable, return class labels for samples in X.
+
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information. The other values are ignored.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        Returns
+        -------
+        y_pred : numpy ndarray
+
+        """
+        y_preds = []
+        for yp in self.forward_iter(X, training=False):
+            yp = yp[0] if isinstance(yp, tuple) else yp
+            y_preds.append(to_numpy(yp.max(-1)[-1]))
+        y_pred = np.concatenate(y_preds, 0)
+        return y_pred
+
 
 ######################
 # NeuralNetRegressor #
@@ -1306,6 +1370,3 @@ class NeuralNetRegressor(NeuralNet):
         # this is actually a pylint bug:
         # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetRegressor, self).fit(X, y, **fit_params)
-
-    def predict(self, X):
-        return self.predict_proba(X)
