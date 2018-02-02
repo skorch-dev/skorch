@@ -660,7 +660,7 @@ class NeuralNet(object):
         return self
 
     def forward_iter(self, X, training=False):
-        """Yield forward results from batches derived from data.
+        """Yield outputs of forward calls on each batch of data.
 
         Parameters
         ----------
@@ -682,7 +682,7 @@ class NeuralNet(object):
         Yields
         ------
         yp : torch tensor
-          Result from a forward step on a batch.
+          Result from a forward call on an individual batch.
 
         """
         self.module_.train(training)
