@@ -493,6 +493,16 @@ class TestNetWithDict:
         y_proba = net.predict_proba(X)
         assert np.allclose(y_proba.sum(1), 1)
 
+        # Issue #142: check that all batch sizes are consistent with
+        # `net.batch_size`, even when the input type is a dictionary.
+        # Note that we allow for different batch sizes as the total
+        # number of samples may not be divisible by the batch size.
+        batch_sizes = lambda n: set(sum(net.history[:, 'batches', n], []))
+        train_batch_sizes = batch_sizes('train_batch_size')
+        valid_batch_sizes = batch_sizes('valid_batch_size')
+        assert net.batch_size in train_batch_sizes
+        assert net.batch_size in valid_batch_sizes
+
 
 class TestNetWithList:
     @pytest.fixture(scope='module')

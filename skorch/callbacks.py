@@ -14,6 +14,7 @@ from tabulate import tabulate
 import tqdm
 from torch.nn.utils import clip_grad_norm
 
+from skorch.dataset import get_len
 from skorch.utils import Ansi
 from skorch.utils import to_numpy
 from skorch.exceptions import SkorchException
@@ -602,7 +603,7 @@ class ProgressBar(Callback):
         if X is None:
             return 0
         batch_size = self._get_batch_size(net, training)
-        return int(np.ceil(len(X) / batch_size))
+        return int(np.ceil(get_len(X) / batch_size))
 
     def _get_batches_per_epoch(self, net, X, X_valid):
         return (self._get_batches_per_epoch_phase(net, X, True) +
