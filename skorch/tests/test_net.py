@@ -16,7 +16,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from skorch.net import to_numpy
+from skorch.utils import to_numpy
+from skorch.utils import is_torch_data_type
 
 
 torch.manual_seed(0)
@@ -144,7 +145,18 @@ class TestNeuralNet:
         y_pred = net_fit.predict(X)
         assert accuracy_score(y, y_pred) > 0.7
 
-    def test_predict_proba(self, net_fit, data):
+    def test_forward(self, net_fit, data):
+        X = data[0]
+        n = len(X)
+        y_forward = net_fit.forward(X)
+
+        assert is_torch_data_type(y_forward)
+        assert y_forward.shape == (n, 2)
+
+        y_proba = net_fit.predict_proba(X)
+        assert np.allclose(to_numpy(y_forward), y_proba)
+
+    def test_predict_and_predict_proba(self, net_fit, data):
         X = data[0]
 
         y_proba = net_fit.predict_proba(X)
