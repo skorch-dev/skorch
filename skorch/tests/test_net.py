@@ -917,6 +917,54 @@ class TestNeuralNet:
                "skorch.callbacks.GradientNormClipping instead.")
         assert exc.value.args[0] == msg
 
+    @pytest.fixture
+    def multiouput_net(self, net_cls, multiouput_module):
+        return net_cls(multiouput_module).initialize()
+
+    def test_multioutput_forward_iter(self, multiouput_net, data):
+        X = data[0]
+        y_infer = next(multiouput_net.forward_iter(X))
+
+        assert isinstance(y_infer, tuple)
+        assert len(y_infer) == 3
+        assert y_infer[0].shape[0] == min(len(X), multiouput_net.batch_size)
+
+    def test_multioutput_forward(self, multiouput_net, data):
+        X = data[0]
+        n = len(X)
+        y_infer = multiouput_net.forward(X)
+
+        assert isinstance(y_infer, tuple)
+        assert len(y_infer) == 3
+        for arr in y_infer:
+            assert is_torch_data_type(arr)
+
+        # 1st output is original, 2nd is only col 0, 3rd is only evey other row
+        assert y_infer[0].shape == (n, 2)
+        assert y_infer[1].shape == (n,)
+        assert y_infer[2].shape == (n // 2, 2)
+
+    def test_multioutput_predict(self, multiouput_net, data):
+        X = data[0]
+        n = len(X)
+
+        # does not raise
+        y_pred = multiouput_net.predict(X)
+
+        assert y_pred.shape == (n,)
+        assert set(y_pred) == {0, 1}
+
+    def test_multiouput_predict_proba(self, multiouput_net, data):
+        X = data[0]
+        n = len(X)
+
+        # does not raise
+        y_proba = multiouput_net.predict_proba(X)
+
+        assert y_proba.shape == (n, 2)
+        assert y_proba.min() >= 0
+        assert y_proba.max() <= 1
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.
