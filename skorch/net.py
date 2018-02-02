@@ -692,8 +692,13 @@ class NeuralNet(object):
             yield yp
 
     def forward(self, X, training=False):
-        """Perform a forward step on the module with batches derived
-        from data.
+        """Gather and concatenate the output from forward call with
+        input data.
+
+        The outputs from ``self.module_.forward`` are gathered and
+        then concatenated using ``torch.cat``. If multiple outputs are
+        returned y ``self.module_.forward``, each one of them must be
+        able to be concatenated this way.
 
         Parameters
         ----------
@@ -718,8 +723,16 @@ class NeuralNet(object):
           The result from the forward step.
 
         """
-        y_infer = list(self.forward_iter(X, training=training))
-        return torch.cat(y_infer, dim=0)
+        y_infer = []
+        is_multioutput = None
+        for batch in self.forward_iter(X, training=training):
+            if is_multioutput is None:
+                is_multiouput = isinstance(batch, tuple)
+            y_infer.append(batch)
+
+        if is_multiouput:
+            return tuple(map(torch.cat, zip(*y_infer)))
+        return torch.cat(y_infer)
 
     def _merge_x_and_fit_params(self, x, fit_params):
         duplicates = duplicate_items(x, fit_params)
@@ -780,12 +793,17 @@ class NeuralNet(object):
         """
         y_probas = []
         for yp in self.forward_iter(X, training=False):
+            yp = yp[0] if isinstance(yp, tuple) else yp
             y_probas.append(to_numpy(yp))
         y_proba = np.concatenate(y_probas, 0)
         return y_proba
 
     def predict(self, X):
         """Where applicable, return class labels for samples in X.
+
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information. The other values are ignored.
 
         Parameters
         ----------

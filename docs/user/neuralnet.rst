@@ -295,7 +295,8 @@ predict(X) and predict_proba(X)
 These methods perform an inference step on the input data and return
 ``numpy array``\s. By default, ``predict_proba`` will return whatever
 it is that the ``module``\'s ``forward`` method returns, cast to a
-``numpy array``.
+``numpy array``. If ``forward`` returns multiple outputs as a tuple,
+only the first output is used, the rest is discarded.
 
 If casting the ``forward``\-output to ``numpy`` is impossible, you
 will get an error. In that case, you should consider returning a torch
