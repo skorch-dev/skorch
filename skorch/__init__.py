@@ -8,6 +8,7 @@ from .net import NeuralNetClassifier
 from .net import NeuralNetRegressor
 
 from . import callbacks
+from . import lr_scheduler
 
 
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     'NeuralNetClassifier',
     'NeuralNetRegressor',
     'callbacks',
+    'lr_scheduler'
 ]
 
 

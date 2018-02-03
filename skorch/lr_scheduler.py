@@ -12,12 +12,13 @@ class LRScheduler(Callback):
     policy.
     """
 
-    def __init__(self, policy='warm_restart'):
+    def __init__(self, policy='warm_restart', **kwargs):
         self.policy = policy
         self._lr_scheduler = None
+        self._init_kwargs = kwargs
 
     def on_train_begin(self, net, **kwargs):
-        self._lr_scheduler = self._get_scheduler(net, **kwargs)
+        self._lr_scheduler = self._get_scheduler(net, **self._init_kwargs)
 
     def on_epoch_begin(self, net, **kwargs):
         epoch = len(net.history)-1
@@ -64,7 +65,7 @@ class LRScheduler(Callback):
             )
 
         if self.policy == 'warm_restart':
-            min_lr = kwargs.get('min_lr', 0.0)
+            min_lr = kwargs.get('min_lr', 1e-6)
             max_lr = kwargs.get('max_lr', 0.05)
             base_period = kwargs.get('base_period', 10)
             period_mult = kwargs.get('period_mult', 2)
@@ -90,7 +91,7 @@ class WarmRestartLR(_LRScheduler):
         last_epoch (int): The index of the last epoch. Default: -1
     """
 
-    def __init__(self, optimizer, min_lr=0.0, max_lr=0.05, base_period=10,
+    def __init__(self, optimizer, min_lr=1e-6, max_lr=0.05, base_period=10,
         period_mult=2, last_epoch=-1):
 
         if isinstance(min_lr, list) or isinstance(min_lr, tuple):
