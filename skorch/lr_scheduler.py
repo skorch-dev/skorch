@@ -2,7 +2,11 @@ import numpy as np
 from torch.optim.lr_scheduler import *
 from torch.optim.lr_scheduler import _LRScheduler
 from skorch.callbacks import Callback
-from skorch.net import train_loss_score
+
+def previous_epoch_train_loss_score(net):
+    losses = net.history[-2, 'batches', :, 'train_loss']
+    batch_sizes = net.history[-2, 'batches', :, 'train_batch_size']
+    return np.average(losses, weights=batch_sizes)
 
 __all__ = ['LRScheduler']
 
@@ -23,7 +27,7 @@ class LRScheduler(Callback):
     def on_epoch_begin(self, net, **kwargs):
         epoch = len(net.history)-1
         if self.policy == 'reduce_plateau':
-            metrics = train_loss_score(net) if epoch else np.inf
+            metrics = previous_epoch_train_loss_score(net) if epoch else np.inf
             self._lr_scheduler.step(metrics, epoch)
         else:
             self._lr_scheduler.step(epoch)
