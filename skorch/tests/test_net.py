@@ -151,6 +151,7 @@ class TestNeuralNet:
         y_forward = net_fit.forward(X)
 
         assert is_torch_data_type(y_forward)
+        # Expecting (number of samples, number of output units)
         assert y_forward.shape == (n, 2)
 
         y_proba = net_fit.predict_proba(X)
@@ -939,9 +940,12 @@ class TestNeuralNet:
         for arr in y_infer:
             assert is_torch_data_type(arr)
 
-        # 1st output is original, 2nd is only col 0, 3rd is only evey other row
+        # Expecting full output: (number of samples, number of output units)
         assert y_infer[0].shape == (n, 2)
+        # Expecting only column 0: (number of samples,)
         assert y_infer[1].shape == (n,)
+        # Expecting only every other row: (number of samples/2, number
+        # of output units)
         assert y_infer[2].shape == (n // 2, 2)
 
     def test_multioutput_predict(self, multiouput_net, data):
@@ -951,6 +955,8 @@ class TestNeuralNet:
         # does not raise
         y_pred = multiouput_net.predict(X)
 
+        # Expecting only 1 column containing predict class:
+        # (number of samples,)
         assert y_pred.shape == (n,)
         assert set(y_pred) == {0, 1}
 
@@ -961,7 +967,9 @@ class TestNeuralNet:
         # does not raise
         y_proba = multiouput_net.predict_proba(X)
 
+        # Expecting full output: (number of samples, number of output units)
         assert y_proba.shape == (n, 2)
+        # Probabilities, hence these limits
         assert y_proba.min() >= 0
         assert y_proba.max() <= 1
 
