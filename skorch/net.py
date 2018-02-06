@@ -723,14 +723,10 @@ class NeuralNet(object):
           The result from the forward step.
 
         """
-        y_infer = []
-        is_multioutput = None
-        for batch in self.forward_iter(X, training=training):
-            if is_multioutput is None:
-                is_multiouput = isinstance(batch, tuple)
-            y_infer.append(batch)
+        y_infer = list(self.forward_iter(X, training=training))
 
-        if is_multiouput:
+        is_multioutput = len(y_infer) > 0 and isinstance(y_infer[0], tuple)
+        if is_multioutput:
             return tuple(map(torch.cat, zip(*y_infer)))
         return torch.cat(y_infer)
 
