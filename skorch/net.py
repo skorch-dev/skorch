@@ -660,7 +660,7 @@ class NeuralNet(object):
         return self
 
     def forward_iter(self, X, training=False):
-        """Yield outputs of forward calls on each batch of data.
+        """Yield outputs of module forward calls on each batch of data.
 
         Parameters
         ----------
