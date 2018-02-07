@@ -16,7 +16,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from skorch.net import to_numpy
+from skorch.utils import to_numpy
+from skorch.utils import is_torch_data_type
 
 
 torch.manual_seed(0)
@@ -144,7 +145,19 @@ class TestNeuralNet:
         y_pred = net_fit.predict(X)
         assert accuracy_score(y, y_pred) > 0.7
 
-    def test_predict_proba(self, net_fit, data):
+    def test_forward(self, net_fit, data):
+        X = data[0]
+        n = len(X)
+        y_forward = net_fit.forward(X)
+
+        assert is_torch_data_type(y_forward)
+        # Expecting (number of samples, number of output units)
+        assert y_forward.shape == (n, 2)
+
+        y_proba = net_fit.predict_proba(X)
+        assert np.allclose(to_numpy(y_forward), y_proba)
+
+    def test_predict_and_predict_proba(self, net_fit, data):
         X = data[0]
 
         y_proba = net_fit.predict_proba(X)
@@ -904,6 +917,61 @@ class TestNeuralNet:
                "gradient_clip_norm_type are no longer supported. Use "
                "skorch.callbacks.GradientNormClipping instead.")
         assert exc.value.args[0] == msg
+
+    @pytest.fixture
+    def multiouput_net(self, net_cls, multiouput_module):
+        return net_cls(multiouput_module).initialize()
+
+    def test_multioutput_forward_iter(self, multiouput_net, data):
+        X = data[0]
+        y_infer = next(multiouput_net.forward_iter(X))
+
+        assert isinstance(y_infer, tuple)
+        assert len(y_infer) == 3
+        assert y_infer[0].shape[0] == min(len(X), multiouput_net.batch_size)
+
+    def test_multioutput_forward(self, multiouput_net, data):
+        X = data[0]
+        n = len(X)
+        y_infer = multiouput_net.forward(X)
+
+        assert isinstance(y_infer, tuple)
+        assert len(y_infer) == 3
+        for arr in y_infer:
+            assert is_torch_data_type(arr)
+
+        # Expecting full output: (number of samples, number of output units)
+        assert y_infer[0].shape == (n, 2)
+        # Expecting only column 0: (number of samples,)
+        assert y_infer[1].shape == (n,)
+        # Expecting only every other row: (number of samples/2, number
+        # of output units)
+        assert y_infer[2].shape == (n // 2, 2)
+
+    def test_multioutput_predict(self, multiouput_net, data):
+        X = data[0]
+        n = len(X)
+
+        # does not raise
+        y_pred = multiouput_net.predict(X)
+
+        # Expecting only 1 column containing predict class:
+        # (number of samples,)
+        assert y_pred.shape == (n,)
+        assert set(y_pred) == {0, 1}
+
+    def test_multiouput_predict_proba(self, multiouput_net, data):
+        X = data[0]
+        n = len(X)
+
+        # does not raise
+        y_proba = multiouput_net.predict_proba(X)
+
+        # Expecting full output: (number of samples, number of output units)
+        assert y_proba.shape == (n, 2)
+        # Probabilities, hence these limits
+        assert y_proba.min() >= 0
+        assert y_proba.max() <= 1
 
 
 class MyRegressor(nn.Module):

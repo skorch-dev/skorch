@@ -295,7 +295,8 @@ predict(X) and predict_proba(X)
 These methods perform an inference step on the input data and return
 ``numpy array``\s. By default, ``predict_proba`` will return whatever
 it is that the ``module``\'s ``forward`` method returns, cast to a
-``numpy array``.
+``numpy array``. If ``forward`` returns multiple outputs as a tuple,
+only the first output is used, the rest is discarded.
 
 If casting the ``forward``\-output to ``numpy`` is impossible, you
 will get an error. In that case, you should consider returning a torch
@@ -304,13 +305,11 @@ to a ``numpy`` array. Alternatively, consider using the
 ``forward_iter`` method to generate outputs from the ``module``, or
 directly call ``net.module_(X)``.
 
-The ``predict`` method tries to return the class labels by applying
-the argmax over the last axis of the result of
-``predict_proba``. Obviously, this only makes sense if
+In case of ``NeuralNetClassifier``, the ``predict`` method tries to
+return the class labels by applying the argmax over the last axis of
+the result of ``predict_proba``. Obviously, this only makes sense if
 ``predict_proba`` returns class probabilities. If this is not true,
-you should just use ``predict_proba``. (Since it deals with regression
-tasks, ``NeuralNetRegressor``\'s ``predict`` method just returns the
-result from ``predict_proba``, without applying argmax.)
+you should just use ``predict_proba``.
 
 saving and loading
 ^^^^^^^^^^^^^^^^^^

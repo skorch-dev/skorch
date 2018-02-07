@@ -56,6 +56,23 @@ def classifier_module():
 
 
 @pytest.fixture(scope='module')
+def multiouput_module():
+    """Return a simple classifier module class."""
+    class MultiOutput(nn.Module):
+        """Simple classification module."""
+        def __init__(self, input_units=20):
+            super(MultiOutput, self).__init__()
+            self.output = nn.Linear(input_units, 2)
+
+        # pylint: disable=arguments-differ
+        def forward(self, X):
+            X = F.softmax(self.output(X), dim=-1)
+            return X, X[:, 0], X[::2]
+
+    return MultiOutput
+
+
+@pytest.fixture(scope='module')
 def classifier_data():
     X, y = make_classification(1000, 20, n_informative=10, random_state=0)
     return X.astype(np.float32), y
