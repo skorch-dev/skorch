@@ -462,7 +462,11 @@ class NeuralNet(object):
         """
         self.module_.eval()
         y_pred = self.infer(Xi, **fit_params)
-        return self.get_loss(y_pred, yi, X=Xi, training=False)
+        loss = self.get_loss(y_pred, yi, X=Xi, training=False)
+        return {
+            'loss': loss,
+            'y_pred': y_pred,
+            }
 
     def train_step(self, Xi, yi, **fit_params):
         """Perform a forward step using batched data, update module
@@ -492,7 +496,10 @@ class NeuralNet(object):
         self.notify('on_grad_computed', parameters=self.module_.parameters())
 
         self.optimizer_.step()
-        return loss
+        return {
+            'loss': loss,
+            'y_pred': y_pred,
+            }
 
     def evaluation_step(self, Xi, training=False):
         """Perform a forward step to produce the output used for
@@ -562,10 +569,10 @@ class NeuralNet(object):
 
             for Xi, yi in self.get_iterator(dataset_train, training=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=True)
-                loss = self.train_step(Xi, yi, **fit_params)
-                self.history.record_batch('train_loss', loss.data[0])
+                step = self.train_step(Xi, yi, **fit_params)
+                self.history.record_batch('train_loss', step['loss'].data[0])
                 self.history.record_batch('train_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, training=True)
+                self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
 
             if X_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
@@ -573,10 +580,10 @@ class NeuralNet(object):
 
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=False)
-                loss = self.validation_step(Xi, yi, **fit_params)
-                self.history.record_batch('valid_loss', loss.data[0])
+                step = self.validation_step(Xi, yi, **fit_params)
+                self.history.record_batch('valid_loss', step['loss'].data[0])
                 self.history.record_batch('valid_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, training=False)
+                self.notify('on_batch_end', X=Xi, y=yi, training=False, **step)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
