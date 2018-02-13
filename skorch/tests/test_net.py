@@ -762,10 +762,10 @@ class TestNeuralNet:
         result = net.__repr__()
         expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
   module_=MyClassifier(
-    (dense0): Linear(in_features=20, out_features=42)
+    (dense0): Linear(in_features=20, out_features=42, bias=True)
     (dropout): Dropout(p=0.5)
-    (dense1): Linear(in_features=42, out_features=10)
-    (output): Linear(in_features=10, out_features=2)
+    (dense1): Linear(in_features=42, out_features=10, bias=True)
+    (output): Linear(in_features=10, out_features=2, bias=True)
   ),
 )"""
         assert result == expected
@@ -781,11 +781,11 @@ class TestNeuralNet:
         result = net.__repr__()
         expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
   module_=MyClassifier(
-    (dense0): Linear(in_features=20, out_features=11)
+    (dense0): Linear(in_features=20, out_features=11, bias=True)
     (nonlin): PReLU(num_parameters=1)
     (dropout): Dropout(p=0.5)
-    (dense1): Linear(in_features=11, out_features=10)
-    (output): Linear(in_features=10, out_features=2)
+    (dense1): Linear(in_features=11, out_features=10, bias=True)
+    (output): Linear(in_features=10, out_features=2, bias=True)
   ),
 )"""
         assert result == expected
