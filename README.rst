@@ -213,3 +213,14 @@ In general, this should work (assuming CUDA 9):
     conda install pytorch cuda90 -c pytorch
     # using pip
     pip install http://download.pytorch.org/whl/cu90/torch-0.3.0.post4-cp36-cp36m-linux_x86_64.whl
+
+=============
+Communication
+=============
+
+- `GitHub issues <https://github.com/dnouri/skorch/issues>`_: bug
+  reports, feature requests, install issues, RFCs, thoughts, etc.
+
+- Slack: We run the #skorch channel on the `PyTorch Slack server
+  <https://pytorch.slack.com/>`_.  If you need an invite, send an
+  email to daniel.nouri@gmail.com.
