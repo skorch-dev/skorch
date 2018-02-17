@@ -1,6 +1,12 @@
+"""Contains learning rate scheduler callbacks"""
+
 import numpy as np
-from torch.optim.lr_scheduler import *
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from skorch.callbacks import Callback
 
 def previous_epoch_train_loss_score(net):
@@ -98,7 +104,7 @@ class WarmRestartLR(_LRScheduler):
     def __init__(self, optimizer, min_lr=1e-6, max_lr=0.05, base_period=10,
         period_mult=2, last_epoch=-1):
 
-        if isinstance(min_lr, list) or isinstance(min_lr, tuple):
+        if isinstance(min_lr, (list, tuple)):
             if len(min_lr) != len(optimizer.param_groups):
                 raise ValueError("expected {} min_lr, got {}".format(
                     len(optimizer.param_groups), len(min_lr)))
@@ -106,7 +112,7 @@ class WarmRestartLR(_LRScheduler):
         else:
             self.min_lr = min_lr * np.ones(len(optimizer.param_groups))
 
-        if isinstance(max_lr, list) or isinstance(max_lr, tuple):
+        if isinstance(max_lr, (list, tuple)):
             if len(max_lr) != len(optimizer.param_groups):
                 raise ValueError("expected {} max_lr, got {}".format(
                     len(optimizer.param_groups), len(max_lr)))
