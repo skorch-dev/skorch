@@ -16,8 +16,7 @@ __all__ = [
     'NeuralNet',
     'NeuralNetClassifier',
     'NeuralNetRegressor',
-    'callbacks',
-    'lr_scheduler'
+    'callbacks'
 ]
 
 
