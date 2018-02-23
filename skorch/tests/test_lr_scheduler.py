@@ -1,10 +1,8 @@
 import pytest
 import numpy as np
+from sklearn.datasets import make_classification
 
-import torch
-import torch.nn as nn
 from torch.optim import SGD
-import torch.nn.functional as F
 from torch.optim.lr_scheduler import StepLR
 from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
@@ -12,7 +10,6 @@ from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from skorch.net import NeuralNetClassifier
-from sklearn.datasets import make_classification
 from skorch.lr_scheduler import WarmRestartLR, LRScheduler
 
 class TestLRCallbacks:
@@ -34,14 +31,16 @@ class TestLRCallbacks:
     def _lr_callback_init_policies(
             self,
             classifier_module,
-            policy, instance, 
+            policy, instance,
             **kwargs
         ):
-        X, y = make_classification(1000, 20, n_informative=10, random_state=0)
+        X, y = make_classification(
+            1000, 20, n_informative=10, random_state=0
+        )
         X = X.astype(np.float32)
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(
-            classifier_module,  max_epochs=1, callbacks=[lr_policy]
+            classifier_module, max_epochs=1, callbacks=[lr_policy]
         )
         net.fit(X, y)
         assert any(list(map(
@@ -54,7 +53,7 @@ class TestWarmRestartLR():
 
     @pytest.fixture()
     def init_optimizer(self, classifier_module):
-        return SGD(classifier_module().parameters(), lr = 0.05)
+        return SGD(classifier_module().parameters(), lr=0.05)
 
     def test_warm_restart_lr(self, init_optimizer):
         epochs = 10
