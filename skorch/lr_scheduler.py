@@ -46,7 +46,7 @@ class LRScheduler(Callback):
 
     def on_epoch_begin(self, net, **kwargs):
         epoch = len(net.history)-1
-        if self.policy == 'reduce_plateau':
+        if isinstance(self._lr_scheduler, ReduceLROnPlateau):
             metrics = previous_epoch_train_loss_score(net) if epoch else np.inf
             self._lr_scheduler.step(metrics, epoch)
         else:
