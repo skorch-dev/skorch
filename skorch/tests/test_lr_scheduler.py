@@ -55,35 +55,66 @@ class TestWarmRestartLR():
     def init_optimizer(self, classifier_module):
         return SGD(classifier_module().parameters(), lr=0.05)
 
-    def test_warm_restart_lr(self, init_optimizer):
-        epochs = 10
+    def test_raise_incompatible_len_on_min_lr_err(self, init_optimizer):
+        with pytest.raises(ValueError) as excinfo:
+            WarmRestartLR(init_optimizer, min_lr=[1e-1, 1e-2])
+        assert 'min_lr' in str(excinfo.value)
+
+    def test_raise_incompatible_len_on_max_lr_err(self, init_optimizer):
+        with pytest.raises(ValueError) as excinfo:
+            WarmRestartLR(init_optimizer, max_lr=[1e-1, 1e-2])
+        assert 'max_lr' in str(excinfo.value)
+
+    def test_single_period(self, init_optimizer):
+        optimizer = init_optimizer
+        epochs = 3
         min_lr = 5e-5
         max_lr = 5e-2
-        base_period = 10
-        period_mult = 2
-        single_targets = min_lr + 0.5 * (max_lr-min_lr) * (
-            1 + np.cos(np.arange(epochs) * np.pi / epochs))
-        single_targets = single_targets.tolist()
-        targets = [single_targets, list(map(
-            lambda x: x * epochs, single_targets))]
-        optimizer = init_optimizer
+        base_period = 3
+        period_mult = 1
+        
+        single_targets = _single_period_targets(epochs, min_lr, max_lr, base_period)
+        targets = list(map(lambda x :single_targets, optimizer.param_groups))
         scheduler = WarmRestartLR(
             optimizer, min_lr, max_lr, base_period, period_mult
         )
         self._test(optimizer, scheduler, targets, epochs)
 
-    def _test(self, optimizer, scheduler, targets, epochs=10):
+    def test_multi_period_with_restart(self, init_optimizer):
+        optimizer = init_optimizer
+        epochs = 9
+        min_lr = 5e-5
+        max_lr = 5e-2
+        base_period = 2
+        period_mult = 2
+        
+        targets = _multi_period_targets(epochs, min_lr, max_lr, base_period, period_mult)
+        targets = list(map(lambda x: targets, optimizer.param_groups))
+        scheduler = WarmRestartLR(
+            optimizer, min_lr, max_lr, base_period, period_mult
+        )
+        self._test(optimizer, scheduler, targets, epochs)
+
+    def _test(self, optimizer, scheduler, targets, epochs):
         for epoch in range(epochs):
             scheduler.step(epoch)
             for param_group, target in zip(optimizer.param_groups, targets):
                 assert param_group['lr'] == pytest.approx(target[epoch])
+    
+def _single_period_targets(epochs, min_lr, max_lr, period):
+    targets = 1 + np.cos(np.arange(epochs) * np.pi / period)
+    targets = min_lr + 0.5 * (max_lr-min_lr) * targets
+    return targets.tolist()
 
-    def test_raise_incompatible_len_on_min_lr_err(self, init_optimizer):
-        with pytest.raises(ValueError) as excinfo:
-            WarmRestartLR(init_optimizer, min_lr=[1e-1, 1e-2, 1e-3])
-        assert 'min_lr' in str(excinfo.value)
-
-    def test_raise_incompatible_len_on_max_lr_err(self, init_optimizer):
-        with pytest.raises(ValueError) as excinfo:
-            WarmRestartLR(init_optimizer, max_lr=[1e-1, 1e-2, 1e-3])
-        assert 'max_lr' in str(excinfo.value)
+def _multi_period_targets(epochs, min_lr, max_lr, base_period, period_mult):
+    remaining_epochs = epochs
+    current_period = base_period
+    targets = list()
+    while remaining_epochs > 0:
+        period_epochs = min(remaining_epochs, current_period+1)
+        remaining_epochs -= period_epochs
+        targets += _single_period_targets(
+            period_epochs, min_lr, max_lr, current_period
+        )
+        current_period = current_period * period_mult
+    return targets
