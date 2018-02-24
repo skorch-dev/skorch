@@ -70,10 +70,12 @@ class WarmRestartLR(_LRScheduler):
       Optimizer algorithm.
 
     min_lr : float or list of float (default=1e-6)
-      Minimum allowed learning rate during each period.
+      Minimum allowed learning rate during each period for all
+      param groups (float) or each group (list).
 
     max_lr : float or list of float (default=0.05)
-      Maximum allowed learning rate during each period.
+      Maximum allowed learning rate during each period for all
+      param groups (float) or each group (list).
 
     base_period : int (default=10)
       Initial restart period to be multiplied at each restart.
