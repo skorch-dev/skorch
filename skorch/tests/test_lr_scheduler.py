@@ -28,6 +28,14 @@ class TestLRCallbacks:
                 classifier_module(), policy, instance, **kwargs
             )
 
+    def test_raise_invalid_policy_string(self):
+        with pytest.raises(AttributeError):
+            LRScheduler("invalid_policy")
+
+    def test_raise_invalid_policy_instance(self):
+        with pytest.raises(AssertionError):
+            LRScheduler(object())
+
     def _lr_callback_init_policies(
             self,
             classifier_module,

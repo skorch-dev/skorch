@@ -35,6 +35,7 @@ class LRScheduler(Callback):
         if isinstance(policy, str):
             self.policy = getattr(sys.modules[__name__], policy)
         else:
+            assert isinstance(policy, _LRScheduler)
             self.policy = policy
         self.kwargs = kwargs
         self._lr_scheduler = None
