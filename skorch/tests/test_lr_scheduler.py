@@ -48,7 +48,7 @@ class TestLRCallbacks:
         X = X.astype(np.float32)
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(
-            classifier_module, max_epochs=1, callbacks=[lr_policy]
+            classifier_module, max_epochs=2, callbacks=[lr_policy]
         )
         net.fit(X, y)
         assert any(list(map(
@@ -110,11 +110,41 @@ class TestWarmRestartLR():
             base_period,
             period_mult
         )
+    
+    def test_restarts_with_multiple_groups(self, classifier_module):
+        classifier = classifier_module()
+        optimizer = SGD(
+            [
+                {'params': classifier.dense0.parameters(), 'lr': 1e-3},
+                {'params': classifier.dense1.parameters(), 'lr': 1e-2},
+                {'params': classifier.output.parameters(), 'lr': 1e-1},
+            ]
+        )
+
+        epochs = 9
+        min_lr_group = [1e-5, 1e-4, 1e-3]
+        max_lr_group = [1e-3, 1e-2, 1e-1]
+        base_period = 2
+        period_mult = 2
+        targets = list()
+        for min_lr, max_lr in zip(min_lr_group, max_lr_group):
+            targets.append(
+                _multi_period_targets(
+                    epochs, min_lr, max_lr, base_period, period_mult
+                )
+            )
+        _test(
+            optimizer,
+            targets,
+            epochs,
+            min_lr_group,
+            max_lr_group,
+            base_period,
+            period_mult
+        )
 
 def _test(optimizer, targets, epochs, min_lr, max_lr, base_period, period_mult):
-    if len(optimizer.param_groups) == 1:
-        targets = list(map(lambda x: targets, optimizer.param_groups))
-
+    targets = [targets] if len(optimizer.param_groups) == 1 else targets
     scheduler = WarmRestartLR(
         optimizer, min_lr, max_lr, base_period, period_mult
     )
