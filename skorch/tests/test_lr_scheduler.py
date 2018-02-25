@@ -1,3 +1,5 @@
+"""Tests for lr_scheduler.py"""
+
 import pytest
 import numpy as np
 from sklearn.datasets import make_classification
@@ -22,6 +24,7 @@ class TestLRCallbacks:
             ('ExponentialLR', ExponentialLR, {'gamma': 0.1}),
             ('ReduceLROnPlateau', ReduceLROnPlateau, {}),
             ('WarmRestartLR', WarmRestartLR, {}),
+            (WarmRestartLR, WarmRestartLR, {}),
         ]
         for policy, instance, kwargs in lr_scheduler_pack:
             self._lr_callback_init_policies(
@@ -32,9 +35,12 @@ class TestLRCallbacks:
         with pytest.raises(AttributeError):
             LRScheduler("invalid_policy")
 
-    def test_raise_invalid_policy_instance(self):
+    def test_raise_invalid_policy_class(self):
+        class DummyClass():
+            pass
+
         with pytest.raises(AssertionError):
-            LRScheduler(object())
+            LRScheduler(DummyClass)
 
     def _lr_callback_init_policies(
             self,
@@ -110,7 +116,7 @@ class TestWarmRestartLR():
             base_period,
             period_mult
         )
-    
+
     def test_restarts_with_multiple_groups(self, classifier_module):
         classifier = classifier_module()
         optimizer = SGD(

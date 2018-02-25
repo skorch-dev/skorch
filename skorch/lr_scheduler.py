@@ -26,7 +26,7 @@ class LRScheduler(Callback):
     Parameters
     ----------
 
-    policy : str or _LRScheduler instance (default='WarmRestartLR')
+    policy : str or _LRScheduler class (default='WarmRestartLR')
       Learning rate policy name or scheduler to be used.
 
     """
@@ -35,7 +35,7 @@ class LRScheduler(Callback):
         if isinstance(policy, str):
             self.policy = getattr(sys.modules[__name__], policy)
         else:
-            assert isinstance(policy, _LRScheduler)
+            assert issubclass(policy, _LRScheduler)
             self.policy = policy
         self.kwargs = kwargs
         self._lr_scheduler = None
