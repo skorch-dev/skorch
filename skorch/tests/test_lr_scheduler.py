@@ -72,13 +72,16 @@ class TestWarmRestartLR():
         max_lr = 5e-2
         base_period = 3
         period_mult = 1
-        
-        single_targets = _single_period_targets(epochs, min_lr, max_lr, base_period)
-        targets = list(map(lambda x :single_targets, optimizer.param_groups))
-        scheduler = WarmRestartLR(
-            optimizer, min_lr, max_lr, base_period, period_mult
+        targets = _single_period_targets(epochs, min_lr, max_lr, base_period)
+        _test(
+            optimizer,
+            targets,
+            epochs,
+            min_lr,
+            max_lr,
+            base_period,
+            period_mult
         )
-        self._test(optimizer, scheduler, targets, epochs)
 
     def test_multi_period_with_restart(self, init_optimizer):
         optimizer = init_optimizer
@@ -87,20 +90,31 @@ class TestWarmRestartLR():
         max_lr = 5e-2
         base_period = 2
         period_mult = 2
-        
-        targets = _multi_period_targets(epochs, min_lr, max_lr, base_period, period_mult)
-        targets = list(map(lambda x: targets, optimizer.param_groups))
-        scheduler = WarmRestartLR(
-            optimizer, min_lr, max_lr, base_period, period_mult
+        targets = _multi_period_targets(
+            epochs, min_lr, max_lr, base_period, period_mult
         )
-        self._test(optimizer, scheduler, targets, epochs)
+        _test(
+            optimizer,
+            targets,
+            epochs,
+            min_lr,
+            max_lr,
+            base_period,
+            period_mult
+        )
 
-    def _test(self, optimizer, scheduler, targets, epochs):
-        for epoch in range(epochs):
-            scheduler.step(epoch)
-            for param_group, target in zip(optimizer.param_groups, targets):
-                assert param_group['lr'] == pytest.approx(target[epoch])
-    
+def _test(optimizer, targets, epochs, min_lr, max_lr, base_period, period_mult):
+    if len(optimizer.param_groups) == 1:
+        targets = list(map(lambda x: targets, optimizer.param_groups))
+
+    scheduler = WarmRestartLR(
+        optimizer, min_lr, max_lr, base_period, period_mult
+    )
+    for epoch in range(epochs):
+        scheduler.step(epoch)
+        for param_group, target in zip(optimizer.param_groups, targets):
+            assert param_group['lr'] == pytest.approx(target[epoch])
+
 def _single_period_targets(epochs, min_lr, max_lr, period):
     targets = 1 + np.cos(np.arange(epochs) * np.pi / period)
     targets = min_lr + 0.5 * (max_lr-min_lr) * targets
