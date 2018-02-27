@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from skorch.net import NeuralNetClassifier
-from skorch.lr_scheduler import WarmRestartLR, LRScheduler
+from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler
 
 class TestLRCallbacks:
 

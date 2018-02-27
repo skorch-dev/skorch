@@ -12,12 +12,14 @@ from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from skorch.callbacks import Callback
 
+
 def previous_epoch_train_loss_score(net):
     losses = net.history[-2, 'batches', :, 'train_loss']
     batch_sizes = net.history[-2, 'batches', :, 'train_batch_size']
     return np.average(losses, weights=batch_sizes)
 
 __all__ = ['LRScheduler']
+
 
 class LRScheduler(Callback):
     """Callback that sets the learning rate of each
@@ -55,6 +57,7 @@ class LRScheduler(Callback):
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
         return policy(net.optimizer_, **scheduler_kwargs)
+
 
 class WarmRestartLR(_LRScheduler):
     """Stochastic Gradient Descent with Warm Restarts (SGDR) scheduler.

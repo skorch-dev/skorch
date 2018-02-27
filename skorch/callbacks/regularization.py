@@ -1,0 +1,43 @@
+from torch.nn.utils import clip_grad_norm
+
+from . import Callback
+
+
+class GradientNormClipping(Callback):
+    """Clips gradient norm of a module's parameters.
+
+    The norm is computed over all gradients together, as if they were
+    concatenated into a single vector. Gradients are modified
+    in-place.
+
+    See ``torch.nn.utils.clip_grad_norm`` for more information.
+
+    Parameters
+    ----------
+    gradient_clip_value : float (default=None)
+      If not None, clip the norm of all model parameter gradients to this
+      value. The type of the norm is determined by the
+      ``gradient_clip_norm_type`` parameter and defaults to L2.
+
+    gradient_clip_norm_type : float (default=2)
+      Norm to use when gradient clipping is active. The default is
+      to use L2-norm. Can be 'inf' for infinity norm.
+
+    """
+    def __init__(
+            self,
+            gradient_clip_value=None,
+            gradient_clip_norm_type=2,
+    ):
+        self.gradient_clip_value = gradient_clip_value
+        self.gradient_clip_norm_type = gradient_clip_norm_type
+
+    def on_grad_computed(self, _, parameters, **kwargs):
+        if self.gradient_clip_value is None:
+            return
+
+        clip_grad_norm(
+            parameters,
+            max_norm=self.gradient_clip_value,
+            norm_type=self.gradient_clip_norm_type,
+        )

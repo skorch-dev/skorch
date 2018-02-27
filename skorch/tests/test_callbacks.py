@@ -670,7 +670,7 @@ class TestPrintLog:
                 float(item)
 
     def test_args_passed_to_tabulate(self, history):
-        with patch('skorch.callbacks.tabulate') as tab:
+        with patch('skorch.callbacks.logging.tabulate') as tab:
             from skorch.callbacks import PrintLog
             print_log = PrintLog(
                 tablefmt='latex',
@@ -892,7 +892,7 @@ class TestProgressBar:
 class TestGradientNormClipping:
     @pytest.yield_fixture
     def grad_clip_cls_and_mock(self):
-        with patch('skorch.callbacks.clip_grad_norm') as cgn:
+        with patch('skorch.callbacks.regularization.clip_grad_norm') as cgn:
             from skorch.callbacks import GradientNormClipping
             yield GradientNormClipping, cgn
 
