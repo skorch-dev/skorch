@@ -904,7 +904,7 @@ class TestGradientNormClipping:
             gradient_clip_value=55, gradient_clip_norm_type=99)
         named_parameters = [('p1', 1), ('p2', 2), ('p3', 3)]
         parameter_values = [p for _, p in named_parameters]
-        clipping.on_grad_computed(None, parameters=named_parameters)
+        clipping.on_grad_computed(None, named_parameters=named_parameters)
 
         # Clip norm must receive values, not (name, value) pairs.
         assert list(cgn.call_args_list[0][0][0]) == parameter_values
