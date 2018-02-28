@@ -14,6 +14,9 @@ from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
 
+__all__ = ['EpochTimer', 'PrintLog', 'ProgressBar']
+
+
 class EpochTimer(Callback):
     """Measures the duration of each epoch and writes it to the
     history with the name ``dur``.

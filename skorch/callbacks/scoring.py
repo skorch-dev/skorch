@@ -9,6 +9,9 @@ from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 
 
+__all__ = ['BatchScoring', 'EpochScoring']
+
+
 class ScoringBase(Callback):
     """Base class for scoring.
 

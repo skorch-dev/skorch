@@ -13,12 +13,13 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from skorch.callbacks import Callback
 
 
+__all__ = ['LRScheduler']
+
+
 def previous_epoch_train_loss_score(net):
     losses = net.history[-2, 'batches', :, 'train_loss']
     batch_sizes = net.history[-2, 'batches', :, 'train_batch_size']
     return np.average(losses, weights=batch_sizes)
-
-__all__ = ['LRScheduler']
 
 
 class LRScheduler(Callback):

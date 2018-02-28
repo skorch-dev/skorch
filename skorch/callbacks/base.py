@@ -3,6 +3,9 @@
 from sklearn.base import BaseEstimator
 
 
+__all__ = ['Callback']
+
+
 class Callback:
     """Base class for callbacks.
 

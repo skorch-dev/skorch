@@ -4,6 +4,9 @@ from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
 
 
+__all__ = ['Checkpoint']
+
+
 class Checkpoint(Callback):
     """Save the model during training if the given metric improved.
 
