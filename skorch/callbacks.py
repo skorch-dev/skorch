@@ -679,7 +679,7 @@ class GradientNormClipping(Callback):
             return
 
         clip_grad_norm(
-            parameters,
+            (p for _, p in parameters),
             max_norm=self.gradient_clip_value,
             norm_type=self.gradient_clip_norm_type,
         )
