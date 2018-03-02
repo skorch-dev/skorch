@@ -213,7 +213,7 @@ double-underscore notation):
 
 .. code:: python
 
-    net.set_params(cb1__foo=123, cb2__bar=456)
+    net.set_params(callbacks__cb1__foo=123, callbacks__cb2__bar=456)
 
 Use this, for instance, when trying out different callback parameters
 in a grid search.
