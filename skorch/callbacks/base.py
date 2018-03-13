@@ -52,7 +52,7 @@ class Callback:
         """Called at the end of each batch."""
         pass
 
-    def on_grad_computed(self, net, parameters, **kwargs):
+    def on_grad_computed(self, net, named_parameters, **kwargs):
         """Called once per batch after gradients have been computed but before
         an update step was performed.
 

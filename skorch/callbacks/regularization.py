@@ -37,12 +37,12 @@ class GradientNormClipping(Callback):
         self.gradient_clip_value = gradient_clip_value
         self.gradient_clip_norm_type = gradient_clip_norm_type
 
-    def on_grad_computed(self, _, parameters, **kwargs):
+    def on_grad_computed(self, _, named_parameters, **kwargs):
         if self.gradient_clip_value is None:
             return
 
         clip_grad_norm(
-            parameters,
+            (p for _, p in named_parameters),
             max_norm=self.gradient_clip_value,
             norm_type=self.gradient_clip_norm_type,
         )
