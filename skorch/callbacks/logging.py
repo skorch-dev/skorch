@@ -276,3 +276,29 @@ class ProgressBar(Callback):
         if self.batches_per_epoch == 'count':
             self.batches_per_epoch = self.pbar.n
         self.pbar.close()
+
+
+class LivePlot(skorch.callbacks.Callback):
+    """Use `livelossplot <https://github.com/stared/livelossplot/>
+    to plot metrics in Jupyter Notebook while training.
+
+    Parameters:
+    -----------
+
+    metrics : str (default=None)
+      The metrics to plot a graph of. If no metrics are given
+      the default is to use training and validation loss.abs
+    """
+    def __init__(self, metrics=None):
+        self.metrics = metrics
+        if self.metrics is None:
+            self.metrics = ['train_loss', 'valid_loss']
+
+    def on_train_begin(self, net, *args, **kwargs):
+        from livelossplot import PlotLosses
+        self.plot = PlotLosses()
+
+    def on_epoch_end(self, net, *args, **kwargs):
+        liveloss = PlotLosses()
+        liveloss.update({m: m for m in self.metrics})
+        liveloss.draw()
