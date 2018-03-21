@@ -278,7 +278,7 @@ class ProgressBar(Callback):
         self.pbar.close()
 
 
-class LivePlot(skorch.callbacks.Callback):
+class LivePlot(Callback):
     """Use `livelossplot <https://github.com/stared/livelossplot/>
     to plot metrics in Jupyter Notebook while training.
 
