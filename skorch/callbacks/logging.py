@@ -290,15 +290,19 @@ class LivePlot(skorch.callbacks.Callback):
       the default is to use training and validation loss.abs
     """
     def __init__(self, metrics=None):
+        # Import here to raise error on model instantiation
+        # when dependency not available.
+        import livelossplot as _
+
         self.metrics = metrics
+        self.plot = None
         if self.metrics is None:
             self.metrics = ['train_loss', 'valid_loss']
 
-    def on_train_begin(self, net, *args, **kwargs):
+    def on_train_begin(self, *args, **kwargs):
         from livelossplot import PlotLosses
         self.plot = PlotLosses()
 
     def on_epoch_end(self, net, *args, **kwargs):
-        liveloss = PlotLosses()
-        liveloss.update({m: m for m in self.metrics})
-        liveloss.draw()
+        self.plot.update({m: net.history[-1, m] for m in self.metrics})
+        self.plot.draw()
