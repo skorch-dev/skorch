@@ -2,15 +2,16 @@ language: python
 python:
   - "3.6"
 cache:
-  - apt: true
-  - directories:
+  apt: true
+  timeout: 1000
+  directories:
     - $HOME/.cache/pip
-    - $HOME/.conda/envs/pkgs
+    - $HOME/miniconda/pkgs
 install:
   - sudo apt-get update
 
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh;
+  - bash $HOME/miniconda.sh -b -u -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
@@ -21,6 +22,6 @@ install:
   - source activate skorch-env
   - conda install --file=requirements-dev.txt
   - python setup.py install
-  - conda install -c pytorch 'pytorch>=0.3.0'
+  - conda install -c pytorch 'pytorch-cpu>=0.3.0'
 script:
   - pytest
