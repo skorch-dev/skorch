@@ -759,7 +759,7 @@ class TestPrintLog:
                 float(item)
 
     def test_args_passed_to_tabulate(self, history):
-        with patch('skorch.callbacks.tabulate') as tab:
+        with patch('skorch.callbacks.logging.tabulate') as tab:
             from skorch.callbacks import PrintLog
             print_log = PrintLog(
                 tablefmt='latex',
@@ -981,7 +981,7 @@ class TestProgressBar:
 class TestGradientNormClipping:
     @pytest.yield_fixture
     def grad_clip_cls_and_mock(self):
-        with patch('skorch.callbacks.clip_grad_norm') as cgn:
+        with patch('skorch.callbacks.regularization.clip_grad_norm') as cgn:
             from skorch.callbacks import GradientNormClipping
             yield GradientNormClipping, cgn
 
@@ -991,10 +991,12 @@ class TestGradientNormClipping:
 
         clipping = grad_norm_clip_cls(
             gradient_clip_value=55, gradient_clip_norm_type=99)
-        parameters = [1, 2, 3]
-        clipping.on_grad_computed(None, parameters=parameters)
+        named_parameters = [('p1', 1), ('p2', 2), ('p3', 3)]
+        parameter_values = [p for _, p in named_parameters]
+        clipping.on_grad_computed(None, named_parameters=named_parameters)
 
-        assert cgn.call_args_list[0][0][0] == parameters
+        # Clip norm must receive values, not (name, value) pairs.
+        assert list(cgn.call_args_list[0][0][0]) == parameter_values
         assert cgn.call_args_list[0][1]['max_norm'] == 55
         assert cgn.call_args_list[0][1]['norm_type'] == 99
 

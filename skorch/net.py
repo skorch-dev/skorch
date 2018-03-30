@@ -313,7 +313,7 @@ class NeuralNet(object):
     def on_batch_end(self, net, **kwargs):
         pass
 
-    def on_grad_computed(self, net, parameters, **kwargs):
+    def on_grad_computed(self, net, named_parameters, **kwargs):
         pass
 
     def _yield_callbacks(self):
@@ -493,7 +493,7 @@ class NeuralNet(object):
         y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
-        self.notify('on_grad_computed', parameters=self.module_.parameters())
+        self.notify('on_grad_computed', named_parameters=self.module_.named_parameters())
 
         self.optimizer_.step()
         return {

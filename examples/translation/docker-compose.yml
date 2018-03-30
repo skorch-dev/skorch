@@ -1,0 +1,10 @@
+version: '3'
+services:
+    translation:
+        build: .
+        ports:
+            - "8888:8888"
+        devices:
+            - "/dev/nvidia0:/dev/nvidia0"
+            - "/dev/nvidia-uvm:/dev/nvidia-uvm"
+        command: jupyter notebook --ip 0.0.0.0 --no-browser --allow-root
