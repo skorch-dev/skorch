@@ -12,12 +12,15 @@ from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from skorch.callbacks import Callback
 
+
+__all__ = ['LRScheduler']
+
+
 def previous_epoch_train_loss_score(net):
     losses = net.history[-2, 'batches', :, 'train_loss']
     batch_sizes = net.history[-2, 'batches', :, 'train_batch_size']
     return np.average(losses, weights=batch_sizes)
 
-__all__ = ['LRScheduler']
 
 class LRScheduler(Callback):
     """Callback that sets the learning rate of each
@@ -55,6 +58,7 @@ class LRScheduler(Callback):
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
         return policy(net.optimizer_, **scheduler_kwargs)
+
 
 class WarmRestartLR(_LRScheduler):
     """Stochastic Gradient Descent with Warm Restarts (SGDR) scheduler.
@@ -103,25 +107,21 @@ class WarmRestartLR(_LRScheduler):
             period_mult=2,
             last_epoch=-1
         ):
-
-        if isinstance(min_lr, (list, tuple)):
-            if len(min_lr) != len(optimizer.param_groups):
-                raise ValueError("expected {} min_lr, got {}".format(
-                    len(optimizer.param_groups), len(min_lr)))
-            self.min_lr = np.array(min_lr)
-        else:
-            self.min_lr = min_lr * np.ones(len(optimizer.param_groups))
-
-        if isinstance(max_lr, (list, tuple)):
-            if len(max_lr) != len(optimizer.param_groups):
-                raise ValueError("expected {} max_lr, got {}".format(
-                    len(optimizer.param_groups), len(max_lr)))
-            self.max_lr = np.array(max_lr)
-        else:
-            self.max_lr = max_lr * np.ones(len(optimizer.param_groups))
+        self.min_lr = self._format_lr('min_lr', optimizer, min_lr)
+        self.max_lr = self._format_lr('max_lr', optimizer, max_lr)
         self.base_period = base_period
         self.period_mult = period_mult
         super(WarmRestartLR, self).__init__(optimizer, last_epoch)
+
+    def _format_lr(self, name, optimizer, lr):
+        """Return correctly formatted lr for each param group."""
+        if isinstance(lr, (list, tuple)):
+            if len(lr) != len(optimizer.param_groups):
+                raise ValueError("expected {} values for {}, got {}".format(
+                    len(optimizer.param_groups), name, len(lr)))
+            return np.array(lr)
+        else:
+            return lr * np.ones(len(optimizer.param_groups))
 
     def _get_current_lr(self, min_lr, max_lr, period, epoch):
         return min_lr + 0.5*(max_lr-min_lr)*(1+ np.cos(epoch * np.pi/period))
