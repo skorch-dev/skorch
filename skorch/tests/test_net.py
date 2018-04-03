@@ -157,6 +157,25 @@ class TestNeuralNet:
         y_proba = net_fit.predict_proba(X)
         assert np.allclose(to_numpy(y_forward), y_proba)
 
+    def test_forward_location_cpu(self, net_fit, data):
+        X = data[0]
+
+        # CPU by default
+        y_forward = net_fit.forward(X)
+        assert isinstance(X, np.ndarray)
+        assert not y_forward.is_cuda
+
+        y_forward = net_fit.forward(X, location='cpu')
+        assert isinstance(X, np.ndarray)
+        assert not y_forward.is_cuda
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_forward_location_gpu(self, net_fit, data):
+        X = data[0]
+        y_forward = net_fit.forward(X, location='cuda:0')
+        assert isinstance(X, np.ndarray)
+        assert y_forward.is_cuda
+
     def test_predict_and_predict_proba(self, net_fit, data):
         X = data[0]
 
