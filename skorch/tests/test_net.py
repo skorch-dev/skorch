@@ -967,6 +967,16 @@ class TestNeuralNet:
         # of output units)
         assert y_infer[2].shape == (n // 2, 2)
 
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_multioutput_forward_location_gpu(self, multiouput_net, data):
+        X = data[0]
+        y_infer = multiouput_net.forward(X, location='cuda:0')
+
+        assert isinstance(y_infer, tuple)
+        assert len(y_infer) == 3
+        for arr in y_infer:
+            assert arr.is_cuda
+
     def test_multioutput_predict(self, multiouput_net, data):
         X = data[0]
         n = len(X)

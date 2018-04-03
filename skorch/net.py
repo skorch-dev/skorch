@@ -3,6 +3,7 @@
 import re
 import tempfile
 import warnings
+from functools import partial
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -701,9 +702,14 @@ class NeuralNet(object):
         """
         dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
+        storer = partial(torch.serialization.default_restore_location,
+                         location=location)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
-            yield torch.serialization.default_restore_location(yp, location)
+            if isinstance(yp, tuple):
+                yield tuple(storer(n) for n in yp)
+            else:
+                yield storer(yp)
 
     def forward(self, X, training=False, location='cpu'):
         """Gather and concatenate the output from forward call with
