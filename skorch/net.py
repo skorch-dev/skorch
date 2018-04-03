@@ -669,6 +669,8 @@ class NeuralNet(object):
 
     def forward_iter(self, X, training=False, location='cpu'):
         """Yield outputs of module forward calls on each batch of data.
+        The storage location of the yielded tensors is determined
+        by the ``location`` parameter.
 
         Parameters
         ----------
@@ -715,10 +717,11 @@ class NeuralNet(object):
         """Gather and concatenate the output from forward call with
         input data.
 
-        The outputs from ``self.module_.forward`` are gathered and
-        then concatenated using ``torch.cat``. If multiple outputs are
-        returned y ``self.module_.forward``, each one of them must be
-        able to be concatenated this way.
+        The outputs from ``self.module_.forward`` are gathered on the
+        compute device specified by ``location`` and then concatenated
+        using ``torch.cat``. If multiple outputs are returned by
+        ``self.module_.forward``, each one of them must be able to be
+        concatenated this way.
 
         Parameters
         ----------
@@ -736,6 +739,13 @@ class NeuralNet(object):
 
         training : bool (default=False)
           Whether to set the module to train mode or not.
+
+        location : string (default='cpu')
+          The location to store each inference result on.
+          This defaults to CPU memory since there is genereally
+          more memory available there. For performance reasons
+          this might be changed to a specific CUDA device,
+          e.g. 'cuda:0'.
 
         Returns
         -------
