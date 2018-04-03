@@ -666,7 +666,7 @@ class NeuralNet(object):
         self.partial_fit(X, y, **fit_params)
         return self
 
-    def forward_iter(self, X, training=False):
+    def forward_iter(self, X, training=False, location='cpu'):
         """Yield outputs of module forward calls on each batch of data.
 
         Parameters
@@ -686,6 +686,13 @@ class NeuralNet(object):
         training : bool (default=False)
           Whether to set the module to train mode or not.
 
+        location : string (default='cpu')
+          The location to store each inference result on.
+          This defaults to CPU memory since there is genereally
+          more memory available there. For performance reasons
+          this might be changed to a specific CUDA device,
+          e.g. 'cuda:0'.
+
         Yields
         ------
         yp : torch tensor
@@ -696,9 +703,9 @@ class NeuralNet(object):
         iterator = self.get_iterator(dataset, training=training)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
-            yield yp
+            yield torch.serialization.default_restore_location(yp, location)
 
-    def forward(self, X, training=False):
+    def forward(self, X, training=False, location='cpu'):
         """Gather and concatenate the output from forward call with
         input data.
 
@@ -730,7 +737,8 @@ class NeuralNet(object):
           The result from the forward step.
 
         """
-        y_infer = list(self.forward_iter(X, training=training))
+        y_infer = list(self.forward_iter(
+            X, training=training, location=location))
 
         is_multioutput = len(y_infer) > 0 and isinstance(y_infer[0], tuple)
         if is_multioutput:
