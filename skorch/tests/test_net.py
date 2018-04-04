@@ -157,6 +157,25 @@ class TestNeuralNet:
         y_proba = net_fit.predict_proba(X)
         assert np.allclose(to_numpy(y_forward), y_proba)
 
+    def test_forward_location_cpu(self, net_fit, data):
+        X = data[0]
+
+        # CPU by default
+        y_forward = net_fit.forward(X)
+        assert isinstance(X, np.ndarray)
+        assert not y_forward.is_cuda
+
+        y_forward = net_fit.forward(X, location='cpu')
+        assert isinstance(X, np.ndarray)
+        assert not y_forward.is_cuda
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_forward_location_gpu(self, net_fit, data):
+        X = data[0]
+        y_forward = net_fit.forward(X, location='cuda:0')
+        assert isinstance(X, np.ndarray)
+        assert y_forward.is_cuda
+
     def test_predict_and_predict_proba(self, net_fit, data):
         X = data[0]
 
@@ -947,6 +966,16 @@ class TestNeuralNet:
         # Expecting only every other row: (number of samples/2, number
         # of output units)
         assert y_infer[2].shape == (n // 2, 2)
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_multioutput_forward_location_gpu(self, multiouput_net, data):
+        X = data[0]
+        y_infer = multiouput_net.forward(X, location='cuda:0')
+
+        assert isinstance(y_infer, tuple)
+        assert len(y_infer) == 3
+        for arr in y_infer:
+            assert arr.is_cuda
 
     def test_multioutput_predict(self, multiouput_net, data):
         X = data[0]

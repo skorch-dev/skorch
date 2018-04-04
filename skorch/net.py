@@ -3,6 +3,7 @@
 import re
 import tempfile
 import warnings
+from functools import partial
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -666,8 +667,10 @@ class NeuralNet(object):
         self.partial_fit(X, y, **fit_params)
         return self
 
-    def forward_iter(self, X, training=False):
+    def forward_iter(self, X, training=False, location='cpu'):
         """Yield outputs of module forward calls on each batch of data.
+        The storage location of the yielded tensors is determined
+        by the ``location`` parameter.
 
         Parameters
         ----------
@@ -685,6 +688,13 @@ class NeuralNet(object):
 
         training : bool (default=False)
           Whether to set the module to train mode or not.
+
+        location : string (default='cpu')
+          The location to store each inference result on.
+          This defaults to CPU memory since there is genereally
+          more memory available there. For performance reasons
+          this might be changed to a specific CUDA device,
+          e.g. 'cuda:0'.
 
         Yields
         ------
@@ -694,18 +704,24 @@ class NeuralNet(object):
         """
         dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
+        storer = partial(torch.serialization.default_restore_location,
+                         location=location)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
-            yield yp
+            if isinstance(yp, tuple):
+                yield tuple(storer(n) for n in yp)
+            else:
+                yield storer(yp)
 
-    def forward(self, X, training=False):
+    def forward(self, X, training=False, location='cpu'):
         """Gather and concatenate the output from forward call with
         input data.
 
-        The outputs from ``self.module_.forward`` are gathered and
-        then concatenated using ``torch.cat``. If multiple outputs are
-        returned y ``self.module_.forward``, each one of them must be
-        able to be concatenated this way.
+        The outputs from ``self.module_.forward`` are gathered on the
+        compute device specified by ``location`` and then concatenated
+        using ``torch.cat``. If multiple outputs are returned by
+        ``self.module_.forward``, each one of them must be able to be
+        concatenated this way.
 
         Parameters
         ----------
@@ -724,13 +740,21 @@ class NeuralNet(object):
         training : bool (default=False)
           Whether to set the module to train mode or not.
 
+        location : string (default='cpu')
+          The location to store each inference result on.
+          This defaults to CPU memory since there is genereally
+          more memory available there. For performance reasons
+          this might be changed to a specific CUDA device,
+          e.g. 'cuda:0'.
+
         Returns
         -------
         y_infer : torch tensor
           The result from the forward step.
 
         """
-        y_infer = list(self.forward_iter(X, training=training))
+        y_infer = list(self.forward_iter(
+            X, training=training, location=location))
 
         is_multioutput = len(y_infer) > 0 and isinstance(y_infer[0], tuple)
         if is_multioutput:
