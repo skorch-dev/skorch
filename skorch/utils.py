@@ -28,6 +28,13 @@ def is_torch_data_type(x):
     return isinstance(x, (torch.tensor._TensorBase, Variable))
 
 
+def are_datasets(x):
+    if isinstance(x, tuple):
+        return all(are_datasets(xi) for xi in x)
+
+    return isinstance(x, torch.utils.data.Dataset)
+
+
 def to_var(X, use_cuda):
     """Generic function to convert a input data to pytorch Variables.
 

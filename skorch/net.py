@@ -19,6 +19,7 @@ from skorch.dataset import get_len
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
+from skorch.utils import are_datasets
 from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import to_numpy
@@ -549,21 +550,8 @@ class NeuralNet(object):
         self.check_data(X, y)
         epochs = epochs if epochs is not None else self.max_epochs
 
-        if self.train_split:
-            X_train, X_valid, y_train, y_valid = self.train_split(
-                X, y, **fit_params)
-            dataset_valid = self.get_dataset(X_valid, y_valid)
-        else:
-            X_train, X_valid, y_train, y_valid = X, None, y, None
-            dataset_valid = None
-        dataset_train = self.get_dataset(X_train, y_train)
-
-        on_epoch_kwargs = {
-            'X': X_train,
-            'X_valid': X_valid,
-            'y': y_train,
-            'y_valid': y_valid,
-        }
+        dataset_train, dataset_valid, on_epoch_kwargs = (
+            self.get_datasets_and_kwargs(X, y, **fit_params))
 
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
@@ -575,7 +563,7 @@ class NeuralNet(object):
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
 
-            if X_valid is None:
+            if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
@@ -702,7 +690,7 @@ class NeuralNet(object):
           Result from a forward call on an individual batch.
 
         """
-        dataset = self.get_dataset(X)
+        dataset = X if are_datasets(X) else self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
         storer = partial(torch.serialization.default_restore_location,
                          location=location)
@@ -933,6 +921,56 @@ class NeuralNet(object):
             kwargs['use_cuda'] = self.use_cuda
 
         return dataset(X, y, **kwargs)
+
+    def _get_datasets_and_kwargs_from_datasets(self, X, y=None, **fit_params):
+        # y_train, y_valid = None, None  # Actual y's come from dataset(s)
+
+        if isinstance(X, tuple):
+            if len(X) != 2:
+                raise ValueError
+            dataset_train, dataset_valid = X
+        else:
+            dataset_train, dataset_valid = X, None
+
+        if isinstance(y, tuple):
+            if len(y) != 2:
+                raise ValueError
+            y_train, y_valid = y
+        else:
+            y_train, y_valid = y, None
+
+        on_epoch_kwargs = {
+            'X': dataset_train,
+            'X_valid': dataset_valid,
+            'y': y_train,
+            'y_valid': y_valid,
+        }
+
+        return dataset_train, dataset_valid, on_epoch_kwargs
+
+    def get_datasets_and_kwargs(self, X, y=None, **fit_params):
+        if are_datasets(X):
+            # User already passed datasets to fit
+            return self._get_datasets_and_kwargs_from_datasets(
+                X, y, **fit_params)
+
+        if self.train_split:
+            X_train, X_valid, y_train, y_valid = self.train_split(
+                X, y, **fit_params)
+            dataset_valid = self.get_dataset(X_valid, y_valid)
+        else:
+            X_train, X_valid, y_train, y_valid = X, None, y, None
+            dataset_valid = None
+        dataset_train = self.get_dataset(X_train, y_train)
+
+        on_epoch_kwargs = {
+            'X': X_train,
+            'X_valid': X_valid,
+            'y': y_train,
+            'y_valid': y_valid,
+        }
+
+        return dataset_train, dataset_valid, on_epoch_kwargs
 
     def get_iterator(self, dataset, training=False):
         """Get an iterator that allows to loop over the batches of the
@@ -1231,13 +1269,18 @@ class NeuralNetClassifier(NeuralNet):
         ]
 
     # pylint: disable=signature-differs
-    def check_data(self, _, y):
-        if y is None and self.iterator_train is DataLoader:
-            raise ValueError("No y-values are given (y=None). You must "
-                             "implement your own DataLoader for training "
-                             "(and your validation) and supply it using the "
-                             "``iterator_train`` and ``iterator_valid`` "
-                             "parameters respectively.")
+    def check_data(self, X, y):
+        if (
+            (y is None) and
+            (not are_datasets(X)) and
+            (self.iterator_train is DataLoader)
+        ):
+            msg = ("No y-values are given (y=None). You must either suppy a "
+                   "Dataset as X or implement your own DataLoader for "
+                   "training (and your validation) and supply it using the "
+                   "``iterator_train`` and ``iterator_valid`` parameters "
+                   "respectively.")
+            raise ValueError(msg)
 
     def _prepare_target_for_loss(self, y):
         # This is a temporary, ugly work-around (relating to #56), but
