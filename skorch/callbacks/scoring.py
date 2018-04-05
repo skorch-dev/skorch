@@ -2,7 +2,6 @@ from functools import partial
 import warnings
 
 import numpy as np
-from sklearn.base import BaseEstimator
 from sklearn.metrics.scorer import check_scoring
 from sklearn.model_selection._validation import _score
 
