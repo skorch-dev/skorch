@@ -106,7 +106,7 @@ def multi_indexing(data, i):
         # pandas NDFrame
         return data.iloc[i]
     # torch tensor, numpy ndarray, list
-    if isinstance(i, (int, slice)):
+    if isinstance(i, (int, np.integer, slice)):
         return data[i]
     return safe_indexing(data, i)
 
