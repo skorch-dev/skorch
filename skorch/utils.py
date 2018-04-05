@@ -14,6 +14,8 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 
+from skorch.helper import Subset  # TODO: change import to pytorch
+
 
 class Ansi(Enum):
     BLUE = '\033[94m'
@@ -29,10 +31,7 @@ def is_torch_data_type(x):
     return isinstance(x, (torch.tensor._TensorBase, Variable))
 
 
-def are_datasets(x):
-    if isinstance(x, tuple):
-        return all(are_datasets(xi) for xi in x)
-
+def is_dataset(x):
     return isinstance(x, torch.utils.data.Dataset)
 
 
@@ -250,3 +249,31 @@ def params_for(prefix, kwargs):
         prefix += '__'
     return {key[len(prefix):]: val for key, val in kwargs.items()
             if key.startswith(prefix)}
+
+
+# pylint: disable=invalid-name
+class _none:
+    pass
+
+
+def data_from_dataset(dataset):
+    """Try to access X and y attribute from dataset.
+
+    Also works when dataset is a subset.
+
+    """
+    X, y = _none, _none
+
+    if isinstance(dataset, Subset):
+        X, y = data_from_dataset(dataset.dataset)
+        X = multi_indexing(X, dataset.indices)
+        y = multi_indexing(y, dataset.indices) if y is not None else y
+    else:
+        if hasattr(dataset, 'X') and hasattr(dataset, 'y'):
+            X, y = dataset.X, dataset.y
+        elif hasattr(dataset, 'dataset'):
+            X, y = data_from_dataset(dataset.dataset)
+
+    if (X is _none) or (y is _none):
+        raise AttributeError("Could not access X and y from dataset.")
+    return X, y

@@ -1,6 +1,10 @@
 """Test for utils.py"""
 
+import numpy as np
 import pytest
+import torch
+
+from skorch.tests.conftest import pandas_installed
 
 
 class TestDuplicateItems:
@@ -51,6 +55,80 @@ class TestParamsFor:
     ])
     def test_params_for(self, params_for, prefix, kwargs, expected):
         assert params_for(prefix, kwargs) == expected
+
+
+class TestDataFromDataset:
+    @pytest.fixture
+    def data_from_dataset(self):
+        from skorch.utils import data_from_dataset
+        return data_from_dataset
+
+    @pytest.fixture
+    def data(self):
+        X = np.arange(8).reshape(4, 2)
+        y = np.array([1, 3, 0, 2])
+        return X, y
+
+    @pytest.fixture
+    def skorch_ds(self, data):
+        from skorch.dataset import Dataset
+        return Dataset(*data)
+
+    @pytest.fixture
+    def subset(self, skorch_ds):
+        from skorch.helper import Subset  # TODO: replace by pytorch subset
+        return Subset(skorch_ds, [1, 3])
+
+    @pytest.fixture
+    def subset_subset(self, subset):
+        from skorch.helper import Subset  # TODO: replace by pytorch subset
+        return Subset(subset, [0])
+
+    @pytest.fixture
+    def other_ds(self, data):
+        class MyDataset:
+            """Non-compliant dataset"""
+            def __init__(self, data):
+                self.data = data
+
+            def __getitem__(self, idx):
+                return self.data[0][idx], self.data[1][idx]
+
+            def __len__(self):
+                return len(self.data[0])
+        return MyDataset(data)
+
+    def test_with_skorch_ds(self, data_from_dataset, data, skorch_ds):
+        X, y = data_from_dataset(skorch_ds)
+        assert (X == data[0]).all()
+        assert (y == data[1]).all()
+
+    def test_with_subset(self, data_from_dataset, data, subset):
+        X, y = data_from_dataset(subset)
+        assert (X == data[0][[1, 3]]).all()
+        assert (y == data[1][[1, 3]]).all()
+
+    def test_with_subset_subset(self, data_from_dataset, data, subset_subset):
+        X, y = data_from_dataset(subset_subset)
+        assert (X == data[0][1]).all()
+        assert (y == data[1][1]).all()
+
+    def test_with_other_ds(self, data_from_dataset, other_ds):
+        with pytest.raises(AttributeError):
+            data_from_dataset(other_ds)
+
+    def test_with_dict_data(self, data_from_dataset, data, subset):
+        subset.dataset.X = {'X': subset.dataset.X}
+        X, y = data_from_dataset(subset)
+        assert (X['X'] == data[0][[1, 3]]).all()
+        assert (y == data[1][[1, 3]]).all()
+
+    def test_subset_with_y_none(self, data_from_dataset, data, subset):
+        subset.dataset.y = None
+        X, y = data_from_dataset(subset)
+        assert (X == data[0][[1, 3]]).all()
+        assert y is None
+
 
 class TestMultiIndexing:
     @pytest.fixture

@@ -722,7 +722,7 @@ class TestNeuralNet:
         )
         net.fit(*data)
 
-        assert side_effect == [123, 123, 123]  # train, valid, scoring
+        assert side_effect == [123, 123]  # train/valid split, scoring
 
     @pytest.mark.xfail
     def test_net_initialized_with_initalized_dataset(
@@ -861,9 +861,10 @@ class TestNeuralNet:
         X, y = data
         side_effect = []
 
-        def fp_train_split(X, y, **fit_params):
+        # pylint: disable=unused-argument
+        def fp_train_split(dataset, y=None, **fit_params):
             side_effect.append(fit_params)
-            return X[:50], X[50:], y[:50], y[50:]
+            return dataset, dataset
 
         class FPModule(MyClassifier):
             # pylint: disable=unused-argument,arguments-differ
@@ -914,6 +915,69 @@ class TestNeuralNet:
 
         expected = "X and fit_params contain duplicate keys: X1"
         assert exc.value.args[0] == expected
+
+    def test_fit_with_dataset(self, net_cls, module_cls, data, dataset_cls):
+        ds = dataset_cls(*data)
+        net = net_cls(module_cls, max_epochs=1)
+        net.fit(ds, data[1])
+        for key in ('train_loss', 'valid_loss', 'valid_acc'):
+            assert key in net.history[-1]
+
+    def test_predict_with_dataset(self, net_cls, module_cls, data, dataset_cls):
+        ds = dataset_cls(*data)
+        net = net_cls(module_cls).initialize()
+        y_pred = net.predict(ds)
+        y_proba = net.predict_proba(ds)
+
+        assert y_pred.shape[0] == len(ds)
+        assert y_proba.shape[0] == len(ds)
+
+    def test_fit_with_dataset_X_y_inaccessible_does_not_raise(
+            self, net_cls, module_cls, data):
+        class MyDataset(torch.utils.data.Dataset):
+            """Dataset with inaccessible X and y"""
+            def __init__(self, X, y):
+                self.xx = X  # incorrect attribute name
+                self.yy = y  # incorrect attribute name
+
+            def __len__(self):
+                return len(self.xx)
+
+            def __getitem__(self, i):
+                return self.xx[i], self.yy[i]
+
+        ds = MyDataset(*data)
+        net = net_cls(module_cls, max_epochs=1)
+        net.fit(ds, data[1])  # does not raise
+
+    def test_fit_with_dataset_without_explicit_y(
+            self, net_cls, module_cls, dataset_cls, data):
+        from skorch.dataset import CVSplit
+
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            train_split=CVSplit(stratified=False),
+        )
+        ds = dataset_cls(*data)
+        net.fit(ds, None)  # does not raise
+        for key in ('train_loss', 'valid_loss', 'valid_acc'):
+            assert key in net.history[-1]
+
+    def test_fit_with_dataset_stratified_without_explicit_y_raises(
+            self, net_cls, module_cls, dataset_cls, data):
+        from skorch.dataset import CVSplit
+
+        net = net_cls(
+            module_cls,
+            train_split=CVSplit(stratified=True),
+        )
+        ds = dataset_cls(*data)
+        with pytest.raises(ValueError) as exc:
+            net.fit(ds, None)
+
+        msg = "Stratified CV requires explicitely passing a suitable y."
+        assert exc.value.args[0] == msg
 
     # XXX remove once deprecation for grad norm clipping is phased out
     def test_init_grad_clip_and_norm_deprecated(self, net_cls, module_cls):
