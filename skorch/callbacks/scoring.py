@@ -12,6 +12,25 @@ from skorch.callbacks import Callback
 __all__ = ['BatchScoring', 'EpochScoring']
 
 
+class CachedNet:
+    def __init__(self, net, use_caching, y_preds):
+        self.net = net
+        self._infer = net.infer
+        self.use_caching = use_caching
+        self.y_preds = iter(y_preds)
+
+    def __enter__(self, *args):
+        if not self.use_caching:
+            return self.net
+        self.net.infer = lambda *a, **kw: next(self.y_preds)
+        return self.net
+
+    def __exit__(self, *args):
+        if not self.use_caching:
+            return
+        self.net.infer = self._infer
+
+
 class ScoringBase(Callback):
     """Base class for scoring.
 
@@ -24,12 +43,14 @@ class ScoringBase(Callback):
             on_train=False,
             name=None,
             target_extractor=to_numpy,
+            use_caching=True,
     ):
         self.scoring = scoring
         self.lower_is_better = lower_is_better
         self.on_train = on_train
         self.name = name
         self.target_extractor = target_extractor
+        self.use_caching = use_caching
 
     def _get_name(self):
         if self.name is not None:
@@ -48,7 +69,8 @@ class ScoringBase(Callback):
         return self
 
     def _scoring(self, net, X_test, y_test):
-        """Resolve scoring and apply it to data."""
+        """Resolve scoring and apply it to data. Use cached prediction
+        instead of running inference again, if available."""
         scorer = check_scoring(net, self.scoring)
         scores = _score(
             estimator=net,
@@ -113,12 +135,13 @@ class BatchScoring(ScoringBase):
         if training != self.on_train:
             return
 
-        y = self.target_extractor(y)
-        try:
-            score = self._scoring(net, X, y)
-            net.history.record_batch(self.name_, score)
-        except KeyError:
-            pass
+        with CachedNet(net, self.use_caching, [kwargs['y_pred']]) as net:
+            y = self.target_extractor(y)
+            try:
+                score = self._scoring(net, X, y)
+                net.history.record_batch(self.name_, score)
+            except KeyError:
+                pass
 
     def get_avg_score(self, history):
         if self.on_train:
@@ -191,6 +214,29 @@ class EpochScoring(ScoringBase):
       This is called on y before it is passed to scoring.
 
     """
+    def _initialize_cache(self):
+        self.y_train_trues_ = []
+        self.y_train_preds_ = []
+        self.y_valid_trues_ = []
+        self.y_valid_preds_ = []
+
+    def on_epoch_begin(self, net, **kwargs):
+        self._initialize_cache()
+
+    def on_batch_end(self, net, y, y_pred, training, **kwargs):
+        if not self.use_caching:
+            return
+
+        if training:
+            y_trues = self.y_train_trues_
+            y_preds = self.y_train_preds_
+        else:
+            y_trues = self.y_valid_trues_
+            y_preds = self.y_valid_preds_
+
+        y_trues.append(self.target_extractor(y))
+        y_preds.append(y_pred)
+
     # pylint: disable=unused-argument,arguments-differ
     def on_epoch_end(
             self,
@@ -200,27 +246,39 @@ class EpochScoring(ScoringBase):
             X_valid,
             y_valid,
             **kwargs):
-        history = net.history
 
-        if self.on_train:
-            X_test, y_test = X, y
-        else:
-            X_test, y_test = X_valid, y_valid
+        X_test = X if self.on_train else X_valid
 
         if X_test is None:
             return
 
-        if y_test is not None:
-            # We allow y_test to be None but the scoring function has
-            # to be able to deal with it (i.e. called without y_test).
-            y_test = self.target_extractor(y_test)
-        current_score = self._scoring(net, X_test, y_test)
-        history.record(self.name_, current_score)
+        if self.use_caching:
+            y_pred = (self.y_train_preds_ if self.on_train
+                      else self.y_valid_preds_)
+            y_test = (self.y_train_trues_ if self.on_train
+                      else self.y_valid_trues_)
+            y_test = np.concatenate(y_test)
+        else:
+            y_pred = []
+            y_test = y if self.on_train else y_valid
+            if y_test is not None:
+                # We allow y_test to be None but the scoring function has
+                # to be able to deal with it (i.e. called without y_test).
+                y_test = self.target_extractor(y_test)
 
-        is_best = self._is_best_score(current_score)
-        if is_best is None:
-            return
+        with CachedNet(net, self.use_caching, y_pred) as net:
+            current_score = self._scoring(net, X_test, y_test)
 
-        history.record(self.name_ + '_best', is_best)
-        if is_best:
-            self.best_score_ = current_score
+            net.history.record(self.name_, current_score)
+
+            is_best = self._is_best_score(current_score)
+            if is_best is None:
+                return
+
+            net.history.record(self.name_ + '_best', is_best)
+            if is_best:
+                self.best_score_ = current_score
+
+    def on_train_end(self, *args):
+        self._initialize_cache()
+
