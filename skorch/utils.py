@@ -268,11 +268,8 @@ def data_from_dataset(dataset):
         X, y = data_from_dataset(dataset.dataset)
         X = multi_indexing(X, dataset.indices)
         y = multi_indexing(y, dataset.indices) if y is not None else y
-    else:
-        if hasattr(dataset, 'X') and hasattr(dataset, 'y'):
-            X, y = dataset.X, dataset.y
-        elif hasattr(dataset, 'dataset'):
-            X, y = data_from_dataset(dataset.dataset)
+    elif hasattr(dataset, 'X') and hasattr(dataset, 'y'):
+        X, y = dataset.X, dataset.y
 
     if (X is _none) or (y is _none):
         raise AttributeError("Could not access X and y from dataset.")
