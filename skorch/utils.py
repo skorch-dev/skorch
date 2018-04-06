@@ -175,7 +175,7 @@ def multi_indexing(data, i):
     >>> multi_indexing({'a': [1, 2, 3], 'b': [4, 5, 6]}, np.s_[-2:])
     {'a': [2, 3], 'b': [5, 6]}
 
-    >>> multi_indexing(pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]}))
+    >>> multi_indexing(pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]}), [1, 2])
        a  b
     1  2  5
     2  3  6
