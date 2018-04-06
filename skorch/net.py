@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
-from skorch.callbacks import BatchScoring
+from skorch.callbacks import EpochScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
@@ -260,12 +260,12 @@ class NeuralNet(object):
     def get_default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer),
-            ('train_loss', BatchScoring(
+            ('train_loss', EpochScoring(
                 train_loss_score,
                 name='train_loss',
                 on_train=True,
             )),
-            ('valid_loss', BatchScoring(
+            ('valid_loss', EpochScoring(
                 valid_loss_score,
                 name='valid_loss',
             )),
@@ -558,8 +558,8 @@ class NeuralNet(object):
         dataset_train = self.get_dataset(X_train, y_train)
 
         on_epoch_kwargs = {
-            'X': dataset_train,
-            'X_valid': dataset_valid,
+            'X': X,
+            'X_valid': X_valid,
             'y': y_train,
             'y_valid': y_valid,
         }
@@ -1189,16 +1189,16 @@ class NeuralNetClassifier(NeuralNet):
     def get_default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', BatchScoring(
+            ('train_loss', EpochScoring(
                 train_loss_score,
                 name='train_loss',
                 on_train=True,
             )),
-            ('valid_loss', BatchScoring(
+            ('valid_loss', EpochScoring(
                 valid_loss_score,
                 name='valid_loss',
             )),
-            ('valid_acc', BatchScoring(
+            ('valid_acc', EpochScoring(
                 'accuracy',
                 name='valid_acc',
                 lower_is_better=False,

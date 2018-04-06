@@ -13,9 +13,12 @@ __all__ = ['BatchScoring', 'EpochScoring']
 
 
 class CachedNet:
+    """Caching context for ``skorch.NeuralNet`` instance. Returns
+    a modified version of the net which's ``infer`` method will
+    subsequently return cached predictions. Leaving the context
+    will undo the overwrite of the ``infer`` method."""
     def __init__(self, net, use_caching, y_preds):
         self.net = net
-        self._infer = net.infer
         self.use_caching = use_caching
         self.y_preds = iter(y_preds)
 
@@ -28,7 +31,7 @@ class CachedNet:
     def __exit__(self, *args):
         if not self.use_caching:
             return
-        self.net.infer = self._infer
+        del self.net.__dict__['infer']
 
 
 class ScoringBase(Callback):
@@ -234,8 +237,22 @@ class EpochScoring(ScoringBase):
             y_trues = self.y_valid_trues_
             y_preds = self.y_valid_preds_
 
-        y_trues.append(self.target_extractor(y))
+        # We collect references to the prediction and target data
+        # emitted by the training process. Since we don't copy the
+        # data, all *Scoring callback instances use the same
+        # underlying data. This is also the reason why we don't run
+        # self.target_extractor(y) here but on epoch end, so that
+        # there are no copies of parts of y hanging around during
+        # training.
+        if not self._is_placeholder(net, y):
+            y_trues.append(y)
         y_preds.append(y_pred)
+
+    def _is_placeholder(self, net, y):
+        # In case Dataset(X, y=None) we introduce a placeholder for
+        # y in __getitem__ so that the DataLoader works. We need to
+        # be able to identify this case.
+        return False # FIXME
 
     # pylint: disable=unused-argument,arguments-differ
     def on_epoch_end(
@@ -257,7 +274,10 @@ class EpochScoring(ScoringBase):
                       else self.y_valid_preds_)
             y_test = (self.y_train_trues_ if self.on_train
                       else self.y_valid_trues_)
-            y_test = np.concatenate(y_test)
+            y_test = [self.target_extractor(y) for y in y_test]
+            # In case of y=None we will not have gathered any samples.
+            # We expect the scoring function deal with y_test=None.
+            y_test = np.concatenate(y_test) if y_test is not None else None
         else:
             y_pred = []
             y_test = y if self.on_train else y_valid
@@ -279,6 +299,5 @@ class EpochScoring(ScoringBase):
             if is_best:
                 self.best_score_ = current_score
 
-    def on_train_end(self, *args):
+    def on_train_end(self, *args, **kwargs):
         self._initialize_cache()
-

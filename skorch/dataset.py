@@ -189,7 +189,7 @@ class Dataset(torch.utils.data.Dataset):
         # DataLoader calls __getitem__ for each row in the batch
         # anyway, which results in a dummy ``y`` value for each row in
         # the batch.
-        y = torch.Tensor([0]) if y is None else y
+        y = torch.Tensor([np.nan]) if y is None else y
 
         return (
             to_tensor(X, use_cuda=self.use_cuda),
