@@ -223,8 +223,11 @@ class EpochScoring(ScoringBase):
         self.y_valid_trues_ = []
         self.y_valid_preds_ = []
 
-    def on_epoch_begin(self, net, **kwargs):
+    def on_epoch_begin(self, net, y, y_valid, **kwargs):
         self._initialize_cache()
+
+        y_test = y if self.on_train else y_valid
+        self.y_is_placeholder_ = y_test is None
 
     def on_batch_end(self, net, y, y_pred, training, **kwargs):
         if not self.use_caching:
@@ -244,15 +247,9 @@ class EpochScoring(ScoringBase):
         # self.target_extractor(y) here but on epoch end, so that
         # there are no copies of parts of y hanging around during
         # training.
-        if not self._is_placeholder(net, y):
+        if not self.y_is_placeholder_:
             y_trues.append(y)
         y_preds.append(y_pred)
-
-    def _is_placeholder(self, net, y):
-        # In case Dataset(X, y=None) we introduce a placeholder for
-        # y in __getitem__ so that the DataLoader works. We need to
-        # be able to identify this case.
-        return False # FIXME
 
     # pylint: disable=unused-argument,arguments-differ
     def on_epoch_end(
@@ -277,7 +274,7 @@ class EpochScoring(ScoringBase):
             y_test = [self.target_extractor(y) for y in y_test]
             # In case of y=None we will not have gathered any samples.
             # We expect the scoring function deal with y_test=None.
-            y_test = np.concatenate(y_test) if y_test is not None else None
+            y_test = np.concatenate(y_test) if y_test else None
         else:
             y_pred = []
             y_test = y if self.on_train else y_valid
