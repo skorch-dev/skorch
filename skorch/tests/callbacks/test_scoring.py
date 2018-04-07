@@ -272,6 +272,34 @@ class TestEpochScoring:
         loss = net.history[:, 'myscore']
         assert np.allclose(loss, expected)
 
+    def test_multiple_scorings_share_cache(
+            self, net_cls, module_cls, train_split, scoring_cls, data,
+    ):
+        net = net_cls(
+            module=module_cls,
+            callbacks=[
+                ('a1', scoring_cls('accuracy')),
+                ('a2', scoring_cls('accuracy')),
+            ],
+            train_split=train_split,
+            max_epochs=2,
+        )
+
+        # on_train_end clears cache, overwrite so we can inspect the contents.
+        with patch('skorch.callbacks.scoring.EpochScoring.on_train_end',
+                  lambda *x, **y: None):
+            net.fit(*data)
+
+        cbs = dict(net.callbacks_)
+        assert cbs['a1'].use_caching
+        assert cbs['a2'].use_caching
+        assert len(cbs['a1'].y_valid_preds_) > 0
+
+        for c1, c2 in zip(cbs['a1'].y_valid_preds_, cbs['a2'].y_valid_preds_):
+            assert id(c1) == id(c2)
+
+        for c1, c2 in zip(cbs['a1'].y_valid_trues_, cbs['a2'].y_valid_trues_):
+            assert id(c1) == id(c2)
 
 class TestBatchScoring:
     @pytest.fixture
