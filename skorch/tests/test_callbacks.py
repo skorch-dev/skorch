@@ -571,6 +571,95 @@ class TestBatchScoring:
         assert extractor.call_count == 2 * 2
 
 
+class MetricsTestMixin:
+    def test_accuracy(self, metrics_cls):
+        from sklearn.metrics import accuracy_score
+
+        metrics = metrics_cls([
+            metrics_cls.make_metric(
+                lambda y_true, y_pred: -accuracy_score(y_true, y_pred),
+                on_train=True,
+                name='neg_accuracy_score_train',
+            ),
+            {
+                'func': 'accuracy_score',
+                'lower_is_better': False,
+                'on_train': False,
+            },
+        ])
+
+        records = []
+        history = Mock(record=lambda key, val: records.append((key, val)))
+        net = Mock(history=history)
+
+        metrics.on_epoch_begin(net)
+
+        metrics.on_batch_end(  # 100% accuracy
+            net,
+            y=np.array([0, 1, 2, 3]),
+            y_pred=np.array([0, 1, 2, 3]),
+            training=True,
+            )
+        metrics.on_batch_end(  # 0% accuracy
+            net,
+            y=np.array([0, 1, 2, 3]),
+            y_pred=np.array([3, 2, 1, 0]),
+            training=False,
+            )
+        metrics.on_batch_end(  # 50% accuracy
+            net,
+            y=np.array([0, 1, 2, 3]),
+            y_pred=np.array([0, 1, 0, 1]),
+            training=True,
+            )
+        metrics.on_batch_end(  # 50% accuracy
+            net,
+            y=np.array([0, 1, 2, 3]),
+            y_pred=np.array([0, 1, 0, 1]),
+            training=False,
+            )
+
+        metrics.on_epoch_end(net)
+
+        metrics.on_epoch_begin(net)
+
+        # It's 50% accuracy for both train and valid in the second epoch:
+        for y_pred in [np.array([0, 1, 2, 3]), np.array([3, 2, 1, 0])]:
+            for training in [True, False]:
+                metrics.on_batch_end(
+                    net,
+                    y=np.array([0, 1, 2, 3]),
+                    y_pred=y_pred,
+                    training=training,
+                    )
+
+        metrics.on_epoch_end(net)
+
+        assert records == [
+            ('neg_accuracy_score_train', -0.75),
+            ('neg_accuracy_score_train_best', True),
+            ('accuracy_score', 0.25),
+            ('accuracy_score_best', True),
+            ('neg_accuracy_score_train', -0.5),
+            ('accuracy_score', 0.5),
+            ('accuracy_score_best', True),
+        ]
+
+
+class TestEpochMetrics(MetricsTestMixin):
+    @pytest.fixture
+    def metrics_cls(self):
+        from skorch.callbacks import EpochMetrics
+        return EpochMetrics
+
+
+class TestBatchMetrics(MetricsTestMixin):
+    @pytest.fixture
+    def metrics_cls(self):
+        from skorch.callbacks import BatchMetrics
+        return BatchMetrics
+
+
 class TestPrintLog:
     @pytest.fixture
     def print_log_cls(self):
