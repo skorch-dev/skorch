@@ -12,16 +12,22 @@ from skorch.utils import to_numpy
 
 
 class TestEpochScoring:
-    @pytest.fixture
-    def scoring_cls(self):
+    @pytest.fixture(params=[{'use_caching': True}, {'use_caching': False}])
+    def scoring_cls(self, request):
         from skorch.callbacks import EpochScoring
-        return EpochScoring
+        return partial(EpochScoring, **request.param)
 
     @pytest.fixture
-    def mse_scoring(self, scoring_cls):
+    def caching_scoring_cls(self):
+        from skorch.callbacks import EpochScoring
+        return partial(EpochScoring, use_caching=True)
+
+    @pytest.fixture(params=[{'use_caching': True}, {'use_caching': False}])
+    def mse_scoring(self, request, scoring_cls):
         return scoring_cls(
             'neg_mean_squared_error',
             name='nmse',
+            **request.param,
         ).initialize()
 
     def test_correct_valid_score(
@@ -273,13 +279,13 @@ class TestEpochScoring:
         assert np.allclose(loss, expected)
 
     def test_multiple_scorings_share_cache(
-            self, net_cls, module_cls, train_split, scoring_cls, data,
+            self, net_cls, module_cls, train_split, caching_scoring_cls, data,
     ):
         net = net_cls(
             module=module_cls,
             callbacks=[
-                ('a1', scoring_cls('accuracy')),
-                ('a2', scoring_cls('accuracy')),
+                ('a1', caching_scoring_cls('accuracy')),
+                ('a2', caching_scoring_cls('accuracy')),
             ],
             train_split=train_split,
             max_epochs=2,
