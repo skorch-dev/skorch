@@ -558,7 +558,7 @@ class NeuralNet(object):
         dataset_train = self.get_dataset(X_train, y_train)
 
         on_epoch_kwargs = {
-            'X': X,
+            'X': X_train,
             'X_valid': X_valid,
             'y': y_train,
             'y_valid': y_valid,
