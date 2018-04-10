@@ -740,6 +740,10 @@ class TestNeuralNet:
             module_cls,
             dataset=dataset_cls(*data, use_cuda=0),
             max_epochs=1,
+
+            # Disable caching to highlight the issue with this
+            # test case (mismatching size between y values)
+            callbacks__valid_acc__use_caching=False,
         )
         # FIXME: When dataset is initialized, X and y do not matter
         # anymore
