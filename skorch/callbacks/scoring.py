@@ -1,10 +1,11 @@
 from functools import partial
+import warnings
 
 import numpy as np
-from sklearn.base import BaseEstimator
 from sklearn.metrics.scorer import check_scoring
 from sklearn.model_selection._validation import _score
 
+from skorch.utils import data_from_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 
@@ -168,6 +169,12 @@ class EpochScoring(ScoringBase):
         >>> net = MyNet(callbacks=[
         ...     ('my_score', Scoring(my_score, name='my_score'))
 
+    If you fit with a custom dataset, this callback might be skipped,
+    since it must explicitely find X and y to pass those values to
+    sklearn's scoring functions. To circumvent this, your dataset
+    should have an 'X' and a 'y' attribute that contain the input and
+    target data, respectively.
+
     Parameters
     ----------
     scoring : None, str, or callable (default=None)
@@ -195,17 +202,18 @@ class EpochScoring(ScoringBase):
     def on_epoch_end(
             self,
             net,
-            X,
-            y,
-            X_valid,
-            y_valid,
+            dataset_train,
+            dataset_valid,
             **kwargs):
-        history = net.history
-
-        if self.on_train:
-            X_test, y_test = X, y
-        else:
-            X_test, y_test = X_valid, y_valid
+        dataset = dataset_train if self.on_train else dataset_valid
+        try:
+            X_test, y_test = data_from_dataset(dataset)
+        except AttributeError:
+            X_test, y_test = None, None
+            warnings.warn(
+                "EpochScoring cannot access X and y from the dataset. This "
+                "typically happens when you fit the net with your own "
+                "dataset. In that case, EpochScoring does not work.")
 
         if X_test is None:
             return
@@ -214,6 +222,8 @@ class EpochScoring(ScoringBase):
             # We allow y_test to be None but the scoring function has
             # to be able to deal with it (i.e. called without y_test).
             y_test = self.target_extractor(y_test)
+
+        history = net.history
         current_score = self._scoring(net, X_test, y_test)
         history.record(self.name_, current_score)
 

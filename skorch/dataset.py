@@ -4,7 +4,6 @@ from functools import partial
 from numbers import Number
 
 import numpy as np
-from sklearn.utils import safe_indexing
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -12,8 +11,10 @@ from sklearn.model_selection import check_cv
 import torch
 import torch.utils.data
 
+from skorch.helper import Subset  # import from pytorch once available
 from skorch.utils import flatten
 from skorch.utils import is_pandas_ndframe
+from skorch.utils import multi_indexing
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 
@@ -44,71 +45,6 @@ def get_len(data):
     if len(len_set) != 1:
         raise ValueError("Dataset does not have consistent lengths.")
     return list(len_set)[0]
-
-
-def multi_indexing(data, i):
-    """Perform indexing on multiple data structures.
-
-    Currently supported data types:
-
-    * numpy arrays
-    * torch tensors
-    * pandas NDFrame
-    * a dictionary of the former three
-    * a list/tuple of the former three
-
-    ``i`` can be an integer or a slice.
-
-    Example
-    -------
-    >>> multi_indexing(np.asarray([1, 2, 3]), 0)
-    1
-
-    >>> multi_indexing(np.asarray([1, 2, 3]), np.s_[:2])
-    array([1, 2])
-
-    >>> multi_indexing(torch.arange(0, 4), np.s_[1:3])
-     1
-     2
-    [torch.FloatTensor of size 2]
-
-    >>> multi_indexing([[1, 2, 3], [4, 5, 6]], np.s_[:2])
-    [[1, 2], [4, 5]]
-
-    >>> multi_indexing({'a': [1, 2, 3], 'b': [4, 5, 6]}, np.s_[-2:])
-    {'a': [2, 3], 'b': [5, 6]}
-
-    >>> multi_indexing(pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]}))
-       a  b
-    1  2  5
-    2  3  6
-
-    """
-    if isinstance(i, np.ndarray):
-        if i.dtype == bool:
-            i = tuple(j.tolist() for j in i.nonzero())
-        elif i.dtype == int:
-            i = i.tolist()
-        else:
-            raise IndexError("arrays used as indices must be of integer "
-                             "(or boolean) type")
-
-    if isinstance(data, dict):
-        # dictionary of containers
-        return {k: v[i] for k, v in data.items()}
-    if isinstance(data, (list, tuple)):
-        # list or tuple of containers
-        try:
-            return [multi_indexing(x, i) for x in data]
-        except TypeError:
-            pass
-    if is_pandas_ndframe(data):
-        # pandas NDFrame
-        return data.iloc[i]
-    # torch tensor, numpy ndarray, list
-    if isinstance(i, (int, slice)):
-        return data[i]
-    return safe_indexing(data, i)
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -207,7 +143,7 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class CVSplit(object):
-    """Class that performs the internal train/valid split.
+    """Class that performs the internal train/valid split on a dataset.
 
     The ``cv`` argument here works similarly to the regular sklearn ``cv``
     parameter in, e.g., ``GridSearchCV``. However, instead of cycling
@@ -245,7 +181,7 @@ class CVSplit(object):
       information, look at the sklearn documentation of
       ``(Stratified)ShuffleSplit``.
 
-      """
+    """
     def __init__(
             self,
             cv=5,
@@ -297,8 +233,9 @@ class CVSplit(object):
     def _is_regular(self, x):
         return (x is None) or isinstance(x, np.ndarray) or is_pandas_ndframe(x)
 
-    def __call__(self, X, y, groups=None):
-        bad_y_error = ValueError("Stratified CV not possible with given y.")
+    def __call__(self, dataset, y=None, groups=None):
+        bad_y_error = ValueError(
+            "Stratified CV requires explicitely passing a suitable y.")
         if (y is None) and self.stratified:
             raise bad_y_error
 
@@ -307,23 +244,21 @@ class CVSplit(object):
             raise bad_y_error
 
         # pylint: disable=invalid-name
-        len_X = get_len(X)
+        len_dataset = get_len(dataset)
         if y is not None:
             len_y = get_len(y)
-            if len_X != len_y:
-                raise ValueError("Cannot perform a CV split if X and y "
+            if len_dataset != len_y:
+                raise ValueError("Cannot perform a CV split if dataset and y "
                                  "have different lengths.")
 
-        args = (np.arange(len_X),)
+        args = (np.arange(len_dataset),)
         if self._is_stratified(cv):
             args = args + (to_numpy(y),)
 
         idx_train, idx_valid = next(iter(cv.split(*args, groups=groups)))
-        X_train = multi_indexing(X, idx_train)
-        X_valid = multi_indexing(X, idx_valid)
-        y_train = None if y is None else multi_indexing(y, idx_train)
-        y_valid = None if y is None else multi_indexing(y, idx_valid)
-        return X_train, X_valid, y_train, y_valid
+        dataset_train = Subset(dataset, idx_train)
+        dataset_valid = Subset(dataset, idx_valid)
+        return dataset_train, dataset_valid
 
     def __repr__(self):
         # pylint: disable=useless-super-delegation
