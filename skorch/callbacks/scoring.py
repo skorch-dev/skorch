@@ -1,13 +1,15 @@
 from functools import partial
+import warnings
 
 import numpy as np
-from sklearn.base import BaseEstimator
 from sklearn.metrics.scorer import check_scoring
 from sklearn.model_selection._validation import _score
 
+from skorch.utils import data_from_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
-
+from skorch.dataset import Dataset
+from skorch.helper import Subset
 
 __all__ = ['BatchScoring', 'EpochScoring']
 
@@ -31,6 +33,9 @@ class CachedNet:
     def __exit__(self, *args):
         if not self.use_caching:
             return
+        # By setting net.infer we define an attribute `infer`
+        # that precedes the bound method `infer`. By deleting
+        # the entry from the attribute dict we undo this.
         del self.net.__dict__['infer']
 
 
@@ -194,6 +199,12 @@ class EpochScoring(ScoringBase):
         >>> net = MyNet(callbacks=[
         ...     ('my_score', Scoring(my_score, name='my_score'))
 
+    If you fit with a custom dataset, this callback might be skipped,
+    since it must explicitely find X and y to pass those values to
+    sklearn's scoring functions. To circumvent this, your dataset
+    should have an 'X' and a 'y' attribute that contain the input and
+    target data, respectively.
+
     Parameters
     ----------
     scoring : None, str, or callable (default=None)
@@ -223,11 +234,11 @@ class EpochScoring(ScoringBase):
         self.y_valid_trues_ = []
         self.y_valid_preds_ = []
 
-    def on_epoch_begin(self, net, y, y_valid, **kwargs):
+    def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
         self._initialize_cache()
 
-        y_test = y if self.on_train else y_valid
-        self.y_is_placeholder_ = y_test is None
+        ds = dataset_train if self.on_train else dataset_valid
+        self.y_is_placeholder_ = (isinstance(ds, Dataset) and ds.y is None)
 
     def on_batch_end(self, net, y, y_pred, training, **kwargs):
         if not self.use_caching:
@@ -251,22 +262,23 @@ class EpochScoring(ScoringBase):
             y_trues.append(y)
         y_preds.append(y_pred)
 
+    def _is_skorch_dataset(self, ds):
+        if isinstance(ds, Subset):
+            return self._is_skorch_dataset(ds.dataset)
+        return isinstance(ds, Dataset)
+
     # pylint: disable=unused-argument,arguments-differ
     def on_epoch_end(
             self,
             net,
-            X,
-            y,
-            X_valid,
-            y_valid,
+            dataset_train,
+            dataset_valid,
             **kwargs):
 
-        X_test = X if self.on_train else X_valid
-
-        if X_test is None:
-            return
+        dataset = dataset_train if self.on_train else dataset_valid
 
         if self.use_caching:
+            X_test = dataset
             y_pred = (self.y_train_preds_ if self.on_train
                       else self.y_valid_preds_)
             y_test = (self.y_train_trues_ if self.on_train
@@ -276,12 +288,18 @@ class EpochScoring(ScoringBase):
             # We expect the scoring function deal with y_test=None.
             y_test = np.concatenate(y_test) if y_test else None
         else:
+            if self._is_skorch_dataset(dataset):
+                X_test, y_test = data_from_dataset(dataset)
+            else:
+                X_test, y_test = dataset, None
             y_pred = []
-            y_test = y if self.on_train else y_valid
             if y_test is not None:
                 # We allow y_test to be None but the scoring function has
                 # to be able to deal with it (i.e. called without y_test).
                 y_test = self.target_extractor(y_test)
+
+        if X_test is None:
+            return
 
         with CachedNet(net, self.use_caching, y_pred) as net:
             current_score = self._scoring(net, X_test, y_test)

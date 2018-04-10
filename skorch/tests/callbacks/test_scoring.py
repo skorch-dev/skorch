@@ -257,13 +257,25 @@ class TestEpochScoring:
     def test_without_target_data_works(
             self, net_cls, module_cls, scoring_cls, data,
     ):
-        def myscore(_, X, y=None):
+        score_calls = 0
+
+        def myscore(net, X, y=None):
+            nonlocal score_calls
+            score_calls += 1
             assert y is None
+
+            # In case we use caching X is a dataset. We need to
+            # extract X ourselves.
+            if dict(net.callbacks_)['EpochScoring'].use_caching:
+                return np.mean(X.X)
             return np.mean(X)
 
-        def mysplit(X, y):
+        # pylint: disable=unused-argument
+        def mysplit(dataset, y):
             # set y_valid to None
-            return X, X, y, None
+            ds_train = dataset
+            ds_valid = type(dataset)(dataset.X, y=None)
+            return ds_train, ds_valid
 
         X, y = data
         net = net_cls(
@@ -274,9 +286,83 @@ class TestEpochScoring:
         )
         net.fit(X, y)
 
+        assert score_calls == 2
+
         expected = np.mean(X)
         loss = net.history[:, 'myscore']
         assert np.allclose(loss, expected)
+
+    def net_input_is_scoring_input(
+            self, net_cls, module_cls, scoring_cls, input_data,
+            train_split, expected_type, caching,
+    ):
+        score_calls = 0
+        def myscore(net, X, y=None):
+            nonlocal score_calls
+            score_calls += 1
+            assert type(X) == expected_type
+            return 0
+
+        max_epochs = 2
+        net = net_cls(
+            module=module_cls,
+            callbacks=[scoring_cls(myscore, use_caching=caching)],
+            train_split=train_split,
+            max_epochs=max_epochs,
+        )
+        net.fit(*input_data)
+        assert score_calls == max_epochs
+
+    def test_net_input_is_scoring_input(
+            self, net_cls, module_cls, scoring_cls, data,
+    ):
+        # Make sure that whatever data type is put in the network is
+        # received at the scoring side as well. For the caching case
+        # we only receive datasets.
+        import skorch
+        from skorch.dataset import CVSplit
+        import torch
+        import torch.utils.data.dataset
+
+        class MyTorchDataset(torch.utils.data.dataset.TensorDataset):
+            def __init__(self, X, y):
+                super().__init__(
+                    skorch.utils.to_tensor(X.reshape(-1, 1), False),
+                    skorch.utils.to_tensor(y, False))
+
+        class MySkorchDataset(skorch.dataset.Dataset):
+            pass
+
+        rawsplit = lambda ds, _: (ds, ds)
+        cvsplit = CVSplit(2, random_state=0)
+
+        table = [
+            # Test a split where type(input) == type(output) is guaranteed
+            (data, rawsplit, np.ndarray, False),
+            (data, rawsplit, skorch.dataset.Dataset, True),
+            ((MyTorchDataset(*data), None), rawsplit, MyTorchDataset, False),
+            ((MyTorchDataset(*data), None), rawsplit, MyTorchDataset, True),
+            ((MySkorchDataset(*data), None), rawsplit, np.ndarray, False),
+            ((MySkorchDataset(*data), None), rawsplit, MySkorchDataset, True),
+
+            # Test a split that splits datasets using torch Subset
+            (data, cvsplit, np.ndarray, False),
+            (data, cvsplit, skorch.helper.Subset, True),
+            ((MyTorchDataset(*data), None), cvsplit, skorch.helper.Subset, False),
+            ((MyTorchDataset(*data), None), cvsplit, skorch.helper.Subset, True),
+            ((MySkorchDataset(*data), None), cvsplit, np.ndarray, False),
+            ((MySkorchDataset(*data), None), cvsplit, skorch.helper.Subset, True),
+        ]
+
+        for input_data, train_split, expected_type, caching in table:
+            self.net_input_is_scoring_input(
+                net_cls,
+                module_cls,
+                scoring_cls,
+                input_data,
+                train_split,
+                expected_type,
+                caching)
 
     def test_multiple_scorings_share_cache(
             self, net_cls, module_cls, train_split, caching_scoring_cls, data,
@@ -571,5 +657,3 @@ class TestBatchScoring:
         net.fit(X, y)
 
         assert extractor.call_count == 2 * 2
-
-

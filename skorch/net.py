@@ -3,6 +3,7 @@
 import re
 import tempfile
 import warnings
+from functools import partial
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -20,6 +21,7 @@ from skorch.exceptions import NotInitializedError
 from skorch.history import History
 from skorch.utils import duplicate_items
 from skorch.utils import get_dim
+from skorch.utils import is_dataset
 from skorch.utils import to_numpy
 from skorch.utils import to_var
 from skorch.utils import params_for
@@ -529,12 +531,15 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
         y : target data, compatible with skorch.dataset.Dataset
-          The same data types as for ``X`` are supported.
+          The same data types as for ``X`` are supported. If your X is
+          a Dataset that contains the target, ``y`` may be set to
+          None.
 
         epochs : int or None (default=None)
           If int, train for this number of epochs; if None, use
@@ -548,20 +553,11 @@ class NeuralNet(object):
         self.check_data(X, y)
         epochs = epochs if epochs is not None else self.max_epochs
 
-        if self.train_split:
-            X_train, X_valid, y_train, y_valid = self.train_split(
-                X, y, **fit_params)
-            dataset_valid = self.get_dataset(X_valid, y_valid)
-        else:
-            X_train, X_valid, y_train, y_valid = X, None, y, None
-            dataset_valid = None
-        dataset_train = self.get_dataset(X_train, y_train)
-
+        dataset_train, dataset_valid = self.get_split_datasets(
+            X, y, **fit_params)
         on_epoch_kwargs = {
-            'X': X_train,
-            'X_valid': X_valid,
-            'y': y_train,
-            'y_valid': y_valid,
+            'dataset_train': dataset_train,
+            'dataset_valid': dataset_valid,
         }
 
         for _ in range(epochs):
@@ -574,7 +570,7 @@ class NeuralNet(object):
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
 
-            if X_valid is None:
+            if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
@@ -606,12 +602,15 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
         y : target data, compatible with skorch.dataset.Dataset
-          The same data types as for ``X`` are supported.
+          The same data types as for ``X`` are supported. If your X is
+          a Dataset that contains the target, ``y`` may be set to
+          None.
 
         classes : array, sahpe (n_classes,)
           Solely for sklearn compatibility, currently unused.
@@ -648,12 +647,15 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
         y : target data, compatible with skorch.dataset.Dataset
-          The same data types as for ``X`` are supported.
+          The same data types as for ``X`` are supported. If your X is
+          a Dataset that contains the target, ``y`` may be set to
+          None.
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
@@ -666,8 +668,10 @@ class NeuralNet(object):
         self.partial_fit(X, y, **fit_params)
         return self
 
-    def forward_iter(self, X, training=False):
+    def forward_iter(self, X, training=False, location='cpu'):
         """Yield outputs of module forward calls on each batch of data.
+        The storage location of the yielded tensors is determined
+        by the ``location`` parameter.
 
         Parameters
         ----------
@@ -679,12 +683,20 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
         training : bool (default=False)
           Whether to set the module to train mode or not.
+
+        location : string (default='cpu')
+          The location to store each inference result on.
+          This defaults to CPU memory since there is genereally
+          more memory available there. For performance reasons
+          this might be changed to a specific CUDA device,
+          e.g. 'cuda:0'.
 
         Yields
         ------
@@ -692,20 +704,26 @@ class NeuralNet(object):
           Result from a forward call on an individual batch.
 
         """
-        dataset = self.get_dataset(X)
+        dataset = X if is_dataset(X) else self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
+        storer = partial(torch.serialization.default_restore_location,
+                         location=location)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
-            yield yp
+            if isinstance(yp, tuple):
+                yield tuple(storer(n) for n in yp)
+            else:
+                yield storer(yp)
 
-    def forward(self, X, training=False):
+    def forward(self, X, training=False, location='cpu'):
         """Gather and concatenate the output from forward call with
         input data.
 
-        The outputs from ``self.module_.forward`` are gathered and
-        then concatenated using ``torch.cat``. If multiple outputs are
-        returned y ``self.module_.forward``, each one of them must be
-        able to be concatenated this way.
+        The outputs from ``self.module_.forward`` are gathered on the
+        compute device specified by ``location`` and then concatenated
+        using ``torch.cat``. If multiple outputs are returned by
+        ``self.module_.forward``, each one of them must be able to be
+        concatenated this way.
 
         Parameters
         ----------
@@ -717,6 +735,7 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -724,13 +743,21 @@ class NeuralNet(object):
         training : bool (default=False)
           Whether to set the module to train mode or not.
 
+        location : string (default='cpu')
+          The location to store each inference result on.
+          This defaults to CPU memory since there is genereally
+          more memory available there. For performance reasons
+          this might be changed to a specific CUDA device,
+          e.g. 'cuda:0'.
+
         Returns
         -------
         y_infer : torch tensor
           The result from the forward step.
 
         """
-        y_infer = list(self.forward_iter(X, training=training))
+        y_infer = list(self.forward_iter(
+            X, training=training, location=location))
 
         is_multioutput = len(y_infer) > 0 and isinstance(y_infer[0], tuple)
         if is_multioutput:
@@ -785,6 +812,7 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -818,6 +846,7 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -849,6 +878,7 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -880,12 +910,15 @@ class NeuralNet(object):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
         y : target data, compatible with skorch.dataset.Dataset
-          The same data types as for ``X`` are supported.
+          The same data types as for ``X`` are supported. If your X is
+          a Dataset that contains the target, ``y`` may be set to
+          None.
 
         Returns
         -------
@@ -893,6 +926,9 @@ class NeuralNet(object):
           The initialized dataset.
 
         """
+        if is_dataset(X):
+            return X
+
         dataset = self.dataset
         is_initialized = not callable(dataset)
 
@@ -909,6 +945,55 @@ class NeuralNet(object):
             kwargs['use_cuda'] = self.use_cuda
 
         return dataset(X, y, **kwargs)
+
+    def get_split_datasets(self, X, y=None, **fit_params):
+        """Get internal train and validation datasets.
+
+        The validation dataset can be None if ``self.train_split`` is
+        set to None; then internal validation will be skipped.
+
+        Override this if you want to change how the net splits
+        incoming data into train and validation part.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+            * a Dataset
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.dataset.Dataset
+          The same data types as for ``X`` are supported. If your X is
+          a Dataset that contains the target, ``y`` may be set to
+          None.
+
+        **fit_params : dict
+          Additional parameters passed to the train_split call.
+
+        Returns
+        -------
+        dataset_train
+          The initialized training dataset.
+
+        dataset_valid
+          The initialized validation dataset or None
+
+        """
+        dataset = self.get_dataset(X, y)
+        if self.train_split:
+            dataset_train, dataset_valid = self.train_split(
+                dataset, y, **fit_params)
+        else:
+            dataset_train, dataset_valid = dataset, None
+        return dataset_train, dataset_valid
 
     def get_iterator(self, dataset, training=False):
         """Get an iterator that allows to loop over the batches of the
@@ -1207,13 +1292,18 @@ class NeuralNetClassifier(NeuralNet):
         ]
 
     # pylint: disable=signature-differs
-    def check_data(self, _, y):
-        if y is None and self.iterator_train is DataLoader:
-            raise ValueError("No y-values are given (y=None). You must "
-                             "implement your own DataLoader for training "
-                             "(and your validation) and supply it using the "
-                             "``iterator_train`` and ``iterator_valid`` "
-                             "parameters respectively.")
+    def check_data(self, X, y):
+        if (
+            (y is None) and
+            (not is_dataset(X)) and
+            (self.iterator_train is DataLoader)
+        ):
+            msg = ("No y-values are given (y=None). You must either supply a "
+                   "Dataset as X or implement your own DataLoader for "
+                   "training (and your validation) and supply it using the "
+                   "``iterator_train`` and ``iterator_valid`` parameters "
+                   "respectively.")
+            raise ValueError(msg)
 
     def _prepare_target_for_loss(self, y):
         # This is a temporary, ugly work-around (relating to #56), but
@@ -1269,6 +1359,7 @@ class NeuralNetClassifier(NeuralNet):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -1299,6 +1390,7 @@ class NeuralNetClassifier(NeuralNet):
             * pandas DataFrame or Series
             * a dictionary of the former three
             * a list/tuple of the former three
+            * a Dataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -1360,8 +1452,12 @@ class NeuralNetRegressor(NeuralNet):
         )
 
     # pylint: disable=signature-differs
-    def check_data(self, _, y):
-        if y is None and self.iterator_train is DataLoader:
+    def check_data(self, X, y):
+        if (
+            (y is None) and
+            (not is_dataset(X)) and
+            (self.iterator_train is DataLoader)
+        ):
             raise ValueError("No y-values are given (y=None). You must "
                              "implement your own DataLoader for training "
                              "(and your validation) and supply it using the "
