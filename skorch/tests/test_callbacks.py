@@ -46,6 +46,17 @@ class TestAllCallbacks:
             method = getattr(callback, method_name)
             assert "kwargs" in inspect.signature(method).parameters
 
+    def test_set_params_with_unknown_key_raises(self):
+        from skorch.callbacks import Callback
+
+        with pytest.raises(ValueError) as exc:
+            Callback().set_params(foo=123)
+
+        msg = ("Invalid parameter foo for estimator Callback. "
+               "Check the list of available parameters with "
+               "`estimator.get_params().keys()`.")
+        assert exc.value.args[0] == msg
+
 
 class TestEpochScoring:
     @pytest.fixture
