@@ -1,42 +1,35 @@
+from contextlib import contextmanager
 from functools import partial
-import warnings
 
 import numpy as np
 from sklearn.metrics.scorer import check_scoring
 from sklearn.model_selection._validation import _score
 
 from skorch.utils import data_from_dataset
+from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 from skorch.dataset import Dataset
-from skorch.helper import Subset
 
 __all__ = ['BatchScoring', 'EpochScoring']
 
 
-class CachedNet:
+@contextmanager
+def cache_net_infer(net, use_caching, y_preds):
     """Caching context for ``skorch.NeuralNet`` instance. Returns
-    a modified version of the net which's ``infer`` method will
+    a modified version of the net whose ``infer`` method will
     subsequently return cached predictions. Leaving the context
     will undo the overwrite of the ``infer`` method."""
-    def __init__(self, net, use_caching, y_preds):
-        self.net = net
-        self.use_caching = use_caching
-        self.y_preds = iter(y_preds)
-
-    def __enter__(self, *args):
-        if not self.use_caching:
-            return self.net
-        self.net.infer = lambda *a, **kw: next(self.y_preds)
-        return self.net
-
-    def __exit__(self, *args):
-        if not self.use_caching:
-            return
-        # By setting net.infer we define an attribute `infer`
-        # that precedes the bound method `infer`. By deleting
-        # the entry from the attribute dict we undo this.
-        del self.net.__dict__['infer']
+    if not use_caching:
+        yield net
+        return
+    y_preds = iter(y_preds)
+    net.infer = lambda *a, **kw: next(y_preds)
+    yield net
+    # By setting net.infer we define an attribute `infer`
+    # that precedes the bound method `infer`. By deleting
+    # the entry from the attribute dict we undo this.
+    del net.__dict__['infer']
 
 
 class ScoringBase(Callback):
@@ -143,11 +136,12 @@ class BatchScoring(ScoringBase):
         if training != self.on_train:
             return
 
-        with CachedNet(net, self.use_caching, [kwargs['y_pred']]) as net:
+        y_preds = [kwargs['y_pred']]
+        with cache_net_infer(net, self.use_caching, y_preds) as cached_net:
             y = self.target_extractor(y)
             try:
-                score = self._scoring(net, X, y)
-                net.history.record_batch(self.name_, score)
+                score = self._scoring(cached_net, X, y)
+                cached_net.history.record_batch(self.name_, score)
             except KeyError:
                 pass
 
@@ -199,11 +193,22 @@ class EpochScoring(ScoringBase):
         >>> net = MyNet(callbacks=[
         ...     ('my_score', Scoring(my_score, name='my_score'))
 
-    If you fit with a custom dataset, this callback might be skipped,
-    since it must explicitely find X and y to pass those values to
-    sklearn's scoring functions. To circumvent this, your dataset
-    should have an 'X' and a 'y' attribute that contain the input and
-    target data, respectively.
+    If you fit with a custom dataset, this callback should work as
+    expected as long as ``use_caching=True`` which enables the
+    collection of ``y`` values from the dataset. If you decide to
+    disable the caching of predictions and ``y`` values, you need
+    to write your own scoring function that is able to deal with the
+    dataset and returns a scalar, for example:
+
+        >>> def ds_accuracy(net, ds, y=None):
+        ...     # assume ds yields (X, y), e.g. torchvision.datasets.MNIST
+        ...     y_true = [y for _, y in ds]
+        ...     y_pred = net.predict(ds)
+        ...     return sklearn.metrics.accuracy_score(y_true, y_pred)
+        >>> net = MyNet(callbacks=[
+        ...     EpochScoring(ds_accuracy, use_caching=False)])
+        >>> ds = torchvision.datasets.MNIST(root=mnist_path)
+        >>> net.fit(ds)
 
     Parameters
     ----------
@@ -229,10 +234,8 @@ class EpochScoring(ScoringBase):
 
     """
     def _initialize_cache(self):
-        self.y_train_trues_ = []
-        self.y_train_preds_ = []
-        self.y_valid_trues_ = []
-        self.y_valid_preds_ = []
+        self.y_trues_ = []
+        self.y_preds_ = []
 
     def initialize(self):
         super().initialize()
@@ -243,18 +246,12 @@ class EpochScoring(ScoringBase):
         self._initialize_cache()
 
         ds = dataset_train if self.on_train else dataset_valid
-        self.y_is_placeholder_ = (isinstance(ds, Dataset) and ds.y is None)
+        # pylint: disable=attribute-defined-outside-init
+        self.y_is_placeholder_ = isinstance(ds, Dataset) and ds.y is None
 
     def on_batch_end(self, net, y, y_pred, training, **kwargs):
-        if not self.use_caching:
+        if not self.use_caching or training != self.on_train:
             return
-
-        if training:
-            y_trues = self.y_train_trues_
-            y_preds = self.y_train_preds_
-        else:
-            y_trues = self.y_valid_trues_
-            y_preds = self.y_valid_preds_
 
         # We collect references to the prediction and target data
         # emitted by the training process. Since we don't copy the
@@ -264,13 +261,8 @@ class EpochScoring(ScoringBase):
         # there are no copies of parts of y hanging around during
         # training.
         if not self.y_is_placeholder_:
-            y_trues.append(y)
-        y_preds.append(y_pred)
-
-    def _is_skorch_dataset(self, ds):
-        if isinstance(ds, Subset):
-            return self._is_skorch_dataset(ds.dataset)
-        return isinstance(ds, Dataset)
+            self.y_trues_.append(y)
+        self.y_preds_.append(y_pred)
 
     # pylint: disable=unused-argument,arguments-differ
     def on_epoch_end(
@@ -284,16 +276,13 @@ class EpochScoring(ScoringBase):
 
         if self.use_caching:
             X_test = dataset
-            y_pred = (self.y_train_preds_ if self.on_train
-                      else self.y_valid_preds_)
-            y_test = (self.y_train_trues_ if self.on_train
-                      else self.y_valid_trues_)
-            y_test = [self.target_extractor(y) for y in y_test]
+            y_pred = self.y_preds_
+            y_test = [self.target_extractor(y) for y in self.y_trues_]
             # In case of y=None we will not have gathered any samples.
-            # We expect the scoring function deal with y_test=None.
+            # We expect the scoring function to deal with y_test=None.
             y_test = np.concatenate(y_test) if y_test else None
         else:
-            if self._is_skorch_dataset(dataset):
+            if is_skorch_dataset(dataset):
                 X_test, y_test = data_from_dataset(dataset)
             else:
                 X_test, y_test = dataset, None
@@ -306,16 +295,16 @@ class EpochScoring(ScoringBase):
         if X_test is None:
             return
 
-        with CachedNet(net, self.use_caching, y_pred) as net:
-            current_score = self._scoring(net, X_test, y_test)
+        with cache_net_infer(net, self.use_caching, y_pred) as cached_net:
+            current_score = self._scoring(cached_net, X_test, y_test)
 
-            net.history.record(self.name_, current_score)
+            cached_net.history.record(self.name_, current_score)
 
             is_best = self._is_best_score(current_score)
             if is_best is None:
                 return
 
-            net.history.record(self.name_ + '_best', is_best)
+            cached_net.history.record(self.name_ + '_best', is_best)
             if is_best:
                 self.best_score_ = current_score
 

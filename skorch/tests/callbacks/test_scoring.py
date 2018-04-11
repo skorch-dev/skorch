@@ -320,6 +320,7 @@ class TestEpochScoring:
         # received at the scoring side as well. For the caching case
         # we only receive datasets.
         import skorch
+        from skorch.helper import Subset
         from skorch.dataset import CVSplit
         import torch
         import torch.utils.data.dataset
@@ -348,10 +349,10 @@ class TestEpochScoring:
             # Test a split that splits datasets using torch Subset
             (data, cvsplit, np.ndarray, False),
             (data, cvsplit, skorch.helper.Subset, True),
-            ((MyTorchDataset(*data), None), cvsplit, skorch.helper.Subset, False),
-            ((MyTorchDataset(*data), None), cvsplit, skorch.helper.Subset, True),
+            ((MyTorchDataset(*data), None), cvsplit, Subset, False),
+            ((MyTorchDataset(*data), None), cvsplit, Subset, True),
             ((MySkorchDataset(*data), None), cvsplit, np.ndarray, False),
-            ((MySkorchDataset(*data), None), cvsplit, skorch.helper.Subset, True),
+            ((MySkorchDataset(*data), None), cvsplit, Subset, True),
         ]
 
         for input_data, train_split, expected_type, caching in table:
@@ -379,19 +380,20 @@ class TestEpochScoring:
 
         # on_train_end clears cache, overwrite so we can inspect the contents.
         with patch('skorch.callbacks.scoring.EpochScoring.on_train_end',
-                  lambda *x, **y: None):
+                    lambda *x, **y: None):
             net.fit(*data)
 
         cbs = dict(net.callbacks_)
         assert cbs['a1'].use_caching
         assert cbs['a2'].use_caching
-        assert len(cbs['a1'].y_valid_preds_) > 0
+        assert len(cbs['a1'].y_preds_) > 0
 
-        for c1, c2 in zip(cbs['a1'].y_valid_preds_, cbs['a2'].y_valid_preds_):
+        for c1, c2 in zip(cbs['a1'].y_preds_, cbs['a2'].y_preds_):
             assert id(c1) == id(c2)
 
-        for c1, c2 in zip(cbs['a1'].y_valid_trues_, cbs['a2'].y_valid_trues_):
+        for c1, c2 in zip(cbs['a1'].y_trues_, cbs['a2'].y_trues_):
             assert id(c1) == id(c2)
+
 
 class TestBatchScoring:
     @pytest.fixture
