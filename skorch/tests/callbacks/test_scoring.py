@@ -380,7 +380,7 @@ class TestEpochScoring:
 
         # on_train_end clears cache, overwrite so we can inspect the contents.
         with patch('skorch.callbacks.scoring.EpochScoring.on_train_end',
-                    lambda *x, **y: None):
+                   lambda *x, **y: None):
             net.fit(*data)
 
         cbs = dict(net.callbacks_)
