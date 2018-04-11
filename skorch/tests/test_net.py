@@ -378,6 +378,15 @@ class TestNeuralNet:
         assert net.module_.nonlin is F.tanh
         assert np.isclose(net.lr, 0.2)
 
+    def test_set_params_with_unknown_key_raises(self, net):
+        with pytest.raises(ValueError) as exc:
+            net.set_params(foo=123)
+
+        msg = ("Invalid parameter foo for estimator NeuralNetClassifier. "
+               "Check the list of available parameters with "
+               "`estimator.get_params().keys()`.")
+        assert exc.value.args[0] == msg
+
     def test_changing_model_reinitializes_optimizer(self, net, data):
         # The idea is that we change the model using `set_params` to
         # add parameters. Since the optimizer depends on the model
