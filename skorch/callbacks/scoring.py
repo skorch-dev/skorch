@@ -130,6 +130,10 @@ class BatchScoring(ScoringBase):
     target_extractor : callable (default=to_numpy)
       This is called on y before it is passed to scoring.
 
+    use_caching : bool (default=True)
+      Re-use the model's prediction for computing the loss to calculate
+      the score. Turning this off will result in an additional inference
+      step for each batch.
     """
     # pylint: disable=unused-argument,arguments-differ
     def on_batch_end(self, net, X, y, training, **kwargs):
@@ -231,6 +235,16 @@ class EpochScoring(ScoringBase):
 
     target_extractor : callable (default=to_numpy)
       This is called on y before it is passed to scoring.
+
+    use_caching : bool (default=True)
+      Collect labels and predictions (``y_true`` and ``y_pred``)
+      over the course of one epoch and use the cached values for
+      computing the score. The cached values are shared between
+      all ``EpochScoring`` instances. Disabling this will result
+      in an additional inference step for each epoch and an
+      inability to use arbitrary datasets as input (since we
+      don't know how to extract ``y_true`` from an arbitrary
+      dataset).
 
     """
     def _initialize_cache(self):
