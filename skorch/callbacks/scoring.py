@@ -234,6 +234,11 @@ class EpochScoring(ScoringBase):
         self.y_valid_trues_ = []
         self.y_valid_preds_ = []
 
+    def initialize(self):
+        super().initialize()
+        self._initialize_cache()
+        return self
+
     def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
         self._initialize_cache()
 
