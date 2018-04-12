@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from skorch.net import NeuralNetClassifier
 from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler
 
+
 class TestLRCallbacks:
 
     def test_lr_callback_init_policies(self, classifier_module):
@@ -63,7 +64,38 @@ class TestLRCallbacks:
             net.callbacks_
         )))
 
+
 class TestWarmRestartLR():
+    def assert_lr_correct(
+            self, optimizer, targets, epochs, min_lr, max_lr, base_period,
+            period_mult):
+        targets = [targets] if len(optimizer.param_groups) == 1 else targets
+        scheduler = WarmRestartLR(
+            optimizer, min_lr, max_lr, base_period, period_mult
+        )
+        for epoch in range(epochs):
+            scheduler.step(epoch)
+            for param_group, target in zip(optimizer.param_groups, targets):
+                assert param_group['lr'] == pytest.approx(target[epoch])
+
+    def _single_period_targets(self, epochs, min_lr, max_lr, period):
+        targets = 1 + np.cos(np.arange(epochs) * np.pi / period)
+        targets = min_lr + 0.5 * (max_lr-min_lr) * targets
+        return targets.tolist()
+
+    def _multi_period_targets(
+            self, epochs, min_lr, max_lr, base_period, period_mult):
+        remaining_epochs = epochs
+        current_period = base_period
+        targets = list()
+        while remaining_epochs > 0:
+            period_epochs = min(remaining_epochs, current_period+1)
+            remaining_epochs -= period_epochs
+            targets += self._single_period_targets(
+                period_epochs, min_lr, max_lr, current_period
+            )
+            current_period = current_period * period_mult
+        return targets
 
     @pytest.fixture()
     def init_optimizer(self, classifier_module):
@@ -86,8 +118,9 @@ class TestWarmRestartLR():
         max_lr = 5e-2
         base_period = 3
         period_mult = 1
-        targets = _single_period_targets(epochs, min_lr, max_lr, base_period)
-        _test(
+        targets = self._single_period_targets(
+            epochs, min_lr, max_lr, base_period)
+        self.assert_lr_correct(
             optimizer,
             targets,
             epochs,
@@ -104,10 +137,10 @@ class TestWarmRestartLR():
         max_lr = 5e-2
         base_period = 2
         period_mult = 2
-        targets = _multi_period_targets(
+        targets = self._multi_period_targets(
             epochs, min_lr, max_lr, base_period, period_mult
         )
-        _test(
+        self.assert_lr_correct(
             optimizer,
             targets,
             epochs,
@@ -135,11 +168,11 @@ class TestWarmRestartLR():
         targets = list()
         for min_lr, max_lr in zip(min_lr_group, max_lr_group):
             targets.append(
-                _multi_period_targets(
+                self._multi_period_targets(
                     epochs, min_lr, max_lr, base_period, period_mult
                 )
             )
-        _test(
+        self.assert_lr_correct(
             optimizer,
             targets,
             epochs,
@@ -148,31 +181,3 @@ class TestWarmRestartLR():
             base_period,
             period_mult
         )
-
-def _test(optimizer, targets, epochs, min_lr, max_lr, base_period, period_mult):
-    targets = [targets] if len(optimizer.param_groups) == 1 else targets
-    scheduler = WarmRestartLR(
-        optimizer, min_lr, max_lr, base_period, period_mult
-    )
-    for epoch in range(epochs):
-        scheduler.step(epoch)
-        for param_group, target in zip(optimizer.param_groups, targets):
-            assert param_group['lr'] == pytest.approx(target[epoch])
-
-def _single_period_targets(epochs, min_lr, max_lr, period):
-    targets = 1 + np.cos(np.arange(epochs) * np.pi / period)
-    targets = min_lr + 0.5 * (max_lr-min_lr) * targets
-    return targets.tolist()
-
-def _multi_period_targets(epochs, min_lr, max_lr, base_period, period_mult):
-    remaining_epochs = epochs
-    current_period = base_period
-    targets = list()
-    while remaining_epochs > 0:
-        period_epochs = min(remaining_epochs, current_period+1)
-        remaining_epochs -= period_epochs
-        targets += _single_period_targets(
-            period_epochs, min_lr, max_lr, current_period
-        )
-        current_period = current_period * period_mult
-    return targets

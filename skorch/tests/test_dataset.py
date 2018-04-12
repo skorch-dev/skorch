@@ -506,6 +506,7 @@ class TestCVSplit:
     def assert_datasets_equal(ds0, ds1):
         """Generic function to test equality of dataset values."""
         assert len(ds0) == len(ds1)
+        # pylint: disable=consider-using-enumerate
         for i in range(len(ds0)):
             x0, y0 = ds0[i]
             x1, y1 = ds1[i]

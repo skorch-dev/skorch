@@ -367,6 +367,9 @@ class TestIsSkorchDataset:
 
     # pylint: disable=no-method-argument
     def type_truth_table():
+        """Return a table of (type, bool) tuples that describe what
+        is_skorch_dataset should return when called with that type.
+        """
         from skorch.dataset import Dataset
         from skorch.helper import Subset
 

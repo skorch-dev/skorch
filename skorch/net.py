@@ -495,7 +495,11 @@ class NeuralNet(object):
         y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
-        self.notify('on_grad_computed', named_parameters=self.module_.named_parameters())
+
+        self.notify(
+            'on_grad_computed',
+            named_parameters=self.module_.named_parameters(),
+        )
 
         self.optimizer_.step()
         return {
@@ -1294,9 +1298,9 @@ class NeuralNetClassifier(NeuralNet):
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         if (
-            (y is None) and
-            (not is_dataset(X)) and
-            (self.iterator_train is DataLoader)
+                (y is None) and
+                (not is_dataset(X)) and
+                (self.iterator_train is DataLoader)
         ):
             msg = ("No y-values are given (y=None). You must either supply a "
                    "Dataset as X or implement your own DataLoader for "
@@ -1454,9 +1458,9 @@ class NeuralNetRegressor(NeuralNet):
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         if (
-            (y is None) and
-            (not is_dataset(X)) and
-            (self.iterator_train is DataLoader)
+                (y is None) and
+                (not is_dataset(X)) and
+                (self.iterator_train is DataLoader)
         ):
             raise ValueError("No y-values are given (y=None). You must "
                              "implement your own DataLoader for training "
