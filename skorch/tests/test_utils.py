@@ -356,3 +356,38 @@ class TestMultiIndexing:
         res = multi_indexing(X, i)
         expected = torch.LongTensor([0, 4, 8])
         assert all(res == expected)
+
+
+class TestIsSkorchDataset:
+
+    @pytest.fixture
+    def is_skorch_dataset(self):
+        from skorch.utils import is_skorch_dataset
+        return is_skorch_dataset
+
+    # pylint: disable=no-method-argument
+    def type_truth_table():
+        from skorch.dataset import Dataset
+        from skorch.helper import Subset
+
+        numpy_data = np.array([1, 2, 3])
+        tensor_data = torch.from_numpy(numpy_data)
+        torch_dataset = torch.utils.data.TensorDataset(
+            tensor_data, tensor_data)
+        torch_subset = Subset(torch_dataset, [1, 2])
+        skorch_dataset = Dataset(numpy_data)
+        skorch_subset = Subset(skorch_dataset, [1, 2])
+
+        return [
+            (numpy_data, False),
+            (torch_dataset, False),
+            (torch_subset, False),
+            (skorch_dataset, True),
+            (skorch_subset, True),
+        ]
+
+    @pytest.mark.parametrize(
+        'input_data,expected',
+        type_truth_table())
+    def test_data_types(self, is_skorch_dataset, input_data, expected):
+        assert is_skorch_dataset(input_data) == expected

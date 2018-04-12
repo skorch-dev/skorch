@@ -1,16 +1,35 @@
+from contextlib import contextmanager
 from functools import partial
-import warnings
 
 import numpy as np
 from sklearn.metrics.scorer import check_scoring
 from sklearn.model_selection._validation import _score
 
 from skorch.utils import data_from_dataset
+from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
-
+from skorch.dataset import Dataset
 
 __all__ = ['BatchScoring', 'EpochScoring']
+
+
+@contextmanager
+def cache_net_infer(net, use_caching, y_preds):
+    """Caching context for ``skorch.NeuralNet`` instance. Returns
+    a modified version of the net whose ``infer`` method will
+    subsequently return cached predictions. Leaving the context
+    will undo the overwrite of the ``infer`` method."""
+    if not use_caching:
+        yield net
+        return
+    y_preds = iter(y_preds)
+    net.infer = lambda *a, **kw: next(y_preds)
+    yield net
+    # By setting net.infer we define an attribute `infer`
+    # that precedes the bound method `infer`. By deleting
+    # the entry from the attribute dict we undo this.
+    del net.__dict__['infer']
 
 
 class ScoringBase(Callback):
@@ -25,12 +44,14 @@ class ScoringBase(Callback):
             on_train=False,
             name=None,
             target_extractor=to_numpy,
+            use_caching=True,
     ):
         self.scoring = scoring
         self.lower_is_better = lower_is_better
         self.on_train = on_train
         self.name = name
         self.target_extractor = target_extractor
+        self.use_caching = use_caching
 
     def _get_name(self):
         if self.name is not None:
@@ -49,7 +70,8 @@ class ScoringBase(Callback):
         return self
 
     def _scoring(self, net, X_test, y_test):
-        """Resolve scoring and apply it to data."""
+        """Resolve scoring and apply it to data. Use cached prediction
+        instead of running inference again, if available."""
         scorer = check_scoring(net, self.scoring)
         scores = _score(
             estimator=net,
@@ -108,18 +130,24 @@ class BatchScoring(ScoringBase):
     target_extractor : callable (default=to_numpy)
       This is called on y before it is passed to scoring.
 
+    use_caching : bool (default=True)
+      Re-use the model's prediction for computing the loss to calculate
+      the score. Turning this off will result in an additional inference
+      step for each batch.
     """
     # pylint: disable=unused-argument,arguments-differ
     def on_batch_end(self, net, X, y, training, **kwargs):
         if training != self.on_train:
             return
 
-        y = self.target_extractor(y)
-        try:
-            score = self._scoring(net, X, y)
-            net.history.record_batch(self.name_, score)
-        except KeyError:
-            pass
+        y_preds = [kwargs['y_pred']]
+        with cache_net_infer(net, self.use_caching, y_preds) as cached_net:
+            y = self.target_extractor(y)
+            try:
+                score = self._scoring(cached_net, X, y)
+                cached_net.history.record_batch(self.name_, score)
+            except KeyError:
+                pass
 
     def get_avg_score(self, history):
         if self.on_train:
@@ -169,11 +197,22 @@ class EpochScoring(ScoringBase):
         >>> net = MyNet(callbacks=[
         ...     ('my_score', Scoring(my_score, name='my_score'))
 
-    If you fit with a custom dataset, this callback might be skipped,
-    since it must explicitely find X and y to pass those values to
-    sklearn's scoring functions. To circumvent this, your dataset
-    should have an 'X' and a 'y' attribute that contain the input and
-    target data, respectively.
+    If you fit with a custom dataset, this callback should work as
+    expected as long as ``use_caching=True`` which enables the
+    collection of ``y`` values from the dataset. If you decide to
+    disable the caching of predictions and ``y`` values, you need
+    to write your own scoring function that is able to deal with the
+    dataset and returns a scalar, for example:
+
+        >>> def ds_accuracy(net, ds, y=None):
+        ...     # assume ds yields (X, y), e.g. torchvision.datasets.MNIST
+        ...     y_true = [y for _, y in ds]
+        ...     y_pred = net.predict(ds)
+        ...     return sklearn.metrics.accuracy_score(y_true, y_pred)
+        >>> net = MyNet(callbacks=[
+        ...     EpochScoring(ds_accuracy, use_caching=False)])
+        >>> ds = torchvision.datasets.MNIST(root=mnist_path)
+        >>> net.fit(ds)
 
     Parameters
     ----------
@@ -197,7 +236,48 @@ class EpochScoring(ScoringBase):
     target_extractor : callable (default=to_numpy)
       This is called on y before it is passed to scoring.
 
+    use_caching : bool (default=True)
+      Collect labels and predictions (``y_true`` and ``y_pred``)
+      over the course of one epoch and use the cached values for
+      computing the score. The cached values are shared between
+      all ``EpochScoring`` instances. Disabling this will result
+      in an additional inference step for each epoch and an
+      inability to use arbitrary datasets as input (since we
+      don't know how to extract ``y_true`` from an arbitrary
+      dataset).
+
     """
+    def _initialize_cache(self):
+        self.y_trues_ = []
+        self.y_preds_ = []
+
+    def initialize(self):
+        super().initialize()
+        self._initialize_cache()
+        return self
+
+    def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
+        self._initialize_cache()
+
+        ds = dataset_train if self.on_train else dataset_valid
+        # pylint: disable=attribute-defined-outside-init
+        self.y_is_placeholder_ = isinstance(ds, Dataset) and ds.y is None
+
+    def on_batch_end(self, net, y, y_pred, training, **kwargs):
+        if not self.use_caching or training != self.on_train:
+            return
+
+        # We collect references to the prediction and target data
+        # emitted by the training process. Since we don't copy the
+        # data, all *Scoring callback instances use the same
+        # underlying data. This is also the reason why we don't run
+        # self.target_extractor(y) here but on epoch end, so that
+        # there are no copies of parts of y hanging around during
+        # training.
+        if not self.y_is_placeholder_:
+            self.y_trues_.append(y)
+        self.y_preds_.append(y_pred)
+
     # pylint: disable=unused-argument,arguments-differ
     def on_epoch_end(
             self,
@@ -205,32 +285,42 @@ class EpochScoring(ScoringBase):
             dataset_train,
             dataset_valid,
             **kwargs):
+
         dataset = dataset_train if self.on_train else dataset_valid
-        try:
-            X_test, y_test = data_from_dataset(dataset)
-        except AttributeError:
-            X_test, y_test = None, None
-            warnings.warn(
-                "EpochScoring cannot access X and y from the dataset. This "
-                "typically happens when you fit the net with your own "
-                "dataset. In that case, EpochScoring does not work.")
+
+        if self.use_caching:
+            X_test = dataset
+            y_pred = self.y_preds_
+            y_test = [self.target_extractor(y) for y in self.y_trues_]
+            # In case of y=None we will not have gathered any samples.
+            # We expect the scoring function to deal with y_test=None.
+            y_test = np.concatenate(y_test) if y_test else None
+        else:
+            if is_skorch_dataset(dataset):
+                X_test, y_test = data_from_dataset(dataset)
+            else:
+                X_test, y_test = dataset, None
+            y_pred = []
+            if y_test is not None:
+                # We allow y_test to be None but the scoring function has
+                # to be able to deal with it (i.e. called without y_test).
+                y_test = self.target_extractor(y_test)
 
         if X_test is None:
             return
 
-        if y_test is not None:
-            # We allow y_test to be None but the scoring function has
-            # to be able to deal with it (i.e. called without y_test).
-            y_test = self.target_extractor(y_test)
+        with cache_net_infer(net, self.use_caching, y_pred) as cached_net:
+            current_score = self._scoring(cached_net, X_test, y_test)
 
-        history = net.history
-        current_score = self._scoring(net, X_test, y_test)
-        history.record(self.name_, current_score)
+            cached_net.history.record(self.name_, current_score)
 
-        is_best = self._is_best_score(current_score)
-        if is_best is None:
-            return
+            is_best = self._is_best_score(current_score)
+            if is_best is None:
+                return
 
-        history.record(self.name_ + '_best', is_best)
-        if is_best:
-            self.best_score_ = current_score
+            cached_net.history.record(self.name_ + '_best', is_best)
+            if is_best:
+                self.best_score_ = current_score
+
+    def on_train_end(self, *args, **kwargs):
+        self._initialize_cache()

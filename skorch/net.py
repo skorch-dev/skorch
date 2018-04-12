@@ -1452,8 +1452,12 @@ class NeuralNetRegressor(NeuralNet):
         )
 
     # pylint: disable=signature-differs
-    def check_data(self, _, y):
-        if y is None and self.iterator_train is DataLoader:
+    def check_data(self, X, y):
+        if (
+            (y is None) and
+            (not is_dataset(X)) and
+            (self.iterator_train is DataLoader)
+        ):
             raise ValueError("No y-values are given (y=None). You must "
                              "implement your own DataLoader for training "
                              "(and your validation) and supply it using the "

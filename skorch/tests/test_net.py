@@ -705,8 +705,9 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=1, use_cuda=True)
         net.fit(X, y)
 
+    @pytest.mark.parametrize('use_caching', [True, False])
     def test_net_initialized_with_custom_dataset_args(
-            self, net_cls, module_cls, data, dataset_cls):
+            self, net_cls, module_cls, data, dataset_cls, use_caching):
         side_effect = []
 
         class MyDataset(dataset_cls):
@@ -719,10 +720,18 @@ class TestNeuralNet:
             dataset=MyDataset,
             dataset__foo=123,
             max_epochs=1,
+            callbacks__train_loss__use_caching=use_caching,
+            callbacks__valid_loss__use_caching=use_caching,
+            callbacks__valid_acc__use_caching=use_caching,
         )
         net.fit(*data)
 
-        assert side_effect == [123, 123]  # train/valid split, scoring
+        if not use_caching:
+            # train/valid split, scoring predict
+            assert side_effect == [123, 123]
+        else:
+            # train/valid split
+            assert side_effect == [123]
 
     @pytest.mark.xfail
     def test_net_initialized_with_initalized_dataset(
@@ -731,6 +740,10 @@ class TestNeuralNet:
             module_cls,
             dataset=dataset_cls(*data, use_cuda=0),
             max_epochs=1,
+
+            # Disable caching to highlight the issue with this
+            # test case (mismatching size between y values)
+            callbacks__valid_acc__use_caching=False,
         )
         # FIXME: When dataset is initialized, X and y do not matter
         # anymore
