@@ -69,7 +69,7 @@ class LRScheduler(Callback):
             scheduler_kwargs["last_epoch"] = last_epoch
 
         if policy is CyclicLR and \
-           "batch_idx" not in scheduler_kwargs:
+           "last_batch_idx" not in scheduler_kwargs:
             last_batch_idx = self._get_batch_idx(net) - 1
             scheduler_kwargs["last_batch_idx"] = last_batch_idx
         return policy(net.optimizer_, **scheduler_kwargs)
