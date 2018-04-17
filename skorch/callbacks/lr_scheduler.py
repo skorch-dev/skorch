@@ -35,7 +35,7 @@ class LRScheduler(Callback):
 
     """
 
-    def __init__(self, policy="WarmRestartLR", **kwargs):
+    def __init__(self, policy='WarmRestartLR', **kwargs):
         if isinstance(policy, str):
             self.policy = getattr(sys.modules[__name__], policy)
         else:
@@ -64,14 +64,14 @@ class LRScheduler(Callback):
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
         if policy not in [CyclicLR, ReduceLROnPlateau] and \
-           "last_epoch" not in scheduler_kwargs:
+           'last_epoch' not in scheduler_kwargs:
             last_epoch = len(net.history) - 1
-            scheduler_kwargs["last_epoch"] = last_epoch
+            scheduler_kwargs['last_epoch'] = last_epoch
 
         if policy is CyclicLR and \
-           "last_batch_idx" not in scheduler_kwargs:
+           'last_batch_idx' not in scheduler_kwargs:
             last_batch_idx = self._get_batch_idx(net)
-            scheduler_kwargs["last_batch_idx"] = last_batch_idx
+            scheduler_kwargs['last_batch_idx'] = last_batch_idx
         return policy(net.optimizer_, **scheduler_kwargs)
 
     def _get_batch_idx(self, net):

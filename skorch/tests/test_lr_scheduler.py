@@ -17,7 +17,7 @@ from skorch.callbacks.lr_scheduler import (
 
 class TestLRCallbacks:
 
-    @pytest.mark.parametrize("policy, instance, kwargs", [
+    @pytest.mark.parametrize('policy, instance, kwargs', [
         ('LambdaLR', LambdaLR, {'lr_lambda': (lambda x: 1e-1)}),
         ('StepLR', StepLR, {'step_size': 30}),
         ('MultiStepLR', MultiStepLR, {'milestones': [30, 90]}),
@@ -45,7 +45,7 @@ class TestLRCallbacks:
 
     def test_raise_invalid_policy_string(self):
         with pytest.raises(AttributeError):
-            LRScheduler("invalid_policy")
+            LRScheduler('invalid_policy')
 
     def test_raise_invalid_policy_class(self):
         class DummyClass():
@@ -54,7 +54,7 @@ class TestLRCallbacks:
         with pytest.raises(AssertionError):
             LRScheduler(DummyClass)
 
-    @pytest.mark.parametrize("policy, kwargs", [
+    @pytest.mark.parametrize('policy, kwargs', [
             ('LambdaLR', {'lr_lambda': (lambda x: 1e-1)}),
             ('StepLR', {'step_size': 30}),
             ('MultiStepLR', {'milestones': [30, 90]}),
@@ -71,7 +71,7 @@ class TestLRCallbacks:
         net.fit(X, y)
         assert lr_policy._lr_scheduler.last_epoch == max_epochs - 1
 
-    @pytest.mark.parametrize("policy, kwargs", [
+    @pytest.mark.parametrize('policy, kwargs', [
             ('CyclicLR', {}),
         ])
     def test_lr_callback_batch_steps_correctly(self, classifier_module, policy, kwargs):
