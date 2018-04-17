@@ -304,10 +304,10 @@ class CyclicLR(object):
     def step(self, epoch=None):
         pass
 
-    def batch_step(self, batch_iteration=None):
-        if batch_iteration is None:
-            batch_iteration = self.last_batch_idx + 1
-        self.last_batch_idx = batch_iteration
+    def batch_step(self, batch_idx=None):
+        if batch_idx is None:
+            batch_idx = self.last_batch_idx + 1
+        self.last_batch_idx = batch_idx
         for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
             param_group['lr'] = lr
 

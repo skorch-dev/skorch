@@ -268,7 +268,7 @@ class TestCyclicLR():
                              step_size=4, mode='exp_range', gamma=gamma)
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
-    def test_batch_iteration_with_none(self, init_optimizer):
+    def test_batch_idx_with_none(self, init_optimizer):
         scheduler = CyclicLR(init_optimizer)
         scheduler.batch_step()
         assert scheduler.last_batch_idx == 0
@@ -281,8 +281,8 @@ class TestCyclicLR():
 
     @staticmethod
     def _test_cycle_lr(optimizer, scheduler, targets):
-        batch_iterations = len(targets[0])
-        for batch_num in range(batch_iterations):
+        batch_idxs = len(targets[0])
+        for batch_num in range(batch_idxs):
             scheduler.batch_step(batch_num)
             for param_group, target in zip(optimizer.param_groups, targets):
                 assert param_group['lr'] == pytest.approx(target[batch_num])
