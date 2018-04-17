@@ -59,15 +59,28 @@ class LRScheduler(Callback):
 
     def on_batch_begin(self, net, **kwargs):
         if isinstance(self._lr_scheduler, CyclicLR):
-            epoch = len(net.history) - 1
-            current_batch_idx = len(net.history[-1, 'batches'])
-            batch_cnt = len(net.history[-2, 'batches']) if epoch >= 1 else 0
-            batch_iteration = epoch * batch_cnt + current_batch_idx
-            self._lr_scheduler.batch_step(batch_iteration)
+            batch_idx = self._get_batch_idx(net)
+            self._lr_scheduler.batch_step(batch_idx)
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
+        if policy not in [CyclicLR, ReduceLROnPlateau] and \
+           "last_epoch" not in scheduler_kwargs:
+            last_epoch = len(net.history) - 1
+            scheduler_kwargs["last_epoch"] = last_epoch
+
+        if policy is CyclicLR and \
+           "batch_idx" not in scheduler_kwargs:
+            last_batch_idx = self._get_batch_idx(net) - 1
+            scheduler_kwargs["last_batch_idx"] = last_batch_idx
         return policy(net.optimizer_, **scheduler_kwargs)
 
+    def _get_batch_idx(self, net):
+        if len(net.history) == 0:
+            return 0
+        epoch = len(net.history) - 1
+        current_batch_idx = len(net.history[-1, 'batches'])
+        batch_cnt = len(net.history[-2, 'batches']) if epoch >= 1 else 0
+        return epoch * batch_cnt + current_batch_idx
 
 class WarmRestartLR(_LRScheduler):
     """Stochastic Gradient Descent with Warm Restarts (SGDR) scheduler.
@@ -150,7 +163,7 @@ class WarmRestartLR(_LRScheduler):
         )
         return current_lrs.tolist()
 
-class CyclicLR(_LRScheduler):
+class CyclicLR(object):
     """Sets the learning rate of each parameter group according to
     cyclical learning rate policy (CLR). The policy cycles the learning
     rate between two boundaries with a constant frequency, as detailed in
@@ -160,7 +173,7 @@ class CyclicLR(_LRScheduler):
 
     Cyclical learning rate policy changes the learning rate after every batch.
     `batch_step` should be called after a batch has been used for training.
-    To resume training, save `last_batch_iteration` and use it to instantiate
+    To resume training, save `last_batch_idx` and use it to instantiate
     `CycleLR`.
 
     This class has three built-in policies, as put forth in the paper:
@@ -216,7 +229,7 @@ class CyclicLR(_LRScheduler):
       is evaluated on cycle number or cycle iterations (training
       iterations since start of cycle).
 
-    last_batch_iteration : int (default=-1)
+    last_batch_idx : int (default=-1)
       The index of the last batch.
 
     Examples
@@ -239,7 +252,7 @@ class CyclicLR(_LRScheduler):
     def __init__(self, optimizer, base_lr=1e-3, max_lr=6e-3,
                  step_size=2000, mode='triangular', gamma=1.,
                  scale_fn=None, scale_mode='cycle',
-                 last_batch_iteration=-1):
+                 last_batch_idx=-1):
 
         if not isinstance(optimizer, Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
@@ -285,16 +298,16 @@ class CyclicLR(_LRScheduler):
             self.scale_fn = scale_fn
             self.scale_mode = scale_mode
 
-        self.batch_step(last_batch_iteration + 1)
-        self.last_batch_iteration = last_batch_iteration
+        self.batch_step(last_batch_idx + 1)
+        self.last_batch_idx = last_batch_idx
 
     def step(self, epoch=None):
         pass
 
     def batch_step(self, batch_iteration=None):
         if batch_iteration is None:
-            batch_iteration = self.last_batch_iteration + 1
-        self.last_batch_iteration = batch_iteration
+            batch_iteration = self.last_batch_idx + 1
+        self.last_batch_idx = batch_iteration
         for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
             param_group['lr'] = lr
 
@@ -309,8 +322,8 @@ class CyclicLR(_LRScheduler):
 
     def get_lr(self):
         step_size = float(self.step_size)
-        cycle = np.floor(1 + self.last_batch_iteration / (2 * step_size))
-        x = np.abs(self.last_batch_iteration / step_size - 2 * cycle + 1)
+        cycle = np.floor(1 + self.last_batch_idx / (2 * step_size))
+        x = np.abs(self.last_batch_idx / step_size - 2 * cycle + 1)
 
         lrs = []
         param_lrs = zip(self.optimizer.param_groups, self.base_lrs, self.max_lrs)
@@ -319,6 +332,6 @@ class CyclicLR(_LRScheduler):
             if self.scale_mode == 'cycle':
                 lr = base_lr + base_height * self.scale_fn(cycle)
             else:
-                lr = base_lr + base_height * self.scale_fn(self.last_batch_iteration)
+                lr = base_lr + base_height * self.scale_fn(self.last_batch_idx)
             lrs.append(lr)
         return lrs

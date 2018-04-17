@@ -26,7 +26,6 @@ class TestLRCallbacks:
         ('WarmRestartLR', WarmRestartLR, {}),
         ('CyclicLR', CyclicLR, {}),
         (WarmRestartLR, WarmRestartLR, {}),
-        (CyclicLR, CyclicLR, {})
     ])
     def test_lr_callback_init_policies(self, classifier_module, policy, instance, kwargs):
         X, y = make_classification(
@@ -86,8 +85,7 @@ class TestLRCallbacks:
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
-        assert lr_policy._lr_scheduler.last_batch_iteration == (num_examples // batch_size)*max_epochs
-
+        assert lr_policy._lr_scheduler.last_batch_idx == (num_examples // batch_size)*max_epochs
 
 class TestWarmRestartLR():
 
@@ -273,7 +271,7 @@ class TestCyclicLR():
     def test_batch_iteration_with_none(self, init_optimizer):
         scheduler = CyclicLR(init_optimizer)
         scheduler.batch_step()
-        assert scheduler.last_batch_iteration == 0
+        assert scheduler.last_batch_idx == 0
 
     def test_scale_fn(self, init_optimizer):
         def scale_fn(x):
