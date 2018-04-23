@@ -302,6 +302,7 @@ class CyclicLR(object):
         self.last_batch_idx = last_batch_idx
 
     def step(self, epoch=None):
+        """Not used by ``CyclicLR``"""
         pass
 
     def batch_step(self, batch_idx=None):
@@ -316,12 +317,21 @@ class CyclicLR(object):
             param_group['lr'] = lr
 
     def _triangular_scale_fn(self, x):
+        """Cycle amplitude remains contant"""
         return 1.
 
     def _triangular2_scale_fn(self, x):
+        """
+        Decreases the cycle amplitude by half after each period,
+        while keeping the base lr constant.
+        """
         return 1 / (2. ** (x - 1))
 
     def _exp_range_scale_fn(self, x):
+        """
+        Scales the cycle amplitude by a factor ``gamma**x``,
+        while keeping the base lr constant.
+        """
         return self.gamma**(x)
 
     def get_lr(self):
