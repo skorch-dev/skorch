@@ -75,7 +75,7 @@ class LRScheduler(Callback):
         return policy(net.optimizer_, **scheduler_kwargs)
 
     def _get_batch_idx(self, net):
-        if len(net.history) == 0:
+        if not net.history:
             return -1
         epoch = len(net.history) - 1
         current_batch_idx = len(net.history[-1, 'batches'])
@@ -172,9 +172,9 @@ class CyclicLR(object):
     or per-cycle basis.
 
     Cyclical learning rate policy changes the learning rate after every batch.
-    `batch_step` should be called after a batch has been used for training.
+    ``batch_step`` should be called after a batch has been used for training.
     To resume training, save `last_batch_idx` and use it to instantiate
-    `CycleLR`.
+    ``CycleLR`.
 
     This class has three built-in policies, as put forth in the paper:
 
@@ -259,7 +259,7 @@ class CyclicLR(object):
                 type(optimizer).__name__))
         self.optimizer = optimizer
 
-        if isinstance(base_lr, list) or isinstance(base_lr, tuple):
+        if isinstance(base_lr, (list, tuple)):
             if len(base_lr) != len(optimizer.param_groups):
                 raise ValueError("expected {} base_lrs, got {}".format(
                     len(optimizer.param_groups), len(base_lr)))
@@ -267,7 +267,7 @@ class CyclicLR(object):
         else:
             self.base_lrs = [base_lr] * len(optimizer.param_groups)
 
-        if isinstance(max_lr, list) or isinstance(max_lr, tuple):
+        if isinstance(max_lr, (list, tuple)):
             if len(max_lr) != len(optimizer.param_groups):
                 raise ValueError("expected {} max_lrs, got {}".format(
                     len(optimizer.param_groups), len(max_lr)))
@@ -305,6 +305,10 @@ class CyclicLR(object):
         pass
 
     def batch_step(self, batch_idx=None):
+        """Updates the learning rate for the batch index: ``batch_idx``.
+        If ``batch_idx`` is None, ``CyclicLR`` will use an internal
+        batch index to keep track of the index.
+        """
         if batch_idx is None:
             batch_idx = self.last_batch_idx + 1
         self.last_batch_idx = batch_idx
@@ -321,13 +325,15 @@ class CyclicLR(object):
         return self.gamma**(x)
 
     def get_lr(self):
+        """Calculates the learning rate at batch index:
+        ``self.last_batch_idx``.
+        """
         step_size = float(self.step_size)
         cycle = np.floor(1 + self.last_batch_idx / (2 * step_size))
         x = np.abs(self.last_batch_idx / step_size - 2 * cycle + 1)
 
         lrs = []
-        param_lrs = zip(self.optimizer.param_groups, self.base_lrs, self.max_lrs)
-        for param_group, base_lr, max_lr in param_lrs:
+        for base_lr, max_lr in zip(self.base_lrs, self.max_lrs):
             base_height = (max_lr - base_lr) * np.maximum(0, (1 - x))
             if self.scale_mode == 'cycle':
                 lr = base_lr + base_height * self.scale_fn(cycle)
