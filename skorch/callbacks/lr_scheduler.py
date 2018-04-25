@@ -58,7 +58,7 @@ class LRScheduler(Callback):
             self._lr_scheduler.step(epoch)
 
     def on_batch_begin(self, net, **kwargs):
-        if isinstance(self._lr_scheduler, CyclicLR):
+        if hasattr(self._lr_scheduler, 'batch_step') and callable(self._lr_scheduler.batch_step):
             batch_idx = self._get_batch_idx(net)
             self._lr_scheduler.batch_step(batch_idx)
 
@@ -258,23 +258,8 @@ class CyclicLR(object):
             raise TypeError('{} is not an Optimizer'.format(
                 type(optimizer).__name__))
         self.optimizer = optimizer
-
-        if isinstance(base_lr, (list, tuple)):
-            if len(base_lr) != len(optimizer.param_groups):
-                raise ValueError("expected {} base_lrs, got {}".format(
-                    len(optimizer.param_groups), len(base_lr)))
-            self.base_lrs = list(base_lr)
-        else:
-            self.base_lrs = [base_lr] * len(optimizer.param_groups)
-
-        if isinstance(max_lr, (list, tuple)):
-            if len(max_lr) != len(optimizer.param_groups):
-                raise ValueError("expected {} max_lrs, got {}".format(
-                    len(optimizer.param_groups), len(max_lr)))
-            self.max_lrs = list(max_lr)
-        else:
-            self.max_lrs = [max_lr] * len(optimizer.param_groups)
-
+        self.base_lrs = self._format_lr('base_lr', optimizer, base_lr)
+        self.max_lrs = self._format_lr('max_lr', optimizer, max_lr)
         self.step_size = step_size
 
         if mode not in ['triangular', 'triangular2', 'exp_range'] \
@@ -301,8 +286,18 @@ class CyclicLR(object):
         self.batch_step(last_batch_idx + 1)
         self.last_batch_idx = last_batch_idx
 
+    def _format_lr(self, name, optimizer, lr):
+        """Return correctly formatted lr for each param group."""
+        if isinstance(lr, (list, tuple)):
+            if len(lr) != len(optimizer.param_groups):
+                raise ValueError("expected {} values for {}, got {}".format(
+                    len(optimizer.param_groups), name, len(lr)))
+            return np.array(lr)
+        else:
+            return lr * np.ones(len(optimizer.param_groups))
+
     def step(self, epoch=None):
-        """Not used by ``CyclicLR``"""
+        """Not used by ``CyclicLR``, use batch_step instead."""
         pass
 
     def batch_step(self, batch_idx=None):

@@ -27,11 +27,8 @@ class TestLRCallbacks:
         ('CyclicLR', CyclicLR, {}),
         (WarmRestartLR, WarmRestartLR, {}),
     ])
-    def test_lr_callback_init_policies(self, classifier_module, policy, instance, kwargs):
-        X, y = make_classification(
-            1000, 20, n_informative=10, random_state=0
-        )
-        X = X.astype(np.float32)
+    def test_lr_callback_init_policies(self, classifier_module, classifier_data, policy, instance, kwargs):
+        X, y = classifier_data
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(
             classifier_module, max_epochs=2, callbacks=[lr_policy]
@@ -62,10 +59,9 @@ class TestLRCallbacks:
             ('ReduceLROnPlateau', {}),
             ('WarmRestartLR', {}),
         ])
-    def test_lr_callback_steps_correctly(self, classifier_module, policy, kwargs):
+    def test_lr_callback_steps_correctly(self, classifier_module, classifier_data, policy, kwargs):
         max_epochs = 2
-        X, y = make_classification(1000, 20, n_informative=10, random_state=0)
-        X = X.astype(np.float32)
+        X, y = classifier_data
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs, batch_size=16, callbacks=[lr_policy])
         net.fit(X, y)
@@ -74,13 +70,12 @@ class TestLRCallbacks:
     @pytest.mark.parametrize('policy, kwargs', [
             ('CyclicLR', {}),
         ])
-    def test_lr_callback_batch_steps_correctly(self, classifier_module, policy, kwargs):
+    def test_lr_callback_batch_steps_correctly(self, classifier_module, classifier_data, policy, kwargs):
         num_examples = 1000
         batch_size = 100
         max_epochs = 2
 
-        X, y = make_classification(num_examples, 20, n_informative=10, random_state=0)
-        X = X.astype(np.float32)
+        X, y = classifier_data
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
