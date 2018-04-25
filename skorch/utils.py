@@ -28,7 +28,7 @@ class Ansi(Enum):
 
 def is_torch_data_type(x):
     # pylint: disable=protected-access
-    return isinstance(x, (torch.tensor._TensorBase, Variable))
+    return isinstance(x, torch.Tensor)
 
 
 def is_dataset(x):
