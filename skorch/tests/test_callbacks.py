@@ -371,7 +371,7 @@ class TestProgressBar:
 class TestGradientNormClipping:
     @pytest.yield_fixture
     def grad_clip_cls_and_mock(self):
-        with patch('skorch.callbacks.regularization.clip_grad_norm') as cgn:
+        with patch('skorch.callbacks.regularization.clip_grad_norm_') as cgn:
             from skorch.callbacks import GradientNormClipping
             yield GradientNormClipping, cgn
 

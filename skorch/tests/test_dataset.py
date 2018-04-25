@@ -102,7 +102,7 @@ class TestNetWithoutY:
         class Loader(torch.utils.data.DataLoader):
             def __iter__(self):
                 z = super().__iter__()
-                return ((x, torch.zeros(x.size(0)).float()) for x, _ in z)
+                return ((x, torch.zeros(x.size(0), 1).float()) for x, _ in z)
         return Loader
 
     @pytest.fixture
