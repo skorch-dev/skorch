@@ -156,8 +156,8 @@ def multi_indexing(data, i):
 
     ``i`` can be an integer or a slice.
 
-    Example
-    -------
+    Examples
+    --------
     >>> multi_indexing(np.asarray([1, 2, 3]), 0)
     1
 
@@ -238,8 +238,8 @@ def params_for(prefix, kwargs):
     ``kwargs``. This is useful to obtain parameters that belong to a
     submodule.
 
-    Example usage
-    -------------
+    Examples
+    --------
     >>> kwargs = {'encoder__a': 3, 'encoder__b': 4, 'decoder__a': 5}
     >>> params_for('encoder', kwargs)
     {'a': 3, 'b': 4}

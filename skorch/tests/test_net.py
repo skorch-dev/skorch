@@ -143,7 +143,7 @@ class TestNeuralNet:
     def test_net_learns(self, net_fit, data):
         X, y = data
         y_pred = net_fit.predict(X)
-        assert accuracy_score(y, y_pred) > 0.7
+        assert accuracy_score(y, y_pred) > 0.65
 
     def test_forward(self, net_fit, data):
         X = data[0]
