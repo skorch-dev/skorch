@@ -1307,9 +1307,9 @@ class NeuralNetClassifier(NeuralNet):
             raise ValueError(msg)
 
     def _prepare_target_for_loss(self, y):
-        # classification: y must be 1d
-        if (y.dim() == 2) and (y.size(1) == 1) and (y.size(0) != 1):
-            return y[:, 0]
+        # classification: if y has shape (n, 1), it is reshaped to (n, )
+        if (y.dim() == 2) and (y.size(1) == 1):
+            return y.view(-1)
         # Note: If target is 2-dim with size(1) != 1, we just let it
         # pass, even though it will fail with NLLLoss
         return y
