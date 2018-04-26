@@ -114,6 +114,16 @@ optimizer
 This should be a PyTorch optimizer,
 e.g. ``torch.optim.SGD``. After initializing the ``NeuralNet``, the
 initialized optimizer will stored in the ``optimizer_`` attribute.
+During initialization you can define param groups, for example to
+set different learning rates for certain parameters. The parameters
+are selected by name with support for wildcards (globbing):
+
+.. code:: python
+
+    optimizer__param_groups=[
+        ('embedding.*', {'lr': 0.0}),
+        ('linear0.bias', {'lr': 1}),
+    ]
 
 lr
 ^^^

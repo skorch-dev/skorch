@@ -407,6 +407,23 @@ class TestNeuralNet:
         # should not break
         net.set_params(optimizer=torch.optim.SGD)
 
+    def test_optimizer_param_groups(self, net_cls, module_cls):
+        net = net_cls(
+            module_cls,
+            optimizer__param_groups=[
+                ('dense1.*', {'lr': 0.1}),
+                ('dense*.*', {'lr': 0.5}),
+            ],
+        )
+        net.initialize()
+
+        # two custom (dense0, dense1), one default with the rest of the
+        # parameters (output).
+        assert len(net.optimizer_.param_groups) == 3
+        assert net.optimizer_.param_groups[0]['lr'] == 0.1
+        assert net.optimizer_.param_groups[1]['lr'] == 0.5
+        assert net.optimizer_.param_groups[2]['lr'] == net.lr
+
     def test_module_params_in_init(self, net_cls, module_cls, data):
         X, y = data
 

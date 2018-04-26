@@ -1,5 +1,6 @@
 """Neural net classes."""
 
+import fnmatch
 import re
 import tempfile
 import warnings
@@ -416,10 +417,13 @@ class NeuralNet(object):
         is not set, use ``self.lr`` instead.
 
         """
-        kwargs = self._get_params_for('optimizer')
+        args, kwargs = self._get_params_for_optimizer(
+            'optimizer', self.module_.named_parameters())
+
         if 'lr' not in kwargs:
             kwargs['lr'] = self.lr
-        self.optimizer_ = self.optimizer(self.module_.parameters(), **kwargs)
+
+        self.optimizer_ = self.optimizer(*args, **kwargs)
 
     def initialize_history(self):
         """Initializes the history."""
@@ -1032,6 +1036,34 @@ class NeuralNet(object):
 
     def _get_params_for(self, prefix):
         return params_for(prefix, self.__dict__)
+
+    def _get_params_for_optimizer(self, prefix, named_parameters):
+        """Parse kwargs configuration for the optimizer identified by
+        the given prefix. Supports param group assignment using wildcards:
+
+            optimizer__lr=0.05,
+            optimizer__param_groups=[
+                ('rnn*.period', {'lr': 0.3, 'momentum': 0}),
+                ('rnn0', {'lr': 0.1}),
+            ]
+
+        The first positional argument are the param groups.
+        """
+        kwargs = self._get_params_for(prefix)
+        params = list(named_parameters)
+        pgroups = []
+
+        for pattern, group in kwargs.pop('param_groups', []):
+            matches = [i for i, (name, _) in enumerate(params) if
+                       fnmatch.fnmatch(name, pattern)]
+            if matches:
+                p = [params.pop(i)[1] for i in reversed(matches)]
+                pgroups.append({'params': p, **group})
+
+        if params:
+            pgroups.append({'params': [p for _, p in params]})
+
+        return [pgroups], kwargs
 
     def _get_param_names(self):
         return self.__dict__.keys()
