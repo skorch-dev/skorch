@@ -84,6 +84,7 @@ class TestDataFromDataset:
         from skorch.helper import Subset  # TODO: replace by pytorch subset
         return Subset(subset, [0])
 
+    # pylint: disable=missing-docstring
     @pytest.fixture
     def other_ds(self, data):
         class MyDataset:

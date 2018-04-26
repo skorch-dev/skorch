@@ -33,36 +33,48 @@ class LRScheduler(Callback):
     policy : str or _LRScheduler class (default='WarmRestartLR')
       Learning rate policy name or scheduler to be used.
 
+    kwargs
+      Additional arguments passed to the lr scheduler.
+
     """
 
     def __init__(self, policy='WarmRestartLR', **kwargs):
-        if isinstance(policy, str):
-            self.policy = getattr(sys.modules[__name__], policy)
-        else:
-            assert issubclass(policy, _LRScheduler)
-            self.policy = policy
+        self.policy = policy
         self.kwargs = kwargs
-        self._lr_scheduler = None
+
+    def initialize(self):
+        if isinstance(self.policy, str):
+            self.policy_ = getattr(sys.modules[__name__], self.policy)
+        else:
+            self.policy_ = self.policy
+        self.lr_scheduler_ = None
+        return self
 
     def on_train_begin(self, net, **kwargs):
-        self._lr_scheduler = self._get_scheduler(
-            net, self.policy, **self.kwargs
+        self.lr_scheduler_ = self._get_scheduler(
+            net, self.policy_, **self.kwargs
         )
 
     def on_epoch_begin(self, net, **kwargs):
         epoch = len(net.history)-1
-        if isinstance(self._lr_scheduler, ReduceLROnPlateau):
+        if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             metrics = previous_epoch_train_loss_score(net) if epoch else np.inf
-            self._lr_scheduler.step(metrics, epoch)
+            self.lr_scheduler_.step(metrics, epoch)
         else:
-            self._lr_scheduler.step(epoch)
+            self.lr_scheduler_.step(epoch)
 
     def on_batch_begin(self, net, **kwargs):
-        if hasattr(self._lr_scheduler, 'batch_step') and callable(self._lr_scheduler.batch_step):
+        if (
+                hasattr(self.lr_scheduler_, 'batch_step') and
+                callable(self.lr_scheduler_.batch_step)
+        ):
             batch_idx = self._get_batch_idx(net)
-            self._lr_scheduler.batch_step(batch_idx)
+            self.lr_scheduler_.batch_step(batch_idx)
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
+        """Return scheduler, based on indicated policy, with appropriate
+        parameters.
+        """
         if policy not in [CyclicLR, ReduceLROnPlateau] and \
            'last_epoch' not in scheduler_kwargs:
             last_epoch = len(net.history) - 1
@@ -311,6 +323,7 @@ class CyclicLR(object):
         for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
             param_group['lr'] = lr
 
+    # pylint: disable=unused-argument
     def _triangular_scale_fn(self, x):
         """Cycle amplitude remains contant"""
         return 1.

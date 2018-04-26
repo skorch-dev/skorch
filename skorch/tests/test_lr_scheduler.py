@@ -2,7 +2,6 @@
 
 import pytest
 import numpy as np
-from sklearn.datasets import make_classification
 
 from torch.optim import SGD
 from torch.optim.lr_scheduler import StepLR
@@ -28,7 +27,14 @@ class TestLRCallbacks:
         ('CyclicLR', CyclicLR, {}),
         (WarmRestartLR, WarmRestartLR, {}),
     ])
-    def test_lr_callback_init_policies(self, classifier_module, classifier_data, policy, instance, kwargs):
+    def test_lr_callback_init_policies(
+            self,
+            classifier_module,
+            classifier_data,
+            policy,
+            instance,
+            kwargs,
+    ):
         X, y = classifier_data
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(
@@ -37,41 +43,48 @@ class TestLRCallbacks:
         net.fit(X, y)
         assert any(list(map(
             lambda x: isinstance(
-                getattr(x[1], '_lr_scheduler', None), instance),
+                getattr(x[1], 'lr_scheduler_', None), instance),
             net.callbacks_
         )))
 
-    def test_raise_invalid_policy_string(self):
-        with pytest.raises(AttributeError):
-            LRScheduler('invalid_policy')
-
-    def test_raise_invalid_policy_class(self):
-        class DummyClass():
-            pass
-
-        with pytest.raises(AssertionError):
-            LRScheduler(DummyClass)
-
     @pytest.mark.parametrize('policy, kwargs', [
-            ('LambdaLR', {'lr_lambda': (lambda x: 1e-1)}),
-            ('StepLR', {'step_size': 30}),
-            ('MultiStepLR', {'milestones': [30, 90]}),
-            ('ExponentialLR', {'gamma': 0.1}),
-            ('ReduceLROnPlateau', {}),
-            ('WarmRestartLR', {}),
-        ])
-    def test_lr_callback_steps_correctly(self, classifier_module, classifier_data, policy, kwargs):
+        ('LambdaLR', {'lr_lambda': (lambda x: 1e-1)}),
+        ('StepLR', {'step_size': 30}),
+        ('MultiStepLR', {'milestones': [30, 90]}),
+        ('ExponentialLR', {'gamma': 0.1}),
+        ('ReduceLROnPlateau', {}),
+        ('WarmRestartLR', {}),
+    ])
+    def test_lr_callback_steps_correctly(
+            self,
+            classifier_module,
+            classifier_data,
+            policy,
+            kwargs,
+    ):
         max_epochs = 2
         X, y = classifier_data
         lr_policy = LRScheduler(policy, **kwargs)
-        net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs, batch_size=16, callbacks=[lr_policy])
+        net = NeuralNetClassifier(
+            classifier_module(),
+            max_epochs=max_epochs,
+            batch_size=16,
+            callbacks=[lr_policy],
+        )
         net.fit(X, y)
-        assert lr_policy._lr_scheduler.last_epoch == max_epochs - 1
+        # pylint: disable=protected-access
+        assert lr_policy.lr_scheduler_.last_epoch == max_epochs - 1
 
     @pytest.mark.parametrize('policy, kwargs', [
-            ('CyclicLR', {}),
-        ])
-    def test_lr_callback_batch_steps_correctly(self, classifier_module, classifier_data, policy, kwargs):
+        ('CyclicLR', {}),
+    ])
+    def test_lr_callback_batch_steps_correctly(
+            self,
+            classifier_module,
+            classifier_data,
+            policy,
+            kwargs,
+    ):
         num_examples = 1000
         batch_size = 100
         max_epochs = 2
@@ -81,7 +94,9 @@ class TestLRCallbacks:
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
-        assert lr_policy._lr_scheduler.last_batch_idx == (num_examples // batch_size)*max_epochs
+        expected = (num_examples // batch_size) * max_epochs
+        # pylint: disable=protected-access
+        assert lr_policy.lr_scheduler_.last_batch_idx == expected
 
 
 class TestWarmRestartLR():
@@ -102,6 +117,7 @@ class TestWarmRestartLR():
         targets = min_lr + 0.5 * (max_lr-min_lr) * targets
         return targets.tolist()
 
+    # pylint: disable=missing-docstring
     def _multi_period_targets(
             self, epochs, min_lr, max_lr, base_period, period_mult):
         remaining_epochs = epochs
@@ -200,34 +216,6 @@ class TestWarmRestartLR():
             base_period,
             period_mult
         )
-
-def _test(optimizer, targets, epochs, min_lr, max_lr, base_period, period_mult):
-    targets = [targets] if len(optimizer.param_groups) == 1 else targets
-    scheduler = WarmRestartLR(
-        optimizer, min_lr, max_lr, base_period, period_mult
-    )
-    for epoch in range(epochs):
-        scheduler.step(epoch)
-        for param_group, target in zip(optimizer.param_groups, targets):
-            assert param_group['lr'] == pytest.approx(target[epoch])
-
-def _single_period_targets(epochs, min_lr, max_lr, period):
-    targets = 1 + np.cos(np.arange(epochs) * np.pi / period)
-    targets = min_lr + 0.5 * (max_lr-min_lr) * targets
-    return targets.tolist()
-
-def _multi_period_targets(epochs, min_lr, max_lr, base_period, period_mult):
-    remaining_epochs = epochs
-    current_period = base_period
-    targets = list()
-    while remaining_epochs > 0:
-        period_epochs = min(remaining_epochs, current_period+1)
-        remaining_epochs -= period_epochs
-        targets += _single_period_targets(
-            period_epochs, min_lr, max_lr, current_period
-        )
-        current_period = current_period * period_mult
-    return targets
 
 
 class TestCyclicLR():
