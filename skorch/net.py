@@ -1142,8 +1142,8 @@ class NeuralNet(object):
         f : file-like object or str
           See ``torch.save`` documentation.
 
-        Example
-        -------
+        Examples
+        --------
         >>> before = NeuralNetClassifier(mymodule)
         >>> before.save_params('path/to/file')
         >>> after = NeuralNetClassifier(mymodule).initialize()
@@ -1167,8 +1167,8 @@ class NeuralNet(object):
         f : file-like object or str
           See ``torch.load`` documentation.
 
-        Example
-        -------
+        Examples
+        --------
         >>> before = NeuralNetClassifier(mymodule)
         >>> before.save_params('path/to/file')
         >>> after = NeuralNetClassifier(mymodule).initialize()

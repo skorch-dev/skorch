@@ -184,8 +184,8 @@ class ProgressBar(Callback):
     <https://ipywidgets.readthedocs.io/en/stable/user_install.html>`
     installed.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
 
     batches_per_epoch : int, str (default='count')
       The progress bar determines the number of batches per epoch
