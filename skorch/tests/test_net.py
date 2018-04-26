@@ -536,7 +536,6 @@ class TestNeuralNet:
         diffs = []
         all_losses = net.history[
             -1, 'batches', :, ('train_loss', 'loss_a', 'loss_b')]
-        print(all_losses)
         diffs = [total - a - b for total, a, b in all_losses]
         assert np.allclose(diffs, 0, atol=1e-7)
 
