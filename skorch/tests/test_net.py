@@ -1182,4 +1182,4 @@ class TestNeuralNetRegressor:
 
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
-        assert np.allclose(y_pred, y_proba)
+        assert np.allclose(y_pred, y_proba, atol=1e-6)
