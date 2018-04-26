@@ -223,7 +223,7 @@ double-underscore notation):
 
 .. code:: python
 
-    net.set_params(cb1__foo=123, cb2__bar=456)
+    net.set_params(callbacks__cb1__foo=123, callbacks__cb2__bar=456)
 
 Use this, for instance, when trying out different callback parameters
 in a grid search.
@@ -282,6 +282,11 @@ In general, we assume there to be an ``X`` and a ``y``. If you have
 more input data than just one array, it is possible for ``X`` to be a
 list or dictionary of data (see :ref:`dataset <dataset>`). And if your
 task does not have an actual ``y``, you may pass ``y=None``.
+
+If you fit with a torch Dataset and don't explicitely pass ``y``,
+several components down the line might not work anymore, since sklearn
+sometimes requires an explicit ``y`` (e.g. for scoring). In general,
+Datasets should work, though.
 
 In addition to ``fit``, there is also the ``partial_fit`` method,
 known from some sklearn estimators. ``partial_fit`` allows you to

@@ -143,7 +143,7 @@ class TestNeuralNet:
     def test_net_learns(self, net_fit, data):
         X, y = data
         y_pred = net_fit.predict(X)
-        assert accuracy_score(y, y_pred) > 0.7
+        assert accuracy_score(y, y_pred) > 0.65
 
     def test_forward(self, net_fit, data):
         X = data[0]
@@ -156,6 +156,25 @@ class TestNeuralNet:
 
         y_proba = net_fit.predict_proba(X)
         assert np.allclose(to_numpy(y_forward), y_proba)
+
+    def test_forward_location_cpu(self, net_fit, data):
+        X = data[0]
+
+        # CPU by default
+        y_forward = net_fit.forward(X)
+        assert isinstance(X, np.ndarray)
+        assert not y_forward.is_cuda
+
+        y_forward = net_fit.forward(X, location='cpu')
+        assert isinstance(X, np.ndarray)
+        assert not y_forward.is_cuda
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_forward_location_gpu(self, net_fit, data):
+        X = data[0]
+        y_forward = net_fit.forward(X, location='cuda:0')
+        assert isinstance(X, np.ndarray)
+        assert y_forward.is_cuda
 
     def test_predict_and_predict_proba(self, net_fit, data):
         X = data[0]
@@ -703,8 +722,9 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=1, use_cuda=True)
         net.fit(X, y)
 
+    @pytest.mark.parametrize('use_caching', [True, False])
     def test_net_initialized_with_custom_dataset_args(
-            self, net_cls, module_cls, data, dataset_cls):
+            self, net_cls, module_cls, data, dataset_cls, use_caching):
         side_effect = []
 
         class MyDataset(dataset_cls):
@@ -717,10 +737,18 @@ class TestNeuralNet:
             dataset=MyDataset,
             dataset__foo=123,
             max_epochs=1,
+            callbacks__train_loss__use_caching=use_caching,
+            callbacks__valid_loss__use_caching=use_caching,
+            callbacks__valid_acc__use_caching=use_caching,
         )
         net.fit(*data)
 
-        assert side_effect == [123, 123, 123]  # train, valid, scoring
+        if not use_caching:
+            # train/valid split, scoring predict
+            assert side_effect == [123, 123]
+        else:
+            # train/valid split
+            assert side_effect == [123]
 
     @pytest.mark.xfail
     def test_net_initialized_with_initalized_dataset(
@@ -729,6 +757,10 @@ class TestNeuralNet:
             module_cls,
             dataset=dataset_cls(*data, use_cuda=0),
             max_epochs=1,
+
+            # Disable caching to highlight the issue with this
+            # test case (mismatching size between y values)
+            callbacks__valid_acc__use_caching=False,
         )
         # FIXME: When dataset is initialized, X and y do not matter
         # anymore
@@ -859,9 +891,10 @@ class TestNeuralNet:
         X, y = data
         side_effect = []
 
-        def fp_train_split(X, y, **fit_params):
+        # pylint: disable=unused-argument
+        def fp_train_split(dataset, y=None, **fit_params):
             side_effect.append(fit_params)
-            return X[:50], X[50:], y[:50], y[50:]
+            return dataset, dataset
 
         class FPModule(MyClassifier):
             # pylint: disable=unused-argument,arguments-differ
@@ -912,6 +945,69 @@ class TestNeuralNet:
 
         expected = "X and fit_params contain duplicate keys: X1"
         assert exc.value.args[0] == expected
+
+    def test_fit_with_dataset(self, net_cls, module_cls, data, dataset_cls):
+        ds = dataset_cls(*data)
+        net = net_cls(module_cls, max_epochs=1)
+        net.fit(ds, data[1])
+        for key in ('train_loss', 'valid_loss', 'valid_acc'):
+            assert key in net.history[-1]
+
+    def test_predict_with_dataset(self, net_cls, module_cls, data, dataset_cls):
+        ds = dataset_cls(*data)
+        net = net_cls(module_cls).initialize()
+        y_pred = net.predict(ds)
+        y_proba = net.predict_proba(ds)
+
+        assert y_pred.shape[0] == len(ds)
+        assert y_proba.shape[0] == len(ds)
+
+    def test_fit_with_dataset_X_y_inaccessible_does_not_raise(
+            self, net_cls, module_cls, data):
+        class MyDataset(torch.utils.data.Dataset):
+            """Dataset with inaccessible X and y"""
+            def __init__(self, X, y):
+                self.xx = X  # incorrect attribute name
+                self.yy = y  # incorrect attribute name
+
+            def __len__(self):
+                return len(self.xx)
+
+            def __getitem__(self, i):
+                return self.xx[i], self.yy[i]
+
+        ds = MyDataset(*data)
+        net = net_cls(module_cls, max_epochs=1)
+        net.fit(ds, data[1])  # does not raise
+
+    def test_fit_with_dataset_without_explicit_y(
+            self, net_cls, module_cls, dataset_cls, data):
+        from skorch.dataset import CVSplit
+
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            train_split=CVSplit(stratified=False),
+        )
+        ds = dataset_cls(*data)
+        net.fit(ds, None)  # does not raise
+        for key in ('train_loss', 'valid_loss', 'valid_acc'):
+            assert key in net.history[-1]
+
+    def test_fit_with_dataset_stratified_without_explicit_y_raises(
+            self, net_cls, module_cls, dataset_cls, data):
+        from skorch.dataset import CVSplit
+
+        net = net_cls(
+            module_cls,
+            train_split=CVSplit(stratified=True),
+        )
+        ds = dataset_cls(*data)
+        with pytest.raises(ValueError) as exc:
+            net.fit(ds, None)
+
+        msg = "Stratified CV requires explicitely passing a suitable y."
+        assert exc.value.args[0] == msg
 
     # XXX remove once deprecation for grad norm clipping is phased out
     def test_init_grad_clip_and_norm_deprecated(self, net_cls, module_cls):
@@ -964,6 +1060,16 @@ class TestNeuralNet:
         # Expecting only every other row: (number of samples/2, number
         # of output units)
         assert y_infer[2].shape == (n // 2, 2)
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_multioutput_forward_location_gpu(self, multiouput_net, data):
+        X = data[0]
+        y_infer = multiouput_net.forward(X, location='cuda:0')
+
+        assert isinstance(y_infer, tuple)
+        assert len(y_infer) == 3
+        for arr in y_infer:
+            assert arr.is_cuda
 
     def test_multioutput_predict(self, multiouput_net, data):
         X = data[0]
