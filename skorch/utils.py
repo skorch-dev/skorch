@@ -41,7 +41,10 @@ def to_var(X, use_cuda):
     Returns X when it already is a pytorch Variable.
 
     """
-    if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
+    if isinstance(X, Variable):
+        return X.to('cuda' if use_cuda else 'cpu')
+
+    if isinstance(X, nn.utils.rnn.PackedSequence):
         return X
 
     X = to_tensor(X, use_cuda=use_cuda)
