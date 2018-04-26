@@ -542,8 +542,8 @@ class TestNeuralNet:
                 loss_a = torch.abs(y_true.float() - y_pred[:, 1]).mean()
                 loss_b = ((y_true.float() - y_pred[:, 1]) ** 2).mean()
                 if training:
-                    self.history.record_batch('loss_a', to_numpy(loss_a)[0])
-                    self.history.record_batch('loss_b', to_numpy(loss_b)[0])
+                    self.history.record_batch('loss_a', to_numpy(loss_a))
+                    self.history.record_batch('loss_b', to_numpy(loss_b))
                 return loss_a + loss_b
 
         X, y = data
@@ -577,11 +577,11 @@ class TestNeuralNet:
         net_cpu = net_cls(module_cls, use_cuda=False)
         net_cpu.initialize()
 
-        type_cpu = type(net_cpu.module_.dense0.weight.data)
-        assert type_cpu == torch.FloatTensor
+        cpu_tensor = net_cpu.module_.dense0.weight.data
+        assert isinstance(cpu_tensor, torch.FloatTensor)
 
-        type_gpu = type(net_cuda.module_.dense0.weight.data)
-        assert type_gpu == torch.cuda.FloatTensor
+        gpu_tensor = net_cuda.module_.dense0.weight.data
+        assert isinstance(gpu_tensor, torch.cuda.FloatTensor)
 
     @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
@@ -1181,4 +1181,4 @@ class TestNeuralNetRegressor:
 
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
-        assert np.allclose(y_pred, y_proba)
+        assert np.allclose(y_pred, y_proba, atol=1e-6)

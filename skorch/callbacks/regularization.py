@@ -1,6 +1,6 @@
 """ Post-process regularization steps such as gradient normalizing. """
 
-from torch.nn.utils import clip_grad_norm
+from torch.nn.utils import clip_grad_norm_
 
 from skorch.callbacks import Callback
 
@@ -15,7 +15,7 @@ class GradientNormClipping(Callback):
     concatenated into a single vector. Gradients are modified
     in-place.
 
-    See ``torch.nn.utils.clip_grad_norm`` for more information.
+    See ``torch.nn.utils.clip_grad_norm_`` for more information.
 
     Parameters
     ----------
@@ -41,7 +41,7 @@ class GradientNormClipping(Callback):
         if self.gradient_clip_value is None:
             return
 
-        clip_grad_norm(
+        clip_grad_norm_(
             (p for _, p in named_parameters),
             max_norm=self.gradient_clip_value,
             norm_type=self.gradient_clip_norm_type,

@@ -570,7 +570,7 @@ class NeuralNet(object):
             for Xi, yi in self.get_iterator(dataset_train, training=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
-                self.history.record_batch('train_loss', step['loss'].data[0])
+                self.history.record_batch('train_loss', step['loss'].data.item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
 
@@ -581,7 +581,7 @@ class NeuralNet(object):
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
-                self.history.record_batch('valid_loss', step['loss'].data[0])
+                self.history.record_batch('valid_loss', step['loss'].data.item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=False, **step)
 
@@ -1032,6 +1032,7 @@ class NeuralNet(object):
 
         if 'batch_size' not in kwargs:
             kwargs['batch_size'] = self.batch_size
+
         return iterator(dataset, **kwargs)
 
     def _get_params_for(self, prefix):
@@ -1338,14 +1339,9 @@ class NeuralNetClassifier(NeuralNet):
             raise ValueError(msg)
 
     def _prepare_target_for_loss(self, y):
-        # This is a temporary, ugly work-around (relating to #56), but
-        # currently, I see no solution that would result in a 1-dim
-        # LongTensor after passing through torch's DataLoader. If
-        # there is, we should use that instead. Otherwise, this will
-        # be obsolete once pytorch scalars arrive.
+        # classification: if y has shape (n, 1), it is reshaped to (n, )
         if (y.dim() == 2) and (y.size(1) == 1):
-            # classification: y must be 1d
-            return y[:, 0]
+            return y.view(-1)
         # Note: If target is 2-dim with size(1) != 1, we just let it
         # pass, even though it will fail with NLLLoss
         return y
