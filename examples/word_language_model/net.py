@@ -67,7 +67,7 @@ class Net(skorch.NeuralNet):
     def evaluation_step(self, X, **kwargs):
         self.module_.eval()
 
-        X = skorch.utils.to_var(X, use_cuda=self.use_cuda)
+        X = skorch.utils.to_tensor(X, use_cuda=self.use_cuda)
         hidden = self.module_.init_hidden(self.batch_size)
         output, _ = self.module_(X, hidden)
 
@@ -86,8 +86,8 @@ class Net(skorch.NeuralNet):
         preds = [None] * num_words
         for i in range(num_words):
             preds[i], hidden = self.sample(input, hidden=hidden)
-            input = skorch.utils.to_var(torch.LongTensor([[preds[i]]]),
-                                        use_cuda=self.use_cuda)
+            input = skorch.utils.to_tensor(torch.LongTensor([[preds[i]]]),
+                                           use_cuda=self.use_cuda)
         return preds, hidden
 
     def score(self, X, y=None):

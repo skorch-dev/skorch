@@ -24,7 +24,7 @@ from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import to_numpy
-from skorch.utils import to_var
+from skorch.utils import to_tensor
 from skorch.utils import params_for
 
 
@@ -792,7 +792,7 @@ class NeuralNet(object):
           the module and to the train_split call.
 
         """
-        x = to_var(x, use_cuda=self.use_cuda)
+        x = to_tensor(x, use_cuda=self.use_cuda)
         if isinstance(x, dict):
             x_dict = self._merge_x_and_fit_params(x, fit_params)
             return self.module_(**x_dict)
@@ -891,7 +891,7 @@ class NeuralNet(object):
           Whether train mode should be used or not.
 
         """
-        y_true = to_var(y_true, use_cuda=self.use_cuda)
+        y_true = to_tensor(y_true, use_cuda=self.use_cuda)
         return self.criterion_(y_pred, y_true)
 
     def get_dataset(self, X, y=None):

@@ -4,8 +4,6 @@ They should not be used in skorch directly.
 
 """
 
-import torch
-
 
 class SliceDict(dict):
     """Wrapper for Python dict that makes it sliceable across values.
