@@ -214,6 +214,15 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
 
+    @pytest.mark.parametrize('device', ['cpu', 'cuda'])
+    def test_device_torch_device(self, net_cls, module_cls, device):
+        # Check if native torch.device works as well.
+        if device.startswith('cuda') and not torch.cuda.is_available():
+            pytest.skip()
+        net = net_cls(module=module_cls, device=torch.device(device))
+        net = net.initialize()
+        assert net.module_.dense0.weight.device.type.startswith(device)
+
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_pickle_save_load_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
