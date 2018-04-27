@@ -34,28 +34,6 @@ def is_dataset(x):
     return isinstance(x, torch.utils.data.Dataset)
 
 
-def to_var(X, use_cuda):
-    """Generic function to convert a input data to pytorch Variables.
-
-    Returns X when it already is a pytorch Variable.
-
-    """
-    if isinstance(X, Variable):
-        return X.to('cuda' if use_cuda else 'cpu')
-
-    if isinstance(X, nn.utils.rnn.PackedSequence):
-        return X
-
-    X = to_tensor(X, use_cuda=use_cuda)
-    if isinstance(X, dict):
-        return {k: to_var(v, use_cuda=use_cuda) for k, v in X.items()}
-
-    if isinstance(X, (tuple, list)):
-        return [to_var(x, use_cuda=use_cuda) for x in X]
-
-    return Variable(X)
-
-
 def to_tensor(X, use_cuda):
     """Turn to torch Variable.
 
