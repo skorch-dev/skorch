@@ -117,7 +117,7 @@ def net_cls():
 
 @pytest.fixture
 def data():
-    X = np.array([0, 2, 3, 0]).astype(np.float32)
+    X = np.array([0, 2, 3, 0]).astype(np.float32).reshape(-1, 1)
     y = np.array([-1, 0, 5, 4]).astype(np.float32).reshape(-1, 1)
     return X, y
 

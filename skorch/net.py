@@ -1338,21 +1338,9 @@ class NeuralNetClassifier(NeuralNet):
                    "respectively.")
             raise ValueError(msg)
 
-    def _prepare_target_for_loss(self, y):
-        # classification: if y has shape (n, 1), it is reshaped to (n, )
-        if (y.dim() == 2) and (y.size(1) == 1):
-            return y.view(-1)
-        # Note: If target is 2-dim with size(1) != 1, we just let it
-        # pass, even though it will fail with NLLLoss
-        return y
-
-    def get_loss(self, y_pred, y_true, X=None, training=False):
-        y_true = to_var(y_true, use_cuda=self.use_cuda)
+    def get_loss(self, y_pred, y_true, *args, **kwargs):
         y_pred_log = torch.log(y_pred)
-        return self.criterion_(
-            y_pred_log,
-            self._prepare_target_for_loss(y_true),
-        )
+        return super().get_loss(y_pred_log, y_true, *args, **kwargs)
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
@@ -1495,11 +1483,14 @@ class NeuralNetRegressor(NeuralNet):
             # The user implements its own mechanism for generating y.
             return
 
-        # The problem with 1-dim float y is that the pytorch DataLoader will
-        # somehow upcast it to DoubleTensor
         if get_dim(y) == 1:
-            raise ValueError("The target data shouldn't be 1-dimensional; "
-                             "please reshape (e.g. y.reshape(-1, 1).")
+            msg = (
+                "The target data shouldn't be 1-dimensional but instead have "
+                "2 dimensions, with the second dimension having the same size "
+                "as the number of regression targets (usually 1). Please "
+                "reshape your target data to be 2-dimensional "
+                "(e.g. y = y.reshape(-1, 1).")
+            raise ValueError(msg)
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
