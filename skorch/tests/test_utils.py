@@ -76,12 +76,12 @@ class TestDataFromDataset:
 
     @pytest.fixture
     def subset(self, skorch_ds):
-        from skorch.helper import Subset  # TODO: replace by pytorch subset
+        from torch.utils.data.dataset import Subset
         return Subset(skorch_ds, [1, 3])
 
     @pytest.fixture
     def subset_subset(self, subset):
-        from skorch.helper import Subset  # TODO: replace by pytorch subset
+        from torch.utils.data.dataset import Subset
         return Subset(subset, [0])
 
     @pytest.fixture
@@ -368,7 +368,7 @@ class TestIsSkorchDataset:
     # pylint: disable=no-method-argument
     def type_truth_table():
         from skorch.dataset import Dataset
-        from skorch.helper import Subset
+        from torch.utils.data.dataset import Subset
 
         numpy_data = np.array([1, 2, 3])
         tensor_data = torch.from_numpy(numpy_data)

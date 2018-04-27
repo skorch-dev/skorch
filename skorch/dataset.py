@@ -11,7 +11,6 @@ from sklearn.model_selection import check_cv
 import torch
 import torch.utils.data
 
-from skorch.helper import Subset  # import from pytorch once available
 from skorch.utils import flatten
 from skorch.utils import is_pandas_ndframe
 from skorch.utils import multi_indexing
@@ -260,8 +259,8 @@ class CVSplit(object):
             args = args + (to_numpy(y),)
 
         idx_train, idx_valid = next(iter(cv.split(*args, groups=groups)))
-        dataset_train = Subset(dataset, idx_train)
-        dataset_valid = Subset(dataset, idx_valid)
+        dataset_train = torch.utils.data.dataset.Subset(dataset, idx_train)
+        dataset_valid = torch.utils.data.dataset.Subset(dataset, idx_valid)
         return dataset_train, dataset_valid
 
     def __repr__(self):
