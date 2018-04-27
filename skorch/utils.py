@@ -13,8 +13,7 @@ from sklearn.utils import safe_indexing
 import torch
 from torch import nn
 from torch.autograd import Variable
-
-from skorch.helper import Subset  # TODO: change import to pytorch
+from torch.utils.data.dataset import Subset
 
 
 class Ansi(Enum):
