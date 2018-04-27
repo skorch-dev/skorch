@@ -72,7 +72,7 @@ class Dataset(torch.utils.data.Dataset):
     y : see above or None (default=None)
       Everything pertaining to the target, if there is anything.
 
-    device : str (default='cpu')
+    device : str, torch.device (default='cpu')
       Which computation device to use (e.g., 'cuda').
 
     length : int or None (default=None)

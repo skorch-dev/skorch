@@ -155,7 +155,7 @@ class NeuralNet(object):
     verbose : int (default=1)
       Control the verbosity level.
 
-    device : bool (default='cpu')
+    device : str, torch.device (default='cpu')
       The compute device to be used. If set to 'cuda', data in torch
       tensors will be pushed to cuda tensors before being sent to the
       module.
@@ -1122,6 +1122,11 @@ class NeuralNet(object):
         return state
 
     def __setstate__(self, state):
+        def uses_cuda(device):
+            if isinstance(device, torch.device):
+                device = device.type
+            return device.startswith('cuda')
+
         disable_cuda = False
         for key in self.cuda_dependent_attributes_:
             if key not in state:
@@ -1130,7 +1135,7 @@ class NeuralNet(object):
             with tempfile.SpooledTemporaryFile() as f:
                 f.write(dump)
                 f.seek(0)
-                if (state['device'].startswith('cuda') and
+                if (uses_cuda(state['device']) and
                     not torch.cuda.is_available()):
                     disable_cuda = True
                     val = torch.load(
