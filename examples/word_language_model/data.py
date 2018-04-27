@@ -52,11 +52,11 @@ class Corpus(object):
 
 
 class Loader:
-    def __init__(self, source, use_cuda=False, bptt=10, batch_size=20, evaluation=False):
+    def __init__(self, source, device='cpu', bptt=10, batch_size=20, evaluation=False):
         self.evaluation = evaluation
         self.bptt = bptt
         self.batch_size = batch_size
-        self.use_cuda = use_cuda
+        self.device = device
         if isinstance(source.X, Variable):
             data = source.X.data.long()
         else:
@@ -70,9 +70,7 @@ class Loader:
         data = data.narrow(0, 0, nbatch * bsz)
         # Evenly divide the data across the bsz batches.
         data = data.view(bsz, -1).t().contiguous()
-        if self.use_cuda:
-            data = data.cuda()
-        return data
+        return data.to(self.device)
 
     def get_batch(self, i):
         seq_len = min(self.bptt, len(self.batches) - 1 - i)
