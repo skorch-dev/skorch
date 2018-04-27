@@ -82,6 +82,10 @@ def to_tensor(X, use_cuda):
     if isinstance(X, np.ndarray):
         X = torch.from_numpy(X)
 
+    if np.isscalar(X):
+        # ugly work-around - torch constructor does not accept np scalars
+        X = torch.tensor(np.array([X]))[0]
+
     if isinstance(X, Sequence):
         X = torch.from_numpy(np.array(X))
     elif np.isscalar(X):

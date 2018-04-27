@@ -1169,8 +1169,11 @@ class TestNeuralNetRegressor:
         with pytest.raises(ValueError) as exc:
             net.fit(X, y.flatten())
         assert exc.value.args[0] == (
-            "The target data shouldn't be 1-dimensional; "
-            "please reshape (e.g. y.reshape(-1, 1).")
+            "The target data shouldn't be 1-dimensional but instead have "
+            "2 dimensions, with the second dimension having the same size "
+            "as the number of regression targets (usually 1). Please "
+            "reshape your target data to be 2-dimensional "
+            "(e.g. y = y.reshape(-1, 1).")
 
     def test_predict_predict_proba(self, net_fit, data):
         X = data[0]
