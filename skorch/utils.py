@@ -34,7 +34,7 @@ def is_dataset(x):
     return isinstance(x, torch.utils.data.Dataset)
 
 
-def to_tensor(X, use_cuda):
+def to_tensor(X, device):
     """Turn to torch Variable.
 
     Handles the cases:
@@ -46,9 +46,12 @@ def to_tensor(X, use_cuda):
       * dict of one of the former
 
     """
-    to_tensor_ = partial(to_tensor, use_cuda=use_cuda)
+    assert not isinstance(device, bool), (
+        "possible bug: used `device` parameter like `use_cuda`. "
+        "Set `device='cuda'` instead.")
+    to_tensor_ = partial(to_tensor, device=device)
 
-    if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
+    if isinstance(X, nn.utils.rnn.PackedSequence):
         return X
 
     if isinstance(X, dict):
@@ -72,9 +75,7 @@ def to_tensor(X, use_cuda):
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a torch tensor.")
 
-    if use_cuda:
-        X = X.cuda()
-    return X
+    return X.to(device)
 
 
 def to_numpy(X):

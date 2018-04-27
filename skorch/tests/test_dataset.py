@@ -653,8 +653,8 @@ class TestCVSplit:
         assert y_valid is None
 
     def test_with_torch_tensors(self, cv_split_cls, data):
-        data.X = to_tensor(data.X, use_cuda=False)
-        data.y = to_tensor(data.y, use_cuda=False)
+        data.X = to_tensor(data.X, device='cpu')
+        data.y = to_tensor(data.y, device='cpu')
         m = self.num_samples // 5
         n = self.num_samples - m
         dataset_train, dataset_valid = cv_split_cls(5)(data)
@@ -664,10 +664,10 @@ class TestCVSplit:
 
     def test_with_torch_tensors_and_stratified(self, cv_split_cls, data):
         num_expected = self.num_samples // 4
-        data.X = to_tensor(data.X, use_cuda=False)
+        data.X = to_tensor(data.X, device='cpu')
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
-        data.y = to_tensor(y, use_cuda=False)
+        data.y = to_tensor(y, device='cpu')
 
         dataset_train, dataset_valid = cv_split_cls(5, stratified=True)(data, y)
         y_train = data_from_dataset(dataset_train)[1]
