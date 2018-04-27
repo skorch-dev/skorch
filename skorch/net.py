@@ -97,16 +97,6 @@ class NeuralNet(object):
       Learning rate passed to the optimizer. You may use ``lr`` instead
       of using ``optimizer__lr``, which would result in the same outcome.
 
-    gradient_clip_value : float (default=None)
-      The parameters gradient_clip_value and gradient_clip_norm_type
-      are no longer supported. Use
-      ``skorch.callbacks.GradientNormClipping`` instead.
-
-    gradient_clip_norm_type : float (default=2)
-      The parameters gradient_clip_value and gradient_clip_norm_type
-      are no longer supported. Use
-      ``skorch.callbacks.GradientNormClipping`` instead.
-
     max_epochs : int (default=10)
       The number of epochs to train for each ``fit`` call. Note that you
       may keyboard-interrupt training at any time.
@@ -130,8 +120,8 @@ class NeuralNet(object):
       ``__getitem__`` methods. The provided dataset should be capable of
       dealing with a lot of data types out of the box, so only change
       this if your data is not supported. Additionally, dataset should
-      accept a ``use_cuda`` parameter to indicate whether cuda should be
-      used.
+      accept a ``device`` parameter to indicate the location of the
+      data (e.g., CUDA).
       You should generally pass the uninitialized ``Dataset`` class
       and define additional arguments to X and y by prefixing them
       with ``dataset__``. It is also possible to pass an initialzed
@@ -165,8 +155,8 @@ class NeuralNet(object):
     verbose : int (default=1)
       Control the verbosity level.
 
-    use_cuda : bool (default=False)
-      Whether usage of cuda is intended. If True, data in torch
+    device : bool (default='cpu')
+      The compute device to be used. If set to 'cuda', data in torch
       tensors will be pushed to cuda tensors before being sent to the
       module.
 
@@ -219,7 +209,7 @@ class NeuralNet(object):
             callbacks=None,
             warm_start=False,
             verbose=1,
-            use_cuda=False,
+            device='cpu',
             **kwargs
     ):
         self.module = module
@@ -235,7 +225,7 @@ class NeuralNet(object):
         self.callbacks = callbacks
         self.warm_start = warm_start
         self.verbose = verbose
-        self.use_cuda = use_cuda
+        self.device = device
 
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
@@ -406,10 +396,7 @@ class NeuralNet(object):
 
             module = module(**kwargs)
 
-        if self.use_cuda:
-            module.cuda()
-
-        self.module_ = module
+        self.module_ = module.to(self.device)
         return self
 
     def initialize_optimizer(self):
@@ -792,7 +779,7 @@ class NeuralNet(object):
           the module and to the train_split call.
 
         """
-        x = to_tensor(x, use_cuda=self.use_cuda)
+        x = to_tensor(x, device=self.device)
         if isinstance(x, dict):
             x_dict = self._merge_x_and_fit_params(x, fit_params)
             return self.module_(**x_dict)
@@ -891,7 +878,7 @@ class NeuralNet(object):
           Whether train mode should be used or not.
 
         """
-        y_true = to_tensor(y_true, use_cuda=self.use_cuda)
+        y_true = to_tensor(y_true, device=self.device)
         return self.criterion_(y_pred, y_true)
 
     def get_dataset(self, X, y=None):
@@ -901,8 +888,7 @@ class NeuralNet(object):
         Override this if you want to initialize your dataset
         differently.
 
-        If ``dataset__use_cuda`` is not set, use ``self.use_cuda``
-        instead.
+        If ``dataset__device`` is not set, use ``self.device`` instead.
 
         Parameters
         ----------
@@ -945,8 +931,8 @@ class NeuralNet(object):
         if is_initialized:
             return dataset
 
-        if 'use_cuda' not in kwargs:
-            kwargs['use_cuda'] = self.use_cuda
+        if 'device' not in kwargs:
+            kwargs['device'] = self.device
 
         return dataset(X, y, **kwargs)
 
@@ -1072,13 +1058,12 @@ class NeuralNet(object):
     def get_params(self, deep=True, **kwargs):
         return BaseEstimator.get_params(self, deep=deep, **kwargs)
 
-    # XXX remove once deprecation for grad norm clipping is phased out
+    # XXX remove once deprecation for use_cuda is phased out
     # Also remember to update NeuralNet docstring
     def _check_deprecated_params(self, **kwargs):
-        if kwargs.get('gradient_clip_value') is not None:
-            msg = ("The parameters gradient_clip_value and "
-                   "gradient_clip_norm_type are no longer supported. Use "
-                   "skorch.callbacks.GradientNormClipping instead.")
+        if kwargs.get('use_cuda') is not None:
+            msg = ("The parameter use_cuda are no longer supported. Use "
+                   "device='cuda' instead.")
             raise ValueError(msg)
 
     def set_params(self, **kwargs):
@@ -1145,7 +1130,8 @@ class NeuralNet(object):
             with tempfile.SpooledTemporaryFile() as f:
                 f.write(dump)
                 f.seek(0)
-                if state['use_cuda'] and not torch.cuda.is_available():
+                if (state['device'].startswith('cuda') and
+                    not torch.cuda.is_available()):
                     disable_cuda = True
                     val = torch.load(
                         f, map_location=lambda storage, loc: storage)
@@ -1157,7 +1143,7 @@ class NeuralNet(object):
                 "Model configured to use CUDA but no CUDA devices "
                 "available. Loading on CPU instead.",
                 DeviceWarning)
-            state['use_cuda'] = False
+            state['device'] = 'cpu'
 
         self.__dict__.update(state)
 
@@ -1210,8 +1196,9 @@ class NeuralNet(object):
                 "Please initialize first by calling .initialize() "
                 "or by fitting the model with .fit(...).")
 
-        cuda_req_not_met = (self.use_cuda and not torch.cuda.is_available())
-        if not self.use_cuda or cuda_req_not_met:
+        use_cuda = self.device.startswith('cuda')
+        cuda_req_not_met = (use_cuda and not torch.cuda.is_available())
+        if use_cuda or cuda_req_not_met:
             # Eiher we want to load the model to the CPU in which case
             # we are loading in a way where it doesn't matter if the data
             # was on the GPU or not or the model was on the GPU but there
@@ -1221,7 +1208,7 @@ class NeuralNet(object):
                     "Model configured to use CUDA but no CUDA devices "
                     "available. Loading on CPU instead.",
                     ResourceWarning)
-                self.use_cuda = False
+                self.device = 'cpu'
             model = torch.load(f, lambda storage, loc: storage)
         else:
             model = torch.load(f)

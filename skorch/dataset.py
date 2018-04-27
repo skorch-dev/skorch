@@ -72,8 +72,8 @@ class Dataset(torch.utils.data.Dataset):
     y : see above or None (default=None)
       Everything pertaining to the target, if there is anything.
 
-    use_cuda : bool (default=False)
-      Whether to use cuda.
+    device : str (default='cpu')
+      Which computation device to use (e.g., 'cuda').
 
     length : int or None (default=None)
       If not None, determines the length (``len``) of the data. Should
@@ -85,12 +85,12 @@ class Dataset(torch.utils.data.Dataset):
             self,
             X,
             y=None,
-            use_cuda=False,
+            device='cpu',
             length=None,
     ):
         self.X = X
         self.y = y
-        self.use_cuda = use_cuda
+        self.device = device
 
         if length is not None:
             self._len = length
@@ -131,8 +131,8 @@ class Dataset(torch.utils.data.Dataset):
         y = torch.Tensor([0]) if y is None else y
 
         return (
-            to_tensor(X, use_cuda=self.use_cuda),
-            to_tensor(y, use_cuda=self.use_cuda),
+            to_tensor(X, device=self.device),
+            to_tensor(y, device=self.device),
         )
 
     def __getitem__(self, i):

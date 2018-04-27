@@ -7,6 +7,28 @@ import torch
 from skorch.tests.conftest import pandas_installed
 
 
+class TestToTensor:
+    @pytest.fixture
+    def to_tensor(self):
+        from skorch.utils import to_tensor
+        return to_tensor
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_device_setting_cuda(self, to_tensor):
+        x = np.ones((2, 3, 4))
+        t = to_tensor(x, device='cpu')
+        assert t.device.type == 'cpu'
+
+        t = to_tensor(x, device='cuda')
+        assert t.device.type.startswith('cuda')
+
+        t = to_tensor(t, device='cuda')
+        assert t.device.type.startswith('cuda')
+
+        t = to_tensor(t, device='cpu')
+        assert t.device.type == 'cpu'
+
+
 class TestDuplicateItems:
     @pytest.fixture
     def duplicate_items(self):

@@ -327,8 +327,8 @@ class TestEpochScoring:
         class MyTorchDataset(torch.utils.data.dataset.TensorDataset):
             def __init__(self, X, y):
                 super().__init__(
-                    skorch.utils.to_tensor(X.reshape(-1, 1), False),
-                    skorch.utils.to_tensor(y, False))
+                    skorch.utils.to_tensor(X.reshape(-1, 1), device='cpu'),
+                    skorch.utils.to_tensor(y, device='cpu'))
 
         class MySkorchDataset(skorch.dataset.Dataset):
             pass
