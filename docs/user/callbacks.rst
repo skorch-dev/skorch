@@ -107,25 +107,33 @@ This also works with default callbacks.
 
 Deactivating callbacks can be especially useful when you do a
 parameter search (say ``GridSearchCV``). If, for instance, you use a
-callback for learning rate scheduling (e.g. via :class:`LRScheduler
-<skorch.callbacks.lr_scheduler.LRScheduler>`) and want to test its
-usefulness, you can compare the performance once with and once without
-the callback.
+callback for learning rate scheduling (e.g. via
+:class:`skorch.callbacks.LRScheduler`) and want to test
+its usefulness, you can compare the performance once with and once
+without the callback.
 
 
 Scoring
 -------
 
-This is a useful callback for when the default scores determined by
-the ``NeuralNet`` are not enough. It allows you to easily add new
-metrics to be logged during training. For an example of how to add a
-new score to your model, look `at this notebook
+skorch provides two scoring callbacks by default,
+:class:`skorch.callbacks.EpochScoring` and
+:class:`skorch.callbacks.BatchScoring`. They work basically in the
+same way, except that :class:`skorch.callbacks.EpochScoring`
+calculates scores after each epoch and
+:class:`skorch.callbacks.BatchScoring` after each batch. Use the
+former if averaging of batch-wise scores is imprecise (say for AUC
+score) and the latter if you are very tight for memory.
+
+In general, the scoring callbacks are useful when the default scores
+determined by the ``NeuralNet`` are not enough. They allow you to
+easily add new metrics to be logged during training. For an example of
+how to add a new score to your model, look `at this notebook
 <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb#Callbacks>`_.
 
-The first argument to :class:`Scoring <skorch.callbacks.Scoring>` is
-``name`` and should be a string. This determines the column name of
-the score shown by the :class:`PrintLog <skorch.callbacks.PrintLog>`
-after each epoch.
+The first argument to both callbacks is ``name`` and should be a
+string. This determines the column name of the score shown by the
+:class:`PrintLog <skorch.callbacks.PrintLog>` after each epoch.
 
 Next comes the ``scoring`` parameter. For eager sklearn users,
 this should be familiar, since it works exactly the same as in
@@ -160,14 +168,11 @@ is the as of yet best f1 score.
 should be used to determine the score. By default, it is set to
 validation.
 
-Finally, you may have to provide your own ``target_extractor`` or
-``pred_extractor``. This should be functions or callables that are
-applied to the target or prediction before they are passed to the
-scoring function. The main reason why we need this is that the
-prediction you get from the PyTorch module is typically a
-``torch.Tensor``, whereas the scoring functions from sklearn
-expect ``numpy.ndarray``\s. This is why, by default, predictions are
-cast to ``numpy.ndarray``\s.
+Finally, you may have to provide your own ``target_extractor``. This
+should be a function or callable that is applied to the target before
+it is passed to the scoring function. The main reason why we need this
+is that sometimes, the target is not of a form expected by sklearn and
+we need to process it before passing it on.
 
 
 Checkpoint
