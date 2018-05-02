@@ -1023,7 +1023,7 @@ class TestNeuralNet:
         with pytest.raises(ValueError) as exc:
             net_cls(module_cls, use_cuda=True)
 
-        msg = ("The parameter use_cuda are no longer supported. Use "
+        msg = ("The parameter use_cuda is no longer supported. Use "
                 "device='cuda' instead.")
         assert exc.value.args[0] == msg
 
