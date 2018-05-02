@@ -11,7 +11,6 @@ from sklearn.model_selection import check_cv
 import torch
 import torch.utils.data
 
-from skorch.helper import Subset  # import from pytorch once available
 from skorch.utils import flatten
 from skorch.utils import is_pandas_ndframe
 from skorch.utils import multi_indexing
@@ -73,8 +72,8 @@ class Dataset(torch.utils.data.Dataset):
     y : see above or None (default=None)
       Everything pertaining to the target, if there is anything.
 
-    use_cuda : bool (default=False)
-      Whether to use cuda.
+    device : str, torch.device (default='cpu')
+      Which computation device to use (e.g., 'cuda').
 
     length : int or None (default=None)
       If not None, determines the length (``len``) of the data. Should
@@ -86,12 +85,12 @@ class Dataset(torch.utils.data.Dataset):
             self,
             X,
             y=None,
-            use_cuda=False,
+            device='cpu',
             length=None,
     ):
         self.X = X
         self.y = y
-        self.use_cuda = use_cuda
+        self.device = device
 
         if length is not None:
             self._len = length
@@ -132,8 +131,8 @@ class Dataset(torch.utils.data.Dataset):
         y = torch.Tensor([0]) if y is None else y
 
         return (
-            to_tensor(X, use_cuda=self.use_cuda),
-            to_tensor(y, use_cuda=self.use_cuda),
+            to_tensor(X, device=self.device),
+            to_tensor(y, device=self.device),
         )
 
     def __getitem__(self, i):
@@ -260,8 +259,8 @@ class CVSplit(object):
             args = args + (to_numpy(y),)
 
         idx_train, idx_valid = next(iter(cv.split(*args, groups=groups)))
-        dataset_train = Subset(dataset, idx_train)
-        dataset_valid = Subset(dataset, idx_valid)
+        dataset_train = torch.utils.data.dataset.Subset(dataset, idx_train)
+        dataset_valid = torch.utils.data.dataset.Subset(dataset, idx_valid)
         return dataset_train, dataset_valid
 
     def __repr__(self):

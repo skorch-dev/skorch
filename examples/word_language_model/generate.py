@@ -34,11 +34,12 @@ torch.manual_seed(args.seed)
 
 corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
+device = 'cuda' if args.cuda else 'cpu'
 
 net = net.Net(
     module=model.RNNModel,
     batch_size=1,
-    use_cuda=args.cuda,
+    device=device,
     module__rnn_type='LSTM',
     module__ntoken=ntokens,
     module__ninp=200,
@@ -48,8 +49,8 @@ net.initialize()
 net.load_params(args.checkpoint)
 
 hidden = None
-input = skorch.utils.to_var(torch.rand(1, 1).mul(ntokens).long(),
-                            use_cuda=args.cuda)
+input = skorch.utils.to_tensor(torch.rand(1, 1).mul(ntokens).long(),
+                               device=device)
 
 with open(args.outf, 'w') as outf:
     for i in range(args.words):
@@ -57,9 +58,9 @@ with open(args.outf, 'w') as outf:
                 input=input,
                 temperature=args.temperature,
                 hidden=hidden)
-        input = skorch.utils.to_var(
+        input = skorch.utils.to_tensor(
                 torch.LongTensor([[word_idx]]),
-                use_cuda=args.cuda)
+                device=device)
 
         word = corpus.dictionary.idx2word[word_idx]
         outf.write(word + ('\n' if i % 20 == 19 else ' '))

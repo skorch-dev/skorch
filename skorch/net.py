@@ -1,5 +1,6 @@
 """Neural net classes."""
 
+import fnmatch
 import re
 import tempfile
 import warnings
@@ -23,7 +24,7 @@ from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import to_numpy
-from skorch.utils import to_var
+from skorch.utils import to_tensor
 from skorch.utils import params_for
 
 
@@ -96,16 +97,6 @@ class NeuralNet(object):
       Learning rate passed to the optimizer. You may use ``lr`` instead
       of using ``optimizer__lr``, which would result in the same outcome.
 
-    gradient_clip_value : float (default=None)
-      The parameters gradient_clip_value and gradient_clip_norm_type
-      are no longer supported. Use
-      ``skorch.callbacks.GradientNormClipping`` instead.
-
-    gradient_clip_norm_type : float (default=2)
-      The parameters gradient_clip_value and gradient_clip_norm_type
-      are no longer supported. Use
-      ``skorch.callbacks.GradientNormClipping`` instead.
-
     max_epochs : int (default=10)
       The number of epochs to train for each ``fit`` call. Note that you
       may keyboard-interrupt training at any time.
@@ -129,8 +120,8 @@ class NeuralNet(object):
       ``__getitem__`` methods. The provided dataset should be capable of
       dealing with a lot of data types out of the box, so only change
       this if your data is not supported. Additionally, dataset should
-      accept a ``use_cuda`` parameter to indicate whether cuda should be
-      used.
+      accept a ``device`` parameter to indicate the location of the
+      data (e.g., CUDA).
       You should generally pass the uninitialized ``Dataset`` class
       and define additional arguments to X and y by prefixing them
       with ``dataset__``. It is also possible to pass an initialzed
@@ -164,8 +155,8 @@ class NeuralNet(object):
     verbose : int (default=1)
       Control the verbosity level.
 
-    use_cuda : bool (default=False)
-      Whether usage of cuda is intended. If True, data in torch
+    device : str, torch.device (default='cpu')
+      The compute device to be used. If set to 'cuda', data in torch
       tensors will be pushed to cuda tensors before being sent to the
       module.
 
@@ -218,7 +209,7 @@ class NeuralNet(object):
             callbacks=None,
             warm_start=False,
             verbose=1,
-            use_cuda=False,
+            device='cpu',
             **kwargs
     ):
         self.module = module
@@ -234,7 +225,7 @@ class NeuralNet(object):
         self.callbacks = callbacks
         self.warm_start = warm_start
         self.verbose = verbose
-        self.use_cuda = use_cuda
+        self.device = device
 
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
@@ -405,10 +396,7 @@ class NeuralNet(object):
 
             module = module(**kwargs)
 
-        if self.use_cuda:
-            module.cuda()
-
-        self.module_ = module
+        self.module_ = module.to(self.device)
         return self
 
     def initialize_optimizer(self):
@@ -416,10 +404,13 @@ class NeuralNet(object):
         is not set, use ``self.lr`` instead.
 
         """
-        kwargs = self._get_params_for('optimizer')
+        args, kwargs = self._get_params_for_optimizer(
+            'optimizer', self.module_.named_parameters())
+
         if 'lr' not in kwargs:
             kwargs['lr'] = self.lr
-        self.optimizer_ = self.optimizer(self.module_.parameters(), **kwargs)
+
+        self.optimizer_ = self.optimizer(*args, **kwargs)
 
     def initialize_history(self):
         """Initializes the history."""
@@ -570,7 +561,7 @@ class NeuralNet(object):
             for Xi, yi in self.get_iterator(dataset_train, training=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
-                self.history.record_batch('train_loss', step['loss'].data[0])
+                self.history.record_batch('train_loss', step['loss'].data.item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
 
@@ -581,7 +572,7 @@ class NeuralNet(object):
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
-                self.history.record_batch('valid_loss', step['loss'].data[0])
+                self.history.record_batch('valid_loss', step['loss'].data.item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=False, **step)
 
@@ -792,7 +783,7 @@ class NeuralNet(object):
           the module and to the train_split call.
 
         """
-        x = to_var(x, use_cuda=self.use_cuda)
+        x = to_tensor(x, device=self.device)
         if isinstance(x, dict):
             x_dict = self._merge_x_and_fit_params(x, fit_params)
             return self.module_(**x_dict)
@@ -891,7 +882,7 @@ class NeuralNet(object):
           Whether train mode should be used or not.
 
         """
-        y_true = to_var(y_true, use_cuda=self.use_cuda)
+        y_true = to_tensor(y_true, device=self.device)
         return self.criterion_(y_pred, y_true)
 
     def get_dataset(self, X, y=None):
@@ -901,8 +892,7 @@ class NeuralNet(object):
         Override this if you want to initialize your dataset
         differently.
 
-        If ``dataset__use_cuda`` is not set, use ``self.use_cuda``
-        instead.
+        If ``dataset__device`` is not set, use ``self.device`` instead.
 
         Parameters
         ----------
@@ -945,8 +935,8 @@ class NeuralNet(object):
         if is_initialized:
             return dataset
 
-        if 'use_cuda' not in kwargs:
-            kwargs['use_cuda'] = self.use_cuda
+        if 'device' not in kwargs:
+            kwargs['device'] = self.device
 
         return dataset(X, y, **kwargs)
 
@@ -1032,10 +1022,39 @@ class NeuralNet(object):
 
         if 'batch_size' not in kwargs:
             kwargs['batch_size'] = self.batch_size
+
         return iterator(dataset, **kwargs)
 
     def _get_params_for(self, prefix):
         return params_for(prefix, self.__dict__)
+
+    def _get_params_for_optimizer(self, prefix, named_parameters):
+        """Parse kwargs configuration for the optimizer identified by
+        the given prefix. Supports param group assignment using wildcards:
+
+            optimizer__lr=0.05,
+            optimizer__param_groups=[
+                ('rnn*.period', {'lr': 0.3, 'momentum': 0}),
+                ('rnn0', {'lr': 0.1}),
+            ]
+
+        The first positional argument are the param groups.
+        """
+        kwargs = self._get_params_for(prefix)
+        params = list(named_parameters)
+        pgroups = []
+
+        for pattern, group in kwargs.pop('param_groups', []):
+            matches = [i for i, (name, _) in enumerate(params) if
+                       fnmatch.fnmatch(name, pattern)]
+            if matches:
+                p = [params.pop(i)[1] for i in reversed(matches)]
+                pgroups.append({'params': p, **group})
+
+        if params:
+            pgroups.append({'params': [p for _, p in params]})
+
+        return [pgroups], kwargs
 
     def _get_param_names(self):
         return self.__dict__.keys()
@@ -1043,13 +1062,12 @@ class NeuralNet(object):
     def get_params(self, deep=True, **kwargs):
         return BaseEstimator.get_params(self, deep=deep, **kwargs)
 
-    # XXX remove once deprecation for grad norm clipping is phased out
+    # XXX remove once deprecation for use_cuda is phased out
     # Also remember to update NeuralNet docstring
     def _check_deprecated_params(self, **kwargs):
-        if kwargs.get('gradient_clip_value') is not None:
-            msg = ("The parameters gradient_clip_value and "
-                   "gradient_clip_norm_type are no longer supported. Use "
-                   "skorch.callbacks.GradientNormClipping instead.")
+        if kwargs.get('use_cuda') is not None:
+            msg = ("The parameter use_cuda is no longer supported. Use "
+                   "device='cuda' instead.")
             raise ValueError(msg)
 
     def set_params(self, **kwargs):
@@ -1108,6 +1126,11 @@ class NeuralNet(object):
         return state
 
     def __setstate__(self, state):
+        def uses_cuda(device):
+            if isinstance(device, torch.device):
+                device = device.type
+            return device.startswith('cuda')
+
         disable_cuda = False
         for key in self.cuda_dependent_attributes_:
             if key not in state:
@@ -1116,7 +1139,8 @@ class NeuralNet(object):
             with tempfile.SpooledTemporaryFile() as f:
                 f.write(dump)
                 f.seek(0)
-                if state['use_cuda'] and not torch.cuda.is_available():
+                if (uses_cuda(state['device']) and
+                    not torch.cuda.is_available()):
                     disable_cuda = True
                     val = torch.load(
                         f, map_location=lambda storage, loc: storage)
@@ -1128,7 +1152,7 @@ class NeuralNet(object):
                 "Model configured to use CUDA but no CUDA devices "
                 "available. Loading on CPU instead.",
                 DeviceWarning)
-            state['use_cuda'] = False
+            state['device'] = 'cpu'
 
         self.__dict__.update(state)
 
@@ -1181,8 +1205,9 @@ class NeuralNet(object):
                 "Please initialize first by calling .initialize() "
                 "or by fitting the model with .fit(...).")
 
-        cuda_req_not_met = (self.use_cuda and not torch.cuda.is_available())
-        if not self.use_cuda or cuda_req_not_met:
+        use_cuda = self.device.startswith('cuda')
+        cuda_req_not_met = (use_cuda and not torch.cuda.is_available())
+        if use_cuda or cuda_req_not_met:
             # Eiher we want to load the model to the CPU in which case
             # we are loading in a way where it doesn't matter if the data
             # was on the GPU or not or the model was on the GPU but there
@@ -1192,7 +1217,7 @@ class NeuralNet(object):
                     "Model configured to use CUDA but no CUDA devices "
                     "available. Loading on CPU instead.",
                     ResourceWarning)
-                self.use_cuda = False
+                self.device = 'cpu'
             model = torch.load(f, lambda storage, loc: storage)
         else:
             model = torch.load(f)
@@ -1309,26 +1334,9 @@ class NeuralNetClassifier(NeuralNet):
                    "respectively.")
             raise ValueError(msg)
 
-    def _prepare_target_for_loss(self, y):
-        # This is a temporary, ugly work-around (relating to #56), but
-        # currently, I see no solution that would result in a 1-dim
-        # LongTensor after passing through torch's DataLoader. If
-        # there is, we should use that instead. Otherwise, this will
-        # be obsolete once pytorch scalars arrive.
-        if (y.dim() == 2) and (y.size(1) == 1):
-            # classification: y must be 1d
-            return y[:, 0]
-        # Note: If target is 2-dim with size(1) != 1, we just let it
-        # pass, even though it will fail with NLLLoss
-        return y
-
-    def get_loss(self, y_pred, y_true, X=None, training=False):
-        y_true = to_var(y_true, use_cuda=self.use_cuda)
+    def get_loss(self, y_pred, y_true, *args, **kwargs):
         y_pred_log = torch.log(y_pred)
-        return self.criterion_(
-            y_pred_log,
-            self._prepare_target_for_loss(y_true),
-        )
+        return super().get_loss(y_pred_log, y_true, *args, **kwargs)
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
@@ -1471,11 +1479,14 @@ class NeuralNetRegressor(NeuralNet):
             # The user implements its own mechanism for generating y.
             return
 
-        # The problem with 1-dim float y is that the pytorch DataLoader will
-        # somehow upcast it to DoubleTensor
         if get_dim(y) == 1:
-            raise ValueError("The target data shouldn't be 1-dimensional; "
-                             "please reshape (e.g. y.reshape(-1, 1).")
+            msg = (
+                "The target data shouldn't be 1-dimensional but instead have "
+                "2 dimensions, with the second dimension having the same size "
+                "as the number of regression targets (usually 1). Please "
+                "reshape your target data to be 2-dimensional "
+                "(e.g. y = y.reshape(-1, 1).")
+            raise ValueError(msg)
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):

@@ -12,9 +12,7 @@ import numpy as np
 from sklearn.utils import safe_indexing
 import torch
 from torch import nn
-from torch.autograd import Variable
-
-from skorch.helper import Subset  # TODO: change import to pytorch
+from torch.utils.data.dataset import Subset
 
 
 class Ansi(Enum):
@@ -28,37 +26,17 @@ class Ansi(Enum):
 
 def is_torch_data_type(x):
     # pylint: disable=protected-access
-    return isinstance(x, (torch.tensor._TensorBase, Variable))
+    return isinstance(x, torch.Tensor)
 
 
 def is_dataset(x):
     return isinstance(x, torch.utils.data.Dataset)
 
 
-def to_var(X, use_cuda):
-    """Generic function to convert a input data to pytorch Variables.
-
-    Returns X when it already is a pytorch Variable.
-
-    """
-    if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
-        return X
-
-    X = to_tensor(X, use_cuda=use_cuda)
-    if isinstance(X, dict):
-        return {k: to_var(v, use_cuda=use_cuda) for k, v in X.items()}
-
-    if isinstance(X, (tuple, list)):
-        return [to_var(x, use_cuda=use_cuda) for x in X]
-
-    return Variable(X)
-
-
-def to_tensor(X, use_cuda):
-    """Turn to torch Variable.
+def to_tensor(X, device):
+    """Turn to torch tensor.
 
     Handles the cases:
-      * Variable
       * PackedSequence
       * numpy array
       * torch Tensor
@@ -66,9 +44,12 @@ def to_tensor(X, use_cuda):
       * dict of one of the former
 
     """
-    to_tensor_ = partial(to_tensor, use_cuda=use_cuda)
+    assert not isinstance(device, bool), (
+        "possible bug: used `device` parameter like `use_cuda`. "
+        "Set `device='cuda'` instead.")
+    to_tensor_ = partial(to_tensor, device=device)
 
-    if isinstance(X, (Variable, nn.utils.rnn.PackedSequence)):
+    if isinstance(X, nn.utils.rnn.PackedSequence):
         return X
 
     if isinstance(X, dict):
@@ -80,6 +61,10 @@ def to_tensor(X, use_cuda):
     if isinstance(X, np.ndarray):
         X = torch.from_numpy(X)
 
+    if np.isscalar(X):
+        # ugly work-around - torch constructor does not accept np scalars
+        X = torch.tensor(np.array([X]))[0]
+
     if isinstance(X, Sequence):
         X = torch.from_numpy(np.array(X))
     elif np.isscalar(X):
@@ -88,14 +73,11 @@ def to_tensor(X, use_cuda):
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a torch tensor.")
 
-    if use_cuda:
-        X = X.cuda()
-    return X
+    return X.to(device)
 
 
 def to_numpy(X):
-    """Generic function to convert a pytorch tensor or variable to
-    numpy.
+    """Generic function to convert a pytorch tensor to numpy.
 
     Returns X when it already is a numpy array.
 
@@ -112,11 +94,10 @@ def to_numpy(X):
     if X.is_cuda:
         X = X.cpu()
 
-    if isinstance(X, Variable):
-        data = X.data
-    else:
-        data = X
-    return data.numpy()
+    if X.requires_grad:
+        X = X.detach()
+
+    return X.numpy()
 
 
 def get_dim(y):

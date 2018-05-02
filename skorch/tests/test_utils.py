@@ -7,6 +7,28 @@ import torch
 from skorch.tests.conftest import pandas_installed
 
 
+class TestToTensor:
+    @pytest.fixture
+    def to_tensor(self):
+        from skorch.utils import to_tensor
+        return to_tensor
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_device_setting_cuda(self, to_tensor):
+        x = np.ones((2, 3, 4))
+        t = to_tensor(x, device='cpu')
+        assert t.device.type == 'cpu'
+
+        t = to_tensor(x, device='cuda')
+        assert t.device.type.startswith('cuda')
+
+        t = to_tensor(t, device='cuda')
+        assert t.device.type.startswith('cuda')
+
+        t = to_tensor(t, device='cpu')
+        assert t.device.type == 'cpu'
+
+
 class TestDuplicateItems:
     @pytest.fixture
     def duplicate_items(self):
@@ -76,12 +98,12 @@ class TestDataFromDataset:
 
     @pytest.fixture
     def subset(self, skorch_ds):
-        from skorch.helper import Subset  # TODO: replace by pytorch subset
+        from torch.utils.data.dataset import Subset
         return Subset(skorch_ds, [1, 3])
 
     @pytest.fixture
     def subset_subset(self, subset):
-        from skorch.helper import Subset  # TODO: replace by pytorch subset
+        from torch.utils.data.dataset import Subset
         return Subset(subset, [0])
 
     # pylint: disable=missing-docstring
@@ -372,7 +394,7 @@ class TestIsSkorchDataset:
         is_skorch_dataset should return when called with that type.
         """
         from skorch.dataset import Dataset
-        from skorch.helper import Subset
+        from torch.utils.data.dataset import Subset
 
         numpy_data = np.array([1, 2, 3])
         tensor_data = torch.from_numpy(numpy_data)

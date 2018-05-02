@@ -124,9 +124,10 @@ have an ``X`` and a ``y``, where ``X`` represents the input data and
 ``Dataset`` returns a dummy variable.
 
 In contrast to a PyTorch ``Dataset``, a skorch ``Dataset``
-must have a ``use_cuda`` argument, which determines whether the
-returned data should be transferred to CUDA. Should you write your own
-``Dataset`` subclass, remember to integrate this argument.
+must have a ``device`` argument, which determines whether the
+returned data should be transferred to a specific computation device. 
+Should you write your own ``Dataset`` subclass, remember to integrate 
+this argument.
 
 ``Dataset`` applies a transform final transform on the data before
 passing it on to the ``DataLoader``. By default, it casts the data to

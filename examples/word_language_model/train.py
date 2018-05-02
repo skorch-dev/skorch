@@ -31,6 +31,7 @@ torch.manual_seed(args.seed)
 
 corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
+device = 'cuda' if args.cuda else 'cpu'
 
 class LRAnnealing(skorch.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
@@ -41,22 +42,23 @@ class ExamplePrinter(skorch.callbacks.Callback):
     def on_epoch_end(self, net, **kwargs):
         seed_sentence = "the meaning of"
         indices = [corpus.dictionary.word2idx[n] for n in seed_sentence.split()]
-        indices = skorch.utils.to_var(torch.LongTensor([indices]).t(), use_cuda=args.cuda)
+        indices = skorch.utils.to_tensor(
+            torch.LongTensor([indices]).t(), device=device)
         sentence, _ = net.sample_n(num_words=10, input=indices)
         print(seed_sentence,
               " ".join([corpus.dictionary.idx2word[n] for n in sentence]))
 
 
-def my_train_split(X, y):
+def my_train_split(ds, y):
     # Return (corpus.train, corpus.valid) in case the network
     # is fitted using net.fit(corpus.train).
-    return X, corpus.valid, None, None
+    return ds, skorch.dataset.Dataset(corpus.valid[:200], y=None)
 
 net = Net(
     module=RNNModel,
     max_epochs=args.epochs,
     batch_size=args.batch_size,
-    use_cuda=args.cuda,
+    device=device,
     callbacks=[
         skorch.callbacks.Checkpoint(),
         skorch.callbacks.ProgressBar(),
@@ -79,10 +81,10 @@ net = Net(
     # data loaders as well, we use the data loader from the word
     # language model.
     iterator_train=data.Loader,
-    iterator_train__use_cuda=args.cuda,
+    iterator_train__device=device,
     iterator_train__bptt=args.bptt,
     iterator_valid=data.Loader,
-    iterator_valid__use_cuda=args.cuda,
+    iterator_valid__device=device,
     iterator_valid__bptt=args.bptt)
 
 

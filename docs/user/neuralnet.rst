@@ -114,6 +114,16 @@ optimizer
 This should be a PyTorch optimizer,
 e.g. ``torch.optim.SGD``. After initializing the ``NeuralNet``, the
 initialized optimizer will stored in the ``optimizer_`` attribute.
+During initialization you can define param groups, for example to
+set different learning rates for certain parameters. The parameters
+are selected by name with support for wildcards (globbing):
+
+.. code:: python
+
+    optimizer__param_groups=[
+        ('embedding.*', {'lr': 0.0}),
+        ('linear0.bias', {'lr': 1}),
+    ]
 
 lr
 ^^^
@@ -233,15 +243,16 @@ previous training progress is lost (consistent with the sklearn
 ``fit`` calls). In contrast, with ``warm_start=True``, each ``fit``
 call will continue from the most recent state.
 
-use_cuda
-^^^^^^^^
+device
+^^^^^^
 
-As the name suggests, this determines whether CUDA should be used or
-not. If ``True``, the incoming data will be transferred to CUDA before
-being passed to the ``pytorch module``.
+As the name suggests, this determines which computation device should 
+be used. If set to ``cuda``, the incoming data will be transferred to 
+CUDA before being passed to the ``pytorch module``. The device parameter
+adheres to the general syntax of the PyTorch device parameter.
 
-Among other things, ``use_cuda`` is passed to ``Dataset`` when it is
-initialized, but if you set ``dataset__use_cuda`` explicitely, the
+Among other things, ``device`` is passed to ``Dataset`` when it is
+initialized, but if you set ``dataset__device`` explicitely, the
 latter will have precedence.
 
 initialize()

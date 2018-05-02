@@ -320,16 +320,15 @@ class TestEpochScoring:
         # received at the scoring side as well. For the caching case
         # we only receive datasets.
         import skorch
-        from skorch.helper import Subset
         from skorch.dataset import CVSplit
-        import torch
         import torch.utils.data.dataset
+        from torch.utils.data.dataset import Subset
 
         class MyTorchDataset(torch.utils.data.dataset.TensorDataset):
             def __init__(self, X, y):
                 super().__init__(
-                    skorch.utils.to_tensor(X.reshape(-1, 1), False),
-                    skorch.utils.to_tensor(y, False))
+                    skorch.utils.to_tensor(X.reshape(-1, 1), device='cpu'),
+                    skorch.utils.to_tensor(y, device='cpu'))
 
         class MySkorchDataset(skorch.dataset.Dataset):
             pass
@@ -348,7 +347,7 @@ class TestEpochScoring:
 
             # Test a split that splits datasets using torch Subset
             (data, cvsplit, np.ndarray, False),
-            (data, cvsplit, skorch.helper.Subset, True),
+            (data, cvsplit, Subset, True),
             ((MyTorchDataset(*data), None), cvsplit, Subset, False),
             ((MyTorchDataset(*data), None), cvsplit, Subset, True),
             ((MySkorchDataset(*data), None), cvsplit, np.ndarray, False),

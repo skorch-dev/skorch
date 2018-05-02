@@ -214,12 +214,21 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
 
+    @pytest.mark.parametrize('device', ['cpu', 'cuda'])
+    def test_device_torch_device(self, net_cls, module_cls, device):
+        # Check if native torch.device works as well.
+        if device.startswith('cuda') and not torch.cuda.is_available():
+            pytest.skip()
+        net = net_cls(module=module_cls, device=torch.device(device))
+        net = net.initialize()
+        assert net.module_.dense0.weight.device.type.startswith(device)
+
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_pickle_save_load_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
         from skorch.exceptions import DeviceWarning
 
-        net = net_cls(module=module_cls, use_cuda=True).initialize()
+        net = net_cls(module=module_cls, device='cuda').initialize()
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         with open(str(p), 'wb') as f:
@@ -233,7 +242,7 @@ class TestNeuralNet:
 
         # The loaded model should not use CUDA anymore as it
         # already knows CUDA is not available.
-        assert m.use_cuda is False
+        assert m.device == 'cpu'
 
         assert len(w.list) == 1  # only 1 warning
         assert w.list[0].message.args[0] == (
@@ -317,7 +326,7 @@ class TestNeuralNet:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_save_load_state_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
-        net = net_cls(module_cls, use_cuda=True).initialize()
+        net = net_cls(module_cls, device='cuda').initialize()
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         net.save_params(str(p))
@@ -406,6 +415,23 @@ class TestNeuralNet:
         assert not hasattr(net, 'module_')
         # should not break
         net.set_params(optimizer=torch.optim.SGD)
+
+    def test_optimizer_param_groups(self, net_cls, module_cls):
+        net = net_cls(
+            module_cls,
+            optimizer__param_groups=[
+                ('dense1.*', {'lr': 0.1}),
+                ('dense*.*', {'lr': 0.5}),
+            ],
+        )
+        net.initialize()
+
+        # two custom (dense0, dense1), one default with the rest of the
+        # parameters (output).
+        assert len(net.optimizer_.param_groups) == 3
+        assert net.optimizer_.param_groups[0]['lr'] == 0.1
+        assert net.optimizer_.param_groups[1]['lr'] == 0.5
+        assert net.optimizer_.param_groups[2]['lr'] == net.lr
 
     def test_module_params_in_init(self, net_cls, module_cls, data):
         X, y = data
@@ -516,17 +542,17 @@ class TestNeuralNet:
         print(gs.best_score_, gs.best_params_)
 
     def test_change_get_loss(self, net_cls, module_cls, data):
-        from skorch.utils import to_var
+        from skorch.utils import to_tensor
 
         class MyNet(net_cls):
             # pylint: disable=unused-argument
             def get_loss(self, y_pred, y_true, X=None, training=False):
-                y_true = to_var(y_true, use_cuda=False)
+                y_true = to_tensor(y_true, device='cpu')
                 loss_a = torch.abs(y_true.float() - y_pred[:, 1]).mean()
                 loss_b = ((y_true.float() - y_pred[:, 1]) ** 2).mean()
                 if training:
-                    self.history.record_batch('loss_a', to_numpy(loss_a)[0])
-                    self.history.record_batch('loss_b', to_numpy(loss_b)[0])
+                    self.history.record_batch('loss_a', to_numpy(loss_a))
+                    self.history.record_batch('loss_b', to_numpy(loss_b))
                 return loss_a + loss_b
 
         X, y = data
@@ -555,16 +581,16 @@ class TestNeuralNet:
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_use_cuda_on_model(self, net_cls, module_cls):
-        net_cuda = net_cls(module_cls, use_cuda=True)
+        net_cuda = net_cls(module_cls, device='cuda')
         net_cuda.initialize()
-        net_cpu = net_cls(module_cls, use_cuda=False)
+        net_cpu = net_cls(module_cls, device='cpu')
         net_cpu.initialize()
 
-        type_cpu = type(net_cpu.module_.dense0.weight.data)
-        assert type_cpu == torch.FloatTensor
+        cpu_tensor = net_cpu.module_.dense0.weight.data
+        assert isinstance(cpu_tensor, torch.FloatTensor)
 
-        type_gpu = type(net_cuda.module_.dense0.weight.data)
-        assert type_gpu == torch.cuda.FloatTensor
+        gpu_tensor = net_cuda.module_.dense0.weight.data
+        assert isinstance(gpu_tensor, torch.cuda.FloatTensor)
 
     @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
@@ -702,7 +728,7 @@ class TestNeuralNet:
         X, y = data
         assert y.ndim == 1
 
-        net = net_cls(module_cls, max_epochs=1, use_cuda=True)
+        net = net_cls(module_cls, max_epochs=1, device='cuda')
         net.fit(X, y)
 
     @pytest.mark.parametrize('use_caching', [True, False])
@@ -738,7 +764,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, data, dataset_cls):
         net = net_cls(
             module_cls,
-            dataset=dataset_cls(*data, use_cuda=0),
+            dataset=dataset_cls(*data),
             max_epochs=1,
 
             # Disable caching to highlight the issue with this
@@ -753,7 +779,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, data, dataset_cls):
         net = net_cls(
             module_cls,
-            dataset=partial(dataset_cls, use_cuda=0),
+            dataset=partial(dataset_cls, device='cpu'),
             max_epochs=1,
         )
         net.fit(*data)  # does not raise
@@ -762,7 +788,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, data, dataset_cls):
         net = net_cls(
             module_cls,
-            dataset=dataset_cls(*data, use_cuda=0),
+            dataset=dataset_cls(*data),
             dataset__foo=123,
             max_epochs=1,
         )
@@ -992,26 +1018,13 @@ class TestNeuralNet:
         msg = "Stratified CV requires explicitely passing a suitable y."
         assert exc.value.args[0] == msg
 
-    # XXX remove once deprecation for grad norm clipping is phased out
-    def test_init_grad_clip_and_norm_deprecated(self, net_cls, module_cls):
+    # XXX remove once deprecation for use_cuda is phased out
+    def test_init_use_cuda_deprecated(self, net_cls, module_cls):
         with pytest.raises(ValueError) as exc:
-            net_cls(module_cls, gradient_clip_value=1)
+            net_cls(module_cls, use_cuda=True)
 
-        msg = ("The parameters gradient_clip_value and "
-               "gradient_clip_norm_type are no longer supported. Use "
-               "skorch.callbacks.GradientNormClipping instead.")
-        assert exc.value.args[0] == msg
-
-    # XXX remove once deprecation for grad norm clipping is phased out
-    def test_set_params_grad_clip_and_norm_deprecated(
-            self, net_cls, module_cls):
-        net = net_cls(module_cls)
-        with pytest.raises(ValueError) as exc:
-            net.set_params(gradient_clip_value=0)
-
-        msg = ("The parameters gradient_clip_value and "
-               "gradient_clip_norm_type are no longer supported. Use "
-               "skorch.callbacks.GradientNormClipping instead.")
+        msg = ("The parameter use_cuda is no longer supported. Use "
+                "device='cuda' instead.")
         assert exc.value.args[0] == msg
 
     @pytest.fixture
@@ -1140,7 +1153,7 @@ class TestNeuralNetRegressor:
 
     def test_net_learns(self, net_fit):
         train_losses = net_fit.history[:, 'train_loss']
-        assert train_losses[0] > 3 * train_losses[-1]
+        assert train_losses[0] > 2 * train_losses[-1]
 
     def test_history_default_keys(self, net_fit):
         expected_keys = {'train_loss', 'valid_loss', 'epoch', 'dur', 'batches'}
@@ -1152,8 +1165,11 @@ class TestNeuralNetRegressor:
         with pytest.raises(ValueError) as exc:
             net.fit(X, y.flatten())
         assert exc.value.args[0] == (
-            "The target data shouldn't be 1-dimensional; "
-            "please reshape (e.g. y.reshape(-1, 1).")
+            "The target data shouldn't be 1-dimensional but instead have "
+            "2 dimensions, with the second dimension having the same size "
+            "as the number of regression targets (usually 1). Please "
+            "reshape your target data to be 2-dimensional "
+            "(e.g. y = y.reshape(-1, 1).")
 
     def test_predict_predict_proba(self, net_fit, data):
         X = data[0]
@@ -1164,4 +1180,4 @@ class TestNeuralNetRegressor:
 
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
-        assert np.allclose(y_pred, y_proba)
+        assert np.allclose(y_pred, y_proba, atol=1e-6)
