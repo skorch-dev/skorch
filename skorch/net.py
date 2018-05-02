@@ -1062,7 +1062,7 @@ class NeuralNet(object):
     # Also remember to update NeuralNet docstring
     def _check_deprecated_params(self, **kwargs):
         if kwargs.get('use_cuda') is not None:
-            msg = ("The parameter use_cuda are no longer supported. Use "
+            msg = ("The parameter use_cuda is no longer supported. Use "
                    "device='cuda' instead.")
             raise ValueError(msg)
 
