@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
 from skorch.callbacks import EpochScoring
+from skorch.callbacks import BatchScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
@@ -30,16 +31,12 @@ from skorch.utils import params_for
 
 # pylint: disable=unused-argument
 def train_loss_score(net, X=None, y=None):
-    losses = net.history[-1, 'batches', :, 'train_loss']
-    batch_sizes = net.history[-1, 'batches', :, 'train_batch_size']
-    return np.average(losses, weights=batch_sizes)
+    return net.history[-1, 'batches', -1, 'train_loss']
 
 
 # pylint: disable=unused-argument
 def valid_loss_score(net, X=None, y=None):
-    losses = net.history[-1, 'batches', :, 'valid_loss']
-    batch_sizes = net.history[-1, 'batches', :, 'valid_batch_size']
-    return np.average(losses, weights=batch_sizes)
+    return net.history[-1, 'batches', -1, 'valid_loss']
 
 
 # pylint: disable=too-many-instance-attributes
@@ -253,12 +250,12 @@ class NeuralNet(object):
     def get_default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer),
-            ('train_loss', EpochScoring(
+            ('train_loss', BatchScoring(
                 train_loss_score,
                 name='train_loss',
                 on_train=True,
             )),
-            ('valid_loss', EpochScoring(
+            ('valid_loss', BatchScoring(
                 valid_loss_score,
                 name='valid_loss',
             )),
@@ -1299,12 +1296,12 @@ class NeuralNetClassifier(NeuralNet):
     def get_default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', EpochScoring(
+            ('train_loss', BatchScoring(
                 train_loss_score,
                 name='train_loss',
                 on_train=True,
             )),
-            ('valid_loss', EpochScoring(
+            ('valid_loss', BatchScoring(
                 valid_loss_score,
                 name='valid_loss',
             )),
