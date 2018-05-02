@@ -1092,6 +1092,66 @@ class TestNeuralNet:
         assert y_proba.min() >= 0
         assert y_proba.max() <= 1
 
+    @pytest.fixture()
+    def sequence_module_cls(self):
+        import torch
+        class Mod(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.l = torch.nn.Linear(1, 1)
+            def forward(self, x):
+                n = np.random.randint(1, 4)
+                y = self.l(x.float())
+                return torch.randn(1, n, 2) + 0 * y
+        return Mod
+
+    def test_net_variable_prediction_lengths(self, net_cls, sequence_module_cls):
+        # neural net should work fine with fixed y_true but varying y_pred
+        # sequences.
+        X = np.array([1, 5, 3, 6, 2])
+        y = np.array([[0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 0], [0, 1, 0]])
+        X, y = X[:, np.newaxis], y[:, :, np.newaxis]
+        X, y = X.astype('float32'), y.astype('float32')
+
+        net = net_cls(
+            sequence_module_cls,
+            batch_size=1,
+            max_epochs=2,
+            train_split=None,
+        )
+
+        # Mock loss function
+        def loss_fn(y_pred, y_true, **kwargs):
+            return y_pred[:, 0, 0]
+        net.get_loss = loss_fn
+
+        net.fit(X, y)
+
+    def test_net_variable_label_lengths(self, net_cls, sequence_module_cls):
+        # neural net should work fine with varying y_true sequences.
+        X = np.array([1, 5, 3, 6, 2])
+        y = np.array([[1], [1, 0, 1], [1, 1], [1, 1, 0], [1, 0]])
+        X = X[:, np.newaxis].astype('float32')
+        y = np.array([np.array(n, dtype='float32')[:, np.newaxis] for n in y])
+
+        net = net_cls(
+            sequence_module_cls,
+            batch_size=1,
+            max_epochs=2,
+            train_split=None,
+        )
+
+        # Mock loss function
+        def loss_fn(y_pred, y_true, **kwargs):
+            return y_pred[:, 0, 0]
+        net.get_loss = loss_fn
+
+        # Check data complains about y.shape = (n,) but
+        # we know that it is actually (n, m) with m in [1;3].
+        net.check_data = lambda *_, **kw: None
+        net.fit(X, y)
+
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.
