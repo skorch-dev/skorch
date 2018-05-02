@@ -1092,6 +1092,14 @@ class TestNeuralNet:
         assert y_proba.min() >= 0
         assert y_proba.max() <= 1
 
+    def test_set_params_with_unknown_key_raises(self, net):
+        with pytest.raises(ValueError) as exc:
+            net.set_params(foo=123)
+
+        # TODO: check error message more precisely, depending on what
+        # the intended message shouldb e from sklearn side
+        assert exc.value.args[0].startswith('Invalid parameter foo for')
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.
