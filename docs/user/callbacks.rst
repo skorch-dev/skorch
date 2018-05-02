@@ -87,6 +87,32 @@ update step was performed. Gets the module parameters as additional
 input. Useful if you want to tinker with gradients.
 
 
+Deactivating callbacks
+-----------------------
+
+If you would like to (temporarily) deactivate a callback, you can do
+so by setting its parameter to None. E.g., if you have a callback
+called 'my_callback', you can deactivate it like this:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule,
+	    callbacks=[('my_callback', MyCallback())],
+    )
+    # now deactivate 'my_callback':
+    net.set_params(callbacks__my_callback=None)
+
+This also works with default callbacks.
+
+Deactivating callbacks can be especially useful when you do a
+parameter search (say ``GridSearchCV``). If, for instance, you use a
+callback for learning rate scheduling (e.g. via :class:`LRScheduler
+<skorch.callbacks.lr_scheduler.LRScheduler>`) and want to test its
+usefulness, you can compare the performance once with and once without
+the callback.
+
+
 Scoring
 -------
 
