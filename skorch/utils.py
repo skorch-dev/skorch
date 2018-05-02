@@ -12,7 +12,6 @@ import numpy as np
 from sklearn.utils import safe_indexing
 import torch
 from torch import nn
-from torch.autograd import Variable
 from torch.utils.data.dataset import Subset
 
 
@@ -35,10 +34,9 @@ def is_dataset(x):
 
 
 def to_tensor(X, device):
-    """Turn to torch Variable.
+    """Turn to torch tensor.
 
     Handles the cases:
-      * Variable
       * PackedSequence
       * numpy array
       * torch Tensor
@@ -79,8 +77,7 @@ def to_tensor(X, device):
 
 
 def to_numpy(X):
-    """Generic function to convert a pytorch tensor or variable to
-    numpy.
+    """Generic function to convert a pytorch tensor to numpy.
 
     Returns X when it already is a numpy array.
 
@@ -97,11 +94,10 @@ def to_numpy(X):
     if X.is_cuda:
         X = X.cpu()
 
-    if isinstance(X, Variable):
-        data = X.data
-    else:
-        data = X
-    return data.numpy()
+    if X.requires_grad:
+        X = X.detach()
+
+    return X.numpy()
 
 
 def get_dim(y):
