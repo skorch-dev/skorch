@@ -483,7 +483,8 @@ class NeuralNet(object):
         y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
-        self.notify('on_grad_computed', named_parameters=self.module_.named_parameters())
+        self.notify('on_grad_computed',
+                    named_parameters=list(self.module_.named_parameters()))
 
         self.optimizer_.step()
         return {
