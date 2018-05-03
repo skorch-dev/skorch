@@ -257,7 +257,10 @@ class CyclicLR(object):
 
     References
     ----------
-    .. [1] Leslie N. Smith, 2017, "Cyclical Learning Rates for Training Neural Networks,". "ICLR" `<https://arxiv.org/abs/1506.01186>`_
+
+    .. [1] Leslie N. Smith, 2017, "Cyclical Learning Rates for
+        Training Neural Networks,". "ICLR"
+        `<https://arxiv.org/abs/1506.01186>`_
 
     """
 

@@ -41,6 +41,7 @@ def valid_loss_score(net, X=None, y=None):
 
 # pylint: disable=too-many-instance-attributes
 class NeuralNet(object):
+    # pylint: disable=anomalous-backslash-in-string
     """NeuralNet base class.
 
     The base class covers more generic cases. Depending on your use
@@ -558,7 +559,8 @@ class NeuralNet(object):
             for Xi, yi in self.get_iterator(dataset_train, training=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
-                self.history.record_batch('train_loss', step['loss'].data.item())
+                self.history.record_batch(
+                    'train_loss', step['loss'].data.item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
 
@@ -569,7 +571,8 @@ class NeuralNet(object):
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
-                self.history.record_batch('valid_loss', step['loss'].data.item())
+                self.history.record_batch(
+                    'valid_loss', step['loss'].data.item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=False, **step)
 
@@ -1136,8 +1139,10 @@ class NeuralNet(object):
             with tempfile.SpooledTemporaryFile() as f:
                 f.write(dump)
                 f.seek(0)
-                if (uses_cuda(state['device']) and
-                    not torch.cuda.is_available()):
+                if (
+                        uses_cuda(state['device']) and
+                        not torch.cuda.is_available()
+                ):
                     disable_cuda = True
                     val = torch.load(
                         f, map_location=lambda storage, loc: storage)
@@ -1331,6 +1336,7 @@ class NeuralNetClassifier(NeuralNet):
                    "respectively.")
             raise ValueError(msg)
 
+    # pylint: disable=arguments-differ
     def get_loss(self, y_pred, y_true, *args, **kwargs):
         y_pred_log = torch.log(y_pred)
         return super().get_loss(y_pred_log, y_true, *args, **kwargs)
