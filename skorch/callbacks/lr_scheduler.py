@@ -5,11 +5,12 @@ import numpy as np
 
 # pylint: disable=unused-import
 from torch.optim.lr_scheduler import _LRScheduler
-from torch.optim.lr_scheduler import LambdaLR
-from torch.optim.lr_scheduler import StepLR
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR
 from torch.optim.optimizer import Optimizer
 from skorch.callbacks import Callback
 
