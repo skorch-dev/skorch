@@ -1295,7 +1295,36 @@ class TestNeuralNet:
         # we know that it is actually (n, m) with m in [1;3].
         net.check_data = lambda *_, **kw: None
         net.fit(X, y)
-        
+
+    # classifier-specific test
+    def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
+        net = net_cls(module_cls, criterion=nn.NLLLoss, max_epochs=1)
+        net.initialize()
+
+        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
+        net.criterion_.forward = mock_loss
+        net.partial_fit(*data)  # call partial_fit to avoid re-initialization
+
+        # check that loss was called with log-probabilities
+        for (y_log, _), _ in mock_loss.call_args_list:
+            assert (y_log < 0).all()
+            y_proba = torch.exp(y_log)
+            assert torch.isclose(torch.ones(len(y_proba)), y_proba.sum(1)).all()
+
+    # classifier-specific test
+    def test_takes_no_log_without_nllloss(self, net_cls, module_cls, data):
+        net = net_cls(module_cls, criterion=nn.BCELoss, max_epochs=1)
+        net.initialize()
+
+        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
+        net.criterion_.forward = mock_loss
+        net.partial_fit(*data)  # call partial_fit to avoid re-initialization
+
+        # check that loss was called with raw probabilities
+        for (y_out, _), _ in mock_loss.call_args_list:
+            assert not (y_out < 0).all()
+            assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.
