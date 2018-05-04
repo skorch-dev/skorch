@@ -161,7 +161,7 @@ class TestNeuralNet:
         y_proba = net_fit.predict_proba(X)
         assert np.allclose(to_numpy(y_forward), y_proba)
 
-    def test_forward_location_cpu(self, net_fit, data):
+    def test_forward_device_cpu(self, net_fit, data):
         X = data[0]
 
         # CPU by default
@@ -169,14 +169,14 @@ class TestNeuralNet:
         assert isinstance(X, np.ndarray)
         assert not y_forward.is_cuda
 
-        y_forward = net_fit.forward(X, location='cpu')
+        y_forward = net_fit.forward(X, device='cpu')
         assert isinstance(X, np.ndarray)
         assert not y_forward.is_cuda
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
-    def test_forward_location_gpu(self, net_fit, data):
+    def test_forward_device_gpu(self, net_fit, data):
         X = data[0]
-        y_forward = net_fit.forward(X, location='cuda:0')
+        y_forward = net_fit.forward(X, device='cuda:0')
         assert isinstance(X, np.ndarray)
         assert y_forward.is_cuda
 
@@ -1104,9 +1104,9 @@ class TestNeuralNet:
         assert y_infer[2].shape == (n // 2, 2)
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
-    def test_multioutput_forward_location_gpu(self, multiouput_net, data):
+    def test_multioutput_forward_device_gpu(self, multiouput_net, data):
         X = data[0]
-        y_infer = multiouput_net.forward(X, location='cuda:0')
+        y_infer = multiouput_net.forward(X, device='cuda:0')
 
         assert isinstance(y_infer, tuple)
         assert len(y_infer) == 3
@@ -1232,7 +1232,66 @@ class TestNeuralNet:
         # TODO: check error message more precisely, depending on what
         # the intended message shouldb e from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
+        
+    @pytest.fixture()
+    def sequence_module_cls(self):
+        import torch
+        class Mod(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.l = torch.nn.Linear(1, 1)
+            def forward(self, x):
+                n = np.random.randint(1, 4)
+                y = self.l(x.float())
+                return torch.randn(1, n, 2) + 0 * y
+        return Mod
 
+    def test_net_variable_prediction_lengths(self, net_cls, sequence_module_cls):
+        # neural net should work fine with fixed y_true but varying y_pred
+        # sequences.
+        X = np.array([1, 5, 3, 6, 2])
+        y = np.array([[0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 0], [0, 1, 0]])
+        X, y = X[:, np.newaxis], y[:, :, np.newaxis]
+        X, y = X.astype('float32'), y.astype('float32')
+
+        net = net_cls(
+            sequence_module_cls,
+            batch_size=1,
+            max_epochs=2,
+            train_split=None,
+        )
+
+        # Mock loss function
+        def loss_fn(y_pred, y_true, **kwargs):
+            return y_pred[:, 0, 0]
+        net.get_loss = loss_fn
+
+        net.fit(X, y)
+
+    def test_net_variable_label_lengths(self, net_cls, sequence_module_cls):
+        # neural net should work fine with varying y_true sequences.
+        X = np.array([1, 5, 3, 6, 2])
+        y = np.array([[1], [1, 0, 1], [1, 1], [1, 1, 0], [1, 0]])
+        X = X[:, np.newaxis].astype('float32')
+        y = np.array([np.array(n, dtype='float32')[:, np.newaxis] for n in y])
+
+        net = net_cls(
+            sequence_module_cls,
+            batch_size=1,
+            max_epochs=2,
+            train_split=None,
+        )
+
+        # Mock loss function
+        def loss_fn(y_pred, y_true, **kwargs):
+            return y_pred[:, 0, 0]
+        net.get_loss = loss_fn
+
+        # Check data complains about y.shape = (n,) but
+        # we know that it is actually (n, m) with m in [1;3].
+        net.check_data = lambda *_, **kw: None
+        net.fit(X, y)
+        
 
 class MyRegressor(nn.Module):
     """Simple regression module.
