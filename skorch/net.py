@@ -1,10 +1,11 @@
 """Neural net classes."""
 
 import fnmatch
+from itertools import chain
+from functools import partial
 import re
 import tempfile
 import warnings
-from functools import partial
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -41,6 +42,7 @@ def valid_loss_score(net, X=None, y=None):
 
 # pylint: disable=too-many-instance-attributes
 class NeuralNet(object):
+    # pylint: disable=anomalous-backslash-in-string
     """NeuralNet base class.
 
     The base class covers more generic cases. Depending on your use
@@ -349,13 +351,31 @@ class NeuralNet(object):
         names_seen = set()
         callbacks_ = []
 
+        class Dummy:
+            # We cannot use None as dummy value since None is a
+            # legitimate value to be set.
+            pass
+
         for name, cb in self._yield_callbacks():
             if name in names_seen:
                 raise ValueError("The callback name '{}' appears more than "
                                  "once.".format(name))
             names_seen.add(name)
 
+            # check if callback itself is changed
+            param_callback = getattr(self, 'callbacks__' + name, Dummy)
+            if param_callback is not Dummy:  # callback itself was set
+                cb = param_callback
+
+            # below: check for callback params
+            # don't set a parameter for non-existing callback
             params = self._get_params_for('callbacks__{}'.format(name))
+            if (cb is None) and params:
+                raise ValueError("Trying to set a parameter for callback {} "
+                                 "which does not exist.".format(name))
+            if cb is None:
+                continue
+
             if isinstance(cb, type):  # uninitialized:
                 cb = cb(**params)
             else:
@@ -483,7 +503,11 @@ class NeuralNet(object):
         y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
-        self.notify('on_grad_computed', named_parameters=self.module_.named_parameters())
+
+        self.notify(
+            'on_grad_computed',
+            named_parameters=list(self.module_.named_parameters())
+        )
 
         self.optimizer_.step()
         return {
@@ -554,7 +578,8 @@ class NeuralNet(object):
             for Xi, yi in self.get_iterator(dataset_train, training=True):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
-                self.history.record_batch('train_loss', step['loss'].data.item())
+                self.history.record_batch(
+                    'train_loss', step['loss'].data.item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
 
@@ -565,7 +590,8 @@ class NeuralNet(object):
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
                 self.notify('on_batch_begin', X=Xi, y=yi, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
-                self.history.record_batch('valid_loss', step['loss'].data.item())
+                self.history.record_batch(
+                    'valid_loss', step['loss'].data.item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi, training=False, **step)
 
@@ -656,10 +682,10 @@ class NeuralNet(object):
         self.partial_fit(X, y, **fit_params)
         return self
 
-    def forward_iter(self, X, training=False, location='cpu'):
+    def forward_iter(self, X, training=False, device='cpu'):
         """Yield outputs of module forward calls on each batch of data.
-        The storage location of the yielded tensors is determined
-        by the ``location`` parameter.
+        The storage device of the yielded tensors is determined
+        by the ``device`` parameter.
 
         Parameters
         ----------
@@ -679,8 +705,8 @@ class NeuralNet(object):
         training : bool (default=False)
           Whether to set the module to train mode or not.
 
-        location : string (default='cpu')
-          The location to store each inference result on.
+        device : string (default='cpu')
+          The device to store each inference result on.
           This defaults to CPU memory since there is genereally
           more memory available there. For performance reasons
           this might be changed to a specific CUDA device,
@@ -694,21 +720,19 @@ class NeuralNet(object):
         """
         dataset = X if is_dataset(X) else self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
-        storer = partial(torch.serialization.default_restore_location,
-                         location=location)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
             if isinstance(yp, tuple):
-                yield tuple(storer(n) for n in yp)
+                yield tuple(n.to(device) for n in yp)
             else:
-                yield storer(yp)
+                yield yp.to(device)
 
-    def forward(self, X, training=False, location='cpu'):
+    def forward(self, X, training=False, device='cpu'):
         """Gather and concatenate the output from forward call with
         input data.
 
         The outputs from ``self.module_.forward`` are gathered on the
-        compute device specified by ``location`` and then concatenated
+        compute device specified by ``device`` and then concatenated
         using ``torch.cat``. If multiple outputs are returned by
         ``self.module_.forward``, each one of them must be able to be
         concatenated this way.
@@ -731,8 +755,8 @@ class NeuralNet(object):
         training : bool (default=False)
           Whether to set the module to train mode or not.
 
-        location : string (default='cpu')
-          The location to store each inference result on.
+        device : string (default='cpu')
+          The device to store each inference result on.
           This defaults to CPU memory since there is genereally
           more memory available there. For performance reasons
           this might be changed to a specific CUDA device,
@@ -744,8 +768,7 @@ class NeuralNet(object):
           The result from the forward step.
 
         """
-        y_infer = list(self.forward_iter(
-            X, training=training, location=location))
+        y_infer = list(self.forward_iter(X, training=training, device=device))
 
         is_multioutput = len(y_infer) > 0 and isinstance(y_infer[0], tuple)
         if is_multioutput:
@@ -1052,8 +1075,34 @@ class NeuralNet(object):
     def _get_param_names(self):
         return self.__dict__.keys()
 
+    def _get_params_callbacks(self, deep=True):
+        """sklearn's .get_params checks for `hasattr(value,
+        'get_params')`. This returns False for a list. But our
+        callbacks reside within a list. Hence their parameters have to
+        be retrieved separately.
+        """
+        params = {}
+        if not deep:
+            return params
+
+        callbacks_ = getattr(self, 'callbacks_', [])
+        for key, val in chain(callbacks_, self._default_callbacks):
+            name = 'callbacks__' + key
+            params[name] = val
+            if val is None:  # callback deactivated
+                continue
+            for subkey, subval in val.get_params().items():
+                subname = name + '__' + subkey
+                params[subname] = subval
+        return params
+
     def get_params(self, deep=True, **kwargs):
-        return BaseEstimator.get_params(self, deep=deep, **kwargs)
+        params = BaseEstimator.get_params(self, deep=deep, **kwargs)
+        # Callback parameters are not returned by .get_params, needs
+        # special treatment.
+        params_cb = self._get_params_callbacks(deep=deep)
+        params.update(params_cb)
+        return params
 
     # XXX remove once deprecation for use_cuda is phased out
     # Also remember to update NeuralNet docstring
@@ -1074,12 +1123,15 @@ class NeuralNet(object):
 
         """
         self._check_deprecated_params(**kwargs)
-        normal_params, special_params = {}, {}
+        normal_params, cb_params, special_params = {}, {}, {}
         for key, val in kwargs.items():
-            if any(key.startswith(prefix) for prefix in self.prefixes_):
+            if key.startswith('callbacks'):
+                cb_params[key] = val
+            elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
             else:
                 normal_params[key] = val
+
         BaseEstimator.set_params(self, **normal_params)
 
         for key, val in special_params.items():
@@ -1088,10 +1140,12 @@ class NeuralNet(object):
             else:
                 setattr(self, key, val)
 
+        if cb_params:
+            # callbacks need special treatmeant since they are list of tuples
+            self.initialize_callbacks()
+            self._set_params_callback(**cb_params)
         if any(key.startswith('criterion') for key in special_params):
             self.initialize_criterion()
-        if any(key.startswith('callbacks') for key in special_params):
-            self.initialize_callbacks()
         if any(key.startswith('module') for key in special_params):
             self.initialize_module()
             self.initialize_optimizer()
@@ -1104,7 +1158,46 @@ class NeuralNet(object):
                 self.initialize_module()
             self.initialize_optimizer()
 
+        vars(self).update(kwargs)
+
         return self
+
+    def _set_params_callback(self, **params):
+        # model after sklearn.utils._BaseCompostion._set_params
+        # 1. All steps
+        if 'callbacks' in params:
+            setattr(self, 'callbacks', params.pop('callbacks'))
+
+        # 2. Step replacement
+        names, _ = zip(*getattr(self, 'callbacks_'))
+        for key in params.copy():
+            name = key[11:]  # drop 'callbacks__'
+            if '__' not in name and name in names:
+                self._replace_callback(name, params.pop(key))
+
+        # 3. Step parameters and other initilisation arguments
+        for key in params.copy():
+            name = key[11:]
+            part0, part1 = name.split('__')
+            kwarg = {part1: params.pop(key)}
+            callback = dict(self.callbacks_).get(part0)
+            if callback is not None:
+                callback.set_params(**kwarg)
+            else:
+                raise ValueError(
+                    "Trying to set a parameter for callback {} "
+                    "which does not exist.".format(part0))
+
+        return self
+
+    def _replace_callback(self, name, new_val):
+        # assumes `name` is a valid callback name
+        callbacks_new = self.callbacks_[:]
+        for i, (cb_name, _) in enumerate(callbacks_new):
+            if cb_name == name:
+                callbacks_new[i] = (name, new_val)
+                break
+        setattr(self, 'callbacks_', callbacks_new)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -1132,8 +1225,10 @@ class NeuralNet(object):
             with tempfile.SpooledTemporaryFile() as f:
                 f.write(dump)
                 f.seek(0)
-                if (uses_cuda(state['device']) and
-                    not torch.cuda.is_available()):
+                if (
+                        uses_cuda(state['device']) and
+                        not torch.cuda.is_available()
+                ):
                     disable_cuda = True
                     val = torch.load(
                         f, map_location=lambda storage, loc: storage)
@@ -1294,6 +1389,10 @@ class NeuralNetClassifier(NeuralNet):
         )
 
     def get_default_callbacks(self):
+        return self._default_callbacks
+
+    @property
+    def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
             ('train_loss', BatchScoring(
@@ -1316,9 +1415,9 @@ class NeuralNetClassifier(NeuralNet):
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         if (
-            (y is None) and
-            (not is_dataset(X)) and
-            (self.iterator_train is DataLoader)
+                (y is None) and
+                (not is_dataset(X)) and
+                (self.iterator_train is DataLoader)
         ):
             msg = ("No y-values are given (y=None). You must either supply a "
                    "Dataset as X or implement your own DataLoader for "
@@ -1327,6 +1426,7 @@ class NeuralNetClassifier(NeuralNet):
                    "respectively.")
             raise ValueError(msg)
 
+    # pylint: disable=arguments-differ
     def get_loss(self, y_pred, y_true, *args, **kwargs):
         y_pred_log = torch.log(y_pred)
         return super().get_loss(y_pred_log, y_true, *args, **kwargs)
@@ -1459,9 +1559,9 @@ class NeuralNetRegressor(NeuralNet):
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         if (
-            (y is None) and
-            (not is_dataset(X)) and
-            (self.iterator_train is DataLoader)
+                (y is None) and
+                (not is_dataset(X)) and
+                (self.iterator_train is DataLoader)
         ):
             raise ValueError("No y-values are given (y=None). You must "
                              "implement your own DataLoader for training "

@@ -1,4 +1,4 @@
-""" Callbacks for printing, logging and log information. """
+""" Callbacks for printing, logging and log information."""
 
 import sys
 import time
@@ -256,7 +256,7 @@ class ProgressBar(Callback):
         self.pbar.set_postfix(self._get_postfix_dict(net))
         self.pbar.update()
 
-    # pylint: disable=attribute-defined-outside-init
+    # pylint: disable=attribute-defined-outside-init, arguments-differ
     def on_epoch_begin(self, net, X=None, X_valid=None, **kwargs):
         # Assume it is a number until proven otherwise.
         batches_per_epoch = self.batches_per_epoch

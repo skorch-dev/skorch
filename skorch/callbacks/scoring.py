@@ -1,3 +1,5 @@
+""" Callbacks for calculating scores."""
+
 from contextlib import contextmanager
 from functools import partial
 
@@ -256,6 +258,7 @@ class EpochScoring(ScoringBase):
         self._initialize_cache()
         return self
 
+    # pylint: disable=arguments-differ
     def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
         self._initialize_cache()
 
@@ -263,6 +266,7 @@ class EpochScoring(ScoringBase):
         # pylint: disable=attribute-defined-outside-init
         self.y_is_placeholder_ = isinstance(ds, Dataset) and ds.y is None
 
+    # pylint: disable=arguments-differ
     def on_batch_end(self, net, y, y_pred, training, **kwargs):
         if not self.use_caching or training != self.on_train:
             return

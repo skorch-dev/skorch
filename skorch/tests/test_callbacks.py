@@ -28,6 +28,11 @@ class TestAllCallbacks:
         return callbacks
 
     @pytest.fixture
+    def base_cls(self):
+        from skorch.callbacks import Callback
+        return Callback
+
+    @pytest.fixture
     def on_x_methods(self):
         return [
             'on_train_begin',
@@ -45,6 +50,14 @@ class TestAllCallbacks:
                 callbacks, on_x_methods):
             method = getattr(callback, method_name)
             assert "kwargs" in inspect.signature(method).parameters
+
+    def test_set_params_with_unknown_key_raises(self, base_cls):
+        with pytest.raises(ValueError) as exc:
+            base_cls().set_params(foo=123)
+
+        # TODO: check error message more precisely, depending on what
+        # the intended message shouldb e from sklearn side
+        assert exc.value.args[0].startswith('Invalid parameter foo for')
 
 
 class TestPrintLog:

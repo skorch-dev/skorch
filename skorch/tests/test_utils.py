@@ -106,6 +106,7 @@ class TestDataFromDataset:
         from torch.utils.data.dataset import Subset
         return Subset(subset, [0])
 
+    # pylint: disable=missing-docstring
     @pytest.fixture
     def other_ds(self, data):
         class MyDataset:
@@ -389,6 +390,9 @@ class TestIsSkorchDataset:
 
     # pylint: disable=no-method-argument
     def type_truth_table():
+        """Return a table of (type, bool) tuples that describe what
+        is_skorch_dataset should return when called with that type.
+        """
         from skorch.dataset import Dataset
         from torch.utils.data.dataset import Subset
 
