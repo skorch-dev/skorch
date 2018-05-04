@@ -249,9 +249,10 @@ class NeuralNet(object):
         self.history = history
         self.initialized_ = initialized
 
-    def get_default_callbacks(self):
+    @property
+    def _default_callbacks(self):
         return [
-            ('epoch_timer', EpochTimer),
+            ('epoch_timer', EpochTimer()),
             ('train_loss', BatchScoring(
                 train_loss_score,
                 name='train_loss',
@@ -261,8 +262,11 @@ class NeuralNet(object):
                 valid_loss_score,
                 name='valid_loss',
             )),
-            ('print_log', PrintLog),
+            ('print_log', PrintLog()),
         ]
+
+    def get_default_callbacks(self):
+        return self._default_callbacks
 
     def notify(self, method_name, **cb_kwargs):
         """Call the callback method specified in ``method_name`` with
@@ -1387,9 +1391,6 @@ class NeuralNetClassifier(NeuralNet):
             *args,
             **kwargs
         )
-
-    def get_default_callbacks(self):
-        return self._default_callbacks
 
     @property
     def _default_callbacks(self):
