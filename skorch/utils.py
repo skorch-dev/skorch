@@ -33,6 +33,7 @@ def is_dataset(x):
     return isinstance(x, torch.utils.data.Dataset)
 
 
+# pylint: disable=not-callable
 def to_tensor(X, device):
     """Turn to torch tensor.
 
@@ -59,16 +60,14 @@ def to_tensor(X, device):
         return [to_tensor_(x) for x in X]
 
     if isinstance(X, np.ndarray):
-        X = torch.from_numpy(X)
+        X = torch.tensor(X)
 
     if np.isscalar(X):
         # ugly work-around - torch constructor does not accept np scalars
         X = torch.tensor(np.array([X]))[0]
 
     if isinstance(X, Sequence):
-        X = torch.from_numpy(np.array(X))
-    elif np.isscalar(X):
-        X = torch.from_numpy(np.array([X]))
+        X = torch.tensor(np.array(X))
 
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a torch tensor.")

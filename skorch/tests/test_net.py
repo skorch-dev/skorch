@@ -1070,7 +1070,7 @@ class TestNeuralNet:
             net_cls(module_cls, use_cuda=True)
 
         msg = ("The parameter use_cuda is no longer supported. Use "
-                "device='cuda' instead.")
+               "device='cuda' instead.")
         assert exc.value.args[0] == msg
 
     @pytest.fixture
@@ -1235,18 +1235,20 @@ class TestNeuralNet:
         
     @pytest.fixture()
     def sequence_module_cls(self):
-        import torch
+        """Simple sequence model with variable size dim 1."""
         class Mod(torch.nn.Module):
             def __init__(self):
                 super().__init__()
                 self.l = torch.nn.Linear(1, 1)
+            # pylint: disable=arguments-differ
             def forward(self, x):
                 n = np.random.randint(1, 4)
                 y = self.l(x.float())
                 return torch.randn(1, n, 2) + 0 * y
         return Mod
 
-    def test_net_variable_prediction_lengths(self, net_cls, sequence_module_cls):
+    def test_net_variable_prediction_lengths(
+            self, net_cls, sequence_module_cls):
         # neural net should work fine with fixed y_true but varying y_pred
         # sequences.
         X = np.array([1, 5, 3, 6, 2])
@@ -1262,6 +1264,7 @@ class TestNeuralNet:
         )
 
         # Mock loss function
+        # pylint: disable=unused-argument
         def loss_fn(y_pred, y_true, **kwargs):
             return y_pred[:, 0, 0]
         net.get_loss = loss_fn
@@ -1283,6 +1286,7 @@ class TestNeuralNet:
         )
 
         # Mock loss function
+        # pylint: disable=unused-argument
         def loss_fn(y_pred, y_true, **kwargs):
             return y_pred[:, 0, 0]
         net.get_loss = loss_fn
