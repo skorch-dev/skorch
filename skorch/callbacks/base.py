@@ -66,6 +66,4 @@ class Callback:
         return BaseEstimator.get_params(self, deep=deep)
 
     def set_params(self, **params):
-        for key, val in params.items():
-            setattr(self, key, val)
-        return self
+        BaseEstimator.set_params(self, **params)

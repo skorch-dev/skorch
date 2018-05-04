@@ -1,10 +1,11 @@
 """Neural net classes."""
 
 import fnmatch
+from itertools import chain
+from functools import partial
 import re
 import tempfile
 import warnings
-from functools import partial
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -349,13 +350,31 @@ class NeuralNet(object):
         names_seen = set()
         callbacks_ = []
 
+        class Dummy:
+            # We cannot use None as dummy value since None is a
+            # legitimate value to be set.
+            pass
+
         for name, cb in self._yield_callbacks():
             if name in names_seen:
                 raise ValueError("The callback name '{}' appears more than "
                                  "once.".format(name))
             names_seen.add(name)
 
+            # check if callback itself is changed
+            param_callback = getattr(self, 'callbacks__' + name, Dummy)
+            if param_callback is not Dummy:  # callback itself was set
+                cb = param_callback
+
+            # below: check for callback params
+            # don't set a parameter for non-existing callback
             params = self._get_params_for('callbacks__{}'.format(name))
+            if (cb is None) and params:
+                raise ValueError("Trying to set a parameter for callback {} "
+                                 "which does not exist.".format(name))
+            if cb is None:
+                continue
+
             if isinstance(cb, type):  # uninitialized:
                 cb = cb(**params)
             else:
@@ -1050,8 +1069,34 @@ class NeuralNet(object):
     def _get_param_names(self):
         return self.__dict__.keys()
 
+    def _get_params_callbacks(self, deep=True):
+        """sklearn's .get_params checks for `hasattr(value,
+        'get_params')`. This returns False for a list. But our
+        callbacks reside within a list. Hence their parameters have to
+        be retrieved separately.
+        """
+        params = {}
+        if not deep:
+            return params
+
+        callbacks_ = getattr(self, 'callbacks_', [])
+        for key, val in chain(callbacks_, self._default_callbacks):
+            name = 'callbacks__' + key
+            params[name] = val
+            if val is None:  # callback deactivated
+                continue
+            for subkey, subval in val.get_params().items():
+                subname = name + '__' + subkey
+                params[subname] = subval
+        return params
+
     def get_params(self, deep=True, **kwargs):
-        return BaseEstimator.get_params(self, deep=deep, **kwargs)
+        params = BaseEstimator.get_params(self, deep=deep, **kwargs)
+        # Callback parameters are not returned by .get_params, needs
+        # special treatment.
+        params_cb = self._get_params_callbacks(deep=deep)
+        params.update(params_cb)
+        return params
 
     # XXX remove once deprecation for use_cuda is phased out
     # Also remember to update NeuralNet docstring
@@ -1072,12 +1117,15 @@ class NeuralNet(object):
 
         """
         self._check_deprecated_params(**kwargs)
-        normal_params, special_params = {}, {}
+        normal_params, cb_params, special_params = {}, {}, {}
         for key, val in kwargs.items():
-            if any(key.startswith(prefix) for prefix in self.prefixes_):
+            if key.startswith('callbacks'):
+                cb_params[key] = val
+            elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
             else:
                 normal_params[key] = val
+
         BaseEstimator.set_params(self, **normal_params)
 
         for key, val in special_params.items():
@@ -1086,10 +1134,12 @@ class NeuralNet(object):
             else:
                 setattr(self, key, val)
 
+        if cb_params:
+            # callbacks need special treatmeant since they are list of tuples
+            self.initialize_callbacks()
+            self._set_params_callback(**cb_params)
         if any(key.startswith('criterion') for key in special_params):
             self.initialize_criterion()
-        if any(key.startswith('callbacks') for key in special_params):
-            self.initialize_callbacks()
         if any(key.startswith('module') for key in special_params):
             self.initialize_module()
             self.initialize_optimizer()
@@ -1102,7 +1152,46 @@ class NeuralNet(object):
                 self.initialize_module()
             self.initialize_optimizer()
 
+        vars(self).update(kwargs)
+
         return self
+
+    def _set_params_callback(self, **params):
+        # model after sklearn.utils._BaseCompostion._set_params
+        # 1. All steps
+        if 'callbacks' in params:
+            setattr(self, 'callbacks', params.pop('callbacks'))
+
+        # 2. Step replacement
+        names, _ = zip(*getattr(self, 'callbacks_'))
+        for key in params.copy():
+            name = key[11:]  # drop 'callbacks__'
+            if '__' not in name and name in names:
+                self._replace_callback(name, params.pop(key))
+
+        # 3. Step parameters and other initilisation arguments
+        for key in params.copy():
+            name = key[11:]
+            part0, part1 = name.split('__')
+            kwarg = {part1: params.pop(key)}
+            callback = dict(self.callbacks_).get(part0)
+            if callback is not None:
+                callback.set_params(**kwarg)
+            else:
+                raise ValueError(
+                    "Trying to set a parameter for callback {} "
+                    "which does not exist.".format(part0))
+
+        return self
+
+    def _replace_callback(self, name, new_val):
+        # assumes `name` is a valid callback name
+        callbacks_new = self.callbacks_[:]
+        for i, (cb_name, _) in enumerate(callbacks_new):
+            if cb_name == name:
+                callbacks_new[i] = (name, new_val)
+                break
+        setattr(self, 'callbacks_', callbacks_new)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -1292,6 +1381,10 @@ class NeuralNetClassifier(NeuralNet):
         )
 
     def get_default_callbacks(self):
+        return self._default_callbacks
+
+    @property
+    def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
             ('train_loss', BatchScoring(
