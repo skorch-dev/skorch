@@ -1428,8 +1428,9 @@ class NeuralNetClassifier(NeuralNet):
 
     # pylint: disable=arguments-differ
     def get_loss(self, y_pred, y_true, *args, **kwargs):
-        y_pred_log = torch.log(y_pred)
-        return super().get_loss(y_pred_log, y_true, *args, **kwargs)
+        if isinstance(self.criterion_, torch.nn.NLLLoss):
+            y_pred = torch.log(y_pred)
+        return super().get_loss(y_pred, y_true, *args, **kwargs)
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):

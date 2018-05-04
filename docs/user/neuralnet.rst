@@ -92,18 +92,26 @@ would look like this:
 It is, however, also possible to pass an instantiated module, e.g. a
 ``torch.nn.Sequential`` instance.
 
-Note that skorch does not automatically apply any nonlinearities
-to the outputs. That means that if you have a classification task, you
-should make sure that the final output nonlinearity is a
-softmax. Otherwise, when you call ``predict_proba``, you won't get
-actual probabilities.
+Note that skorch does not automatically apply any nonlinearities to
+the outputs (except internally when determining the
+``torch.nn.NLLLoss``, see below). That means that if you have a
+classification task, you should make sure that the final output
+nonlinearity is a softmax. Otherwise, when you call ``predict_proba``,
+you won't get actual probabilities.
 
 criterion
 ^^^^^^^^^
 
-This should be a PyTorch (-compatible) criterion. When you use the
-``NeuralNetClassifier``, the criterion is set to ``torch.nn.NLLLoss``
-by default, for ``NeuralNetRegressor``, it is ``torch.nn.MSELoss``.
+This should be a PyTorch (-compatible) criterion.
+
+When you use the ``NeuralNetClassifier``, the criterion is set to
+``torch.nn.NLLLoss`` by default. Furthermore, if you don't change it
+loss to another criterion, ``NeuralNetClassifier`` assumes that the
+module returns probabilities and will automatically apply a logarithm
+on them (which is what ``torch.nn.NLLLoss`` expects).
+
+For ``NeuralNetRegressor``, the default criterion is
+``torch.nn.MSELoss``.
 
 After initializing the ``NeuralNet``, the initialized criterion will
 stored in the ``criterion_`` attribute.
