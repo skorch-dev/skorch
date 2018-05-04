@@ -57,7 +57,11 @@ class TestNeuralNet:
     @pytest.fixture(scope='module')
     def dummy_callback(self):
         from skorch.callbacks import Callback
-        return Mock(spec=Callback)
+        cb = Mock(spec=Callback)
+        # make dummy behave like an estimator
+        cb.get_params.return_value = {}
+        cb.set_params = lambda **kwargs: cb
+        return cb
 
     @pytest.fixture(scope='module')
     def module_cls(self):
@@ -157,7 +161,7 @@ class TestNeuralNet:
         y_proba = net_fit.predict_proba(X)
         assert np.allclose(to_numpy(y_forward), y_proba)
 
-    def test_forward_location_cpu(self, net_fit, data):
+    def test_forward_device_cpu(self, net_fit, data):
         X = data[0]
 
         # CPU by default
@@ -165,14 +169,14 @@ class TestNeuralNet:
         assert isinstance(X, np.ndarray)
         assert not y_forward.is_cuda
 
-        y_forward = net_fit.forward(X, location='cpu')
+        y_forward = net_fit.forward(X, device='cpu')
         assert isinstance(X, np.ndarray)
         assert not y_forward.is_cuda
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
-    def test_forward_location_gpu(self, net_fit, data):
+    def test_forward_device_gpu(self, net_fit, data):
         X = data[0]
-        y_forward = net_fit.forward(X, location='cuda:0')
+        y_forward = net_fit.forward(X, device='cuda:0')
         assert isinstance(X, np.ndarray)
         assert y_forward.is_cuda
 
@@ -387,6 +391,28 @@ class TestNeuralNet:
         assert net.module_.nonlin is F.tanh
         assert np.isclose(net.lr, 0.2)
 
+    def test_set_params_then_initialize_remembers_param(
+            self, net_cls, module_cls):
+        net = net_cls(module_cls)
+
+        # net does not 'forget' that params were set
+        assert net.verbose != 123
+        net.set_params(verbose=123)
+        assert net.verbose == 123
+        net.initialize()
+        assert net.verbose == 123
+
+    def test_set_params_on_callback_then_initialize_remembers_param(
+            self, net_cls, module_cls):
+        net = net_cls(module_cls).initialize()
+
+        # net does not 'forget' that params were set
+        assert dict(net.callbacks_)['print_log'].sink is print
+        net.set_params(callbacks__print_log__sink=123)
+        assert dict(net.callbacks_)['print_log'].sink == 123
+        net.initialize()
+        assert dict(net.callbacks_)['print_log'].sink == 123
+
     def test_changing_model_reinitializes_optimizer(self, net, data):
         # The idea is that we change the model using `set_params` to
         # add parameters. Since the optimizer depends on the model
@@ -488,8 +514,8 @@ class TestNeuralNet:
         )
         net.initialize()
         net.set_params(callbacks__cb0__spam='eggs')
-        assert mock.initialize.call_count == 2
-        assert mock.set_params.call_args_list[1][1]['spam'] == 'eggs'
+        assert mock.initialize.call_count == 2  # callbacks are re-initialized
+        assert mock.set_params.call_args_list[-1][1]['spam'] == 'eggs'
 
     def test_callback_name_collides_with_default(self, net_cls, module_cls):
         net = net_cls(module_cls, callbacks=[('train_loss', Mock())])
@@ -591,6 +617,26 @@ class TestNeuralNet:
 
         gpu_tensor = net_cuda.module_.dense0.weight.data
         assert isinstance(gpu_tensor, torch.cuda.FloatTensor)
+
+    def test_get_params_works(self, net_cls, module_cls):
+        from skorch.callbacks import EpochScoring
+
+        net = net_cls(
+            module_cls, callbacks=[('myscore', EpochScoring('myscore'))])
+
+        params = net.get_params(deep=True)
+        # test a couple of expected parameters
+        assert 'verbose' in params
+        assert 'module' in params
+        assert 'callbacks' in params
+        assert 'callbacks__print_log__sink' in params
+        # not yet initialized
+        assert 'callbacks__myscore__scoring' not in params
+
+        net.initialize()
+        params = net.get_params(deep=True)
+        # now initialized
+        assert 'callbacks__myscore__scoring' in params
 
     @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
@@ -1058,9 +1104,9 @@ class TestNeuralNet:
         assert y_infer[2].shape == (n // 2, 2)
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
-    def test_multioutput_forward_location_gpu(self, multiouput_net, data):
+    def test_multioutput_forward_device_gpu(self, multiouput_net, data):
         X = data[0]
-        y_infer = multiouput_net.forward(X, location='cuda:0')
+        y_infer = multiouput_net.forward(X, device='cuda:0')
 
         assert isinstance(y_infer, tuple)
         assert len(y_infer) == 3
@@ -1092,6 +1138,101 @@ class TestNeuralNet:
         assert y_proba.min() >= 0
         assert y_proba.max() <= 1
 
+    def test_setting_callback_possible(self, net_cls, module_cls):
+        from skorch.callbacks import EpochTimer, PrintLog
+
+        net = net_cls(module_cls, callbacks=[('mycb', PrintLog())])
+        net.initialize()
+
+        assert isinstance(dict(net.callbacks_)['mycb'], PrintLog)
+
+        net.set_params(callbacks__mycb=EpochTimer())
+        assert isinstance(dict(net.callbacks_)['mycb'], EpochTimer)
+
+    def test_setting_callback_default_possible(self, net_cls, module_cls):
+        from skorch.callbacks import EpochTimer, PrintLog
+
+        net = net_cls(module_cls)
+        net.initialize()
+
+        assert isinstance(dict(net.callbacks_)['print_log'], PrintLog)
+
+        net.set_params(callbacks__print_log=EpochTimer())
+        assert isinstance(dict(net.callbacks_)['print_log'], EpochTimer)
+
+    def test_setting_callback_to_none_possible(self, net_cls, module_cls, data):
+        from skorch.callbacks import Callback
+
+        X, y = data[0][:30], data[1][:30]  # accelerate test
+        side_effects = []
+
+        class DummyCallback(Callback):
+            def __init__(self, i):
+                self.i = i
+
+            # pylint: disable=unused-argument, arguments-differ
+            def on_epoch_end(self, *args, **kwargs):
+                side_effects.append(self.i)
+
+        net = net_cls(
+            module_cls,
+            max_epochs=2,
+            callbacks=[
+                ('cb0', DummyCallback(0)),
+                ('cb1', DummyCallback(1)),
+                ('cb2', DummyCallback(2)),
+            ],
+        )
+        net.fit(X, y)
+
+        # all 3 callbacks write to output twice
+        assert side_effects == [0, 1, 2, 0, 1, 2]
+
+        # deactivate cb1
+        side_effects.clear()
+        net.set_params(callbacks__cb1=None)
+        net.fit(X, y)
+
+        assert side_effects == [0, 2, 0, 2]
+
+    def test_setting_callback_to_none_and_more_params_during_init_raises(
+            self, net_cls, module_cls):
+        # if a callback is set to None, setting more params for it
+        # should not work
+        net = net_cls(
+            module_cls, callbacks__print_log=None, callbacks__print_log__sink=1)
+
+        with pytest.raises(ValueError) as exc:
+            net.initialize()
+
+        msg = ("Trying to set a parameter for callback print_log "
+               "which does not exist.")
+        assert exc.value.args[0] == msg
+
+    def test_setting_callback_to_none_and_more_params_later_raises(
+            self, net_cls, module_cls):
+        # this should work
+        net = net_cls(module_cls)
+        net.set_params(callbacks__print_log__sink=123)
+        net.set_params(callbacks__print_log=None)
+
+        net = net_cls(module_cls)
+        net.set_params(callbacks__print_log=None)
+        with pytest.raises(ValueError) as exc:
+            net.set_params(callbacks__print_log__sink=123)
+
+        msg = ("Trying to set a parameter for callback print_log "
+               "which does not exist.")
+        assert exc.value.args[0] == msg
+
+    def test_set_params_with_unknown_key_raises(self, net):
+        with pytest.raises(ValueError) as exc:
+            net.set_params(foo=123)
+
+        # TODO: check error message more precisely, depending on what
+        # the intended message shouldb e from sklearn side
+        assert exc.value.args[0].startswith('Invalid parameter foo for')
+        
     @pytest.fixture()
     def sequence_module_cls(self):
         """Simple sequence model with variable size dim 1."""
@@ -1154,8 +1295,7 @@ class TestNeuralNet:
         # we know that it is actually (n, m) with m in [1;3].
         net.check_data = lambda *_, **kw: None
         net.fit(X, y)
-
-
+        
 
 class MyRegressor(nn.Module):
     """Simple regression module.
