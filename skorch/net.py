@@ -354,6 +354,8 @@ class NeuralNet(object):
         callbacks_ = []
 
         class Dummy:
+            # We cannot use None as dummy value since None is a
+            # legitimate value to be set.
             pass
 
         for name, cb in self._yield_callbacks():
@@ -367,8 +369,7 @@ class NeuralNet(object):
             if param_callback is not Dummy:  # callback itself was set
                 cb = param_callback
 
-            # check for callback params
-
+            # below: check for callback params
             # don't set a parameter for non-existing callback
             params = self._get_params_for('callbacks__{}'.format(name))
             if (cb is None) and params:
@@ -1074,6 +1075,11 @@ class NeuralNet(object):
         return self.__dict__.keys()
 
     def _get_params_callbacks(self, deep=True):
+        """sklearn's .get_params checks for `hasattr(value,
+        'get_params')`. This returns False for a list. But our
+        callbacks reside within a list. Hence their parameters have to
+        be retrieved separately.
+        """
         params = {}
         if not deep:
             return params
@@ -1091,6 +1097,8 @@ class NeuralNet(object):
 
     def get_params(self, deep=True, **kwargs):
         params = BaseEstimator.get_params(self, deep=deep, **kwargs)
+        # Callback parameters are not returned by .get_params, needs
+        # special treatment.
         params_cb = self._get_params_callbacks(deep=deep)
         params.update(params_cb)
         return params
