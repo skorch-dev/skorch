@@ -6,7 +6,7 @@ RUN easy_install3 --upgrade pip setuptools
 
 ENV PIP_CACHE_DIR=/cache PYTHONDONTWRITEBYTECODE=1
 
-RUN pip3 install http://download.pytorch.org/whl/cu80/torch-0.3.1-cp35-cp35m-linux_x86_64.whl
+RUN pip3 install http://download.pytorch.org/whl/cu90/torch-0.4.0-cp35-cp35m-linux_x86_64.whl
 RUN pip3 install torchvision
 
 WORKDIR /app
