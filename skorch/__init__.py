@@ -7,15 +7,15 @@ MIN_TORCH_VERSION = '0.4.0'
 
 try:
     import torch
-except:  # pylint: disable=bare-except
-    raise Exception('skorch depends on PyTorch. Visit https://pytorch.org/ '
-                    'for install instructions')
+except ModuleNotFoundError:
+    raise ModuleNotFoundError("No module named 'torch', and skorch depends on PyTorch (aka 'torch'). "
+                              'Visit https://pytorch.org/ for installation instructions')
 
 torch_version = pkg_resources.get_distribution('torch').version
 if parse_version(torch_version) < parse_version(MIN_TORCH_VERSION):
-    msg = ('skorch depends a newer version of PyTorch (at least {req}, not '
-           '{installed}). Visit https://pytorch.org for install details')
-    raise Exception(msg.format(req=MIN_TORCH_VERSION, installed=torch_version))
+    msg = ('skorch depends on a newer version of PyTorch (at least {req}, not '
+           '{installed}). Visit https://pytorch.org for installation details')
+    raise ImportWarning(msg.format(req=MIN_TORCH_VERSION, installed=torch_version))
 
 
 from .history import History
