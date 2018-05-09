@@ -658,3 +658,27 @@ class TestBatchScoring:
         net.fit(X, y)
 
         assert extractor.call_count == 2 * 2
+
+    def test_scoring_with_cache_and_fit_interrupt_resets_infer(
+            self, net_cls, module_cls, scoring_cls, data, train_split):
+        # This test addresses a bug that occurred with caching in
+        # scoring when training is interrupted irregularly
+        # (e.g. through KeyboardInterrupt). In that case, it is
+        # important that the net's infer method is still reset.
+
+        def interrupt_scoring(net, X, y):
+            raise KeyboardInterrupt
+
+        X, y = data
+        net = net_cls(
+            module_cls,
+            callbacks=[('interrupt', scoring_cls(interrupt_scoring))],
+            train_split=train_split,
+        )
+        net.fit(X, y)
+
+        y_pred = net.predict(X)
+        # We test that we predict as many outputs as we put in. With
+        # the bug, the cache would be partially exhausted and we would
+        # get back less.
+        assert len(y_pred) == len(X)

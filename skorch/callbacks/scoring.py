@@ -27,11 +27,14 @@ def cache_net_infer(net, use_caching, y_preds):
         return
     y_preds = iter(y_preds)
     net.infer = lambda *a, **kw: next(y_preds)
-    yield net
-    # By setting net.infer we define an attribute `infer`
-    # that precedes the bound method `infer`. By deleting
-    # the entry from the attribute dict we undo this.
-    del net.__dict__['infer']
+
+    try:
+        yield net
+    finally:
+        # By setting net.infer we define an attribute `infer`
+        # that precedes the bound method `infer`. By deleting
+        # the entry from the attribute dict we undo this.
+        del net.__dict__['infer']
 
 
 class ScoringBase(Callback):
