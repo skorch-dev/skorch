@@ -5,6 +5,7 @@ import numpy as np
 
 from torch.optim import SGD
 from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ExponentialLR
@@ -25,6 +26,7 @@ class TestLRCallbacks:
         ('ReduceLROnPlateau', ReduceLROnPlateau, {}),
         ('WarmRestartLR', WarmRestartLR, {}),
         ('CyclicLR', CyclicLR, {}),
+        ('CosineAnnealingLR', CosineAnnealingLR, {'T_max': 5, 'eta_min': 1e-3}),
         (WarmRestartLR, WarmRestartLR, {}),
     ])
     def test_lr_callback_init_policies(
@@ -54,6 +56,7 @@ class TestLRCallbacks:
         ('ExponentialLR', {'gamma': 0.1}),
         ('ReduceLROnPlateau', {}),
         ('WarmRestartLR', {}),
+        ('CosineAnnealingLR', {'T_max': 3}),
     ])
     def test_lr_callback_steps_correctly(
             self,
