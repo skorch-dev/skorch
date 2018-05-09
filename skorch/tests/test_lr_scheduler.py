@@ -1,19 +1,19 @@
 """Tests for lr_scheduler.py"""
 
-import pytest
-import numpy as np
+from unittest.mock import Mock
 
+import numpy as np
+import pytest
 from torch.optim import SGD
-from torch.optim.lr_scheduler import StepLR
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
-from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR
 
 from skorch.net import NeuralNetClassifier
-from skorch.callbacks.lr_scheduler import (
-    WarmRestartLR, LRScheduler, CyclicLR)
+from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler, CyclicLR
 
 
 class TestLRCallbacks:
@@ -100,6 +100,52 @@ class TestLRCallbacks:
         expected = (num_examples // batch_size) * max_epochs
         # pylint: disable=protected-access
         assert lr_policy.lr_scheduler_.last_batch_idx == expected
+
+
+class TestReduceLROnPlateau:
+    def get_net_with_mock(self, monitor='train_loss'):
+        """Returns a net with a mocked lr policy that allows to check what
+        it's step method was called with.
+
+        """
+        from .conftest import classifier_data, classifier_module
+
+        X, y = classifier_data()
+        net = NeuralNetClassifier(
+            classifier_module(),
+            callbacks=[
+                ('scheduler', LRScheduler(ReduceLROnPlateau, monitor=monitor)),
+            ],
+            max_epochs=1,
+        ).fit(X, y)
+
+        # mock the policy
+        policy = dict(net.callbacks_)['scheduler'].lr_scheduler_
+        mock_step = Mock(side_effect=policy.step)
+        policy.step = mock_step
+
+        # make sure that mocked policy is set
+        scheduler = dict(net.callbacks_)['scheduler']
+        # pylint: disable=protected-access
+        scheduler._get_scheduler = lambda *args, **kwargs: policy
+
+        net.partial_fit(X, y)
+        return net, mock_step
+
+    @pytest.mark.parametrize('monitor', ['train_loss', 'valid_loss', 'epoch'])
+    def test_reduce_lr_monitor_with_string(self, monitor):
+        # step should be called with the 2nd to last value from that
+        # history entry
+        net, mock_step = self.get_net_with_mock(monitor=monitor)
+        score = mock_step.call_args_list[0][0][0]
+        np.isclose(score, net.history[-2, monitor])
+
+    def test_reduce_lr_monitor_with_callable(self):
+        # step should be called with the 2nd to last value from that
+        # history entry
+        _, mock_step = self.get_net_with_mock(monitor=lambda x: 55)
+        score = mock_step.call_args_list[0][0][0]
+        assert score == 55
 
 
 class TestWarmRestartLR():
