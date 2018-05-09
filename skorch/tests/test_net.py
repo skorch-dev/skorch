@@ -1325,6 +1325,12 @@ class TestNeuralNet:
             assert not (y_out < 0).all()
             assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
 
+    def test_fit_lbfgs_optimizer(self, net, data):
+        X, y = data
+        net.set_params(optimizer=torch.optim.LBFGS)
+        net.set_params(batch_size=len(X))
+        net.fit(X, y)
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.
@@ -1414,3 +1420,6 @@ class TestNeuralNetRegressor:
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
         assert np.allclose(y_pred, y_proba, atol=1e-6)
+
+
+
