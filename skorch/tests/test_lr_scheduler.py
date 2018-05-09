@@ -141,8 +141,8 @@ class TestReduceLROnPlateau:
         np.isclose(score, net.history[-2, monitor])
 
     def test_reduce_lr_monitor_with_callable(self):
-        # step should be called with the 2nd to last value from that
-        # history entry
+        # step should always be called with the return value from the
+        # callable, 55
         _, mock_step = self.get_net_with_mock(monitor=lambda x: 55)
         score = mock_step.call_args_list[0][0][0]
         assert score == 55
