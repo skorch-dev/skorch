@@ -6,6 +6,7 @@ from functools import partial
 import re
 import tempfile
 import warnings
+import inspect
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -433,6 +434,11 @@ class NeuralNet(object):
 
         self.optimizer_ = self.optimizer(*args, **kwargs)
 
+        # some optimizers require scoring closures to call them multiple times during each step. Those need special
+        # treatment in train_step() - the actually used
+        optimizer_step_signature = inspect.signature(self.optimizer_.step)
+        self.optimizer_is_iterative_= optimizer_step_signature.parameters['closure'].default is inspect.Parameter.empty
+
     def initialize_history(self):
         """Initializes the history."""
         self.history = History()
@@ -502,22 +508,34 @@ class NeuralNet(object):
           the module and to the train_split call.
 
         """
-        self.module_.train()
-        self.optimizer_.zero_grad()
-        y_pred = self.infer(Xi, **fit_params)
-        loss = self.get_loss(y_pred, yi, X=Xi, training=True)
-        loss.backward()
+        y_pred = None
+        loss = None
 
-        self.notify(
-            'on_grad_computed',
-            named_parameters=list(self.module_.named_parameters())
-        )
+        def loss_closure():
+            nonlocal y_pred
+            nonlocal loss
+            self.module_.train()
+            self.optimizer_.zero_grad()
+            y_pred = self.infer(Xi, **fit_params)
+            loss = self.get_loss(y_pred, yi, X=Xi, training=True)
+            loss.backward()
+            self.notify(
+                'on_grad_computed',
+                named_parameters=list(self.module_.named_parameters())
+            )
+            return loss
 
-        self.optimizer_.step()
+        self.optimizer_.step(loss_closure)
+
+        if self.optimizer_is_iterative_:
+            # re-computing as we cannot know if the results of the last loss_closure() were actually used
+            y_pred = self.infer(Xi, **fit_params)
+            loss = self.get_loss(y_pred, yi, X=Xi, training=True)
+
         return {
             'loss': loss,
             'y_pred': y_pred,
-            }
+        }
 
     def evaluation_step(self, Xi, training=False):
         """Perform a forward step to produce the output used for
