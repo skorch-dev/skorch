@@ -1331,6 +1331,16 @@ class TestNeuralNet:
         net.set_params(batch_size=len(X))
         net.fit(X, y)
 
+    def test_lbfgs_optimizer_iterative(self, net):
+        net.set_params(optimizer=torch.optim.LBFGS)
+        net.initialize()
+        assert net.optimizer_is_iterative_
+
+    def test_adam_optimizer_not_iterative(self, net):
+        net.set_params(optimizer=torch.optim.Adam)
+        net.initialize()
+        assert not net.optimizer_is_iterative_
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.
