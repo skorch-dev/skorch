@@ -434,10 +434,11 @@ class NeuralNet(object):
 
         self.optimizer_ = self.optimizer(*args, **kwargs)
 
-        # some optimizers require scoring closures to call them multiple times during each step. Those need special
-        # treatment in train_step() - the actually used
-        optimizer_step_signature = inspect.signature(self.optimizer_.step)
-        self.optimizer_is_iterative_= optimizer_step_signature.parameters['closure'].default is inspect.Parameter.empty
+        # optimizers that require a closure argument have to be treated
+        # differently. See `NeuralNet.train_step()` for details
+        optim_sig = inspect.signature(self.optimizer_.step)
+        self.optimizer_is_iterative_ = \
+            optim_sig.parameters['closure'].default is inspect.Parameter.empty
 
     def initialize_history(self):
         """Initializes the history."""
@@ -512,6 +513,15 @@ class NeuralNet(object):
         loss = None
 
         def loss_closure():
+            """ Calculate the loss function - called by the optimizer.
+
+            https://pytorch.org/docs/stable/optim.html#optimizer-step-closure
+            states: 'Some optimization algorithms such as Conjugate Gradient
+            and LBFGS need to reevaluate the function multiple times, so you
+            have to pass in a closure that allows them to recompute your model.
+            The closure should clear the gradients, compute the loss, and
+            return it.'
+            """
             nonlocal y_pred
             nonlocal loss
             self.module_.train()
@@ -528,7 +538,8 @@ class NeuralNet(object):
         self.optimizer_.step(loss_closure)
 
         if self.optimizer_is_iterative_:
-            # re-computing as we cannot know if the results of the last loss_closure() were actually used
+            # re-computing, as we cannot know if the results of the last
+            # loss_closure() call were the ones actually used
             y_pred = self.infer(Xi, **fit_params)
             loss = self.get_loss(y_pred, yi, X=Xi, training=True)
 

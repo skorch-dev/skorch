@@ -1232,7 +1232,7 @@ class TestNeuralNet:
         # TODO: check error message more precisely, depending on what
         # the intended message shouldb e from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
-        
+
     @pytest.fixture()
     def sequence_module_cls(self):
         """Simple sequence model with variable size dim 1."""
@@ -1430,6 +1430,3 @@ class TestNeuralNetRegressor:
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
         assert np.allclose(y_pred, y_proba, atol=1e-6)
-
-
-
