@@ -106,6 +106,7 @@ class TestWarmRestartLR():
     def assert_lr_correct(
             self, optimizer, targets, epochs, min_lr, max_lr, base_period,
             period_mult):
+        """Test that learning rate was set correctly."""
         targets = [targets] if len(optimizer.param_groups) == 1 else targets
         scheduler = WarmRestartLR(
             optimizer, min_lr, max_lr, base_period, period_mult
