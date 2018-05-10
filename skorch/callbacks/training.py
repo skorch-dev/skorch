@@ -131,7 +131,7 @@ class EarlyStopping(Callback):
         self.threshold = threshold
         self.threshold_mode = threshold_mode
         self.misses_ = 0
-        self.dynamic_threshold = None
+        self.dynamic_threshold_ = None
 
 
     # pylint: disable=arguments-differ
@@ -140,7 +140,7 @@ class EarlyStopping(Callback):
             raise ValueError("Invalid threshold mode: '{}'"
                              .format(self.threshold_mode))
         self.misses_ = 0
-        self.dynamic_threshold = \
+        self.dynamic_threshold_ = \
             np.inf if self.lower_is_better else -np.inf
 
     def on_epoch_end(self, net, **kwargs):
@@ -149,7 +149,7 @@ class EarlyStopping(Callback):
             self.misses_ += 1
         else:
             self.misses_ = 0
-            self.dynamic_threshold = self._calc_new_threshold(current_score)
+            self.dynamic_threshold_ = self._calc_new_threshold(current_score)
         if self.misses_ == self.patience:
             if net.verbose:
                 print("Stopping since {} did not improve for the last "
@@ -158,8 +158,8 @@ class EarlyStopping(Callback):
 
     def _is_score_improved(self, score):
         if self.lower_is_better:
-            return score < self.dynamic_threshold
-        return score > self.dynamic_threshold
+            return score < self.dynamic_threshold_
+        return score > self.dynamic_threshold_
 
     def _calc_new_threshold(self, score):
         if self.threshold_mode == 'rel':
