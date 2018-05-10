@@ -1,5 +1,6 @@
 """ Callbacks related to training progress. """
 
+import numpy as np
 from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
 
@@ -93,36 +94,85 @@ class Checkpoint(Callback):
 
 
 class EarlyStopping(Callback):
-    """Stop training early if a specified monitor metric did not improve in a
-    given amount of epochs.
+    """Stop training early if a specified `monitor` metric did not improve in
+    `patience` number of epochs by at least `threshold`
 
     Parameters
     ----------
-    monitor : str (default='valid_loss_best')
+    monitor : str (default='valid_loss')
       Value of the history to monitor to decide whether to stop training or not.
-      The value is expected to be boolean and is commonly provided by scoring
+      The value is expected to be double and is commonly provided by scoring
       callbacks such as :class:`skorch.callbacks.EpochScoring`.
 
-    stop_threshold : int (default=5)
+    lower_is_better : bool (default=True)
+      Whether lower scores should be considered better or worse.
+
+    patience : int (default=5)
       Number of epochs to wait for improvement of the monitor value until
       the training process is stopped.
+
+    threshold : int (default=1e-4)
+      Ignore score improvements smaller than `threshold`.
+
+    threshold_mode : str (default='rel')
+        One of `rel`, `abs`. In `rel` mode,
+        dynamic_threshold = best * ( 1 + threshold ) in 'max'
+        mode or best * ( 1 - threshold ) in `min` mode.
+        In `abs` mode, dynamic_threshold = best + threshold in
+        `max` mode or best - threshold in `min` mode. Default: 'rel'.
+
+
     """
-    def __init__(self, monitor='valid_loss_best', stop_threshold=5):
+    def __init__(self, monitor='valid_loss', patience=5, threshold=1e-4,
+                 threshold_mode='rel', lower_is_better=True):
         self.monitor = monitor
-        self.stop_threshold = stop_threshold
+        self.lower_is_better = lower_is_better
+        self.patience = patience
+        self.threshold = threshold
+        self.threshold_mode = threshold_mode
         self.misses_ = 0
+        self.dynamic_threshold = None
+
 
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
+        if self.threshold_mode not in ['rel', 'abs']:
+            raise ValueError("Invalid threshold mode: '{}'"
+                             .format(self.threshold_mode))
         self.misses_ = 0
+        self.dynamic_threshold = \
+            np.inf if self.lower_is_better else -np.inf
 
     def on_epoch_end(self, net, **kwargs):
-        if not net.history[-1, self.monitor]:
+        current_score = net.history[-1, self.monitor]
+        if not self._is_score_improved(current_score):
             self.misses_ += 1
         else:
             self.misses_ = 0
-        if self.misses_ == self.stop_threshold:
+            self.dynamic_threshold = self._calc_new_threshold(current_score)
+        if self.misses_ == self.patience:
             if net.verbose:
                 print("Stopping since {} did not improve for the last "
-                      "{} epochs.".format(self.monitor, self.stop_threshold))
+                      "{} epochs.".format(self.monitor, self.patience))
             raise KeyboardInterrupt
+
+    def _is_score_improved(self, score):
+        if self.lower_is_better:
+            return score < self.dynamic_threshold
+        return score > self.dynamic_threshold
+
+    def _calc_new_threshold(self, score):
+        if self.threshold_mode == 'rel':
+            abs_threshold_change = self.threshold * score
+        else:
+            abs_threshold_change = self.threshold
+
+        if self.lower_is_better:
+            new_threshold = score - abs_threshold_change
+        else:
+            new_threshold = score + abs_threshold_change
+        return new_threshold
+
+
+
+

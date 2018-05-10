@@ -29,8 +29,7 @@ class TestEarlyStopping:
     ):
         stop_threshold = 5
         max_epochs = 8
-        early_stopping_cb = early_stopping_cls(stop_threshold=stop_threshold)
-        monitor = early_stopping_cb.monitor
+        early_stopping_cb = early_stopping_cls(patience=stop_threshold)
 
         net = net_clf_cls(
             classifier_module,
@@ -42,17 +41,16 @@ class TestEarlyStopping:
         net.fit(*classifier_data)
 
         ok_run = (
-            len(net.history) == max_epochs and
-            np.any(net.history[-stop_threshold:, monitor])
+            len(net.history) == max_epochs
         )
+        assert ok_run
 
     def test_typical_use_case_stopping(
             self, net_clf_cls, broken_classifier_module, classifier_data, early_stopping_cls,
     ):
         stop_threshold = 5
         max_epochs = 8
-        early_stopping_cb = early_stopping_cls(stop_threshold=stop_threshold)
-        monitor = early_stopping_cb.monitor
+        early_stopping_cb = early_stopping_cls(patience=stop_threshold)
 
         net = net_clf_cls(
             broken_classifier_module,
@@ -64,8 +62,7 @@ class TestEarlyStopping:
         net.fit(*classifier_data)
 
         bad_run = (
-            len(net.history) != max_epochs and
-            not np.any(net.history[-stop_threshold:, monitor])
+            len(net.history) != max_epochs
         )
 
         assert bad_run
