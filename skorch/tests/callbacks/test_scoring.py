@@ -6,6 +6,7 @@ from unittest.mock import Mock
 from unittest.mock import patch
 
 import numpy as np
+from sklearn.metrics import accuracy_score, make_scorer
 import pytest
 
 from skorch.utils import to_numpy
@@ -140,6 +141,20 @@ class TestEpochScoring:
         net.fit(*data)
 
         result = net.history[:, 'accuracy']
+        assert result == [0, 0]
+
+    def test_with_make_scorer_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(make_scorer(accuracy_score))],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        result = net.history[:, 'accuracy_score']
         assert result == [0, 0]
 
     def test_with_score_nonexisting_string(
@@ -549,6 +564,24 @@ class TestBatchScoring:
         assert np.allclose(score_epochs, [0, 0])
 
         score_batches = net.history[:, 'batches', :, 'accuracy']
+        assert np.allclose(score_batches, [[0, 0], [0, 0]])
+
+    def test_with_make_scorer_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(make_scorer(accuracy_score))],
+            batch_size=1,
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        score_epochs = net.history[:, 'accuracy_score']
+        assert np.allclose(score_epochs, [0, 0])
+
+        score_batches = net.history[:, 'batches', :, 'accuracy_score']
         assert np.allclose(score_batches, [[0, 0], [0, 0]])
 
     def test_with_score_nonexisting_string(

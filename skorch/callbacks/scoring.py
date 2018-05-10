@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from functools import partial
 
 import numpy as np
-from sklearn.metrics.scorer import check_scoring
+from sklearn.metrics.scorer import check_scoring, _BaseScorer
 from sklearn.model_selection._validation import _score
 
 from skorch.utils import data_from_dataset
@@ -64,6 +64,8 @@ class ScoringBase(Callback):
             return self.scoring
         if isinstance(self.scoring, partial):
             return self.scoring.func.__name__
+        if isinstance(self.scoring, _BaseScorer):
+            return self.scoring._score_func.__name__
         return self.scoring.__name__
 
     def initialize(self):
