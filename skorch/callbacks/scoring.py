@@ -4,7 +4,8 @@ from contextlib import contextmanager
 from functools import partial
 
 import numpy as np
-from sklearn.metrics.scorer import check_scoring, _BaseScorer
+from sklearn.metrics.scorer import (
+    check_scoring, _BaseScorer, make_scorer)
 from sklearn.model_selection._validation import _score
 
 from skorch.utils import data_from_dataset
@@ -32,6 +33,19 @@ def cache_net_infer(net, use_caching, y_preds):
     # that precedes the bound method `infer`. By deleting
     # the entry from the attribute dict we undo this.
     del net.__dict__['infer']
+
+
+def convert_sklearn_metric_function(scoring):
+    """If ``scoring`` is a sklearn metric function, convert it to a
+    sklearn scorer and return it. Otherwise, return ``scoring`` unchanged."""
+    if callable(scoring):
+        module = getattr(scoring, '__module__', None)
+        if (hasattr(module, 'startswith') and
+            module.startswith('sklearn.metrics.') and
+            not module.startswith('sklearn.metrics.scorer') and
+                not module.startswith('sklearn.metrics.tests.')):
+            return make_scorer(scoring)
+    return scoring
 
 
 class ScoringBase(Callback):
@@ -70,6 +84,7 @@ class ScoringBase(Callback):
 
     def initialize(self):
         self.best_score_ = np.inf if self.lower_is_better else -np.inf
+        self.scoring = convert_sklearn_metric_function(self.scoring)
         self.name_ = self._get_name()
         return self
 
