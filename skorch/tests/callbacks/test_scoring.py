@@ -157,6 +157,20 @@ class TestEpochScoring:
         result = net.history[:, 'accuracy_score']
         assert result == [0, 0]
 
+    def test_with_callable_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(accuracy_score)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        result = net.history[:, 'accuracy_score']
+        assert result == [0, 0]
+
     def test_with_score_nonexisting_string(
             self, net_cls, module_cls, scoring_cls, train_split, data,
     ):
@@ -572,6 +586,24 @@ class TestBatchScoring:
         net = net_cls(
             module_cls,
             callbacks=[scoring_cls(make_scorer(accuracy_score))],
+            batch_size=1,
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        score_epochs = net.history[:, 'accuracy_score']
+        assert np.allclose(score_epochs, [0, 0])
+
+        score_batches = net.history[:, 'batches', :, 'accuracy_score']
+        assert np.allclose(score_batches, [[0, 0], [0, 0]])
+
+    def test_with_callable_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(accuracy_score)],
             batch_size=1,
             max_epochs=2,
             train_split=train_split,
