@@ -107,15 +107,15 @@ this feature:
             out = F.softmax(self.output(concat))
             return out
 
-	net = NeuralNetClassifier(MyModule)
+    net = NeuralNetClassifier(MyModule)
 
-	X = {
-            'key_a': np.random.random((1000, 10)).astype(np.float32),
-            'key_b': np.random.random((1000, 20)).astype(np.float32),
-        }
-        y = np.random.randint(0, 2, size=1000)
+    X = {
+        'key_a': np.random.random((1000, 10)).astype(np.float32),
+        'key_b': np.random.random((1000, 20)).astype(np.float32),
+    }
+    y = np.random.randint(0, 2, size=1000)
 
-	net.fit(X, y)
+    net.fit(X, y)
 
 Note that the keys in the dictionary ``X`` exactly match the argument
 names in the :func:`~torch.nn.Module.forward` method. This way, you

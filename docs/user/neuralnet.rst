@@ -22,7 +22,7 @@ estimator. The finished code could look something like this:
 
     net = NeuralNet(
         module=MyModule,
-	criterion=torch.nn.NLLLoss,
+        criterion=torch.nn.NLLLoss,
     )
     net.fit(X, y)
     y_pred = net.predict(X_valid)
@@ -79,13 +79,13 @@ for your module should be passed to :class:`.NeuralNet` with the
 
     class MyModule(torch.nn.Module):
         def __init__(self, num_units, dropout):
-	    ...
+            ...
 
     net = NeuralNet(
         module=MyModule,
-	module__num_units=100,
-	module__dropout=0.5,
-	criterion=torch.nn.NLLLoss,
+        module__num_units=100,
+        module__dropout=0.5,
+        criterion=torch.nn.NLLLoss,
     )
 
 It is, however, also possible to pass an instantiated module, e.g. a
@@ -203,10 +203,10 @@ your callbacks to the ``callbacks`` argument:
 
     net = NeuralNet(
         module=MyModule,
-	callbacks=[
-	    MyCallback1(...),
-	    MyCallback2(...),
-	],
+        callbacks=[
+            MyCallback1(...),
+            MyCallback2(...),
+        ],
     )
 
 Inside the :class:`.NeuralNet` instance, each callback will receive a
@@ -220,10 +220,10 @@ instance*, like this:
 
     net = NeuralNet(
         module=MyModule,
-	callbacks=[
-	    ('cb1', MyCallback1(...)),
-	    ('cb2', MyCallback2(...)),
-	],
+        callbacks=[
+            ('cb1', MyCallback1(...)),
+            ('cb2', MyCallback2(...)),
+        ],
     )
 
 This approach of passing a list of *name*, *instance* tuples should be
@@ -368,12 +368,12 @@ your :class:`.NeuralNet` is part of an sklearn
 
     net = NeuralNet(
         module=MyModule,
-	criterion=torch.nn.NLLLoss,
+        criterion=torch.nn.NLLLoss,
     )
 
     model = Pipeline([
         ('my-features', get_features()),
-	('net', net),
+        ('net', net),
     ])
     model.fit(X, y)
 
@@ -401,12 +401,12 @@ initialize a :class:`.NeuralNet` to load the parameters again:
 
     net = NeuralNet(
         module=MyModule,
-	criterion=torch.nn.NLLLoss,
+        criterion=torch.nn.NLLLoss,
     )
 
     model = Pipeline([
         ('my-features', get_features()),
-	('net', net),
+        ('net', net),
     ])
     model.fit(X, y)
 
@@ -414,7 +414,7 @@ initialize a :class:`.NeuralNet` to load the parameters again:
 
     new_net = NeuralNet(
         module=MyModule,
-	criterion=torch.nn.NLLLoss,
+        criterion=torch.nn.NLLLoss,
     )
     new_net.initialize()  # This is important!
     new_net.load_params('some-file.pkl')
@@ -431,16 +431,16 @@ as shown below:
 
     class MyModule(torch.nn.Module):
         def __init__(self, num_units, dropout):
-	    ...
+            ...
 
     net = NeuralNet(
         module=MyModule,
-	module__num_units=100,
-	module__dropout=0.5,
-	criterion=torch.nn.NLLLoss,
-	criterion__weight=weight,
-	optimizer=torch.optim.SGD,
-	optimizer__momentum=0.9,
+        module__num_units=100,
+        module__dropout=0.5,
+        criterion=torch.nn.NLLLoss,
+        criterion__weight=weight,
+        optimizer=torch.optim.SGD,
+        optimizer__momentum=0.9,
     )
 
 Those arguments are used to initialize your ``module``, ``criterion``,

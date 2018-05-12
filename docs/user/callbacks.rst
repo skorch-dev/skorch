@@ -99,7 +99,7 @@ called 'my_callback', you can deactivate it like this:
 
     net = NeuralNet(
         module=MyModule,
-	    callbacks=[('my_callback', MyCallback())],
+            callbacks=[('my_callback', MyCallback())],
     )
     # now deactivate 'my_callback':
     net.set_params(callbacks__my_callback=None)
