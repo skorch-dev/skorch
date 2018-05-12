@@ -8,16 +8,17 @@ This module contains classes and functions related to data handling.
 CVSplit
 -------
 
-This class is responsible for performing the ``NeuralNet``\'s internal
-cross validation. For this, it sticks closely to the sklearn
+This class is responsible for performing the :class:`.NeuralNet`\'s
+internal cross validation. For this, it sticks closely to the sklearn
 standards. For more information on how sklearn handles cross
 validation, look `here
 <http://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators>`_.
 
-The first argument that ``CVSplit`` takes is ``cv``. It works
-analogously to the ``cv`` argument from sklearn\'s
-``GridSearchCV``, ``cross_val_score``, etc. For those not familiar,
-here is a short explanation of what you may pass:
+The first argument that :class:`.CVSplit` takes is ``cv``. It works
+analogously to the ``cv`` argument from sklearn
+:class:`~sklearn.model_selection.GridSearchCV`,
+:func:`~sklearn.model_selection.cross_val_score`, etc. For those not
+familiar, here is a short explanation of what you may pass:
 
 - ``None``: Use the default 3-fold cross validation.
 - integer: Specifies the number of folds in a ``(Stratified)KFold``,
@@ -26,7 +27,7 @@ here is a short explanation of what you may pass:
 - An object to be used as a cross-validation generator.
 - An iterable yielding train, validation splits.
 
-Furthermore, ``CVSplit`` takes a ``stratified`` argument that
+Furthermore, :class:`.CVSplit` takes a ``stratified`` argument that
 determines whether a stratified split should be made (only makes sense
 for discrete targets), and a ``random_state`` argument, which is used
 in case the cross validation split has a random component.
@@ -60,28 +61,30 @@ with skorch and sklearn:
 Dataset
 -------
 
-In PyTorch, we have the concept of a ``Dataset`` and a
-``DataLoader``. The ``Dataset`` is purely the container of the data
-and only needs to implement ``__len__()`` and
-``__getitem__(<int>)``. The ``DataLoader`` does the heavy lifting,
-such as sampling, shuffling, and distributed processing.
+In PyTorch, we have the concept of a
+:class:`~torch.utils.data.Dataset` and a
+:class:`~torch.utils.data.DataLoader`. The former is purely the
+container of the data and only needs to implement ``__len__()`` and
+``__getitem__(<int>)``. The latter does the heavy lifting, such as
+sampling, shuffling, and distributed processing.
 
-skorch uses the PyTorch ``DataLoader``\s by default. However,
-the ``Dataset``\s provided by PyTorch are not sufficient for our
-usecase; for instance, they don't work with numpy
-``array``\s. That's why we provide our own ``Dataset`` class. This
-container works with:
+skorch uses the PyTorch :class:`~torch.utils.data.DataLoader`\s by default.
+However, the :class:`~torch.utils.data.Dataset`\s provided by PyTorch
+are not sufficient for our usecase; for instance, they don't work with
+numpy ``array``\s.  That's why we provide our own :class:`.Dataset`
+class. This container works with:
 
 - numpy arrays
-- torch tensors
+- PyTorch :class:`~torch.Tensor`\s
 - pandas DataFrames or Series
 
 In addition, you can pass dictionaries or lists of one of those data
 types, e.g. a dictionary of numpy ``array``\s. When you pass
 dictionaries, the keys of the dictionaries are used as the argument
-name for the ``forward`` method of the net's ``module``. Similarly,
-the column names of pandas ``DataFrame``\s are used as argument
-names. The example below should illustrate how to use this feature:
+name for the :func:`~torch.nn.Module.forward` method of the net's
+``module``. Similarly, the column names of pandas ``DataFrame``\s are
+used as argument names. The example below should illustrate how to use
+this feature:
 
 .. code:: python
 
@@ -115,24 +118,26 @@ names. The example below should illustrate how to use this feature:
 	net.fit(X, y)
 
 Note that the keys in the dictionary ``X`` exactly match the argument
-names in the ``forward`` method. This way, you can easily work with
-several different types of input features.
+names in the :func:`~torch.nn.Module.forward` method. This way, you
+can easily work with several different types of input features.
 
-The ``Dataset`` from skorch makes the assumption that you always
+The :class:`.Dataset` from skorch makes the assumption that you always
 have an ``X`` and a ``y``, where ``X`` represents the input data and
 ``y`` the target. However, you may leave ``y=None``, in which case
-``Dataset`` returns a dummy variable.
+:class:`.Dataset` returns a dummy variable.
 
-In contrast to a PyTorch ``Dataset``, a skorch ``Dataset``
-must have a ``device`` argument, which determines whether the
-returned data should be transferred to a specific computation device. 
-Should you write your own ``Dataset`` subclass, remember to integrate 
-this argument.
+In contrast to a PyTorch :class:`~torch.utils.data.Dataset`, a skorch
+:class:`.Dataset` must have a ``device`` argument, which determines
+whether the returned data should be transferred to a specific
+computation device. Should you write your own :class:`.Dataset`
+subclass, remember to integrate this argument.
 
-``Dataset`` applies a transform final transform on the data before
-passing it on to the ``DataLoader``. By default, it casts the data to
-a ``torch tensor`` and replaces ``y`` by a dummy variable in case it
-is None. If you would like to apply your own transformation on the
-data, you should subclass ``Dataset`` and override the ``transform``
-method, then pass your custom ``Dataset`` to ``NeuralNet`` as the
-``dataset`` argument.
+:class:`.Dataset` applies a transform final transform on the data
+before passing it on to the PyTorch
+:class:`~torch.utils.data.DataLoader`. By default, it casts the data
+to a PyTorch :class:`~torch.Tensor` and replaces ``y`` by a dummy
+variable in case it is ``None``. If you would like to apply your own
+transformation on the data, you should subclass :class:`.Dataset` and
+override the :func:`~skorch.dataset.Dataset.transform` method, then
+pass your custom class to :class:`.NeuralNet` as the ``dataset``
+argument.

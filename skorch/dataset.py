@@ -48,18 +48,19 @@ def get_len(data):
 
 class Dataset(torch.utils.data.Dataset):
     """General dataset wrapper that can be used in conjunction with
-    pytorch's DataLoader.
+    PyTorch :class:`~torch.utils.data.DataLoader`.
 
     The dataset will always yield a tuple of two values, the first
-    from the data (``X``) and the second from the target
-    (``y``). However, the target is allowed to be None. In that case,
-    Dataset will currently return a dummy tensor, since DataLoader
-    does not work with Nones.
+    from the data (``X``) and the second from the target (``y``).
+    However, the target is allowed to be ``None``. In that case,
+    :class:`.Dataset` will currently return a dummy tensor, since
+    :class:`~torch.utils.data.DataLoader` does not work with
+    ``None``\s.
 
-    Dataset currently works with the following data types:
+    :class:`.Dataset` currently works with the following data types:
 
-    * numpy arrays
-    * torch tensors
+    * numpy ``array``\s
+    * PyTorch :class:`~torch.Tensor`\s
     * pandas NDFrame
     * a dictionary of the former three
     * a list/tuple of the former three
@@ -113,9 +114,10 @@ class Dataset(torch.utils.data.Dataset):
         By default, they are cast to torch tensors. Override this if
         you want a different behavior.
 
-        Note: If you use this in conjuction with pytorch's DataLoader,
-        the latter will call the dataset for each row separately,
-        which means that the incoming X and y each are single rows.
+        Note: If you use this in conjuction with PyTorch
+        :class:`~torch.utils.data.DataLoader`, the latter will call
+        the dataset for each row separately, which means that the
+        incoming X and y each are single rows.
 
         """
         # pytorch DataLoader cannot deal with None so we use 0 as a

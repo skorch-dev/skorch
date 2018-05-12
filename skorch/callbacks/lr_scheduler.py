@@ -187,7 +187,7 @@ class CyclicLR(object):
     Cyclical learning rate policy changes the learning rate after every batch.
     ``batch_step`` should be called after a batch has been used for training.
     To resume training, save `last_batch_idx` and use it to instantiate
-    ``CycleLR`.
+    ``CycleLR``.
 
     This class has three built-in policies, as put forth in the paper:
 

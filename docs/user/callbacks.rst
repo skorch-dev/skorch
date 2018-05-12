@@ -3,8 +3,7 @@ Callbacks
 =========
 
 Callbacks provide a flexible way to customize the behavior of your
-:class:`NeuralNet <skorch.net.NeuralNet>` training without the need to
-write subclasses.
+:class:`.NeuralNet` training without the need to write subclasses.
 
 You will often find callbacks writing to or reading from the
 :ref:`history <history>` attribute. Therefore, if you would like to
@@ -17,19 +16,20 @@ look at :mod:`skorch.callbacks`.
 Callback base class
 -------------------
 
-The base class for each callback is :class:`skorch.callbacks.Callback`. If
-you would like to write your own callbacks, you should inherit from
-this class. A guide and practical example on how to write your own
-callbacks is shown in this `notebook
-<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Writing-a-custom-callback>`_. In general, remember this:
+The base class for each callback is :class:`.Callback`. If you would
+like to write your own callbacks, you should inherit from this class.
+A guide and practical example on how to write your own callbacks is
+shown in this `notebook
+<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Writing-a-custom-callback>`_.
+In general, remember this:
 
 
 * They should inherit from the base class.
 * They should implement at least one of the :code:`on_` methods
   provided by the parent class (see below).
-* As argument, the methods first get the NeuralNet instance, and,
-  where appropriate, the local data (e.g. the data from the current
-  batch). The method should also have :code:`**kwargs` in the
+* As argument, the methods first get the :class:`.NeuralNet` instance,
+  and, where appropriate, the local data (e.g. the data from the
+  current batch). The method should also have :code:`**kwargs` in the
   signature for potentially unused arguments.
 
 Callback methods to override
@@ -47,7 +47,8 @@ re-initialized, those attributes should be set in this method.
 on_train_begin
 ^^^^^^^^^^^^^^
 
-Called once at the start of the training process (e.g. when calling fit).
+Called once at the start of the training process (e.g. when calling
+fit).
 
 on_train_end
 ^^^^^^^^^^^^
@@ -106,48 +107,47 @@ called 'my_callback', you can deactivate it like this:
 This also works with default callbacks.
 
 Deactivating callbacks can be especially useful when you do a
-parameter search (say ``GridSearchCV``). If, for instance, you use a
-callback for learning rate scheduling (e.g. via
-:class:`skorch.callbacks.LRScheduler`) and want to test
-its usefulness, you can compare the performance once with and once
-without the callback.
+parameter search (say with sklearn
+:class:`~sklearn.model_selection.GridSearchCV`). If, for instance, you
+use a callback for learning rate scheduling (e.g. via
+:class:`.LRScheduler`) and want to test its usefulness, you can
+compare the performance once with and once without the callback.
 
 
 Scoring
 -------
 
 skorch provides two scoring callbacks by default,
-:class:`skorch.callbacks.EpochScoring` and
-:class:`skorch.callbacks.BatchScoring`. They work basically in the
-same way, except that :class:`skorch.callbacks.EpochScoring`
-calculates scores after each epoch and
-:class:`skorch.callbacks.BatchScoring` after each batch. Use the
+:class:`.EpochScoring` and :class:`.BatchScoring`. They work basically
+in the same way, except that :class:`.EpochScoring` calculates scores
+after each epoch and :class:`.BatchScoring` after each batch. Use the
 former if averaging of batch-wise scores is imprecise (say for AUC
 score) and the latter if you are very tight for memory.
 
 In general, the scoring callbacks are useful when the default scores
-determined by the ``NeuralNet`` are not enough. They allow you to
-easily add new metrics to be logged during training. For an example of
-how to add a new score to your model, look `at this notebook
+determined by the :class:`.NeuralNet` are not enough. They allow you
+to easily add new metrics to be logged during training. For an example
+of how to add a new score to your model, look `at this notebook
 <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb#Callbacks>`_.
 
 The first argument to both callbacks is ``name`` and should be a
 string. This determines the column name of the score shown by the
-:class:`PrintLog <skorch.callbacks.PrintLog>` after each epoch.
+:class:`.PrintLog` after each epoch.
 
-Next comes the ``scoring`` parameter. For eager sklearn users,
-this should be familiar, since it works exactly the same as in
-sklearn\'s ``GridSearchCV``, ``RandomizedSearchCV``,
-``cross_val_score``, etc. For those who are unfamiliar, here is a
-short explanation:
+Next comes the ``scoring`` parameter. For eager sklearn users, this
+should be familiar, since it works exactly the same as in sklearn
+:class:`~sklearn.model_selection.GridSearchCV`,
+:class:`~sklearn.model_selection.RandomizedSearchCV`,
+:func:`~sklearn.model_selection.cross_val_score`, etc. For those who
+are unfamiliar, here is a short explanation:
 
 - If you pass a string, sklearn makes a look-up for a score with
   that name. Examples would be ``'f1'`` and ``'roc_auc'``.
 - If you pass ``None``, the model's ``score`` method is used. By
-  default, ``NeuralNet`` and its subclasses don't provide a ``score``
-  method, but you can easily implement your own. If you do, it should
-  take ``X`` and ``y`` (the target) as input and return a scalar as
-  output.
+  default, :class:`.NeuralNet` and its subclasses don't provide a
+  ``score`` method, but you can easily implement your own. If you do,
+  it should take ``X`` and ``y`` (the target) as input and return a
+  scalar as output.
 - Finally, you can pass a function/callable. In that case, this
   function should have the signature ``func(net, X, y)`` and return a
   scalar.
@@ -189,9 +189,10 @@ arguments:
 - ``None``: The model is saved after each epoch
 - string: The model checks whether the last entry in the model
   ``history`` for that key is truthy. This is useful in conjunction
-  with scores determined by a ``Scoring`` callback. They write a
+  with scores determined by a scoring callback. They write a
   ``<score>_best`` entry to the ``history``, which can be used for
-  checkpointing. By default, the ``Checkpoint`` callback looks at
-  ``'valid_loss_best'``.
+  checkpointing. By default, the :class:`.Checkpoint` callback looks
+  at ``'valid_loss_best'``.
 - function or callable: In that case, the function should take the
-  ``NeuralNet`` instance as sole input and return a bool as output.
+  :class:`.NeuralNet` instance as sole input and return a bool as
+  output.
