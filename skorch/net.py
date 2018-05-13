@@ -475,8 +475,9 @@ class NeuralNet(object):
 
         """
         self.module_.eval()
-        y_pred = self.infer(Xi, **fit_params)
-        loss = self.get_loss(y_pred, yi, X=Xi, training=False)
+        with torch.no_grad():
+            y_pred = self.infer(Xi, **fit_params)
+            loss = self.get_loss(y_pred, yi, X=Xi, training=False)
         return {
             'loss': loss,
             'y_pred': y_pred,

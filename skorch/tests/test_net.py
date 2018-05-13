@@ -1325,6 +1325,21 @@ class TestNeuralNet:
             assert not (y_out < 0).all()
             assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
 
+    def test_no_grad_during_validation(self, net_cls, module_cls, data):
+        """Test that gradient is only calculated during training step,
+        not validation step."""
+
+        # pylint: disable=unused-argument
+        def check_grad(*args, loss, training, **kwargs):
+            if training:
+                assert loss.requires_grad
+            else:
+                assert not loss.requires_grad
+
+        mock_cb = Mock(on_batch_end=check_grad)
+        net = net_cls(module_cls, max_epochs=1, callbacks=[mock_cb])
+        net.fit(*data)
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.
