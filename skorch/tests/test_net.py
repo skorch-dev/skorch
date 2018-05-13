@@ -1232,7 +1232,7 @@ class TestNeuralNet:
         # TODO: check error message more precisely, depending on what
         # the intended message shouldb e from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
-        
+
     @pytest.fixture()
     def sequence_module_cls(self):
         """Simple sequence model with variable size dim 1."""
@@ -1301,7 +1301,7 @@ class TestNeuralNet:
         net = net_cls(module_cls, criterion=nn.NLLLoss, max_epochs=1)
         net.initialize()
 
-        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
+        mock_loss = Mock(side_effect=nn.NLLLoss())
         net.criterion_.forward = mock_loss
         net.partial_fit(*data)  # call partial_fit to avoid re-initialization
 
@@ -1316,7 +1316,7 @@ class TestNeuralNet:
         net = net_cls(module_cls, criterion=nn.BCELoss, max_epochs=1)
         net.initialize()
 
-        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
+        mock_loss = Mock(side_effect=nn.NLLLoss())
         net.criterion_.forward = mock_loss
         net.partial_fit(*data)  # call partial_fit to avoid re-initialization
 

@@ -2,7 +2,6 @@
 
 import fnmatch
 from itertools import chain
-from functools import partial
 import re
 import tempfile
 import warnings
