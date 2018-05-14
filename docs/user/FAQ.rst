@@ -21,23 +21,24 @@ double-underscore notation for the optimizer:
 How can I continue training my model?
 -------------------------------------
 
-By default, when you call ``fit`` more than once, the training starts
-from zero instead of from where it was left. This is in line with
-sklearn\'s behavior but not always desired. If you would like to
-continue training, use ``partial_fit`` instead of
-``fit``. Alternatively, there is the ``warm_start`` argument, which is
-``False`` by default. Set it to ``True`` instead and you should be
-fine.
+By default, when you call :func:`~skorch.net.NeuralNet.fit` more than
+once, the training starts from zero instead of from where it was left.
+This is in line with sklearn\'s behavior but not always desired. If
+you would like to continue training, use
+:func:`~skorch.net.NeuralNet.partial_fit` instead of
+:func:`~skorch.net.NeuralNet.fit`. Alternatively, there is the
+``warm_start`` argument, which is ``False`` by default. Set it to
+``True`` instead and you should be fine.
 
 
 How do I shuffle my train batches?
 ----------------------------------
 
-skorch uses the ``DataLoader`` from PyTorch under the
-hood. This ``DataLoader`` takes a couple of arguments, for instance
+skorch uses :class:`~torch.utils.data.DataLoader` from PyTorch under
+the hood.  This class takes a couple of arguments, for instance
 ``shuffle``. We therefore need to pass the ``shuffle`` argument to
-``DataLoader``, which we achieve by using the double-underscore
-notation (as known from sklearn):
+:class:`~torch.utils.data.DataLoader`, which we achieve by using the
+double-underscore notation (as known from sklearn):
 
 .. code:: python
 
@@ -55,10 +56,10 @@ How do I use sklearn GridSeachCV when my data is in a dictionary?
 -----------------------------------------------------------------
 
 skorch supports dicts as input but sklearn doesn't. To get around
-that, try to wrap your dictionary into a ``SliceDict``. This is a data
-container that partly behaves like a dict, partly like an ndarray. For
-more details on how to do this, have a look at the coresponding
-`data section
+that, try to wrap your dictionary into a :class:`.SliceDict`. This is
+a data container that partly behaves like a dict, partly like an
+ndarray. For more details on how to do this, have a look at the
+coresponding `data section
 <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Working-with-sklearn-FunctionTransformer-and-GridSearch>`__
 in the notebook.
 
