@@ -61,3 +61,51 @@ more details on how to do this, have a look at the coresponding
 `data section
 <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Working-with-sklearn-FunctionTransformer-and-GridSearch>`__
 in the notebook.
+
+
+I want to use sample_weight, how can I do this?
+-----------------------------------------------
+
+Some scikit-learn models support to pass a ``sample_weight`` argument
+to ``fit`` calls as part of the ``fit_params``. This allows you to
+give different samples different weights in the final loss
+calculation.
+
+In general, skorch supports ``fit_params``, but unfortunately just
+calling ``net.fit(X, y, sample_weight=sample_weight)`` is not enough,
+because the ``fit_params`` are not split into train and valid, and are
+not batched, resulting in a mismatch with the training batches.
+
+Fortunately, skorch supports passing dictionaries as arguments, which
+are actually split into train and valid and then batched. Therefore,
+the best solution is to pass the ``sample_weight`` with ``X`` as a
+dictionary. Below, there is example code on how to achieve this:
+
+.. code:: python
+
+    X, y = get_data()
+    # put your X into a dict if not already a dict
+    X = {'data': X}
+    # add sample_weight to the X dict
+    X['sample_weight'] = sample_weight
+
+    class MyModule(nn.Module):
+        ...
+        def forward(self, data, sample_weight):
+            # when X is a dict, its keys are passed as kwargs to forward, thus
+            # our forward has to have the arguments 'data' and 'sample_weight';
+            # usually, sample_weight can be ignored here
+            ...
+
+    class MyNet(NeuralNet):
+        def get_loss(self, y_pred, y_true, X, *args, **kwargs):
+            # override get_loss to use the sample_weight from X
+            loss_unreduced = super().get_loss(y_pred, y_true, X, *args, **kwargs)
+            sample_weight = X['sample_weight']
+            loss_reduced = (sample_weight * loss_unreduced).mean()
+            return loss_reduced
+
+    # make sure to pass reduce=False to your criterion, since we need the loss
+    # for each sample so that it can be weighted
+    net = MyNet(MyModule, ..., criterion__reduce=False)
+    net.fit(X, y)
