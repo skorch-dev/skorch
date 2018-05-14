@@ -1340,6 +1340,19 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=1, callbacks=[mock_cb])
         net.fit(*data)
 
+    @pytest.mark.parametrize('training', [True, False])
+    def test_no_grad_during_evaluation_unless_training(
+            self, net_cls, module_cls, data, training):
+        """Test that gradient is only calculated in training mode
+        during evaluation step."""
+        from skorch.utils import to_tensor
+
+        net = net_cls(module_cls).initialize()
+        Xi = to_tensor(data[0][:3], device='cpu')
+        y_eval = net.evaluation_step(Xi, training=training)
+
+        assert y_eval.requires_grad is training
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.

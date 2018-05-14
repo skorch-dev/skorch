@@ -528,8 +528,9 @@ class NeuralNet(object):
         like dropout by setting ``training=True``.
 
         """
-        self.module_.train(training)
-        return self.infer(Xi)
+        with torch.set_grad_enabled(training):
+            self.module_.train(training)
+            return self.infer(Xi)
 
     def fit_loop(self, X, y=None, epochs=None, **fit_params):
         """The proper fit loop.
