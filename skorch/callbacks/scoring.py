@@ -4,7 +4,8 @@ from contextlib import contextmanager
 from functools import partial
 
 import numpy as np
-from sklearn.metrics.scorer import check_scoring
+from sklearn.metrics.scorer import (
+    check_scoring, _BaseScorer, make_scorer)
 from sklearn.model_selection._validation import _score
 
 from skorch.utils import data_from_dataset
@@ -37,6 +38,21 @@ def cache_net_infer(net, use_caching, y_preds):
         del net.__dict__['infer']
 
 
+def convert_sklearn_metric_function(scoring):
+    """If ``scoring`` is a sklearn metric function, convert it to a
+    sklearn scorer and return it. Otherwise, return ``scoring`` unchanged."""
+    if callable(scoring):
+        module = getattr(scoring, '__module__', None)
+        if (
+            hasattr(module, 'startswith') and
+            module.startswith('sklearn.metrics.') and
+            not module.startswith('sklearn.metrics.scorer') and
+            not module.startswith('sklearn.metrics.tests.')
+        ):
+            return make_scorer(scoring)
+    return scoring
+
+
 class ScoringBase(Callback):
     """Base class for scoring.
 
@@ -61,23 +77,26 @@ class ScoringBase(Callback):
     def _get_name(self):
         if self.name is not None:
             return self.name
-        if self.scoring is None:
+        if self.scoring_ is None:
             return 'score'
-        if isinstance(self.scoring, str):
-            return self.scoring
-        if isinstance(self.scoring, partial):
-            return self.scoring.func.__name__
-        return self.scoring.__name__
+        if isinstance(self.scoring_, str):
+            return self.scoring_
+        if isinstance(self.scoring_, partial):
+            return self.scoring_.func.__name__
+        if isinstance(self.scoring_, _BaseScorer):
+            return self.scoring_._score_func.__name__
+        return self.scoring_.__name__
 
     def initialize(self):
         self.best_score_ = np.inf if self.lower_is_better else -np.inf
+        self.scoring_ = convert_sklearn_metric_function(self.scoring)
         self.name_ = self._get_name()
         return self
 
     def _scoring(self, net, X_test, y_test):
         """Resolve scoring and apply it to data. Use cached prediction
         instead of running inference again, if available."""
-        scorer = check_scoring(net, self.scoring)
+        scorer = check_scoring(net, self.scoring_)
         scores = _score(
             estimator=net,
             X_test=X_test,
