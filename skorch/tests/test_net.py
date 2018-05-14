@@ -1232,7 +1232,7 @@ class TestNeuralNet:
         # TODO: check error message more precisely, depending on what
         # the intended message shouldb e from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
-        
+
     @pytest.fixture()
     def sequence_module_cls(self):
         """Simple sequence model with variable size dim 1."""
@@ -1324,6 +1324,22 @@ class TestNeuralNet:
         for (y_out, _), _ in mock_loss.call_args_list:
             assert not (y_out < 0).all()
             assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
+
+    def test_fit_lbfgs_optimizer(self, net, data):
+        X, y = data
+        net.set_params(optimizer=torch.optim.LBFGS)
+        net.set_params(batch_size=len(X))
+        net.fit(X, y)
+
+    def test_lbfgs_optimizer_iterative(self, net):
+        net.set_params(optimizer=torch.optim.LBFGS)
+        net.initialize()
+        assert net.optimizer_is_iterative_
+
+    def test_adam_optimizer_not_iterative(self, net):
+        net.set_params(optimizer=torch.optim.Adam)
+        net.initialize()
+        assert not net.optimizer_is_iterative_
 
 
 class MyRegressor(nn.Module):
