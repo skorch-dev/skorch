@@ -1232,7 +1232,7 @@ class TestNeuralNet:
         # TODO: check error message more precisely, depending on what
         # the intended message shouldb e from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
-        
+
     @pytest.fixture()
     def sequence_module_cls(self):
         """Simple sequence model with variable size dim 1."""
@@ -1301,7 +1301,7 @@ class TestNeuralNet:
         net = net_cls(module_cls, criterion=nn.NLLLoss, max_epochs=1)
         net.initialize()
 
-        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
+        mock_loss = Mock(side_effect=nn.NLLLoss())
         net.criterion_.forward = mock_loss
         net.partial_fit(*data)  # call partial_fit to avoid re-initialization
 
@@ -1316,7 +1316,7 @@ class TestNeuralNet:
         net = net_cls(module_cls, criterion=nn.BCELoss, max_epochs=1)
         net.initialize()
 
-        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
+        mock_loss = Mock(side_effect=nn.NLLLoss())
         net.criterion_.forward = mock_loss
         net.partial_fit(*data)  # call partial_fit to avoid re-initialization
 
@@ -1324,6 +1324,34 @@ class TestNeuralNet:
         for (y_out, _), _ in mock_loss.call_args_list:
             assert not (y_out < 0).all()
             assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
+
+    def test_no_grad_during_validation(self, net_cls, module_cls, data):
+        """Test that gradient is only calculated during training step,
+        not validation step."""
+
+        # pylint: disable=unused-argument
+        def check_grad(*args, loss, training, **kwargs):
+            if training:
+                assert loss.requires_grad
+            else:
+                assert not loss.requires_grad
+
+        mock_cb = Mock(on_batch_end=check_grad)
+        net = net_cls(module_cls, max_epochs=1, callbacks=[mock_cb])
+        net.fit(*data)
+
+    @pytest.mark.parametrize('training', [True, False])
+    def test_no_grad_during_evaluation_unless_training(
+            self, net_cls, module_cls, data, training):
+        """Test that gradient is only calculated in training mode
+        during evaluation step."""
+        from skorch.utils import to_tensor
+
+        net = net_cls(module_cls).initialize()
+        Xi = to_tensor(data[0][:3], device='cpu')
+        y_eval = net.evaluation_step(Xi, training=training)
+
+        assert y_eval.requires_grad is training
 
 
 class MyRegressor(nn.Module):

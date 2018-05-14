@@ -2,7 +2,6 @@
 
 import fnmatch
 from itertools import chain
-from functools import partial
 import re
 import tempfile
 import warnings
@@ -475,8 +474,9 @@ class NeuralNet(object):
 
         """
         self.module_.eval()
-        y_pred = self.infer(Xi, **fit_params)
-        loss = self.get_loss(y_pred, yi, X=Xi, training=False)
+        with torch.no_grad():
+            y_pred = self.infer(Xi, **fit_params)
+            loss = self.get_loss(y_pred, yi, X=Xi, training=False)
         return {
             'loss': loss,
             'y_pred': y_pred,
@@ -528,8 +528,9 @@ class NeuralNet(object):
         like dropout by setting ``training=True``.
 
         """
-        self.module_.train(training)
-        return self.infer(Xi)
+        with torch.set_grad_enabled(training):
+            self.module_.train(training)
+            return self.infer(Xi)
 
     def fit_loop(self, X, y=None, epochs=None, **fit_params):
         """The proper fit loop.
