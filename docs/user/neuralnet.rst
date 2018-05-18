@@ -5,15 +5,14 @@ NeuralNet
 Using NeuralNet
 ---------------
 
-:class:`NeuralNet <skorch.net.NeuralNet>` and the derived classes are
-the main touch point for the user. They wrap the ``torch.nn.Module``
-while providing an interface that should be familiar for sklearn
-users.
+:class:`.NeuralNet` and the derived classes are the main touch point
+for the user. They wrap the PyTorch :class:`~torch.nn.Module` while
+providing an interface that should be familiar for sklearn users.
 
-Define your ``torch.nn.Module`` the same way as you always do. Then
-pass it to ``NeuralNet``, in conjunction with a PyTorch criterion.
-Finally, you can call :func:`fit <skorch.net.NeuralNet.fit>` and
-:func:`predict <skorch.net.NeuralNet.predict>`, as with an sklearn
+Define your :class:`~torch.nn.Module` the same way as you always do.
+Then pass it to :class:`.NeuralNet`, in conjunction with a PyTorch
+criterion.  Finally, you can call :func:`~skorch.net.NeuralNet.fit`
+and :func:`~skorch.net.NeuralNet.predict`, as with an sklearn
 estimator. The finished code could look something like this:
 
 .. code:: python
@@ -23,15 +22,15 @@ estimator. The finished code could look something like this:
 
     net = NeuralNet(
         module=MyModule,
-	criterion=torch.nn.NLLLoss,
+        criterion=torch.nn.NLLLoss,
     )
     net.fit(X, y)
     y_pred = net.predict(X_valid)
 
 Let's see what skorch did for us here:
 
-- wraps the PyTorch module in an sklearn interface
-- converts the numpy ``array``\s to ``torch.Tensor``\s
+- wraps the PyTorch :class:`~torch.nn.Module` in an sklearn interface
+- converts the numpy ``array``\s to PyTorch :class:`~torch.Tensor`\s
 - abstracts away the fit loop
 - takes care of batching the data
 
@@ -42,89 +41,91 @@ extended with ease, getting out of your way as much as possible.
 Initialization
 ^^^^^^^^^^^^^^
 
-In general, when you instantiate the ``NeuralNet`` instance, only the
-given arguments are stored. They are stored exactly as you pass them
-to ``NeuralNet``. For instance, the ``module`` will remain
-uninstantiated. This is to make sure that the arguments you pass are
-not touched afterwards, which makes it possible to clone the
-``NeuralNet`` instance, for instance.
+In general, when you instantiate the :class:`.NeuralNet` instance,
+only the given arguments are stored. They are stored exactly as you
+pass them to :class:`.NeuralNet`. For instance, the ``module`` will
+remain uninstantiated. This is to make sure that the arguments you
+pass are not touched afterwards, which makes it possible to clone the
+:class:`.NeuralNet` instance, for instance.
 
-Only when the ``fit`` or ``initialize`` method are called, are the
-different attributes of the net, such as the ``module``,
-initialized. An initialzed attribute's name always ends on an
-underscore; e.g., the initialized ``module`` is called
-``module_``. (This is the same nomenclature as sklearn uses.)
-Thefore, you always know which attributes you set and which ones were
-created by ``NeuralNet``.
+Only when the :func:`~skorch.net.NeuralNet.fit` or
+:func:`~skorch.net.NeuralNet.initialize` method are called, are the
+different attributes of the net, such as the ``module``, initialized.
+An initialzed attribute's name always ends on an underscore; e.g., the
+initialized ``module`` is called ``module_``. (This is the same
+nomenclature as sklearn uses.) Thefore, you always know which
+attributes you set and which ones were created by :class:`.NeuralNet`.
 
-The only exception is the :ref:`history <history>` attribute, which is not
-set by the user.
+The only exception is the :ref:`history <history>` attribute, which is
+not set by the user.
 
 Most important arguments and methods
 ------------------------------------
 
-A complete explanation of all arguments and methods of ``NeuralNet``
-are found in the skorch API documentation. Here we focus on the
-main ones.
+A complete explanation of all arguments and methods of
+:class:`.NeuralNet` are found in the skorch API documentation. Here we
+focus on the main ones.
 
 module
 ^^^^^^
 
-This is where you pass your PyTorch module. Ideally, it should not be
-instantiated. Instead, the init arguments for your module should be
-passed to ``NeuralNet`` with the ``module__`` prefix. E.g., if your
-module takes the arguments ``num_units`` and ``dropout``, the code
-would look like this:
+This is where you pass your PyTorch :class:`~torch.nn.Module`.
+Ideally, it should not be instantiated. Instead, the init arguments
+for your module should be passed to :class:`.NeuralNet` with the
+``module__`` prefix. E.g., if your module takes the arguments
+``num_units`` and ``dropout``, the code would look like this:
 
 .. code:: python
 
     class MyModule(torch.nn.Module):
         def __init__(self, num_units, dropout):
-	    ...
+            ...
 
     net = NeuralNet(
         module=MyModule,
-	module__num_units=100,
-	module__dropout=0.5,
-	criterion=torch.nn.NLLLoss,
+        module__num_units=100,
+        module__dropout=0.5,
+        criterion=torch.nn.NLLLoss,
     )
 
 It is, however, also possible to pass an instantiated module, e.g. a
-``torch.nn.Sequential`` instance.
+PyTorch :class:`~torch.nn.Sequential` instance.
 
 Note that skorch does not automatically apply any nonlinearities to
-the outputs (except internally when determining the
-``torch.nn.NLLLoss``, see below). That means that if you have a
+the outputs (except internally when determining the PyTorch
+:class:`~torch.nn.NLLLoss`, see below). That means that if you have a
 classification task, you should make sure that the final output
-nonlinearity is a softmax. Otherwise, when you call ``predict_proba``,
-you won't get actual probabilities.
+nonlinearity is a softmax. Otherwise, when you call
+:func:`~skorch.net.NeuralNet.predict_proba`, you won't get actual
+probabilities.
 
 criterion
 ^^^^^^^^^
 
 This should be a PyTorch (-compatible) criterion.
 
-When you use the ``NeuralNetClassifier``, the criterion is set to
-``torch.nn.NLLLoss`` by default. Furthermore, if you don't change it
-loss to another criterion, ``NeuralNetClassifier`` assumes that the
-module returns probabilities and will automatically apply a logarithm
-on them (which is what ``torch.nn.NLLLoss`` expects).
+When you use the :class:`.NeuralNetClassifier`, the criterion is set
+to PyTorch :class:`~torch.nn.NLLLoss` by default. Furthermore, if you
+don't change it loss to another criterion,
+:class:`.NeuralNetClassifier` assumes that the module returns
+probabilities and will automatically apply a logarithm on them (which
+is what :class:`~torch.nn.NLLLoss` expects).
 
-For ``NeuralNetRegressor``, the default criterion is
-``torch.nn.MSELoss``.
+For :class:`.NeuralNetRegressor`, the default criterion is PyTorch
+:class:`~torch.nn.MSELoss`.
 
-After initializing the ``NeuralNet``, the initialized criterion will
-stored in the ``criterion_`` attribute.
+After initializing the :class:`.NeuralNet`, the initialized criterion
+will stored in the ``criterion_`` attribute.
 
 optimizer
 ^^^^^^^^^
 
-This should be a PyTorch optimizer,
-e.g. ``torch.optim.SGD``. After initializing the ``NeuralNet``, the
-initialized optimizer will stored in the ``optimizer_`` attribute.
-During initialization you can define param groups, for example to
-set different learning rates for certain parameters. The parameters
-are selected by name with support for wildcards (globbing):
+This should be a PyTorch optimizer, e.g. :class:`~torch.optim.SGD`.
+After initializing the :class:`.NeuralNet`, the initialized optimizer
+will stored in the ``optimizer_`` attribute.  During initialization
+you can define param groups, for example to set different learning
+rates for certain parameters. The parameters are selected by name with
+support for wildcards (globbing):
 
 .. code:: python
 
@@ -144,14 +145,17 @@ often that we provided this shortcut. If you set both ``lr`` and
 max_epochs
 ^^^^^^^^^^
 
-The maximum number of epochs to train with each ``fit`` call. When you
-call ``fit``, the net will train for this many epochs, except if you
-interrupt training before the end (e.g. by using an early stopping
-callback or interrupt manually with ctrl+c).
+The maximum number of epochs to train with each
+:func:`~skorch.net.NeuralNet.fit` call. When you call
+:func:`~skorch.net.NeuralNet.fit`, the net will train for this many
+epochs, except if you interrupt training before the end (e.g. by using
+an early stopping callback or interrupt manually with ctrl+c).
 
 If you want to change the number of epochs to train, you can either
-set a different value for ``max_epochs``, or you call ``fit_loop``
-instead of ``fit`` and pass the desired number of epochs explicitely:
+set a different value for ``max_epochs``, or you call
+:func:`~skorch.net.NeuralNet.fit_loop` instead of
+:func:`~skorch.net.NeuralNet.fit` and pass the desired number of
+epochs explicitely:
 
 .. code:: python
 
@@ -171,7 +175,7 @@ the latter two will have precedence.
 train_split
 ^^^^^^^^^^^
 
-This determines the ``NeuralNet``\'s internal train/validation
+This determines the :class:`.NeuralNet`\'s internal train/validation
 split. By default, 20% of the incoming data is reserved for
 validation. If you set this value to ``None``, all the data is used
 for training.
@@ -184,27 +188,28 @@ callbacks
 For more details on the callback classes, please look at
 :ref:`callbacks <skorch.callbacks>`.
 
-By default, ``NeuralNet`` and its subclasses start with a couple of
-useful callbacks. Those are defined in the ``get_default_callbacks``
-method and include, for instance, callbacks for measuring and printing
-model performance.
+By default, :class:`.NeuralNet` and its subclasses start with a couple
+of useful callbacks. Those are defined in the
+:func:`~skorch.net.NeuralNet.get_default_callbacks` method and
+include, for instance, callbacks for measuring and printing model
+performance.
 
 In addition to the default callbacks, you may provide your own
 callbacks. There are a couple of ways to pass callbacks to the
-``NeuralNet`` instance. The easiest way is to pass a list of all your
-callbacks to the ``callbacks`` argument:
+:class:`.NeuralNet` instance. The easiest way is to pass a list of all
+your callbacks to the ``callbacks`` argument:
 
 .. code:: python
 
     net = NeuralNet(
         module=MyModule,
-	callbacks=[
-	    MyCallback1(...),
-	    MyCallback2(...),
-	],
+        callbacks=[
+            MyCallback1(...),
+            MyCallback2(...),
+        ],
     )
 
-Inside the ``NeuralNet`` instance, each callback will receive a
+Inside the :class:`.NeuralNet` instance, each callback will receive a
 separate name. Since we provide no name in the example above, the
 class name will taken, which will lead to a name collision in case of
 two or more callbacks of the same class. This is why it is better to
@@ -215,15 +220,15 @@ instance*, like this:
 
     net = NeuralNet(
         module=MyModule,
-	callbacks=[
-	    ('cb1', MyCallback1(...)),
-	    ('cb2', MyCallback2(...)),
-	],
+        callbacks=[
+            ('cb1', MyCallback1(...)),
+            ('cb2', MyCallback2(...)),
+        ],
     )
 
 This approach of passing a list of *name*, *instance* tuples should be
-familiar to users of sklearn\ ``Pipeline``\s and
-``FeatureUnion``\s.
+familiar to users of sklearn\ :class:`~sklearn.pipeline.Pipeline`\s
+and :class:`~sklearn.pipeline.FeatureUnion`\s.
 
 An additonal advantage of this way of passing callbacks is that it
 allows to pass arguments to the callbacks by name (using the
@@ -239,46 +244,53 @@ in a grid search.
 *Note*: The user-defined callbacks are always called *after* the
 default callbacks. This is so that user-defined callbacks can make use
 of the things provided by the default callbacks. The only exception is
-the default callback ``PrintLog``, which is always called last.
+the default callback :class:`~skorch.callbacks.PrintLog`, which is
+always called last.
 
 warm_start
 ^^^^^^^^^^
 
-This argument determines whether each ``fit`` call leads to a
-re-initialization of the ``NeuralNet`` or not. By default, when
-calling ``fit``, the parameters of the net are initialized, so your
-previous training progress is lost (consistent with the sklearn
-``fit`` calls). In contrast, with ``warm_start=True``, each ``fit``
-call will continue from the most recent state.
+This argument determines whether each
+:func:`~skorch.net.NeuralNet.fit` call leads to a re-initialization of
+the :class:`.NeuralNet` or not. By default, when calling
+:func:`~skorch.net.NeuralNet.fit`, the parameters of the net are
+initialized, so your previous training progress is lost (consistent
+with the sklearn ``fit()`` calls). In contrast, with
+``warm_start=True``, each :func:`~skorch.net.NeuralNet.fit` call will
+continue from the most recent state.
 
 device
 ^^^^^^
 
-As the name suggests, this determines which computation device should 
-be used. If set to ``cuda``, the incoming data will be transferred to 
-CUDA before being passed to the ``pytorch module``. The device parameter
-adheres to the general syntax of the PyTorch device parameter.
+As the name suggests, this determines which computation device should
+be used. If set to ``cuda``, the incoming data will be transferred to
+CUDA before being passed to the PyTorch :class:`~torch.nn.Module`. The
+device parameter adheres to the general syntax of the PyTorch device
+parameter.
 
-Among other things, ``device`` is passed to ``Dataset`` when it is
-initialized, but if you set ``dataset__device`` explicitely, the
+Among other things, ``device`` is passed to :class:`.Dataset` when it
+is initialized, but if you set ``dataset__device`` explicitely, the
 latter will have precedence.
 
 initialize()
 ^^^^^^^^^^^^
 
-As mentioned earlier, upon instantiating the ``NeuralNet`` instance,
-the net's components are not yet initialized. That means, e.g., that
-the weights and biases of the layers are not yet set. This only
-happens after the ``initialize`` call. However, when you call ``fit``
-and the net is not yet initialized, ``initialize`` is called
-automatically. You thus rarely need to call ``initialize`` manually.
+As mentioned earlier, upon instantiating the :class:`.NeuralNet`
+instance, the net's components are not yet initialized. That means,
+e.g., that the weights and biases of the layers are not yet set. This
+only happens after the :func:`~skorch.net.NeuralNet.initialize` call.
+However, when you call :func:`~skorch.net.NeuralNet.fit` and the net
+is not yet initialized, :func:`~skorch.net.NeuralNet.initialize` is
+called automatically. You thus rarely need to call it manually.
 
-The ``initialize`` methods itself calls a couple of other
-initialization methods that are specific to each component. E.g.,
-``initialize_module`` is responsible for initializing the ``pytorch
-module``. Therefore, if you have special needs for initializing the
-module, it is enough to override ``initialize_module``, you don't need
-to override the whole ``initialize`` method.
+The :func:`~skorch.net.NeuralNet.initialize` method itself calls a
+couple of other initialization methods that are specific to each
+component. E.g., :func:`~skorch.net.NeuralNet.initialize_module` is
+responsible for initializing the PyTorch module. Therefore, if you
+have special needs for initializing the module, it is enough to
+override :func:`~skorch.net.NeuralNet.initialize_module`, you don't
+need to override the whole :func:`~skorch.net.NeuralNet.initialize`
+method.
 
 fit(X, y)
 ^^^^^^^^^
@@ -297,12 +309,13 @@ several components down the line might not work anymore, since sklearn
 sometimes requires an explicit ``y`` (e.g. for scoring). In general,
 Datasets should work, though.
 
-In addition to ``fit``, there is also the ``partial_fit`` method,
-known from some sklearn estimators. ``partial_fit`` allows you to
-continue training from your current status, even if you set
-``warm_start=False``. A further use case for ``partial_fit`` is when
-your data does not fit into memory and you thus need to have several
-training steps.
+In addition to :func:`~skorch.net.NeuralNet.fit`, there is also the
+:func:`~skorch.net.NeuralNet.partial_fit` method, known from some
+sklearn estimators. :func:`~skorch.net.NeuralNet.partial_fit` allows
+you to continue training from your current status, even if you set
+``warm_start=False``. A further use case for
+:func:`~skorch.net.NeuralNet.partial_fit` is when your data does not
+fit into memory and you thus need to have several training steps.
 
 *Tip* :
 skorch gracefully cathes the ``KeyboardInterrupt``
@@ -317,43 +330,50 @@ predict(X) and predict_proba(X)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These methods perform an inference step on the input data and return
-``numpy array``\s. By default, ``predict_proba`` will return whatever
-it is that the ``module``\'s ``forward`` method returns, cast to a
-``numpy array``. If ``forward`` returns multiple outputs as a tuple,
+``numpy array``\s. By default,
+:func:`~skorch.net.NeuralNet.predict_proba` will return whatever it is
+that the ``module``\'s :func:`~torch.nn.Module.forward` method
+returns, cast to a ``numpy array``. If
+:func:`~torch.nn.Module.forward` returns multiple outputs as a tuple,
 only the first output is used, the rest is discarded.
 
-If casting the ``forward``\-output to ``numpy`` is impossible, you
-will get an error. In that case, you should consider returning a torch
-tensor from your ``forward`` method, as this tensor can be converted
-to a ``numpy`` array. Alternatively, consider using the
-``forward_iter`` method to generate outputs from the ``module``, or
-directly call ``net.module_(X)``.
+If casting the :func:`~torch.nn.Module.forward`\-output to ``numpy``
+is impossible, you will get an error. In that case, you should
+consider returning a PyTorch :class:`~torch.Tensor` from your
+:func:`~torch.nn.Module.forward` method, as this tensor can be
+converted to a ``numpy`` array. Alternatively, consider using the
+:func:`~skorch.net.NeuralNet.forward_iter` method to generate outputs
+from the ``module``, or directly call ``net.module_(X)``.
 
-In case of ``NeuralNetClassifier``, the ``predict`` method tries to
-return the class labels by applying the argmax over the last axis of
-the result of ``predict_proba``. Obviously, this only makes sense if
-``predict_proba`` returns class probabilities. If this is not true,
-you should just use ``predict_proba``.
+In case of :class:`.NeuralNetClassifier`, the
+:func:`~skorch.net.NeuralNetClassifier.predict` method tries to return
+the class labels by applying the argmax over the last axis of the
+result of :func:`~skorch.net.NeuralNetClassifier.predict_proba`.
+Obviously, this only makes sense if
+:func:`~skorch.net.NeuralNetClassifier.predict_proba` returns class
+probabilities. If this is not true, you should just use
+:func:`~skorch.net.NeuralNetClassifier.predict_proba`.
 
 saving and loading
 ^^^^^^^^^^^^^^^^^^
 
-skorch provides two ways to persist your model. First it is
-possible to store the model using Python's ``pickle`` function. This
-saves the whole model, including hyperparameters. This is useful when
-you don't want to initialize your model before loading its parameters,
-or when your ``NeuralNet`` is part of an ``sklearn Pipeline``:
+skorch provides two ways to persist your model. First it is possible
+to store the model using Python's ``pickle`` function. This saves the
+whole model, including hyperparameters. This is useful when you don't
+want to initialize your model before loading its parameters, or when
+your :class:`.NeuralNet` is part of an sklearn
+:class:`~sklearn.pipeline.Pipeline`:
 
 .. code:: python
 
     net = NeuralNet(
         module=MyModule,
-	criterion=torch.nn.NLLLoss,
+        criterion=torch.nn.NLLLoss,
     )
 
     model = Pipeline([
         ('my-features', get_features()),
-	('net', net),
+        ('net', net),
     ])
     model.fit(X, y)
 
@@ -369,23 +389,24 @@ The disadvantage of pickling is that if your underlying code changes,
 unpickling might raise errors. Also, some Python code (e.g. lambda
 functions) cannot be pickled.
 
-For this reason, we provide a second method for persisting your
-model. To use it, call the ``save_params`` and ``load_params`` method
-on ``NeuralNet``. Under the hood, this saves the ``module``\'s
-``state_dict``, i.e. only the weights and biases of the
-``module``. This is more robust to changes in the code but requires
-you to initialize a ``NeuralNet`` to load the parameters again:
+For this reason, we provide a second method for persisting your model.
+To use it, call the :func:`~skorch.net.NeuralNet.save_params` and
+:func:`~skorch.net.NeuralNet.load_params` method on
+:class:`.NeuralNet`. Under the hood, this saves the ``module``\'s
+``state_dict``, i.e. only the weights and biases of the ``module``.
+This is more robust to changes in the code but requires you to
+initialize a :class:`.NeuralNet` to load the parameters again:
 
 .. code:: python
 
     net = NeuralNet(
         module=MyModule,
-	criterion=torch.nn.NLLLoss,
+        criterion=torch.nn.NLLLoss,
     )
 
     model = Pipeline([
         ('my-features', get_features()),
-	('net', net),
+        ('net', net),
     ])
     model.fit(X, y)
 
@@ -393,7 +414,7 @@ you to initialize a ``NeuralNet`` to load the parameters again:
 
     new_net = NeuralNet(
         module=MyModule,
-	criterion=torch.nn.NLLLoss,
+        criterion=torch.nn.NLLLoss,
     )
     new_net.initialize()  # This is important!
     new_net.load_params('some-file.pkl')
@@ -402,32 +423,33 @@ you to initialize a ``NeuralNet`` to load the parameters again:
 Special arguments
 -----------------
 
-In addition to the arguments explicitely listed for ``NeuralNet``,
-there are some arguments with special prefixes, as shown below:
+In addition to the arguments explicitely listed for
+:class:`.NeuralNet`, there are some arguments with special prefixes,
+as shown below:
 
 .. code:: python
 
     class MyModule(torch.nn.Module):
         def __init__(self, num_units, dropout):
-	    ...
+            ...
 
     net = NeuralNet(
         module=MyModule,
-	module__num_units=100,
-	module__dropout=0.5,
-	criterion=torch.nn.NLLLoss,
-	criterion__weight=weight,
-	optimizer=torch.optim.SGD,
-	optimizer__momentum=0.9,
+        module__num_units=100,
+        module__dropout=0.5,
+        criterion=torch.nn.NLLLoss,
+        criterion__weight=weight,
+        optimizer=torch.optim.SGD,
+        optimizer__momentum=0.9,
     )
 
-Those arguments are used to initialize your ``Module``, ``criterion``,
+Those arguments are used to initialize your ``module``, ``criterion``,
 etc. They are not fixed because we cannot know them in advance; in
-fact, you can define any parameter for your ``Module`` or other
+fact, you can define any parameter for your ``module`` or other
 components.
 
 All special prefixes are stored in the ``prefixes_`` class attribute
-of ``NeuralNet``. Currently, they are:
+of :class:`.NeuralNet`. Currently, they are:
 
 - ``module``
 - ``iterator_train``
@@ -440,27 +462,29 @@ of ``NeuralNet``. Currently, they are:
 Subclassing NeuralNet
 ---------------------
 
-Apart from the ``NeuralNet`` base class, we provide
-``NeuralNetClassifier`` and ``NeuralNetRegressor`` for typical
-classification and regressions tasks. They should work as drop-in
-replacements for sklearn classifiers and regressors.
+Apart from the :class:`.NeuralNet` base class, we provide
+:class:`.NeuralNetClassifier` and :class:`.NeuralNetRegressor` for
+typical classification and regressions tasks. They should work as
+drop-in replacements for sklearn classifiers and regressors.
 
-The ``NeuralNet`` class is a little less opinionated about the
-incoming data, e.g. it does not determine a loss function by
-default. Therefore, if you want to write your own subclass for a
-special use case, you would typically subclass from ``NeuralNet``.
+The :class:`.NeuralNet` class is a little less opinionated about the
+incoming data, e.g. it does not determine a loss function by default.
+Therefore, if you want to write your own subclass for a special use
+case, you would typically subclass from :class:`.NeuralNet`.
 
-skorch aims at making subclassing as easy as possible, so that
+skorch aims at making subclassing as easy as possible, so that it
 doesn't stand in your way. For instance, all components (``module``,
 ``optimizer``, etc.) have their own initialization method
 (``initialize_module``, ``initialize_optimizer``, etc.). That way, if
 you want to modify the initialization of a component, you can easily
 do so.
 
-Additonally, ``NeuralNet`` has a couple of ``get_*`` methods for when
-a component is retrieved repeatedly. E.g., ``get_loss`` is called when
-the loss is determined. Below we show an example of overriding
-``get_loss`` to add L1 regularization to our total loss:
+Additonally, :class:`.NeuralNet` has a couple of ``get_*`` methods for
+when a component is retrieved repeatedly. E.g.,
+:func:`~skorch.net.NeuralNet.get_loss` is called when the loss is
+determined. Below we show an example of overriding
+:func:`~skorch.net.NeuralNet.get_loss` to add L1 regularization to our
+total loss:
 
 .. code:: python
 

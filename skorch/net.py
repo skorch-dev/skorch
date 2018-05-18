@@ -2,7 +2,6 @@
 
 import fnmatch
 from itertools import chain
-from functools import partial
 import re
 import tempfile
 import warnings
@@ -46,8 +45,8 @@ class NeuralNet(object):
     """NeuralNet base class.
 
     The base class covers more generic cases. Depending on your use
-    case, you might want to use ``NeuralNetClassifier`` or
-    ``NeuralNetRegressor``.
+    case, you might want to use :class:`.NeuralNetClassifier` or
+    :class:`.NeuralNetRegressor`.
 
     In addition to the parameters listed below, there are parameters
     with specific prefixes that are handled separately. To illustrate
@@ -106,12 +105,12 @@ class NeuralNet(object):
       which would result in the same outcome.
 
     iterator_train : torch DataLoader
-      The default ``torch.utils.data.DataLoader`` used for training
-      data.
+      The default PyTorch :class:`~torch.utils.data.DataLoader` used for
+      training data.
 
     iterator_valid : torch DataLoader
-      The default ``torch.utils.data.DataLoader`` used for validation
-      and test data, i.e. during inference.
+      The default PyTorch :class:`~torch.utils.data.DataLoader` used for
+      validation and test data, i.e. during inference.
 
     dataset : torch Dataset (default=skorch.dataset.Dataset)
       The dataset is necessary for the incoming data to work with
@@ -475,8 +474,9 @@ class NeuralNet(object):
 
         """
         self.module_.eval()
-        y_pred = self.infer(Xi, **fit_params)
-        loss = self.get_loss(y_pred, yi, X=Xi, training=False)
+        with torch.no_grad():
+            y_pred = self.infer(Xi, **fit_params)
+            loss = self.get_loss(y_pred, yi, X=Xi, training=False)
         return {
             'loss': loss,
             'y_pred': y_pred,
@@ -528,8 +528,9 @@ class NeuralNet(object):
         like dropout by setting ``training=True``.
 
         """
-        self.module_.train(training)
-        return self.infer(Xi)
+        with torch.set_grad_enabled(training):
+            self.module_.train(training)
+            return self.infer(Xi)
 
     def fit_loop(self, X, y=None, epochs=None, **fit_params):
         """The proper fit loop.
@@ -737,9 +738,9 @@ class NeuralNet(object):
 
         The outputs from ``self.module_.forward`` are gathered on the
         compute device specified by ``device`` and then concatenated
-        using ``torch.cat``. If multiple outputs are returned by
-        ``self.module_.forward``, each one of them must be able to be
-        concatenated this way.
+        using PyTorch :func:`~torch.cat`. If multiple outputs are
+        returned by ``self.module_.forward``, each one of them must be
+        able to be concatenated this way.
 
         Parameters
         ----------
@@ -1256,7 +1257,7 @@ class NeuralNet(object):
         Parameters
         ----------
         f : file-like object or str
-          See ``torch.save`` documentation.
+          See PyTorch :func:`~torch.save` documentation.
 
         Examples
         --------
@@ -1281,7 +1282,7 @@ class NeuralNet(object):
         Parameters
         ----------
         f : file-like object or str
-          See ``torch.load`` documentation.
+          See PyTorch :func:`~torch.load` documentation.
 
         Examples
         --------
