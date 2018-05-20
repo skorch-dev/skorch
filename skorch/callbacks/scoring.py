@@ -93,6 +93,12 @@ class ScoringBase(Callback):
         self.name_ = self._get_name()
         return self
 
+    # pylint: disable=arguments-differ
+    def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
+        ds = dataset_train if self.on_train else dataset_valid
+        # pylint: disable=attribute-defined-outside-init
+        self.y_is_placeholder_ = isinstance(ds, Dataset) and ds.y is None
+
     def _scoring(self, net, X_test, y_test):
         """Resolve scoring and apply it to data. Use cached prediction
         instead of running inference again, if available."""
@@ -131,6 +137,9 @@ class BatchScoring(ScoringBase):
     scores in this case. Therefore, it is recommnded to use
     ``EpochScoring`` unless you really need the scores for each batch.
 
+    If ``y`` is None, the ``scoring`` function with signature (model, X, y)
+    must be able to handle ``X`` as a ``Tensor`` and ``y=None``.
+
     Parameters
     ----------
     scoring : None, str, or callable
@@ -166,7 +175,9 @@ class BatchScoring(ScoringBase):
 
         y_preds = [kwargs['y_pred']]
         with cache_net_infer(net, self.use_caching, y_preds) as cached_net:
-            y = self.target_extractor(y)
+            # In case of y=None we will not have gathered any samples.
+            # We expect the scoring function to deal with y=None.
+            y = None if self.y_is_placeholder_ else self.target_extractor(y)
             try:
                 score = self._scoring(cached_net, X, y)
                 cached_net.history.record_batch(self.name_, score)
@@ -283,10 +294,7 @@ class EpochScoring(ScoringBase):
     # pylint: disable=arguments-differ
     def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
         self._initialize_cache()
-
-        ds = dataset_train if self.on_train else dataset_valid
-        # pylint: disable=attribute-defined-outside-init
-        self.y_is_placeholder_ = isinstance(ds, Dataset) and ds.y is None
+        super().on_epoch_begin(net, dataset_train, dataset_valid, **kwargs)
 
     # pylint: disable=arguments-differ
     def on_batch_end(self, net, y, y_pred, training, **kwargs):
