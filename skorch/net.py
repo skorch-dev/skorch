@@ -102,7 +102,9 @@ class NeuralNet(object):
     batch_size : int (default=128)
       Mini-batch size. Use this instead of setting
       ``iterator_train__batch_size`` and ``iterator_test__batch_size``,
-      which would result in the same outcome.
+      which would result in the same outcome. If ``batch_size`` is None,
+      a single batch with all the data will be used during training
+      and validation.
 
     iterator_train : torch DataLoader
       The default PyTorch :class:`~torch.utils.data.DataLoader` used for
