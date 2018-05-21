@@ -102,7 +102,7 @@ class NeuralNet(object):
     batch_size : int (default=128)
       Mini-batch size. Use this instead of setting
       ``iterator_train__batch_size`` and ``iterator_test__batch_size``,
-      which would result in the same outcome. If ``batch_size`` is None,
+      which would result in the same outcome. If ``batch_size`` is -1,
       a single batch with all the data will be used during training
       and validation.
 
@@ -1044,7 +1044,10 @@ class NeuralNet(object):
             iterator = self.iterator_valid
 
         if 'batch_size' not in kwargs:
-            kwargs['batch_size'] = self.batch_size or len(dataset)
+            kwargs['batch_size'] = self.batch_size
+
+        if kwargs['batch_size'] == -1:
+            kwargs['batch_size'] = len(dataset)
 
         return iterator(dataset, **kwargs)
 

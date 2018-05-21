@@ -1353,26 +1353,75 @@ class TestNeuralNet:
 
         assert y_eval.requires_grad is training
 
-    def test_batch_size_none_uses_whole_dataset(
+    def test_batch_size_neg_1_uses_whole_dataset(
             self, net_cls, module_cls, data):
 
         train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
         valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
 
-        batch_size = len(data[0])
-        net = net_cls(module_cls,
-                      batch_size=None,
-                      max_epochs=1,
+        data_size = len(data[0])
+        net = net_cls(module_cls, max_epochs=1,
                       iterator_train=train_loader_mock,
-                      iterator_valid=valid_loader_mock)
+                      iterator_valid=valid_loader_mock,
+                      batch_size=-1)
         net.fit(*data)
 
         train_batch_size = net.history[:, 'batches', 'train_batch_size'][0][0]
         valid_batch_size = net.history[:, 'batches', 'valid_batch_size'][0][0]
 
         # By default the train-valid split is 80-20
-        assert train_batch_size == int(0.8 * batch_size)
-        assert valid_batch_size == int(0.2 * batch_size)
+        assert train_batch_size == int(0.8 * data_size)
+        assert valid_batch_size == int(0.2 * data_size)
+
+        train_kwargs = train_loader_mock.call_args[1]
+        valid_kwargs = valid_loader_mock.call_args[1]
+        assert train_kwargs['batch_size'] == train_batch_size
+        assert valid_kwargs['batch_size'] == valid_batch_size
+
+    def test_iterator_train__batch_size_neg_1_uses_whole_dataset(
+            self, net_cls, module_cls, data):
+
+        train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+        valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+
+        data_size = len(data[0])
+        net = net_cls(module_cls, max_epochs=1,
+                      iterator_train=train_loader_mock,
+                      iterator_valid=valid_loader_mock,
+                      iterator_train__batch_size=-1)
+        net.fit(*data)
+
+        train_batch_size = net.history[:, 'batches', 'train_batch_size'][0][0]
+        valid_batch_size = net.history[:, 'batches', 'valid_batch_size'][0][0]
+
+        assert train_batch_size == int(0.8 * data_size)
+        # 128 is default batch size
+        assert valid_batch_size == 128
+
+        train_kwargs = train_loader_mock.call_args[1]
+        valid_kwargs = valid_loader_mock.call_args[1]
+        assert train_kwargs['batch_size'] == train_batch_size
+        assert valid_kwargs['batch_size'] == valid_batch_size
+
+    def test_iterator_valid__batch_size_neg_1_uses_whole_dataset(
+            self, net_cls, module_cls, data):
+
+        train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+        valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+
+        data_size = len(data[0])
+        net = net_cls(module_cls, max_epochs=1,
+                      iterator_train=train_loader_mock,
+                      iterator_valid=valid_loader_mock,
+                      iterator_valid__batch_size=-1)
+        net.fit(*data)
+
+        train_batch_size = net.history[:, 'batches', 'train_batch_size'][0][0]
+        valid_batch_size = net.history[:, 'batches', 'valid_batch_size'][0][0]
+
+        # default batch_size is 128
+        assert train_batch_size == 128
+        assert valid_batch_size == int(0.2 * data_size)
 
         train_kwargs = train_loader_mock.call_args[1]
         valid_kwargs = valid_loader_mock.call_args[1]
