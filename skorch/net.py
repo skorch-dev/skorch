@@ -1042,7 +1042,7 @@ class NeuralNet(object):
             iterator = self.iterator_valid
 
         if 'batch_size' not in kwargs:
-            kwargs['batch_size'] = self.batch_size
+            kwargs['batch_size'] = self.batch_size or len(dataset)
 
         return iterator(dataset, **kwargs)
 
