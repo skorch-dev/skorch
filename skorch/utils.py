@@ -264,3 +264,13 @@ def is_skorch_dataset(ds):
     if isinstance(ds, Subset):
         return is_skorch_dataset(ds.dataset)
     return isinstance(ds, Dataset)
+
+
+# pylint: disable=unused-argument
+def noop(*args, **kwargs):
+    """No-op function that does nothing and returns ``None``.
+
+    This is useful for defining scoring callbacks that do not need a
+    target extractor.
+    """
+    pass
