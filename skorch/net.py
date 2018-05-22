@@ -582,28 +582,37 @@ class NeuralNet(object):
             'dataset_valid': dataset_valid,
         }
 
+        train_y_is_placeholder = (isinstance(dataset_train, Dataset) and
+                                  dataset_train.y is None)
+        valid_y_is_placeholder = (isinstance(dataset_valid, Dataset) and
+                                  dataset_valid.y is None)
+
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             for Xi, yi in self.get_iterator(dataset_train, training=True):
-                self.notify('on_batch_begin', X=Xi, y=yi, training=True)
+                self.notify('on_batch_begin', X=Xi, y=yi, training=True,
+                            y_is_placeholder=train_y_is_placeholder)
                 step = self.train_step(Xi, yi, **fit_params)
                 self.history.record_batch(
                     'train_loss', step['loss'].data.item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
+                self.notify('on_batch_end', X=Xi, y=yi, training=True,
+                            y_is_placeholder=train_y_is_placeholder, **step)
 
             if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
-                self.notify('on_batch_begin', X=Xi, y=yi, training=False)
+                self.notify('on_batch_begin', X=Xi, y=yi, training=False,
+                            y_is_placeholder=valid_y_is_placeholder)
                 step = self.validation_step(Xi, yi, **fit_params)
                 self.history.record_batch(
                     'valid_loss', step['loss'].data.item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, training=False, **step)
+                self.notify('on_batch_end', X=Xi, y=yi, training=False,
+                            y_is_placeholder=valid_y_is_placeholder, **step)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
