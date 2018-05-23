@@ -29,7 +29,7 @@ class LRScheduler(Callback):
       Learning rate policy name or scheduler to be used.
 
     monitor : str or callable (default=None)
-      Value of the history to monitor or function/callable that. In
+      Value of the history to monitor or function/callable. In
       the latter case, the callable receives the net instance as
       argument and is expected to return the score (float) used to
       determine the learning rate adjustment.
