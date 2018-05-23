@@ -5,14 +5,18 @@ Should not have any dependency on other skorch packages.
 """
 
 from collections.abc import Sequence
+from contextlib import contextmanager
 from enum import Enum
 from functools import partial
+import sys
 
 import numpy as np
 from sklearn.utils import safe_indexing
 import torch
 from torch import nn
 from torch.utils.data.dataset import Subset
+if sys.version_info[0] == 3:
+    import pathlib
 
 
 class Ansi(Enum):
@@ -274,3 +278,18 @@ def noop(*args, **kwargs):
     target extractor.
     """
     pass
+
+
+@contextmanager
+def _with_file_like(f, mode):
+    new_fd = False
+    if (
+        isinstance(f, str) or
+        sys.version_info[0] == 2 and isinstance(f, unicode) or
+        sys.version_info[0] == 3 and isinstance(f, pathlib.Path)
+    ):
+        new_fd = True
+        f = open(f, mode)
+    yield f
+    if new_fd:
+        f.close()
