@@ -679,6 +679,6 @@ class TestBatchScoring:
 
         y_pred = net.predict(X)
         # We test that we predict as many outputs as we put in. With
-        # the bug, the cache would be partially exhausted and we would
-        # get back less.
+        # the bug, the cache would be exhausted early because of the
+        # train split, and we would get back less.
         assert len(y_pred) == len(X)
