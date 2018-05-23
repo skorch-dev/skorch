@@ -46,9 +46,9 @@ class Checkpoint(Callback):
       >>> cb = Checkpoint(target="target_{last_epoch[epoch]}.pt")
 
     monitor : str, function, None
-      Value of the history to monitor or callback that determines whether
-      this epoch should to a checkpoint. The callback takes the network
-      instance as parameter.
+      Value of the history to monitor or callback that determines
+      whether this epoch should lead to a checkpoint. The callback
+      takes the network instance as parameter.
 
       In case ``monitor`` is set to ``None``, the callback will save
       the network at every epoch.

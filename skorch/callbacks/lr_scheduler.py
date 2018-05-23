@@ -29,9 +29,10 @@ class LRScheduler(Callback):
       Learning rate policy name or scheduler to be used.
 
     monitor : str or callable (default=None)
-      Value of the history to monitor or callback that determines whether
-      this epoch should to a checkpoint. The callback takes the network
-      instance as parameter.
+      Value of the history to monitor or function/callable that. In
+      the latter case, the callable receives the net instance as
+      argument and is expected to return the score (float) used to
+      determine the learning rate adjustment.
 
     kwargs
       Additional arguments passed to the lr scheduler.
