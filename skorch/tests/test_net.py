@@ -1353,6 +1353,38 @@ class TestNeuralNet:
 
         assert y_eval.requires_grad is training
 
+    @pytest.mark.parametrize(
+        'net_kwargs,expected_train_batch_size,expected_valid_batch_size',
+        [
+            ({'batch_size': -1}, 800, 200),
+            ({'iterator_train__batch_size': -1}, 800, 128),
+            ({'iterator_valid__batch_size': -1}, 128, 200),
+        ]
+    )
+    def test_batch_size_neg_1_uses_whole_dataset(
+            self, net_cls, module_cls, data, net_kwargs,
+            expected_train_batch_size, expected_valid_batch_size):
+
+        train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+        valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+
+        net = net_cls(module_cls, max_epochs=1,
+                      iterator_train=train_loader_mock,
+                      iterator_valid=valid_loader_mock,
+                      **net_kwargs)
+        net.fit(*data)
+
+        train_batch_size = net.history[:, 'batches', 'train_batch_size'][0][0]
+        valid_batch_size = net.history[:, 'batches', 'valid_batch_size'][0][0]
+
+        assert train_batch_size == expected_train_batch_size
+        assert valid_batch_size == expected_valid_batch_size
+
+        train_kwargs = train_loader_mock.call_args[1]
+        valid_kwargs = valid_loader_mock.call_args[1]
+        assert train_kwargs['batch_size'] == expected_train_batch_size
+        assert valid_kwargs['batch_size'] == expected_valid_batch_size
+
 
 class MyRegressor(nn.Module):
     """Simple regression module.

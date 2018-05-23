@@ -24,9 +24,10 @@ from skorch.history import History
 from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
+from skorch.utils import noop
+from skorch.utils import params_for
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import params_for
 
 
 # pylint: disable=unused-argument
@@ -102,7 +103,9 @@ class NeuralNet(object):
     batch_size : int (default=128)
       Mini-batch size. Use this instead of setting
       ``iterator_train__batch_size`` and ``iterator_test__batch_size``,
-      which would result in the same outcome.
+      which would result in the same outcome. If ``batch_size`` is -1,
+      a single batch with all the data will be used during training
+      and validation.
 
     iterator_train : torch DataLoader
       The default PyTorch :class:`~torch.utils.data.DataLoader` used for
@@ -256,10 +259,12 @@ class NeuralNet(object):
                 train_loss_score,
                 name='train_loss',
                 on_train=True,
+                target_extractor=noop,
             )),
             ('valid_loss', BatchScoring(
                 valid_loss_score,
                 name='valid_loss',
+                target_extractor=noop,
             )),
             ('print_log', PrintLog()),
         ]
@@ -1044,6 +1049,9 @@ class NeuralNet(object):
         if 'batch_size' not in kwargs:
             kwargs['batch_size'] = self.batch_size
 
+        if kwargs['batch_size'] == -1:
+            kwargs['batch_size'] = len(dataset)
+
         return iterator(dataset, **kwargs)
 
     def _get_params_for(self, prefix):
@@ -1401,10 +1409,12 @@ class NeuralNetClassifier(NeuralNet):
                 train_loss_score,
                 name='train_loss',
                 on_train=True,
+                target_extractor=noop,
             )),
             ('valid_loss', BatchScoring(
                 valid_loss_score,
                 name='valid_loss',
+                target_extractor=noop,
             )),
             ('valid_acc', EpochScoring(
                 'accuracy',
