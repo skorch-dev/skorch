@@ -4,7 +4,7 @@ from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
 
 
-__all__ = ['Checkpoint']
+__all__ = ['Checkpoint', 'EarlyStopping']
 
 
 class Checkpoint(Callback):
@@ -90,3 +90,39 @@ class Checkpoint(Callback):
             if net.verbose > 0:
                 print("Checkpoint! Saving model to {}.".format(target))
             net.save_params(target)
+
+
+class EarlyStopping(Callback):
+    """Stop training early if a specified monitor metric did not improve in a
+    given amount of epochs.
+
+    Parameters
+    ----------
+    monitor : str (default='valid_loss_best')
+      Value of the history to monitor to decide whether to stop training or not.
+      The value is expected to be boolean and is commonly provided by scoring
+      callbacks such as :class:`skorch.callbacks.EpochScoring`.
+
+    stop_threshold : int (default=5)
+      Number of epochs to wait for improvement of the monitor value until
+      the training process is stopped.
+    """
+    def __init__(self, monitor='valid_loss_best', stop_threshold=5):
+        self.monitor = monitor
+        self.stop_threshold = stop_threshold
+        self.misses_ = 0
+
+    # pylint: disable=arguments-differ
+    def on_train_begin(self, net, **kwargs):
+        self.misses_ = 0
+
+    def on_epoch_end(self, net, **kwargs):
+        if not net.history[-1, self.monitor]:
+            self.misses_ += 1
+        else:
+            self.misses_ = 0
+        if self.misses_ == self.stop_threshold:
+            if net.verbose:
+                print("Stopping since {} did not improve for the last "
+                      "{} epochs.".format(self.monitor, self.stop_threshold))
+            raise KeyboardInterrupt

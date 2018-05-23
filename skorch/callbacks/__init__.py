@@ -15,4 +15,4 @@ from .lr_scheduler import *
 
 __all__ = ['Callback', 'EpochTimer', 'PrintLog', 'ProgressBar',
            'LRScheduler', 'WarmRestartLR', 'CyclicLR', 'GradientNormClipping',
-           'BatchScoring', 'EpochScoring', 'Checkpoint']
+           'BatchScoring', 'EpochScoring', 'Checkpoint', 'EarlyStopping']
