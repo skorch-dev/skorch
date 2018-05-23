@@ -24,9 +24,10 @@ from skorch.history import History
 from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
+from skorch.utils import noop
+from skorch.utils import params_for
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import params_for
 
 
 # pylint: disable=unused-argument
@@ -258,10 +259,12 @@ class NeuralNet(object):
                 train_loss_score,
                 name='train_loss',
                 on_train=True,
+                target_extractor=noop,
             )),
             ('valid_loss', BatchScoring(
                 valid_loss_score,
                 name='valid_loss',
+                target_extractor=noop,
             )),
             ('print_log', PrintLog()),
         ]
@@ -1406,10 +1409,12 @@ class NeuralNetClassifier(NeuralNet):
                 train_loss_score,
                 name='train_loss',
                 on_train=True,
+                target_extractor=noop,
             )),
             ('valid_loss', BatchScoring(
                 valid_loss_score,
                 name='valid_loss',
+                target_extractor=noop,
             )),
             ('valid_acc', EpochScoring(
                 'accuracy',
