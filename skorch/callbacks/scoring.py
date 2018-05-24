@@ -164,7 +164,7 @@ class BatchScoring(ScoringBase):
     """
     # pylint: disable=unused-argument,arguments-differ
 
-    def on_batch_end(self, net, X, y, training, y_is_placeholder=False, **kwargs):
+    def on_batch_end(self, net, X, y, training, **kwargs):
         if training != self.on_train:
             return
 
@@ -172,7 +172,7 @@ class BatchScoring(ScoringBase):
         with cache_net_infer(net, self.use_caching, y_preds) as cached_net:
             # In case of y=None we will not have gathered any samples.
             # We expect the scoring function to deal with y=None.
-            y = None if y_is_placeholder else self.target_extractor(y)
+            y = None if y is None else self.target_extractor(y)
             try:
                 score = self._scoring(cached_net, X, y)
                 cached_net.history.record_batch(self.name_, score)
@@ -292,7 +292,7 @@ class EpochScoring(ScoringBase):
 
     # pylint: disable=arguments-differ
     def on_batch_end(
-            self, net, y, y_pred, training, y_is_placeholder=False, **kwargs):
+            self, net, y, y_pred, training, **kwargs):
         if not self.use_caching or training != self.on_train:
             return
 
@@ -303,7 +303,7 @@ class EpochScoring(ScoringBase):
         # self.target_extractor(y) here but on epoch end, so that
         # there are no copies of parts of y hanging around during
         # training.
-        if not y_is_placeholder:
+        if y is not None:
             self.y_trues_.append(y)
         self.y_preds_.append(y_pred)
 
