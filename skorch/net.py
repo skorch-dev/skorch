@@ -26,10 +26,10 @@ from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import noop
+from skorch.utils import open_file_like
 from skorch.utils import params_for
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import _with_file_like
 
 
 # pylint: disable=unused-argument
@@ -1336,33 +1336,31 @@ class NeuralNet(object):
 
         Examples
         --------
+
         >>> before = NeuralNetClassifier(mymodule)
-        >>> before.save_history('path/to/file.json')
         >>> before.fit(X, y)
+        >>> before.save_params('path/to/params')
+        >>> before.save_history('path/to/history.json')
         >>> after = NeuralNetClassifier(mymodule).initialize()
-        >>> after.load_history('path/to/file.json')
+        >>> after.load_params('path/to/params')
+        >>> after.load_history('path/to/history.json')
+        >>> # Continue training
+        >>> after.fit(X, y)
 
         """
-        with _with_file_like(f, 'w') as fp:
+        with open_file_like(f, 'w') as fp:
             json.dump(self.history.to_list(), fp)
 
     def load_history(self, f):
-        """Load the history of a ``NeuralNet`` from a json file.
+        """Load the history of a ``NeuralNet`` from a json file. See
+        ``save_history`` for an example.
 
         Parameters
         ----------
         f : file-like object or str
 
-        Examples
-        --------
-        >>> before = NeuralNetClassifier(mymodule)
-        >>> before.save_history('path/to/file.json')
-        >>> before.fit(X, y)
-        >>> after = NeuralNetClassifier(mymodule).initialize()
-        >>> after.load_history('path/to/file.json')
-
         """
-        with _with_file_like(f, 'r') as fp:
+        with open_file_like(f, 'r') as fp:
             self.history = History(json.load(fp))
 
     def __repr__(self):
