@@ -97,7 +97,7 @@ class TestLRCallbacks:
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
-        expected = (num_examples // batch_size) * max_epochs
+        expected = (num_examples // batch_size) * max_epochs - 1
         # pylint: disable=protected-access
         assert lr_policy.lr_scheduler_.last_batch_idx == expected
 

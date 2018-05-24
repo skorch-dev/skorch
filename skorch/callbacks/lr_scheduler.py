@@ -95,7 +95,7 @@ class LRScheduler(Callback):
         if not net.history:
             return -1
         epoch = len(net.history) - 1
-        current_batch_idx = len(net.history[-1, 'batches'])
+        current_batch_idx = len(net.history[-1, 'batches']) - 1
         batch_cnt = len(net.history[-2, 'batches']) if epoch >= 1 else 0
         return epoch * batch_cnt + current_batch_idx
 
