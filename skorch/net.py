@@ -1328,7 +1328,10 @@ class NeuralNet(object):
         self.module_.load_state_dict(model)
 
     def save_history(self, f):
-        """Saves the history of ``NeuralNet`` as a json file.
+        """Saves the history of ``NeuralNet`` as a json file. In order
+        to use this feature, the history must only contain JSON encodable
+        Python data structures. Numpy and PyTorch types should not
+        be in the history.
 
         Parameters
         ----------
@@ -1338,14 +1341,13 @@ class NeuralNet(object):
         --------
 
         >>> before = NeuralNetClassifier(mymodule)
-        >>> before.fit(X, y)
+        >>> before.fit(X, y, epoch=2) # Train for 2 epochs
         >>> before.save_params('path/to/params')
         >>> before.save_history('path/to/history.json')
         >>> after = NeuralNetClassifier(mymodule).initialize()
         >>> after.load_params('path/to/params')
         >>> after.load_history('path/to/history.json')
-        >>> # Continue training
-        >>> after.fit(X, y)
+        >>> after.fit(X, y, epoch=2) # Train for another 2 epochs
 
         """
         with open_file_like(f, 'w') as fp:
@@ -1353,7 +1355,7 @@ class NeuralNet(object):
 
     def load_history(self, f):
         """Load the history of a ``NeuralNet`` from a json file. See
-        ``save_history`` for an example.
+        ``save_history`` for examples.
 
         Parameters
         ----------
