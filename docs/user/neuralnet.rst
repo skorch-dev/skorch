@@ -443,7 +443,7 @@ continue training:
     )
     new_net.initialize() # This is important!
     new_net.load_params('some-file.pkl')
-    new_net.save_history('history.json')
+    new_net.load_history('history.json')
 
     new_net.fit(X, y, epochs=2) # Train for another 2 epochs
 
