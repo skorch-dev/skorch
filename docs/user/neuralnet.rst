@@ -419,9 +419,10 @@ initialize a :class:`.NeuralNet` to load the parameters again:
     new_net.initialize()  # This is important!
     new_net.load_params('some-file.pkl')
 
-In addition to saving the model, the history can persist by
-calling :func:`~skorch.net.NeuralNet.save_history` and
-:func:`~skorch.net.NeuralNet.load_history` methods on
+In addition to saving the model parameters, the history
+can be saved and loaded by calling the
+:func:`~skorch.net.NeuralNet.save_history`
+and :func:`~skorch.net.NeuralNet.load_history` methods on
 :class:`.NeuralNet`. This feature can be used to
 continue training:
 
@@ -529,5 +530,5 @@ total loss:
             loss += self.lambda1 * sum([w.abs().sum() for w in self.module_.parameters()])
             return loss
 
-.. note:: This example also reguralizes the biases, which you typically
+.. note:: This example also regularizes the biases, which you typically
     don't need to do.

@@ -280,7 +280,7 @@ def noop(*args, **kwargs):
 
 @contextmanager
 def open_file_like(f, mode):
-    """Wrapper for opening a file and y"""
+    """Wrapper for opening a file"""
     new_fd = isinstance(f, str) or isinstance(f, pathlib.Path)
     if new_fd:
         f = open(f, mode)
