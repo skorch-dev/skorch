@@ -583,14 +583,14 @@ class NeuralNet(object):
             'dataset_valid': dataset_valid,
         }
 
-        ds_train_y_placeholder = dataset_uses_y_placeholder(dataset_train)
-        ds_valid_y_placeholder = dataset_uses_y_placeholder(dataset_valid)
+        ds_train_uses_y_placeholder = dataset_uses_y_placeholder(dataset_train)
+        ds_valid_uses_y_placeholder = dataset_uses_y_placeholder(dataset_valid)
 
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             for Xi, yi in self.get_iterator(dataset_train, training=True):
-                yi_resolved = yi if not ds_train_y_placeholder else None
+                yi_resolved = yi if not ds_train_uses_y_placeholder else None
                 self.notify('on_batch_begin', X=Xi, y=yi_resolved, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
                 self.history.record_batch(
@@ -603,7 +603,7 @@ class NeuralNet(object):
                 continue
 
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
-                yi_resolved = yi if not ds_valid_y_placeholder else None
+                yi_resolved = yi if not ds_valid_uses_y_placeholder else None
                 self.notify('on_batch_begin', X=Xi, y=yi_resolved, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
                 self.history.record_batch(
