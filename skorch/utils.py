@@ -63,8 +63,7 @@ def to_tensor(X, device):
         X = torch.tensor(X)
 
     if np.isscalar(X):
-        # ugly work-around - torch constructor does not accept np scalars
-        X = torch.tensor(np.array([X]))[0]
+        X = torch.tensor(X)
 
     if isinstance(X, Sequence):
         X = torch.tensor(np.array(X))
