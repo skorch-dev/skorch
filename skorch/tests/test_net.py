@@ -360,33 +360,22 @@ class TestNeuralNet:
 
         assert net.history == history_before
 
-    def test_save_load_history_file_str(
-            self, net_cls, module_cls, net_fit, data, tmpdir):
-        net = net_cls(module_cls).initialize()
-        X, y = data
-
-        history_before = net_fit.history
-
-        p = tmpdir.mkdir('skorch').join('history.json')
-        net_fit.save_history(str(p))
-        del net_fit
-        net.load_history(str(p))
-
-        assert net.history == history_before
-
+    @pytest.mark.parametrize('converter', [str, Path])
     def test_save_load_history_file_path(
-            self, net_cls, module_cls, net_fit, data, tmpdir):
+            self, net_cls, module_cls, net_fit, data, tmpdir, converter):
+        # Test loading/saving with different kinds of path representations.
         net = net_cls(module_cls).initialize()
         X, y = data
 
         history_before = net_fit.history
 
         p = tmpdir.mkdir('skorch').join('history.json')
-        net_fit.save_history(Path(p))
+        net_fit.save_history(converter(p))
         del net_fit
-        net.load_history(Path(p))
+        net.load_history(converter(p))
 
         assert net.history == history_before
+
     @pytest.mark.parametrize('method, call_count', [
         ('on_train_begin', 1),
         ('on_train_end', 1),
