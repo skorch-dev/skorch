@@ -46,6 +46,22 @@ def get_len(data):
     return list(len_set)[0]
 
 
+def uses_placeholder_y(ds):
+    """If ``ds`` is a ``skorch.dataset.Dataset`` or a
+    ``skorch.dataset.Dataset`` nested inside a
+    ``torch.utils.data.dataset.Subset`` and uses
+    y as a placeholder, return ``True``."""
+    from skorch.dataset import Dataset
+
+    if isinstance(ds, Dataset) and ds.y is None:
+        return True
+    return (
+        isinstance(ds, torch.utils.data.dataset.Subset) and
+        isinstance(ds.dataset, Dataset) and
+        ds.dataset.y is None
+    )
+
+
 class Dataset(torch.utils.data.Dataset):
     """General dataset wrapper that can be used in conjunction with
     PyTorch :class:`~torch.utils.data.DataLoader`.

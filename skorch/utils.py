@@ -274,21 +274,3 @@ def noop(*args, **kwargs):
     target extractor.
     """
     pass
-
-
-def dataset_uses_y_placeholder(ds):
-    """If ``ds`` is a ``skorch.dataset.Dataset`` or a
-    ``skorch.dataset.Dataset`` nested inside a
-    ``torch.util.data.dataset.Subset`` and uses
-    y as a placeholder, return ``True``."""
-    from skorch.dataset import Dataset
-
-    if isinstance(ds, Dataset) and ds.y is None:
-        return True
-    if(
-        isinstance(ds, Subset) and
-        isinstance(ds.dataset, Dataset) and
-        ds.dataset.y is None
-    ):
-        return True
-    return False
