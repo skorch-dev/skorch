@@ -13,6 +13,8 @@ from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 from skorch.dataset import Dataset
+from skorch.utils import check_indexing
+
 
 __all__ = ['BatchScoring', 'EpochScoring']
 
@@ -92,6 +94,11 @@ class ScoringBase(Callback):
         self.scoring_ = convert_sklearn_metric_function(self.scoring)
         self.name_ = self._get_name()
         return self
+
+    # pylint: disable=unused-parameters
+    def on_train_begin(self, net, X, y, **kwargs):
+        self.X_indexing_ = check_indexing(X)
+        self.y_indexing_ = check_indexing(y)
 
     def _scoring(self, net, X_test, y_test):
         """Resolve scoring and apply it to data. Use cached prediction
@@ -323,7 +330,11 @@ class EpochScoring(ScoringBase):
             y_test = np.concatenate(y_test) if y_test else None
         else:
             if is_skorch_dataset(dataset):
-                X_test, y_test = data_from_dataset(dataset)
+                X_test, y_test = data_from_dataset(
+                    dataset,
+                    X_indexing=self.X_indexing_,
+                    y_indexing=self.y_indexing_,
+                )
             else:
                 X_test, y_test = dataset, None
             y_pred = []

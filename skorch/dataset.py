@@ -13,6 +13,7 @@ import torch.utils.data
 
 from skorch.utils import flatten
 from skorch.utils import is_pandas_ndframe
+from skorch.utils import check_indexing
 from skorch.utils import multi_indexing
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
@@ -93,6 +94,10 @@ class Dataset(torch.utils.data.Dataset):
         self.y = y
         self.device = device
 
+        self.X_indexing = check_indexing(X)
+        self.y_indexing = check_indexing(y)
+        self.X_is_ndframe = is_pandas_ndframe(X)
+
         if length is not None:
             self._len = length
             return
@@ -132,18 +137,15 @@ class Dataset(torch.utils.data.Dataset):
         # FIXME:: since this value may look meaningful.
         y = torch.Tensor([0]) if y is None else y
 
-        return (
-            to_tensor(X, device=self.device),
-            to_tensor(y, device=self.device),
-        )
+        return X, y
 
     def __getitem__(self, i):
         X, y = self.X, self.y
-        if is_pandas_ndframe(X):
+        if self.X_is_ndframe:
             X = {k: X[k].values.reshape(-1, 1) for k in X}
 
-        Xi = multi_indexing(X, i)
-        yi = y if y is None else multi_indexing(y, i)
+        Xi = multi_indexing(X, i, self.X_indexing)
+        yi = multi_indexing(y, i, self.y_indexing)
         return self.transform(Xi, yi)
 
 
