@@ -4,6 +4,7 @@ from functools import partial
 import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -342,6 +343,38 @@ class TestNeuralNet:
         assert w.list[0].message.args[0] == (
             'Model configured to use CUDA but no CUDA '
             'devices available. Loading on CPU instead.')
+
+    def test_save_load_history_file_obj(
+            self, net_cls, module_cls, net_fit, data, tmpdir):
+        net = net_cls(module_cls).initialize()
+        X, y = data
+
+        history_before = net_fit.history
+
+        p = tmpdir.mkdir('skorch').join('history.json')
+        with open(str(p), 'w') as f:
+            net_fit.save_history(f)
+        del net_fit
+        with open(str(p), 'r') as f:
+            net.load_history(f)
+
+        assert net.history == history_before
+
+    @pytest.mark.parametrize('converter', [str, Path])
+    def test_save_load_history_file_path(
+            self, net_cls, module_cls, net_fit, data, tmpdir, converter):
+        # Test loading/saving with different kinds of path representations.
+        net = net_cls(module_cls).initialize()
+        X, y = data
+
+        history_before = net_fit.history
+
+        p = tmpdir.mkdir('skorch').join('history.json')
+        net_fit.save_history(converter(p))
+        del net_fit
+        net.load_history(converter(p))
+
+        assert net.history == history_before
 
     @pytest.mark.parametrize('method, call_count', [
         ('on_train_begin', 1),

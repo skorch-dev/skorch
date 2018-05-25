@@ -5,8 +5,10 @@ Should not have any dependency on other skorch packages.
 """
 
 from collections.abc import Sequence
+from contextlib import contextmanager
 from enum import Enum
 from functools import partial
+import pathlib
 
 import numpy as np
 from sklearn.utils import safe_indexing
@@ -274,3 +276,16 @@ def noop(*args, **kwargs):
     target extractor.
     """
     pass
+
+
+@contextmanager
+def open_file_like(f, mode):
+    """Wrapper for opening a file"""
+    new_fd = isinstance(f, str) or isinstance(f, pathlib.Path)
+    if new_fd:
+        f = open(f, mode)
+    try:
+        yield f
+    finally:
+        if new_fd:
+            f.close()

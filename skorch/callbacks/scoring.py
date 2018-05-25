@@ -199,7 +199,7 @@ class BatchScoring(ScoringBase):
 
         history.record(self.name_, score_avg)
         if is_best is not None:
-            history.record(self.name_ + '_best', is_best)
+            history.record(self.name_ + '_best', bool(is_best))
 
 
 class EpochScoring(ScoringBase):
@@ -344,7 +344,7 @@ class EpochScoring(ScoringBase):
             if is_best is None:
                 return
 
-            cached_net.history.record(self.name_ + '_best', is_best)
+            cached_net.history.record(self.name_ + '_best', bool(is_best))
             if is_best:
                 self.best_score_ = current_score
 

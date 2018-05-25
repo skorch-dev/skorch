@@ -2,6 +2,7 @@
 
 import fnmatch
 from itertools import chain
+import json
 import re
 import tempfile
 import warnings
@@ -25,6 +26,7 @@ from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import noop
+from skorch.utils import open_file_like
 from skorch.utils import params_for
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
@@ -1324,6 +1326,44 @@ class NeuralNet(object):
             model = torch.load(f)
 
         self.module_.load_state_dict(model)
+
+    def save_history(self, f):
+        """Saves the history of ``NeuralNet`` as a json file. In order
+        to use this feature, the history must only contain JSON encodable
+        Python data structures. Numpy and PyTorch types should not
+        be in the history.
+
+        Parameters
+        ----------
+        f : file-like object or str
+
+        Examples
+        --------
+
+        >>> before = NeuralNetClassifier(mymodule)
+        >>> before.fit(X, y, epoch=2) # Train for 2 epochs
+        >>> before.save_params('path/to/params')
+        >>> before.save_history('path/to/history.json')
+        >>> after = NeuralNetClassifier(mymodule).initialize()
+        >>> after.load_params('path/to/params')
+        >>> after.load_history('path/to/history.json')
+        >>> after.fit(X, y, epoch=2) # Train for another 2 epochs
+
+        """
+        with open_file_like(f, 'w') as fp:
+            json.dump(self.history.to_list(), fp)
+
+    def load_history(self, f):
+        """Load the history of a ``NeuralNet`` from a json file. See
+        ``save_history`` for examples.
+
+        Parameters
+        ----------
+        f : file-like object or str
+
+        """
+        with open_file_like(f, 'r') as fp:
+            self.history = History(json.load(fp))
 
     def __repr__(self):
         params = self.get_params(deep=False)
