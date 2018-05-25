@@ -52,12 +52,12 @@ def to_tensor(X, device):
 
     if is_torch_data_type(X):
         return X.to(device)
-    elif np.isscalar(X):
-        return torch.tensor(X).to(device)
     elif isinstance(X, dict):
         return {key: to_tensor_(val) for key, val in X.items()}
     elif isinstance(X, (list, tuple)):
         return [to_tensor_(x) for x in X]
+    elif np.isscalar(X):
+        return torch.tensor(X).to(device)
     elif isinstance(X, Sequence):
         return torch.tensor(np.array(X)).to(device)
     elif isinstance(X, np.ndarray):
