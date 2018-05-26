@@ -1,6 +1,6 @@
 """ Post-process regularization steps such as gradient normalizing. """
 
-from torch.nn.utils import clip_grad_norm_
+from torch.nn.utils.clip_grad import clip_grad_norm_
 
 from skorch.callbacks import Callback
 
