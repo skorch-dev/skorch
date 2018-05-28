@@ -1,12 +1,21 @@
-"""This script trains a net on MNIST data, once with skorch, once with
-pure PyTorch.
+"""This script trains a NeuralNetClassifier on MNIST data, once with
+skorch, once with pure PyTorch.
 
- Apart from that change, both approaches are as close to eachother as
-possible (e.g. performing the same validation steps.
+Apart from that change, both approaches are as close to eachother as
+possible (e.g. performing the same validation steps).
 
 At the end, we assert that the test accuracies are very close (1%
 difference) and that skorch is not too much slower (at worst 30%
 slower).
+
+Call like this:
+
+```
+python examples/benchmarks/mnist.py
+```
+
+When called the first time, this will download MNIST data to
+examples/datasets/mldata (53M).
 
 """
 
@@ -289,8 +298,8 @@ def main():
     print("score skorch: {:.4f}, score torch: {:.4f}".format(
         score_skorch, score_torch))
 
-    assert np.isclose(time_skorch, time_torch, rtol=0.3)
-    assert np.isclose(score_skorch, score_torch, rtol=0.01)
+    assert np.isclose(score_skorch, score_torch, rtol=0.01), "Scores should be similar."
+    assert np.isclose(time_skorch, time_torch, rtol=0.3), "Times should be similar."
 
 
 if __name__ == '__main__':
