@@ -126,8 +126,19 @@ def _indexing_dict(data, i):
     return {k: v[i] for k, v in data.items()}
 
 
-def _indexing_list_tuple_of_data(data, i):
-    return [multi_indexing(x, i) for x in data]
+def _indexing_list_tuple_of_data(data, i, indexings=None):
+    """Data is a list/tuple of data structures (e.g. list of numpy arrays).
+
+    ``indexings`` are the indexing functions for each element of
+    ``data``. If ``indexings`` are not given, the indexing functions
+    for the individual structures have to be determined ad hoc, which
+    is slower.
+
+    """
+    if not indexings:
+        return [multi_indexing(x, i) for x in data]
+    return [multi_indexing(x, i, indexing)
+            for x, indexing in zip(data, indexings)]
 
 
 def _indexing_ndframe(data, i):
@@ -161,15 +172,16 @@ def check_indexing(data):
         return _indexing_dict
 
     if isinstance(data, (list, tuple)):
-        # TODO: is there a better way?
-        items_are_sequences = True
         try:
+            # list or tuple of containers
+            # TODO: Is there a better way than just to try to index? This
+            # is error prone (e.g. if one day list of strings are
+            # possible).
             multi_indexing(data[0], 0)
+            indexings = [check_indexing(x) for x in data]
+            return partial(_indexing_list_tuple_of_data, indexings=indexings)
         except TypeError:
-            items_are_sequences = False
-        if items_are_sequences:  # list or tuple of containers
-            return _indexing_list_tuple_of_data
-        else:  # list or tuple of values
+            # list or tuple of values
             return _indexing_other
 
     if is_pandas_ndframe(data):
@@ -181,7 +193,8 @@ def check_indexing(data):
 
 
 def _normalize_numpy_indices(i):
-    """Normalize the index in case it is a numpy integer or boolean array."""
+    """Normalize the index in case it is a numpy integer or boolean
+    array."""
     if isinstance(i, np.ndarray):
         if i.dtype == bool:
             i = tuple(j.tolist() for j in i.nonzero())
@@ -212,9 +225,7 @@ def multi_indexing(data, i, indexing=None):
     array([1, 2])
 
     >>> multi_indexing(torch.arange(0, 4), np.s_[1:3])
-     1
-     2
-    [torch.FloatTensor of size 2]
+    tensor([ 1.,  2.])
 
     >>> multi_indexing([[1, 2, 3], [4, 5, 6]], np.s_[:2])
     [[1, 2], [4, 5]]
