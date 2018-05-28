@@ -122,14 +122,11 @@ class NeuralNet(object):
       pytorch's ``DataLoader``. It has to implement the ``__len__`` and
       ``__getitem__`` methods. The provided dataset should be capable of
       dealing with a lot of data types out of the box, so only change
-      this if your data is not supported. Additionally, dataset should
-      accept a ``device`` parameter to indicate the location of the
-      data (e.g., CUDA).
-      You should generally pass the uninitialized ``Dataset`` class
-      and define additional arguments to X and y by prefixing them
-      with ``dataset__``. It is also possible to pass an initialzed
-      ``Dataset``, in which case no additional arguments may be
-      passed.
+      this if your data is not supported. You should generally pass the
+      uninitialized ``Dataset`` class and define additional arguments to
+      X and y by prefixing them with ``dataset__``. It is also possible
+      to pass an initialzed ``Dataset``, in which case no additional
+      arguments may be passed.
 
     train_split : None or callable (default=skorch.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
@@ -920,8 +917,6 @@ class NeuralNet(object):
         Override this if you want to initialize your dataset
         differently.
 
-        If ``dataset__device`` is not set, use ``self.device`` instead.
-
         Parameters
         ----------
         X : input data, compatible with skorch.dataset.Dataset
@@ -962,9 +957,6 @@ class NeuralNet(object):
 
         if is_initialized:
             return dataset
-
-        if 'device' not in kwargs:
-            kwargs['device'] = self.device
 
         return dataset(X, y, **kwargs)
 

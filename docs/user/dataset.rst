@@ -126,18 +126,11 @@ have an ``X`` and a ``y``, where ``X`` represents the input data and
 ``y`` the target. However, you may leave ``y=None``, in which case
 :class:`.Dataset` returns a dummy variable.
 
-In contrast to a PyTorch :class:`~torch.utils.data.Dataset`, a skorch
-:class:`.Dataset` must have a ``device`` argument, which determines
-whether the returned data should be transferred to a specific
-computation device. Should you write your own :class:`.Dataset`
-subclass, remember to integrate this argument.
-
 :class:`.Dataset` applies a transform final transform on the data
 before passing it on to the PyTorch
-:class:`~torch.utils.data.DataLoader`. By default, it casts the data
-to a PyTorch :class:`~torch.Tensor` and replaces ``y`` by a dummy
-variable in case it is ``None``. If you would like to apply your own
-transformation on the data, you should subclass :class:`.Dataset` and
-override the :func:`~skorch.dataset.Dataset.transform` method, then
-pass your custom class to :class:`.NeuralNet` as the ``dataset``
-argument.
+:class:`~torch.utils.data.DataLoader`. By default, it replaces ``y``
+by a dummy variable in case it is ``None``. If you would like to
+apply your own transformation on the data, you should subclass
+:class:`.Dataset` and override the
+:func:`~skorch.dataset.Dataset.transform` method, then pass your
+custom class to :class:`.NeuralNet` as the ``dataset`` argument.

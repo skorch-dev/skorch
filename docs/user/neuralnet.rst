@@ -268,10 +268,6 @@ CUDA before being passed to the PyTorch :class:`~torch.nn.Module`. The
 device parameter adheres to the general syntax of the PyTorch device
 parameter.
 
-Among other things, ``device`` is passed to :class:`.Dataset` when it
-is initialized, but if you set ``dataset__device`` explicitely, the
-latter will have precedence.
-
 initialize()
 ^^^^^^^^^^^^
 

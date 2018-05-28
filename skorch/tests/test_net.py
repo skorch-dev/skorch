@@ -854,15 +854,6 @@ class TestNeuralNet:
         # anymore
         net.fit(*data)  # should not raise
 
-    def test_net_initialized_with_partialed_dataset(
-            self, net_cls, module_cls, data, dataset_cls):
-        net = net_cls(
-            module_cls,
-            dataset=partial(dataset_cls, device='cpu'),
-            max_epochs=1,
-        )
-        net.fit(*data)  # does not raise
-
     def test_net_initialized_with_initalized_dataset_and_kwargs_raises(
             self, net_cls, module_cls, data, dataset_cls):
         net = net_cls(
