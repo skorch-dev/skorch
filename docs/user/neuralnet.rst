@@ -268,10 +268,6 @@ CUDA before being passed to the PyTorch :class:`~torch.nn.Module`. The
 device parameter adheres to the general syntax of the PyTorch device
 parameter.
 
-Among other things, ``device`` is passed to :class:`.Dataset` when it
-is initialized, but if you set ``dataset__device`` explicitely, the
-latter will have precedence.
-
 initialize()
 ^^^^^^^^^^^^
 
@@ -419,6 +415,38 @@ initialize a :class:`.NeuralNet` to load the parameters again:
     new_net.initialize()  # This is important!
     new_net.load_params('some-file.pkl')
 
+In addition to saving the model parameters, the history
+can be saved and loaded by calling the
+:func:`~skorch.net.NeuralNet.save_history`
+and :func:`~skorch.net.NeuralNet.load_history` methods on
+:class:`.NeuralNet`. This feature can be used to
+continue training:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule
+        criterion=torch.nn.NLLLoss,
+    )
+
+    net.fit(X, y, epochs=2) # Train for 2 epochs
+
+    net.save_params('some-file.pkl')
+    net.save_history('history.json')
+
+    new_net = NeuralNet(
+        module=MyModule
+        criterion=torch.nn.NLLLoss,
+    )
+    new_net.initialize() # This is important!
+    new_net.load_params('some-file.pkl')
+    new_net.load_history('history.json')
+
+    new_net.fit(X, y, epochs=2) # Train for another 2 epochs
+
+.. note:: In order to use this feature, the history
+    must only contain JSON encodable Python data structures.
+    Numpy and PyTorch types should not be in the history.
 
 Special arguments
 -----------------
@@ -498,5 +526,5 @@ total loss:
             loss += self.lambda1 * sum([w.abs().sum() for w in self.module_.parameters()])
             return loss
 
-*Note*: This example also reguralizes the biases, which you typically
- don't need to do.
+.. note:: This example also regularizes the biases, which you typically
+    don't need to do.

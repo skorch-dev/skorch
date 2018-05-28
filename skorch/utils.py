@@ -5,8 +5,10 @@ Should not have any dependency on other skorch packages.
 """
 
 from collections.abc import Sequence
+from contextlib import contextmanager
 from enum import Enum
 from functools import partial
+import pathlib
 
 import numpy as np
 from sklearn.utils import safe_indexing
@@ -50,29 +52,22 @@ def to_tensor(X, device):
         "Set `device='cuda'` instead.")
     to_tensor_ = partial(to_tensor, device=device)
 
-    if isinstance(X, nn.utils.rnn.PackedSequence):
-        return X
-
-    if isinstance(X, dict):
+    if is_torch_data_type(X):
+        return X.to(device)
+    elif isinstance(X, dict):
         return {key: to_tensor_(val) for key, val in X.items()}
-
-    if isinstance(X, (list, tuple)):
+    elif isinstance(X, (list, tuple)):
         return [to_tensor_(x) for x in X]
-
-    if isinstance(X, np.ndarray):
-        X = torch.tensor(X)
-
-    if np.isscalar(X):
-        # ugly work-around - torch constructor does not accept np scalars
-        X = torch.tensor(np.array([X]))[0]
-
-    if isinstance(X, Sequence):
-        X = torch.tensor(np.array(X))
-
-    if not is_torch_data_type(X):
+    elif np.isscalar(X):
+        return torch.tensor(X).to(device)
+    elif isinstance(X, Sequence):
+        return torch.tensor(np.array(X)).to(device)
+    elif isinstance(X, np.ndarray):
+        return torch.tensor(X).to(device)
+    elif isinstance(X, nn.utils.rnn.PackedSequence):
+        return X
+    else:
         raise TypeError("Cannot convert this data type to a torch tensor.")
-
-    return X.to(device)
 
 
 def to_numpy(X):
@@ -358,3 +353,16 @@ def noop(*args, **kwargs):
     target extractor.
     """
     pass
+
+
+@contextmanager
+def open_file_like(f, mode):
+    """Wrapper for opening a file"""
+    new_fd = isinstance(f, str) or isinstance(f, pathlib.Path)
+    if new_fd:
+        f = open(f, mode)
+    try:
+        yield f
+    finally:
+        if new_fd:
+            f.close()

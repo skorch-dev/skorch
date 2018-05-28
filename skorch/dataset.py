@@ -2,6 +2,7 @@
 
 from functools import partial
 from numbers import Number
+import warnings
 
 import numpy as np
 from sklearn.model_selection import ShuffleSplit
@@ -16,7 +17,6 @@ from skorch.utils import is_pandas_ndframe
 from skorch.utils import check_indexing
 from skorch.utils import multi_indexing
 from skorch.utils import to_numpy
-from skorch.utils import to_tensor
 
 
 def _apply_to_data(data, func, unpack_dict=False):
@@ -74,9 +74,6 @@ class Dataset(torch.utils.data.Dataset):
     y : see above or None (default=None)
       Everything pertaining to the target, if there is anything.
 
-    device : str, torch.device (default='cpu')
-      Which computation device to use (e.g., 'cuda').
-
     length : int or None (default=None)
       If not None, determines the length (``len``) of the data. Should
       usually be left at None, in which case the length is determined
@@ -87,12 +84,17 @@ class Dataset(torch.utils.data.Dataset):
             self,
             X,
             y=None,
-            device='cpu',
+            device=None,
             length=None,
     ):
+        # TODO: Remove warning in a future release
+        if device is not None:
+            warnings.warn(
+                "device is no longer needed by Dataset and will be ignored.",
+                DeprecationWarning)
+
         self.X = X
         self.y = y
-        self.device = device
 
         self.X_indexing = check_indexing(X)
         self.y_indexing = check_indexing(y)
