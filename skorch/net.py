@@ -18,13 +18,13 @@ from skorch.callbacks import BatchScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
+from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
 from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
-from skorch.utils import dataset_uses_y_placeholder
 from skorch.utils import noop
 from skorch.utils import params_for
 from skorch.utils import to_numpy
@@ -583,33 +583,33 @@ class NeuralNet(object):
             'dataset_valid': dataset_valid,
         }
 
-        ds_train_uses_y_placeholder = dataset_uses_y_placeholder(dataset_train)
-        ds_valid_uses_y_placeholder = dataset_uses_y_placeholder(dataset_valid)
+        y_train_is_ph = uses_placeholder_y(dataset_train)
+        y_valid_is_ph = uses_placeholder_y(dataset_valid)
 
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             for Xi, yi in self.get_iterator(dataset_train, training=True):
-                yi_resolved = yi if not ds_train_uses_y_placeholder else None
-                self.notify('on_batch_begin', X=Xi, y=yi_resolved, training=True)
+                yi_res = yi if not y_train_is_ph else None
+                self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
                 self.history.record_batch(
                     'train_loss', step['loss'].data.item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi_resolved, training=True, **step)
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
 
             if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
-                yi_resolved = yi if not ds_valid_uses_y_placeholder else None
-                self.notify('on_batch_begin', X=Xi, y=yi_resolved, training=False)
+                yi_res = yi if not y_valid_is_ph else None
+                self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
                 self.history.record_batch(
                     'valid_loss', step['loss'].data.item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi_resolved, training=False, **step)
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
