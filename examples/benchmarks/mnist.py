@@ -12,13 +12,19 @@ Call like this:
 
 ```
 python examples/benchmarks/mnist.py
+python examples/benchmarks/mnist.py --device cpu --num_samples 5000
 ```
 
 When called the first time, this will download MNIST data to
 examples/datasets/mldata (53M).
 
+This script uses similar parameters as this one:
+https://github.com/keras-team/keras/blob/0de2adf04b37aa972c955e69caf6917372b70a5b/examples/mnist_cnn.py
+
+
 """
 
+import argparse
 import os
 import time
 
@@ -36,10 +42,8 @@ from torch import nn
 
 BATCH_SIZE = 128
 DATA_HOME = os.path.join(os.getcwd(), 'examples', 'datasets')
-DEVICE = 'cuda'
 LEARNING_RATE = 0.1
 MAX_EPOCHS = 12
-NUM_SAMPLES = 20000
 
 
 def get_data(num_samples, data_home):
@@ -92,9 +96,11 @@ def performance_skorch(
         lr,
         max_epochs,
 ):
+    torch.manual_seed(0)
     net = NeuralNetClassifier(
         ClassifierModule,
         batch_size=batch_size,
+        optimizer=torch.optim.Adadelta,
         lr=lr,
         device=device,
         max_epochs=max_epochs,
@@ -152,7 +158,7 @@ def train_torch(
         torch.tensor(y_valid),
     )
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adadelta(model.parameters(), lr=lr)
     criterion = nn.NLLLoss()
 
     for epoch in range(max_epochs):
@@ -245,6 +251,7 @@ def performance_torch(
         lr,
         max_epochs,
 ):
+    torch.manual_seed(0)
     model = ClassifierModule()
     model = train_torch(
         model,
@@ -264,10 +271,10 @@ def performance_torch(
     return accuracy_score(y_test, y_pred)
 
 
-def main():
-    data = get_data(NUM_SAMPLES, DATA_HOME)
+def main(device, num_samples):
+    data = get_data(num_samples, DATA_HOME)
     # trigger potential cuda call overhead
-    torch.zeros(1).to(DEVICE)
+    torch.zeros(1).to(device)
 
     if True:
         print("\nTesting skorch performance")
@@ -277,7 +284,7 @@ def main():
             batch_size=BATCH_SIZE,
             max_epochs=MAX_EPOCHS,
             lr=LEARNING_RATE,
-            device=DEVICE,
+            device=device,
         )
         time_skorch = time.time() - tic
 
@@ -289,7 +296,7 @@ def main():
             batch_size=BATCH_SIZE,
             max_epochs=MAX_EPOCHS,
             lr=LEARNING_RATE,
-            device=DEVICE,
+            device=device,
         )
         time_torch = time.time() - tic
 
@@ -298,9 +305,15 @@ def main():
     print("score skorch: {:.4f}, score torch: {:.4f}".format(
         score_skorch, score_torch))
 
-    assert np.isclose(score_skorch, score_torch, rtol=0.01), "Scores should be similar."
-    assert np.isclose(time_skorch, time_torch, rtol=0.3), "Times should be similar."
+    assert np.isclose(score_skorch, score_torch, rtol=0.01), "Scores are not close enough."
+    assert np.isclose(time_skorch, time_torch, rtol=0.3), "Times are not close enough."
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description="skorch MNIST benchmark")
+    parser.add_argument('--device', type=str, default='cuda',
+                        help='device (e.g. "cuda", "cpu")')
+    parser.add_argument('--num_samples', type=int, default=20000,
+                        help='total number of samples to use')
+    args = parser.parse_args()
+    main(device=args.device, num_samples=args.num_samples)
