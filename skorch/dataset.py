@@ -51,15 +51,10 @@ def uses_placeholder_y(ds):
     ``skorch.dataset.Dataset`` nested inside a
     ``torch.utils.data.dataset.Subset`` and uses
     y as a placeholder, return ``True``."""
-    from skorch.dataset import Dataset
 
-    if isinstance(ds, Dataset) and ds.y is None:
-        return True
-    return (
-        isinstance(ds, torch.utils.data.dataset.Subset) and
-        isinstance(ds.dataset, Dataset) and
-        ds.dataset.y is None
-    )
+    if isinstance(ds, torch.utils.data.dataset.Subset):
+        return uses_placeholder_y(ds.dataset)
+    return isinstance(ds, Dataset) and ds.y is None
 
 
 class Dataset(torch.utils.data.Dataset):

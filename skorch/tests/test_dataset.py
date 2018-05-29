@@ -103,6 +103,26 @@ class TestUsesPlaceholderY:
         assert not uses_placeholder_y(ds_train)
         assert not uses_placeholder_y(ds_valid)
 
+    def test_subset_of_subset_uses_placeholder_y(
+            self, dataset_cls, data, uses_placeholder_y,
+            cv_split_cls):
+        X, _ = data
+        ds = dataset_cls(X, y=None)
+        ds_split, _ = cv_split_cls(cv=4)(ds)
+        ds_train, ds_valid = cv_split_cls(cv=3)(ds_split)
+        assert uses_placeholder_y(ds_train)
+        assert uses_placeholder_y(ds_valid)
+
+    def test_subset_of_subset_uses_non_placeholder_y(
+            self, dataset_cls, data, uses_placeholder_y,
+            cv_split_cls):
+        X, y = data
+        ds = dataset_cls(X, y)
+        ds_split, _ = cv_split_cls(cv=4)(ds)
+        ds_train, ds_valid = cv_split_cls(cv=3)(ds_split)
+        assert not uses_placeholder_y(ds_train)
+        assert not uses_placeholder_y(ds_valid)
+
 
 class TestNetWithoutY:
 
