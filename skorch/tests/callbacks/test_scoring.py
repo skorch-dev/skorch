@@ -424,10 +424,10 @@ class TestEpochScoring:
 
 
 class TestBatchScoring:
-    @pytest.fixture
-    def scoring_cls(self):
+    @pytest.fixture(params=[{'use_caching': True}, {'use_caching': False}])
+    def scoring_cls(self, request):
         from skorch.callbacks import BatchScoring
-        return BatchScoring
+        return partial(BatchScoring, **request.param)
 
     @pytest.fixture
     def mse_scoring(self, scoring_cls):
@@ -723,6 +723,39 @@ class TestBatchScoring:
         net.fit(X, y)
 
         assert extractor.call_count == 2 * 2
+
+    def test_without_target_data_works(
+            self, net_cls, module_cls, scoring_cls, data,
+    ):
+        score_calls = 0
+
+        def myscore(net, X, y=None):
+            nonlocal score_calls
+            score_calls += 1
+            assert y is None
+            return X.mean().data.item()
+
+        # pylint: disable=unused-argument
+        def mysplit(dataset, y):
+            # set y_valid to None
+            ds_train = dataset
+            ds_valid = type(dataset)(dataset.X, y=None)
+            return ds_train, ds_valid
+
+        X, y = data
+        net = net_cls(
+            module=module_cls,
+            callbacks=[scoring_cls(myscore)],
+            train_split=mysplit,
+            max_epochs=2,
+        )
+        net.fit(X, y)
+
+        assert score_calls == 2
+
+        expected = np.mean(X)
+        loss = net.history[:, 'myscore']
+        assert np.allclose(loss, expected)
 
     def test_scoring_with_cache_and_fit_interrupt_resets_infer(
             self, net_cls, module_cls, scoring_cls, data, train_split):

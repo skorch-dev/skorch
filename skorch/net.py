@@ -19,6 +19,7 @@ from skorch.callbacks import BatchScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
+from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
@@ -581,28 +582,33 @@ class NeuralNet(object):
             'dataset_valid': dataset_valid,
         }
 
+        y_train_is_ph = uses_placeholder_y(dataset_train)
+        y_valid_is_ph = uses_placeholder_y(dataset_valid)
+
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             for Xi, yi in self.get_iterator(dataset_train, training=True):
-                self.notify('on_batch_begin', X=Xi, y=yi, training=True)
+                yi_res = yi if not y_train_is_ph else None
+                self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
                 self.history.record_batch(
                     'train_loss', step['loss'].data.item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
 
             if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
-                self.notify('on_batch_begin', X=Xi, y=yi, training=False)
+                yi_res = yi if not y_valid_is_ph else None
+                self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
                 self.history.record_batch(
                     'valid_loss', step['loss'].data.item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, training=False, **step)
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self

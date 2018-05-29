@@ -12,7 +12,7 @@ from skorch.utils import data_from_dataset
 from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
-from skorch.dataset import Dataset
+
 
 __all__ = ['BatchScoring', 'EpochScoring']
 
@@ -131,6 +131,9 @@ class BatchScoring(ScoringBase):
     scores in this case. Therefore, it is recommnded to use
     ``EpochScoring`` unless you really need the scores for each batch.
 
+    If ``y`` is None, the ``scoring`` function with signature (model, X, y)
+    must be able to handle ``X`` as a ``Tensor`` and ``y=None``.
+
     Parameters
     ----------
     scoring : None, str, or callable
@@ -160,13 +163,16 @@ class BatchScoring(ScoringBase):
       step for each batch.
     """
     # pylint: disable=unused-argument,arguments-differ
+
     def on_batch_end(self, net, X, y, training, **kwargs):
         if training != self.on_train:
             return
 
         y_preds = [kwargs['y_pred']]
         with cache_net_infer(net, self.use_caching, y_preds) as cached_net:
-            y = self.target_extractor(y)
+            # In case of y=None we will not have gathered any samples.
+            # We expect the scoring function to deal with y=None.
+            y = None if y is None else self.target_extractor(y)
             try:
                 score = self._scoring(cached_net, X, y)
                 cached_net.history.record_batch(self.name_, score)
@@ -284,12 +290,9 @@ class EpochScoring(ScoringBase):
     def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
         self._initialize_cache()
 
-        ds = dataset_train if self.on_train else dataset_valid
-        # pylint: disable=attribute-defined-outside-init
-        self.y_is_placeholder_ = isinstance(ds, Dataset) and ds.y is None
-
     # pylint: disable=arguments-differ
-    def on_batch_end(self, net, y, y_pred, training, **kwargs):
+    def on_batch_end(
+            self, net, y, y_pred, training, **kwargs):
         if not self.use_caching or training != self.on_train:
             return
 
@@ -300,7 +303,7 @@ class EpochScoring(ScoringBase):
         # self.target_extractor(y) here but on epoch end, so that
         # there are no copies of parts of y hanging around during
         # training.
-        if not self.y_is_placeholder_:
+        if y is not None:
             self.y_trues_.append(y)
         self.y_preds_.append(y_pred)
 
