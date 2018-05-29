@@ -12,7 +12,7 @@ from skorch.utils import data_from_dataset
 from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
-from skorch.dataset import Dataset
+
 
 __all__ = ['BatchScoring', 'EpochScoring']
 
