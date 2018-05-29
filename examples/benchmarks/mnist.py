@@ -113,7 +113,6 @@ def performance_skorch(
             )),
         ],
     )
-    #net.set_params(callbacks__tr_acc=None, callbacks__valid_acc=None, callbacks__train_loss=None, callbacks__valid_loss=None)
     net.fit(X_train, y_train)
     y_pred = net.predict(X_test)
     score = accuracy_score(y_test, y_pred)
