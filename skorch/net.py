@@ -824,9 +824,11 @@ class NeuralNet(object):
         """Return the output of the module's forward method as a numpy
         array.
 
-        If forward returns multiple outputs as a tuple, it is assumed
-        that the first output contains the relevant information. The
-        other values are ignored.
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -860,7 +862,9 @@ class NeuralNet(object):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -1503,7 +1507,9 @@ class NeuralNetClassifier(NeuralNet):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -1534,7 +1540,9 @@ class NeuralNetClassifier(NeuralNet):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------

@@ -333,13 +333,13 @@ returns, cast to a ``numpy array``. If
 :func:`~torch.nn.Module.forward` returns multiple outputs as a tuple,
 only the first output is used, the rest is discarded.
 
-If casting the :func:`~torch.nn.Module.forward`\-output to ``numpy``
-is impossible, you will get an error. In that case, you should
-consider returning a PyTorch :class:`~torch.Tensor` from your
-:func:`~torch.nn.Module.forward` method, as this tensor can be
-converted to a ``numpy`` array. Alternatively, consider using the
-:func:`~skorch.net.NeuralNet.forward_iter` method to generate outputs
-from the ``module``, or directly call ``net.module_(X)``.
+If the :func:`~torch.nn.Module.forward`\-output can not be cast to a
+``numpy`` array, or if you need access to all outputs in the
+multiple-outputs case, consider using either of
+:func:`~skorch.net.NeuralNet.forward` or
+:func:`~skorch.net.NeuralNet.forward_iter` methods to generate outputs
+from the ``module``. Alternatively, you may directly call
+``net.module_(X)``.
 
 In case of :class:`.NeuralNetClassifier`, the
 :func:`~skorch.net.NeuralNetClassifier.predict` method tries to return
