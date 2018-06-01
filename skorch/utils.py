@@ -118,7 +118,92 @@ def flatten(arr):
             yield item
 
 
-def multi_indexing(data, i):
+def _indexing_none(data, i):
+    return None
+
+
+def _indexing_dict(data, i):
+    return {k: v[i] for k, v in data.items()}
+
+
+def _indexing_list_tuple_of_data(data, i, indexings=None):
+    """Data is a list/tuple of data structures (e.g. list of numpy arrays).
+
+    ``indexings`` are the indexing functions for each element of
+    ``data``. If ``indexings`` are not given, the indexing functions
+    for the individual structures have to be determined ad hoc, which
+    is slower.
+
+    """
+    if not indexings:
+        return [multi_indexing(x, i) for x in data]
+    return [multi_indexing(x, i, indexing)
+            for x, indexing in zip(data, indexings)]
+
+
+def _indexing_ndframe(data, i):
+    # During fit, DataFrames are converted to dict, which is why we
+    # might need _indexing_dict.
+    if hasattr(data, 'iloc'):
+        return data.iloc[i]
+    return _indexing_dict(data, i)
+
+
+def _indexing_other(data, i):
+    if isinstance(i, (int, np.integer, slice)):
+        return data[i]
+    return safe_indexing(data, i)
+
+
+def check_indexing(data):
+    """Perform a check how incoming data should be indexed and return an
+    appropriate indexing function with signature f(data, index).
+
+    This is useful for determining upfront how data should be indexed
+    instead of doing it repeatedly for each batch, thus saving some
+    time.
+
+    """
+    if data is None:
+        return _indexing_none
+
+    if isinstance(data, dict):
+        # dictionary of containers
+        return _indexing_dict
+
+    if isinstance(data, (list, tuple)):
+        try:
+            # list or tuple of containers
+            # TODO: Is there a better way than just to try to index? This
+            # is error prone (e.g. if one day list of strings are
+            # possible).
+            multi_indexing(data[0], 0)
+            indexings = [check_indexing(x) for x in data]
+            return partial(_indexing_list_tuple_of_data, indexings=indexings)
+        except TypeError:
+            # list or tuple of values
+            return _indexing_other
+
+    if is_pandas_ndframe(data):
+        # pandas NDFrame, will be transformed to dict
+        return _indexing_ndframe
+
+    # torch tensor, numpy ndarray, list
+    return _indexing_other
+
+
+def _normalize_numpy_indices(i):
+    """Normalize the index in case it is a numpy integer or boolean
+    array."""
+    if isinstance(i, np.ndarray):
+        if i.dtype == bool:
+            i = tuple(j.tolist() for j in i.nonzero())
+        elif i.dtype == int:
+            i = i.tolist()
+    return i
+
+
+def multi_indexing(data, i, indexing=None):
     """Perform indexing on multiple data structures.
 
     Currently supported data types:
@@ -140,9 +225,7 @@ def multi_indexing(data, i):
     array([1, 2])
 
     >>> multi_indexing(torch.arange(0, 4), np.s_[1:3])
-     1
-     2
-    [torch.FloatTensor of size 2]
+    tensor([ 1.,  2.])
 
     >>> multi_indexing([[1, 2, 3], [4, 5, 6]], np.s_[:2])
     [[1, 2], [4, 5]]
@@ -155,32 +238,28 @@ def multi_indexing(data, i):
     1  2  5
     2  3  6
 
-    """
-    if isinstance(i, np.ndarray):
-        if i.dtype == bool:
-            i = tuple(j.tolist() for j in i.nonzero())
-        elif i.dtype == int:
-            i = i.tolist()
-        else:
-            raise IndexError("arrays used as indices must be of integer "
-                             "(or boolean) type")
+    Parameters
+    ----------
+    data
+      Data of a type mentioned above.
 
-    if isinstance(data, dict):
-        # dictionary of containers
-        return {k: v[i] for k, v in data.items()}
-    if isinstance(data, (list, tuple)):
-        # list or tuple of containers
-        try:
-            return [multi_indexing(x, i) for x in data]
-        except TypeError:
-            pass
-    if is_pandas_ndframe(data):
-        # pandas NDFrame
-        return data.iloc[i]
-    # torch tensor, numpy ndarray, list
-    if isinstance(i, (int, np.integer, slice)):
-        return data[i]
-    return safe_indexing(data, i)
+    i : int or slice
+      Slicing index.
+
+    indexing : function/callable or None (default=None)
+      If not None, use this function for indexing into the data. If
+      None, try to automatically determine how to index data.
+
+    """
+    # in case of i being a numpy array
+    i = _normalize_numpy_indices(i)
+
+    # If we already know how to index, use that knowledge
+    if indexing is not None:
+        return indexing(data, i)
+
+    # If we don't know how to index, find out and apply
+    return check_indexing(data)(data, i)
 
 
 def duplicate_items(*collections):
@@ -231,18 +310,34 @@ class _none:
     pass
 
 
-def data_from_dataset(dataset):
+def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
     """Try to access X and y attribute from dataset.
 
     Also works when dataset is a subset.
+
+    Parameters
+    ----------
+    dataset : skorch.dataset.Dataset or torch.utils.data.dataset.Subset
+      The incoming dataset should be a ``skorch.dataset.Dataset`` or a
+      ``torch.utils.data.dataset.Subset`` of a
+      ``skorch.dataset.Dataset``.
+
+    X_indexing : function/callable or None (default=None)
+      If not None, use this function for indexing into the X data. If
+      None, try to automatically determine how to index data.
+
+    y_indexing : function/callable or None (default=None)
+      If not None, use this function for indexing into the y data. If
+      None, try to automatically determine how to index data.
 
     """
     X, y = _none, _none
 
     if isinstance(dataset, Subset):
-        X, y = data_from_dataset(dataset.dataset)
-        X = multi_indexing(X, dataset.indices)
-        y = multi_indexing(y, dataset.indices) if y is not None else y
+        X, y = data_from_dataset(
+            dataset.dataset, X_indexing=X_indexing, y_indexing=y_indexing)
+        X = multi_indexing(X, dataset.indices, indexing=X_indexing)
+        y = multi_indexing(y, dataset.indices, indexing=y_indexing)
     elif hasattr(dataset, 'X') and hasattr(dataset, 'y'):
         X, y = dataset.X, dataset.y
 

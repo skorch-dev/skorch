@@ -652,12 +652,12 @@ class NeuralNet(object):
         if not self.initialized_:
             self.initialize()
 
-        self.notify('on_train_begin')
+        self.notify('on_train_begin', X=X, y=y)
         try:
             self.fit_loop(X, y, **fit_params)
         except KeyboardInterrupt:
             pass
-        self.notify('on_train_end')
+        self.notify('on_train_end', X=X, y=y)
         return self
 
     def fit(self, X, y=None, **fit_params):
