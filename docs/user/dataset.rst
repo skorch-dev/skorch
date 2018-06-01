@@ -71,15 +71,15 @@ sampling, shuffling, and distributed processing.
 skorch uses the PyTorch :class:`~torch.utils.data.DataLoader`\s by default.
 However, the :class:`~torch.utils.data.Dataset`\s provided by PyTorch
 are not sufficient for our usecase; for instance, they don't work with
-numpy ``array``\s.  That's why we provide our own :class:`.Dataset`
-class. This container works with:
+:class:`numpy.ndarray`\s. That's why we provide our own
+:class:`.Dataset` class. This container works with:
 
-- numpy arrays
+- :class:`numpy.ndarray`\s
 - PyTorch :class:`~torch.Tensor`\s
 - pandas DataFrames or Series
 
 In addition, you can pass dictionaries or lists of one of those data
-types, e.g. a dictionary of numpy ``array``\s. When you pass
+types, e.g. a dictionary of :class:`numpy.ndarray`\s. When you pass
 dictionaries, the keys of the dictionaries are used as the argument
 name for the :func:`~torch.nn.Module.forward` method of the net's
 ``module``. Similarly, the column names of pandas ``DataFrame``\s are
