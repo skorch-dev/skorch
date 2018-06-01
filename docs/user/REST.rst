@@ -6,12 +6,12 @@ In this section we'll take the RNN sentiment classifer from the
 example `Predicting sentiment on the IMDB dataset
 <https://github.com/dnouri/skorch/blob/master/examples/rnn_classifer/RNN_sentiment_classification.ipynb>`_
 and use it to demonstrate how to easily expose your PyTorch module on
-the web using Skorch and another library called `Palladium
+the web using skorch and another library called `Palladium
 <https://github.com/ottogroup/palladium>`_.
 
-With Palladium, you define the dataset, the model, and Palladium
-provides the framework to fit, test, and serve your model on the web.
-Palladium comes with its own documentation and a `tutorial
+With Palladium, you define the Palladium dataset, the model, and
+Palladium provides the framework to fit, test, and serve your model on
+the web.  Palladium comes with its own documentation and a `tutorial
 <http://palladium.readthedocs.io/en/latest/user/tutorial.html>`_,
 which you may want to check out to learn more about what you can do
 with it.
@@ -42,6 +42,8 @@ defines the dataset and model:
             '__factory__': 'palladium.persistence.File',
             'path': 'rnn-model-{version}',
         },
+
+        'scoring': 'accuracy',
     }
 
 You can save this configuration as ``palladium-config.py``.
@@ -58,8 +60,10 @@ We'll start off with defining the dataset loader:
     from urllib.request import urlretrieve
     import tarfile
 
+    import numpy as np
     from palladium.interfaces import DatasetLoader as IDatasetLoader
-   
+    from sklearn.datasets import load_files
+
     DATA_URL = 'http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz'
     DATA_FN = DATA_URL.rsplit('/', 1)[1]
 
@@ -85,11 +89,11 @@ We'll start off with defining the dataset loader:
             return X, y
 
 
-The most interesting bit here is that our ``DatasetLoader`` defines a
-``__call__`` method that will return the data and the target (X and
-y).  Easy.  Note that in the configuration file, we refer to our
-``DatasetLoader`` twice, once for the training set and once for the
-test set.
+The most interesting bit here is that our Palladium ``DatasetLoader``
+defines a ``__call__`` method that will return the data and the target
+(X and y).  Easy.  Note that in the configuration file, we refer to
+our ``DatasetLoader`` twice, once for the training set and once for
+the test set.
 
 Our configuration also refers to a function ``create_pipeline`` which
 we'll create next:
@@ -125,7 +129,7 @@ we'll create next:
 
 
 You've noticed that this function's job is to create the model and
-return it.  Here, we're defining a pipeline that wraps Skorch's
+return it.  Here, we're defining a pipeline that wraps skorch's
 ``NeuralNetClassifier``, which in turn is a wrapper around our PyTorch
 module, as it's defined in the `predicting sentiment tutorial
 <https://github.com/dnouri/skorch/blob/master/examples/rnn_classifer/RNN_sentiment_classification.ipynb>`_.
@@ -184,10 +188,11 @@ We'll also add the RNNClassifier to ``model.py``:
 
 
 You can find the full contents of the ``model.py`` file in the
-``skorch/examples/rnn_classifer`` folder of Skorch's source code.
+``skorch/examples/rnn_classifer`` folder of skorch's source code.
 
 Now with dataset and model in place, it's time to try Palladium out.
-You can install Palladium with ``pip install palladium``.
+You can install Palladium and another dependency we use with ``pip
+install palladium dstoolbox``.
 
 From within the directory that contains ``model.py`` and
 ``palladium-config.py`` now run the following command::
@@ -217,8 +222,13 @@ You should see output similar to this::
   INFO:palladium:Writing model done in 0.694 sec.
   INFO:palladium:Wrote model with version 1.
 
-Congratulations, you've trained your first model with Palladium!
-You're ready to now serve to model on the web.  Add this piece of
+Congratulations, you've trained your first model with Palladium!  Note
+that in the output you see a train score (accuracy) of 0.83 and a test
+score of about 0.75.  These refer to how well your model did on the
+training set (defined by ``dataset_loader_train`` in the
+configuration) and on the test set (``dataset_loader_test``).
+
+You're ready to now serve the model on the web.  Add this piece of
 configuration to the ``palladium-config.py`` configuration file (and
 make sure it lives within the outermost brackets:
 
@@ -242,7 +252,7 @@ make sure it lives within the outermost brackets:
 With this piece of information inside the configuration, we're ready
 to launch the web server using::
 
-  PALLADIUM_CONFIG=palladium=config.py pld-devserver
+  PALLADIUM_CONFIG=palladium-config.py pld-devserver
 
 You can now try out the web service at this address:
 http://localhost:5000/predict?text=this+movie+was+brilliant
@@ -258,5 +268,14 @@ You should see a JSON string returned that looks something like this:
 
 The ``result`` entry has the probabilities.  Our model assigns 67%
 probability to the sentence "this movie was brilliant" to be positive.
-By the way, the Skorch tutorial itself has tips on how to improve this
+By the way, the skorch tutorial itself has tips on how to improve this
 model.
+
+The take away is Palladium helps you reduce the boilerplate code
+that's needed to get your machine learning project started.  Palladium
+has routines to fit, test, and serve models so you don't have to worry
+about that, and you can concentrate on the actual machine learning
+part.  Configuration and code are separated with Palladium, which
+helps organize your experiments and work on ideas in parallel.  Check
+out the `Palladium documentation <https://palladium.readthedocs.io>`_
+for more.
