@@ -86,9 +86,9 @@ class Dataset(torch.utils.data.Dataset):
       Everything pertaining to the target, if there is anything.
 
     length : int or None (default=None)
-      If not None, determines the length (``len``) of the data. Should
-      usually be left at None, in which case the length is determined
-      by the data itself.
+      If not ``None``, determines the length (``len``) of the data.
+      Should usually be left at ``None``, in which case the length is
+      determined by the data itself.
 
     """
     def __init__(
@@ -127,15 +127,15 @@ class Dataset(torch.utils.data.Dataset):
         return self._len
 
     def transform(self, X, y):
-        """Additional transformations on X and y.
+        """Additional transformations on ``X`` and ``y``.
 
-        By default, they are cast to torch tensors. Override this if
-        you want a different behavior.
+        By default, they are cast to PyTorch :class:`~torch.Tensor`\s.
+        Override this if you want a different behavior.
 
         Note: If you use this in conjuction with PyTorch
         :class:`~torch.utils.data.DataLoader`, the latter will call
         the dataset for each row separately, which means that the
-        incoming X and y each are single rows.
+        incoming ``X`` and ``y`` each are single rows.
 
         """
         # pytorch DataLoader cannot deal with None so we use 0 as a
