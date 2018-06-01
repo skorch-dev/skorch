@@ -78,8 +78,9 @@ class NeuralNet(object):
     using a callback, when using the net in an sklearn grid search,
     etc.
 
-    By default an ``EpochTimer``, ``AverageLoss``, ``BestLoss``, and
-    ``PrintLog`` callback is installed for the user's convenience.
+    By default an :class:`.EpochTimer`, :class:`.BatchScoring` (for
+    both training and validation datasets), and :class:`.PrintLog`
+    callbacks are installed for the user's convenience.
 
     Parameters
     ----------
