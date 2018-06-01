@@ -43,6 +43,7 @@ User's Guide
    user/history
    user/helper
    user/REST
+   user/parallelism           
    user/FAQ
 
 
