@@ -43,10 +43,15 @@ extensions = [
     'sphinx.ext.linkcode',
     'sphinx.ext.autosummary',
     'sphinx.ext.autosectionlabel',
+    'sphinx.ext.intersphinx',
 ]
 
 numpydoc_class_members_toctree = False
 
+intersphinx_mapping = {
+    'pytorch': ('https://pytorch.org/docs/stable/', None),
+    'sklearn': ('http://scikit-learn.org/stable/', None),
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

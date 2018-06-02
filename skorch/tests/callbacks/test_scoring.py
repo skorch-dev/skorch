@@ -6,6 +6,7 @@ from unittest.mock import Mock
 from unittest.mock import patch
 
 import numpy as np
+from sklearn.metrics import accuracy_score, make_scorer
 import pytest
 
 from skorch.utils import to_numpy
@@ -140,6 +141,34 @@ class TestEpochScoring:
         net.fit(*data)
 
         result = net.history[:, 'accuracy']
+        assert result == [0, 0]
+
+    def test_with_make_scorer_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(make_scorer(accuracy_score))],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        result = net.history[:, 'accuracy_score']
+        assert result == [0, 0]
+
+    def test_with_callable_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(accuracy_score)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        result = net.history[:, 'accuracy_score']
         assert result == [0, 0]
 
     def test_with_score_nonexisting_string(
@@ -395,10 +424,10 @@ class TestEpochScoring:
 
 
 class TestBatchScoring:
-    @pytest.fixture
-    def scoring_cls(self):
+    @pytest.fixture(params=[{'use_caching': True}, {'use_caching': False}])
+    def scoring_cls(self, request):
         from skorch.callbacks import BatchScoring
-        return BatchScoring
+        return partial(BatchScoring, **request.param)
 
     @pytest.fixture
     def mse_scoring(self, scoring_cls):
@@ -551,6 +580,42 @@ class TestBatchScoring:
         score_batches = net.history[:, 'batches', :, 'accuracy']
         assert np.allclose(score_batches, [[0, 0], [0, 0]])
 
+    def test_with_make_scorer_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(make_scorer(accuracy_score))],
+            batch_size=1,
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        score_epochs = net.history[:, 'accuracy_score']
+        assert np.allclose(score_epochs, [0, 0])
+
+        score_batches = net.history[:, 'batches', :, 'accuracy_score']
+        assert np.allclose(score_batches, [[0, 0], [0, 0]])
+
+    def test_with_callable_accuracy_score(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+    ):
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(accuracy_score)],
+            batch_size=1,
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        score_epochs = net.history[:, 'accuracy_score']
+        assert np.allclose(score_epochs, [0, 0])
+
+        score_batches = net.history[:, 'batches', :, 'accuracy_score']
+        assert np.allclose(score_batches, [[0, 0], [0, 0]])
+
     def test_with_score_nonexisting_string(
             self, net_cls, module_cls, scoring_cls, train_split, data,
     ):
@@ -658,3 +723,60 @@ class TestBatchScoring:
         net.fit(X, y)
 
         assert extractor.call_count == 2 * 2
+
+    def test_without_target_data_works(
+            self, net_cls, module_cls, scoring_cls, data,
+    ):
+        score_calls = 0
+
+        def myscore(net, X, y=None):
+            nonlocal score_calls
+            score_calls += 1
+            assert y is None
+            return X.mean().data.item()
+
+        # pylint: disable=unused-argument
+        def mysplit(dataset, y):
+            # set y_valid to None
+            ds_train = dataset
+            ds_valid = type(dataset)(dataset.X, y=None)
+            return ds_train, ds_valid
+
+        X, y = data
+        net = net_cls(
+            module=module_cls,
+            callbacks=[scoring_cls(myscore)],
+            train_split=mysplit,
+            max_epochs=2,
+        )
+        net.fit(X, y)
+
+        assert score_calls == 2
+
+        expected = np.mean(X)
+        loss = net.history[:, 'myscore']
+        assert np.allclose(loss, expected)
+
+    def test_scoring_with_cache_and_fit_interrupt_resets_infer(
+            self, net_cls, module_cls, scoring_cls, data, train_split):
+        # This test addresses a bug that occurred with caching in
+        # scoring when training is interrupted irregularly
+        # (e.g. through KeyboardInterrupt). In that case, it is
+        # important that the net's infer method is still reset.
+
+        def interrupt_scoring(net, X, y):
+            raise KeyboardInterrupt
+
+        X, y = data
+        net = net_cls(
+            module_cls,
+            callbacks=[('interrupt', scoring_cls(interrupt_scoring))],
+            train_split=train_split,
+        )
+        net.fit(X, y)
+
+        y_pred = net.predict(X)
+        # We test that we predict as many outputs as we put in. With
+        # the bug, the cache would be exhausted early because of the
+        # train split, and we would get back less.
+        assert len(y_pred) == len(X)

@@ -61,8 +61,8 @@ def filter_missing(x):
 
 class History(list):
     """History contains the information about the training history of
-    a NeuralNet, facilitating some of the more common tasks that are
-    occur during training.
+    a :class:`.NeuralNet`, facilitating some of the more common tasks
+    that are occur during training.
 
     When you want to log certain information during training (say, a
     particular score or the norm of the gradients), you should write
@@ -86,7 +86,7 @@ class History(list):
 
     If you select columns that are not present in all epochs/batches,
     only those epochs/batches are chosen that contain said columns. If
-    this set is empty, a KeyError is raised.
+    this set is empty, a ``KeyError`` is raised.
 
     Examples
     --------

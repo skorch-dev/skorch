@@ -4,6 +4,7 @@ from functools import partial
 import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -342,6 +343,38 @@ class TestNeuralNet:
         assert w.list[0].message.args[0] == (
             'Model configured to use CUDA but no CUDA '
             'devices available. Loading on CPU instead.')
+
+    def test_save_load_history_file_obj(
+            self, net_cls, module_cls, net_fit, data, tmpdir):
+        net = net_cls(module_cls).initialize()
+        X, y = data
+
+        history_before = net_fit.history
+
+        p = tmpdir.mkdir('skorch').join('history.json')
+        with open(str(p), 'w') as f:
+            net_fit.save_history(f)
+        del net_fit
+        with open(str(p), 'r') as f:
+            net.load_history(f)
+
+        assert net.history == history_before
+
+    @pytest.mark.parametrize('converter', [str, Path])
+    def test_save_load_history_file_path(
+            self, net_cls, module_cls, net_fit, data, tmpdir, converter):
+        # Test loading/saving with different kinds of path representations.
+        net = net_cls(module_cls).initialize()
+        X, y = data
+
+        history_before = net_fit.history
+
+        p = tmpdir.mkdir('skorch').join('history.json')
+        net_fit.save_history(converter(p))
+        del net_fit
+        net.load_history(converter(p))
+
+        assert net.history == history_before
 
     @pytest.mark.parametrize('method, call_count', [
         ('on_train_begin', 1),
@@ -1232,7 +1265,7 @@ class TestNeuralNet:
         # TODO: check error message more precisely, depending on what
         # the intended message shouldb e from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
-        
+
     @pytest.fixture()
     def sequence_module_cls(self):
         """Simple sequence model with variable size dim 1."""
@@ -1301,7 +1334,7 @@ class TestNeuralNet:
         net = net_cls(module_cls, criterion=nn.NLLLoss, max_epochs=1)
         net.initialize()
 
-        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
+        mock_loss = Mock(side_effect=nn.NLLLoss())
         net.criterion_.forward = mock_loss
         net.partial_fit(*data)  # call partial_fit to avoid re-initialization
 
@@ -1316,7 +1349,7 @@ class TestNeuralNet:
         net = net_cls(module_cls, criterion=nn.BCELoss, max_epochs=1)
         net.initialize()
 
-        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
+        mock_loss = Mock(side_effect=nn.NLLLoss())
         net.criterion_.forward = mock_loss
         net.partial_fit(*data)  # call partial_fit to avoid re-initialization
 
@@ -1324,6 +1357,66 @@ class TestNeuralNet:
         for (y_out, _), _ in mock_loss.call_args_list:
             assert not (y_out < 0).all()
             assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
+
+    def test_no_grad_during_validation(self, net_cls, module_cls, data):
+        """Test that gradient is only calculated during training step,
+        not validation step."""
+
+        # pylint: disable=unused-argument
+        def check_grad(*args, loss, training, **kwargs):
+            if training:
+                assert loss.requires_grad
+            else:
+                assert not loss.requires_grad
+
+        mock_cb = Mock(on_batch_end=check_grad)
+        net = net_cls(module_cls, max_epochs=1, callbacks=[mock_cb])
+        net.fit(*data)
+
+    @pytest.mark.parametrize('training', [True, False])
+    def test_no_grad_during_evaluation_unless_training(
+            self, net_cls, module_cls, data, training):
+        """Test that gradient is only calculated in training mode
+        during evaluation step."""
+        from skorch.utils import to_tensor
+
+        net = net_cls(module_cls).initialize()
+        Xi = to_tensor(data[0][:3], device='cpu')
+        y_eval = net.evaluation_step(Xi, training=training)
+
+        assert y_eval.requires_grad is training
+
+    @pytest.mark.parametrize(
+        'net_kwargs,expected_train_batch_size,expected_valid_batch_size',
+        [
+            ({'batch_size': -1}, 800, 200),
+            ({'iterator_train__batch_size': -1}, 800, 128),
+            ({'iterator_valid__batch_size': -1}, 128, 200),
+        ]
+    )
+    def test_batch_size_neg_1_uses_whole_dataset(
+            self, net_cls, module_cls, data, net_kwargs,
+            expected_train_batch_size, expected_valid_batch_size):
+
+        train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+        valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+
+        net = net_cls(module_cls, max_epochs=1,
+                      iterator_train=train_loader_mock,
+                      iterator_valid=valid_loader_mock,
+                      **net_kwargs)
+        net.fit(*data)
+
+        train_batch_size = net.history[:, 'batches', 'train_batch_size'][0][0]
+        valid_batch_size = net.history[:, 'batches', 'valid_batch_size'][0][0]
+
+        assert train_batch_size == expected_train_batch_size
+        assert valid_batch_size == expected_valid_batch_size
+
+        train_kwargs = train_loader_mock.call_args[1]
+        valid_kwargs = valid_loader_mock.call_args[1]
+        assert train_kwargs['batch_size'] == expected_train_batch_size
+        assert valid_kwargs['batch_size'] == expected_valid_batch_size
 
     def test_fit_lbfgs_optimizer(self, net, data):
         X, y = data
@@ -1420,6 +1513,3 @@ class TestNeuralNetRegressor:
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
         assert np.allclose(y_pred, y_proba, atol=1e-6)
-
-
-
