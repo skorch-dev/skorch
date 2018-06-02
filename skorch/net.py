@@ -482,9 +482,97 @@ class NeuralNet(object):
             'y_pred': y_pred,
             }
 
+    class TrainStepPrepare:
+        """Callable passed to an optimizer. Computes y_pred, loss value. and
+        updates gradients of the loss function w.r.t. model parameters. At the
+        same time, records intermediate 'y_pred' and 'loss' values.
+
+        Values from the first evaluation are returned. In case of some
+        optimizers, e.g. LBFGS, it is called multiple times, as the loss
+        function is evalueted multiple times per optimizer step.
+
+        In such cases, if all loss function values are needed,
+        `store_step_values` and `get_step_values` should be overridden in
+        a subclass.
+        """
+        def __init__(self, net, Xi, yi, **fit_params):
+            """Prepare the callable by storing arguments
+
+            Parameters
+            ----------
+            net : skorch.NeuralNet
+              Net being trained
+
+            Xi : input data
+              A batch of the input data.
+
+            yi : target data
+              A batch of the target data.
+
+            **fit_params : dict
+              Additional parameters passed to the ``forward`` method of
+              the module and to the train_split call.
+
+            """
+            self.step_values = None
+            self.net = net
+            self.Xi = Xi
+            self.yi = yi
+            self.fit_params = fit_params
+
+        def __call__(self):
+            """Compute y_pred, loss value, and update net's gradients.
+
+            The module is set to be in train mode (e.g. dropout is
+            applied).
+            """
+            self.net.module_.train()
+            self.net.optimizer_.zero_grad()
+            y_pred = self.net.infer(self.Xi, **self.fit_params)
+            loss = self.net.get_loss(y_pred, self.yi, X=self.Xi, training=True)
+            loss.backward()
+
+            self.net.notify(
+                'on_grad_computed',
+                named_parameters=list(self.net.module_.named_parameters())
+            )
+
+            step_values = {
+                'loss': loss,
+                'y_pred': y_pred,
+                }
+            self.store_step_values(step_values)
+            return loss
+
+        def store_step_values(self, step_values):
+            """ Store `loss` and `y_pred` values from one call to this object.
+            Here just the first pair is stored, alternatively the class could
+            store values from all calls in a list
+
+            Parameters
+            ----------
+            step_values : dict
+             Intermediate values from loss function gradient computations
+
+            """
+            if self.step_values is None:
+                self.step_values = step_values
+
+        def get_step_values(self):
+            """
+            Returns stored values of 'loss' and 'y_pred'
+            -------
+            step_values : dict
+             dict with `loss` and `y_pred` keys
+            """
+            return self.step_values
+
     def train_step(self, Xi, yi, **fit_params):
-        """Perform a forward step using batched data, update module
-        parameters, and return the loss.
+        """Prepares a loss function callable and pass it to the optimizer,
+        hence performing one optimization step.
+        Loss function callable as required by some optimizers (and accepted by
+        all of them):
+        https://pytorch.org/docs/master/optim.html#optimizer-step-closure
 
         The module is set to be in train mode (e.g. dropout is
         applied).
@@ -502,22 +590,10 @@ class NeuralNet(object):
           the module and to the train_split call.
 
         """
-        self.module_.train()
-        self.optimizer_.zero_grad()
-        y_pred = self.infer(Xi, **fit_params)
-        loss = self.get_loss(y_pred, yi, X=Xi, training=True)
-        loss.backward()
-
-        self.notify(
-            'on_grad_computed',
-            named_parameters=list(self.module_.named_parameters())
-        )
-
-        self.optimizer_.step()
-        return {
-            'loss': loss,
-            'y_pred': y_pred,
-            }
+        gradient_fn = self.TrainStepPrepare(self, Xi, yi, **fit_params)
+        self.optimizer_.step(gradient_fn)
+        step = gradient_fn.get_step_values()
+        return step
 
     def evaluation_step(self, Xi, training=False):
         """Perform a forward step to produce the output used for
@@ -1340,7 +1416,6 @@ class NeuralNet(object):
 
         parts.append(')')
         return '\n'.join(parts)
-
 
 #######################
 # NeuralNetClassifier #
