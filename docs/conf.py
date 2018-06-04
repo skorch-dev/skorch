@@ -51,6 +51,7 @@ numpydoc_class_members_toctree = False
 intersphinx_mapping = {
     'pytorch': ('https://pytorch.org/docs/stable/', None),
     'sklearn': ('http://scikit-learn.org/stable/', None),
+    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
 }
 
 # Add any paths that contain templates here, relative to this directory.

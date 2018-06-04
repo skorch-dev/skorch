@@ -62,8 +62,8 @@ class NeuralNet(object):
     ...    optimizer__momentum=0.95,
     ...)
 
-    This way, when ``optimizer`` is initialized, ``NeuralNet`` will
-    take care of setting the ``momentum`` parameter to 0.95.
+    This way, when ``optimizer`` is initialized, :class:`.NeuralNet`
+    will take care of setting the ``momentum`` parameter to 0.95.
 
     (Note that the double underscore notation in
     ``optimizer__momentum`` means that the parameter ``momentum``
@@ -78,14 +78,16 @@ class NeuralNet(object):
     using a callback, when using the net in an sklearn grid search,
     etc.
 
-    By default an ``EpochTimer``, ``AverageLoss``, ``BestLoss``, and
-    ``PrintLog`` callback is installed for the user's convenience.
+    By default an :class:`.EpochTimer`, :class:`.BatchScoring` (for
+    both training and validation datasets), and :class:`.PrintLog`
+    callbacks are installed for the user's convenience.
 
     Parameters
     ----------
     module : torch module (class or instance)
-      A torch module. In general, the uninstantiated class should be
-      passed, although instantiated modules will also work.
+      A PyTorch :class:`~torch.nn.Module`. In general, the
+      uninstantiated class should be passed, although instantiated
+      modules will also work.
 
     criterion : torch criterion (class)
       The uninitialized criterion (loss) used to optimize the
@@ -138,9 +140,9 @@ class NeuralNet(object):
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those returned by
       ``get_default_callbacks``. Each callback should inherit from
-      skorch.Callback. If not None, a list of tuples (name, callback)
-      should be passed, where names should be unique. Callbacks may or
-      may not be instantiated.
+      :class:`.Callback`. If not ``None``, a list of tuples (name,
+      callback) should be passed, where names should be unique.
+      Callbacks may or may not be instantiated.
       Alternatively, it is possible to just pass a list of callbacks,
       which results in names being inferred from the class name.
       The callback name can be used to set parameters on specific
@@ -176,7 +178,7 @@ class NeuralNet(object):
       want to add other cuda-dependent attributes.
 
     initialized\_ : bool
-      Whether the NeuralNet was initialized.
+      Whether the :class:`.NeuralNet` was initialized.
 
     module\_ : torch module (instance)
       The instantiated module.
@@ -442,8 +444,8 @@ class NeuralNet(object):
         self.history = History()
 
     def initialize(self):
-        """Initializes all components of the NeuralNet and returns
-        self.
+        """Initializes all components of the :class:`.NeuralNet` and
+        returns self.
 
         """
         self.initialize_callbacks()
@@ -475,7 +477,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         self.module_.eval()
@@ -504,7 +506,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         self.module_.train()
@@ -569,7 +571,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         self.check_data(X, y)
@@ -646,7 +648,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         if not self.initialized_:
@@ -688,7 +690,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         if not self.warm_start or not self.initialized_:
@@ -811,7 +813,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         x = to_tensor(x, device=self.device)
@@ -824,9 +826,11 @@ class NeuralNet(object):
         """Return the output of the module's forward method as a numpy
         array.
 
-        If forward returns multiple outputs as a tuple, it is assumed
-        that the first output contains the relevant information. The
-        other values are ignored.
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -860,7 +864,9 @@ class NeuralNet(object):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -996,7 +1002,8 @@ class NeuralNet(object):
           None.
 
         **fit_params : dict
-          Additional parameters passed to the train_split call.
+          Additional parameters passed to the ``self.train_split``
+          call.
 
         Returns
         -------
@@ -1503,7 +1510,9 @@ class NeuralNetClassifier(NeuralNet):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -1534,7 +1543,9 @@ class NeuralNetClassifier(NeuralNet):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------

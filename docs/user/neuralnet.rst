@@ -30,7 +30,8 @@ estimator. The finished code could look something like this:
 Let's see what skorch did for us here:
 
 - wraps the PyTorch :class:`~torch.nn.Module` in an sklearn interface
-- converts the numpy ``array``\s to PyTorch :class:`~torch.Tensor`\s
+- converts :class:`numpy.ndarray`\s to PyTorch
+  :class:`~torch.Tensor`\s
 - abstracts away the fit loop
 - takes care of batching the data
 
@@ -326,20 +327,20 @@ predict(X) and predict_proba(X)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These methods perform an inference step on the input data and return
-``numpy array``\s. By default,
+:class:`numpy.ndarray`\s. By default,
 :func:`~skorch.net.NeuralNet.predict_proba` will return whatever it is
 that the ``module``\'s :func:`~torch.nn.Module.forward` method
-returns, cast to a ``numpy array``. If
+returns, cast to a :class:`numpy.ndarray`. If
 :func:`~torch.nn.Module.forward` returns multiple outputs as a tuple,
 only the first output is used, the rest is discarded.
 
-If casting the :func:`~torch.nn.Module.forward`\-output to ``numpy``
-is impossible, you will get an error. In that case, you should
-consider returning a PyTorch :class:`~torch.Tensor` from your
-:func:`~torch.nn.Module.forward` method, as this tensor can be
-converted to a ``numpy`` array. Alternatively, consider using the
-:func:`~skorch.net.NeuralNet.forward_iter` method to generate outputs
-from the ``module``, or directly call ``net.module_(X)``.
+If the :func:`~torch.nn.Module.forward`\-output can not be cast to a
+:class:`numpy.ndarray`, or if you need access to all outputs in the
+multiple-outputs case, consider using either of
+:func:`~skorch.net.NeuralNet.forward` or
+:func:`~skorch.net.NeuralNet.forward_iter` methods to generate outputs
+from the ``module``. Alternatively, you may directly call
+``net.module_(X)``.
 
 In case of :class:`.NeuralNetClassifier`, the
 :func:`~skorch.net.NeuralNetClassifier.predict` method tries to return
