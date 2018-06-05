@@ -71,15 +71,15 @@ sampling, shuffling, and distributed processing.
 skorch uses the PyTorch :class:`~torch.utils.data.DataLoader`\s by default.
 However, the :class:`~torch.utils.data.Dataset`\s provided by PyTorch
 are not sufficient for our usecase; for instance, they don't work with
-numpy ``array``\s.  That's why we provide our own :class:`.Dataset`
-class. This container works with:
+:class:`numpy.ndarray`\s. That's why we provide our own
+:class:`.Dataset` class. This container works with:
 
-- numpy arrays
+- :class:`numpy.ndarray`\s
 - PyTorch :class:`~torch.Tensor`\s
 - pandas DataFrames or Series
 
 In addition, you can pass dictionaries or lists of one of those data
-types, e.g. a dictionary of numpy ``array``\s. When you pass
+types, e.g. a dictionary of :class:`numpy.ndarray`\s. When you pass
 dictionaries, the keys of the dictionaries are used as the argument
 name for the :func:`~torch.nn.Module.forward` method of the net's
 ``module``. Similarly, the column names of pandas ``DataFrame``\s are
@@ -126,18 +126,11 @@ have an ``X`` and a ``y``, where ``X`` represents the input data and
 ``y`` the target. However, you may leave ``y=None``, in which case
 :class:`.Dataset` returns a dummy variable.
 
-In contrast to a PyTorch :class:`~torch.utils.data.Dataset`, a skorch
-:class:`.Dataset` must have a ``device`` argument, which determines
-whether the returned data should be transferred to a specific
-computation device. Should you write your own :class:`.Dataset`
-subclass, remember to integrate this argument.
-
 :class:`.Dataset` applies a transform final transform on the data
 before passing it on to the PyTorch
-:class:`~torch.utils.data.DataLoader`. By default, it casts the data
-to a PyTorch :class:`~torch.Tensor` and replaces ``y`` by a dummy
-variable in case it is ``None``. If you would like to apply your own
-transformation on the data, you should subclass :class:`.Dataset` and
-override the :func:`~skorch.dataset.Dataset.transform` method, then
-pass your custom class to :class:`.NeuralNet` as the ``dataset``
-argument.
+:class:`~torch.utils.data.DataLoader`. By default, it replaces ``y``
+by a dummy variable in case it is ``None``. If you would like to
+apply your own transformation on the data, you should subclass
+:class:`.Dataset` and override the
+:func:`~skorch.dataset.Dataset.transform` method, then pass your
+custom class to :class:`.NeuralNet` as the ``dataset`` argument.

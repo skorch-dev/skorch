@@ -12,7 +12,8 @@ from skorch.utils import data_from_dataset
 from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
-from skorch.dataset import Dataset
+from skorch.utils import check_indexing
+
 
 __all__ = ['BatchScoring', 'EpochScoring']
 
@@ -93,6 +94,11 @@ class ScoringBase(Callback):
         self.name_ = self._get_name()
         return self
 
+    # pylint: disable=unused-parameters
+    def on_train_begin(self, net, X, y, **kwargs):
+        self.X_indexing_ = check_indexing(X)
+        self.y_indexing_ = check_indexing(y)
+
     def _scoring(self, net, X_test, y_test):
         """Resolve scoring and apply it to data. Use cached prediction
         instead of running inference again, if available."""
@@ -131,6 +137,9 @@ class BatchScoring(ScoringBase):
     scores in this case. Therefore, it is recommnded to use
     ``EpochScoring`` unless you really need the scores for each batch.
 
+    If ``y`` is None, the ``scoring`` function with signature (model, X, y)
+    must be able to handle ``X`` as a ``Tensor`` and ``y=None``.
+
     Parameters
     ----------
     scoring : None, str, or callable
@@ -160,13 +169,16 @@ class BatchScoring(ScoringBase):
       step for each batch.
     """
     # pylint: disable=unused-argument,arguments-differ
+
     def on_batch_end(self, net, X, y, training, **kwargs):
         if training != self.on_train:
             return
 
         y_preds = [kwargs['y_pred']]
         with cache_net_infer(net, self.use_caching, y_preds) as cached_net:
-            y = self.target_extractor(y)
+            # In case of y=None we will not have gathered any samples.
+            # We expect the scoring function to deal with y=None.
+            y = None if y is None else self.target_extractor(y)
             try:
                 score = self._scoring(cached_net, X, y)
                 cached_net.history.record_batch(self.name_, score)
@@ -199,7 +211,7 @@ class BatchScoring(ScoringBase):
 
         history.record(self.name_, score_avg)
         if is_best is not None:
-            history.record(self.name_ + '_best', is_best)
+            history.record(self.name_ + '_best', bool(is_best))
 
 
 class EpochScoring(ScoringBase):
@@ -284,12 +296,9 @@ class EpochScoring(ScoringBase):
     def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
         self._initialize_cache()
 
-        ds = dataset_train if self.on_train else dataset_valid
-        # pylint: disable=attribute-defined-outside-init
-        self.y_is_placeholder_ = isinstance(ds, Dataset) and ds.y is None
-
     # pylint: disable=arguments-differ
-    def on_batch_end(self, net, y, y_pred, training, **kwargs):
+    def on_batch_end(
+            self, net, y, y_pred, training, **kwargs):
         if not self.use_caching or training != self.on_train:
             return
 
@@ -300,7 +309,7 @@ class EpochScoring(ScoringBase):
         # self.target_extractor(y) here but on epoch end, so that
         # there are no copies of parts of y hanging around during
         # training.
-        if not self.y_is_placeholder_:
+        if y is not None:
             self.y_trues_.append(y)
         self.y_preds_.append(y_pred)
 
@@ -323,7 +332,11 @@ class EpochScoring(ScoringBase):
             y_test = np.concatenate(y_test) if y_test else None
         else:
             if is_skorch_dataset(dataset):
-                X_test, y_test = data_from_dataset(dataset)
+                X_test, y_test = data_from_dataset(
+                    dataset,
+                    X_indexing=self.X_indexing_,
+                    y_indexing=self.y_indexing_,
+                )
             else:
                 X_test, y_test = dataset, None
             y_pred = []
@@ -344,7 +357,7 @@ class EpochScoring(ScoringBase):
             if is_best is None:
                 return
 
-            cached_net.history.record(self.name_ + '_best', is_best)
+            cached_net.history.record(self.name_ + '_best', bool(is_best))
             if is_best:
                 self.best_score_ = current_score
 

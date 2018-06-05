@@ -56,6 +56,74 @@ class TestGetLen:
             get_len(data)
 
 
+class TestUsesPlaceholderY:
+
+    @pytest.fixture
+    def uses_placeholder_y(self):
+        from skorch.dataset import uses_placeholder_y
+        return uses_placeholder_y
+
+    @pytest.fixture
+    def dataset_cls(self):
+        from skorch.dataset import Dataset
+        return Dataset
+
+    @pytest.fixture
+    def cv_split_cls(self):
+        from skorch.dataset import CVSplit
+        return CVSplit
+
+    def test_dataset_uses_y_placeholder(
+            self, dataset_cls, data, uses_placeholder_y):
+        X, _ = data
+        ds = dataset_cls(X, y=None)
+        assert uses_placeholder_y(ds)
+
+    def test_dataset_uses_non_y_placeholder(
+            self, dataset_cls, data, uses_placeholder_y):
+        X, y = data
+        ds = dataset_cls(X, y)
+        assert not uses_placeholder_y(ds)
+
+    def test_subset_uses_placeholder_y(
+            self, dataset_cls, data, uses_placeholder_y,
+            cv_split_cls):
+        X, _ = data
+        ds = dataset_cls(X, y=None)
+        ds_train, ds_valid = cv_split_cls(cv=2)(ds)
+        assert uses_placeholder_y(ds_train)
+        assert uses_placeholder_y(ds_valid)
+
+    def test_subset_dataset_uses_non_y_placeholder(
+            self, dataset_cls, data, uses_placeholder_y,
+            cv_split_cls):
+        X, y = data
+        ds = dataset_cls(X, y)
+        ds_train, ds_valid = cv_split_cls(cv=2)(ds)
+        assert not uses_placeholder_y(ds_train)
+        assert not uses_placeholder_y(ds_valid)
+
+    def test_subset_of_subset_uses_placeholder_y(
+            self, dataset_cls, data, uses_placeholder_y,
+            cv_split_cls):
+        X, _ = data
+        ds = dataset_cls(X, y=None)
+        ds_split, _ = cv_split_cls(cv=4)(ds)
+        ds_train, ds_valid = cv_split_cls(cv=3)(ds_split)
+        assert uses_placeholder_y(ds_train)
+        assert uses_placeholder_y(ds_valid)
+
+    def test_subset_of_subset_uses_non_placeholder_y(
+            self, dataset_cls, data, uses_placeholder_y,
+            cv_split_cls):
+        X, y = data
+        ds = dataset_cls(X, y)
+        ds_split, _ = cv_split_cls(cv=4)(ds)
+        ds_train, ds_valid = cv_split_cls(cv=3)(ds_split)
+        assert not uses_placeholder_y(ds_train)
+        assert not uses_placeholder_y(ds_valid)
+
+
 class TestNetWithoutY:
 
     net_fixture_params = [

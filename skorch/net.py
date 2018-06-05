@@ -2,6 +2,7 @@
 
 import fnmatch
 from itertools import chain
+import json
 import re
 import tempfile
 import warnings
@@ -18,6 +19,7 @@ from skorch.callbacks import BatchScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
+from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
@@ -25,6 +27,7 @@ from skorch.utils import duplicate_items
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import noop
+from skorch.utils import open_file_like
 from skorch.utils import params_for
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
@@ -59,8 +62,8 @@ class NeuralNet(object):
     ...    optimizer__momentum=0.95,
     ...)
 
-    This way, when ``optimizer`` is initialized, ``NeuralNet`` will
-    take care of setting the ``momentum`` parameter to 0.95.
+    This way, when ``optimizer`` is initialized, :class:`.NeuralNet`
+    will take care of setting the ``momentum`` parameter to 0.95.
 
     (Note that the double underscore notation in
     ``optimizer__momentum`` means that the parameter ``momentum``
@@ -75,14 +78,16 @@ class NeuralNet(object):
     using a callback, when using the net in an sklearn grid search,
     etc.
 
-    By default an ``EpochTimer``, ``AverageLoss``, ``BestLoss``, and
-    ``PrintLog`` callback is installed for the user's convenience.
+    By default an :class:`.EpochTimer`, :class:`.BatchScoring` (for
+    both training and validation datasets), and :class:`.PrintLog`
+    callbacks are installed for the user's convenience.
 
     Parameters
     ----------
     module : torch module (class or instance)
-      A torch module. In general, the uninstantiated class should be
-      passed, although instantiated modules will also work.
+      A PyTorch :class:`~torch.nn.Module`. In general, the
+      uninstantiated class should be passed, although instantiated
+      modules will also work.
 
     criterion : torch criterion (class)
       The uninitialized criterion (loss) used to optimize the
@@ -120,14 +125,11 @@ class NeuralNet(object):
       pytorch's ``DataLoader``. It has to implement the ``__len__`` and
       ``__getitem__`` methods. The provided dataset should be capable of
       dealing with a lot of data types out of the box, so only change
-      this if your data is not supported. Additionally, dataset should
-      accept a ``device`` parameter to indicate the location of the
-      data (e.g., CUDA).
-      You should generally pass the uninitialized ``Dataset`` class
-      and define additional arguments to X and y by prefixing them
-      with ``dataset__``. It is also possible to pass an initialzed
-      ``Dataset``, in which case no additional arguments may be
-      passed.
+      this if your data is not supported. You should generally pass the
+      uninitialized ``Dataset`` class and define additional arguments to
+      X and y by prefixing them with ``dataset__``. It is also possible
+      to pass an initialzed ``Dataset``, in which case no additional
+      arguments may be passed.
 
     train_split : None or callable (default=skorch.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
@@ -138,9 +140,9 @@ class NeuralNet(object):
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those returned by
       ``get_default_callbacks``. Each callback should inherit from
-      skorch.Callback. If not None, a list of tuples (name, callback)
-      should be passed, where names should be unique. Callbacks may or
-      may not be instantiated.
+      :class:`.Callback`. If not ``None``, a list of tuples (name,
+      callback) should be passed, where names should be unique.
+      Callbacks may or may not be instantiated.
       Alternatively, it is possible to just pass a list of callbacks,
       which results in names being inferred from the class name.
       The callback name can be used to set parameters on specific
@@ -176,7 +178,7 @@ class NeuralNet(object):
       want to add other cuda-dependent attributes.
 
     initialized\_ : bool
-      Whether the NeuralNet was initialized.
+      Whether the :class:`.NeuralNet` was initialized.
 
     module\_ : torch module (instance)
       The instantiated module.
@@ -442,8 +444,8 @@ class NeuralNet(object):
         self.history = History()
 
     def initialize(self):
-        """Initializes all components of the NeuralNet and returns
-        self.
+        """Initializes all components of the :class:`.NeuralNet` and
+        returns self.
 
         """
         self.initialize_callbacks()
@@ -475,7 +477,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         self.module_.eval()
@@ -504,7 +506,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         self.module_.train()
@@ -569,7 +571,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         self.check_data(X, y)
@@ -582,28 +584,33 @@ class NeuralNet(object):
             'dataset_valid': dataset_valid,
         }
 
+        y_train_is_ph = uses_placeholder_y(dataset_train)
+        y_valid_is_ph = uses_placeholder_y(dataset_valid)
+
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             for Xi, yi in self.get_iterator(dataset_train, training=True):
-                self.notify('on_batch_begin', X=Xi, y=yi, training=True)
+                yi_res = yi if not y_train_is_ph else None
+                self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
                 self.history.record_batch(
                     'train_loss', step['loss'].data.item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, training=True, **step)
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
 
             if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
             for Xi, yi in self.get_iterator(dataset_valid, training=False):
-                self.notify('on_batch_begin', X=Xi, y=yi, training=False)
+                yi_res = yi if not y_valid_is_ph else None
+                self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
                 self.history.record_batch(
                     'valid_loss', step['loss'].data.item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi, training=False, **step)
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
@@ -641,18 +648,18 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         if not self.initialized_:
             self.initialize()
 
-        self.notify('on_train_begin')
+        self.notify('on_train_begin', X=X, y=y)
         try:
             self.fit_loop(X, y, **fit_params)
         except KeyboardInterrupt:
             pass
-        self.notify('on_train_end')
+        self.notify('on_train_end', X=X, y=y)
         return self
 
     def fit(self, X, y=None, **fit_params):
@@ -683,7 +690,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         if not self.warm_start or not self.initialized_:
@@ -806,7 +813,7 @@ class NeuralNet(object):
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
-          the module and to the train_split call.
+          the module and to the ``self.train_split`` call.
 
         """
         x = to_tensor(x, device=self.device)
@@ -819,9 +826,11 @@ class NeuralNet(object):
         """Return the output of the module's forward method as a numpy
         array.
 
-        If forward returns multiple outputs as a tuple, it is assumed
-        that the first output contains the relevant information. The
-        other values are ignored.
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -855,7 +864,9 @@ class NeuralNet(object):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -918,8 +929,6 @@ class NeuralNet(object):
         Override this if you want to initialize your dataset
         differently.
 
-        If ``dataset__device`` is not set, use ``self.device`` instead.
-
         Parameters
         ----------
         X : input data, compatible with skorch.dataset.Dataset
@@ -961,9 +970,6 @@ class NeuralNet(object):
         if is_initialized:
             return dataset
 
-        if 'device' not in kwargs:
-            kwargs['device'] = self.device
-
         return dataset(X, y, **kwargs)
 
     def get_split_datasets(self, X, y=None, **fit_params):
@@ -996,7 +1002,8 @@ class NeuralNet(object):
           None.
 
         **fit_params : dict
-          Additional parameters passed to the train_split call.
+          Additional parameters passed to the ``self.train_split``
+          call.
 
         Returns
         -------
@@ -1325,6 +1332,44 @@ class NeuralNet(object):
 
         self.module_.load_state_dict(model)
 
+    def save_history(self, f):
+        """Saves the history of ``NeuralNet`` as a json file. In order
+        to use this feature, the history must only contain JSON encodable
+        Python data structures. Numpy and PyTorch types should not
+        be in the history.
+
+        Parameters
+        ----------
+        f : file-like object or str
+
+        Examples
+        --------
+
+        >>> before = NeuralNetClassifier(mymodule)
+        >>> before.fit(X, y, epoch=2) # Train for 2 epochs
+        >>> before.save_params('path/to/params')
+        >>> before.save_history('path/to/history.json')
+        >>> after = NeuralNetClassifier(mymodule).initialize()
+        >>> after.load_params('path/to/params')
+        >>> after.load_history('path/to/history.json')
+        >>> after.fit(X, y, epoch=2) # Train for another 2 epochs
+
+        """
+        with open_file_like(f, 'w') as fp:
+            json.dump(self.history.to_list(), fp)
+
+    def load_history(self, f):
+        """Load the history of a ``NeuralNet`` from a json file. See
+        ``save_history`` for examples.
+
+        Parameters
+        ----------
+        f : file-like object or str
+
+        """
+        with open_file_like(f, 'r') as fp:
+            self.history = History(json.load(fp))
+
     def __repr__(self):
         params = self.get_params(deep=False)
 
@@ -1465,7 +1510,9 @@ class NeuralNetClassifier(NeuralNet):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -1496,7 +1543,9 @@ class NeuralNetClassifier(NeuralNet):
 
         If the module's forward method returns multiple outputs as a
         tuple, it is assumed that the first output contains the
-        relevant information. The other values are ignored.
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
