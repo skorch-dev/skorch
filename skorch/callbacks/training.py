@@ -95,7 +95,7 @@ class Checkpoint(Callback):
 
 class EarlyStopping(Callback):
     """Stop training early if a specified `monitor` metric did not improve in
-    `patience` number of epochs by at least `threshold`
+    `patience` number of epochs by at least `threshold`.
 
     Parameters
     ----------
@@ -115,13 +115,9 @@ class EarlyStopping(Callback):
       Ignore score improvements smaller than `threshold`.
 
     threshold_mode : str (default='rel')
-        One of `rel`, `abs`. In `rel` mode,
-        dynamic_threshold = best * ( 1 + threshold ) in 'max'
-        mode or best * ( 1 - threshold ) in `min` mode.
-        In `abs` mode, dynamic_threshold = best + threshold in
-        `max` mode or best - threshold in `min` mode. Default: 'rel'.
-
-
+        One of `rel`, `abs`. Decides whether the `threshold` value is
+        interpreted in absolute terms or as a fraction of the best score
+        so far (relative)
     """
     def __init__(self, monitor='valid_loss', patience=5, threshold=1e-4,
                  threshold_mode='rel', lower_is_better=True):
@@ -132,7 +128,6 @@ class EarlyStopping(Callback):
         self.threshold_mode = threshold_mode
         self.misses_ = 0
         self.dynamic_threshold_ = None
-
 
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
@@ -172,7 +167,3 @@ class EarlyStopping(Callback):
         else:
             new_threshold = score + abs_threshold_change
         return new_threshold
-
-
-
-

@@ -18,7 +18,7 @@ class TestEarlyStopping:
 
     @pytest.fixture
     def broken_classifier_module(self, classifier_module):
-        """Return a classifier that does not imporve over time."""
+        """Return a classifier that does not improve over time."""
         class BrokenClassifier(classifier_module):
             def forward(self, x):
                 return super().forward(x) * 0 + 0.5
