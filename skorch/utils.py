@@ -377,3 +377,19 @@ def open_file_like(f, mode):
     finally:
         if new_fd:
             f.close()
+
+
+class StoreFirstValue:
+    """
+    The class saves the argument of the first `store` call, to later be
+    retrieved by `get()`
+    """
+    def __init__(self):
+        self.data = None
+
+    def store(self, data):
+        if self.data is None:
+            self.data = data
+
+    def get(self):
+        return self.data
