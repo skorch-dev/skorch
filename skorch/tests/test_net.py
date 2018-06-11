@@ -1427,23 +1427,18 @@ class TestNeuralNet:
 
     def test_accumulator_that_returns_last_value(
             self, net_cls, module_cls, data):
-        # We define a loss that is called 3 times and an accumulator
-        # that returns the last of those calls. We then test that the
-        # correct values were stored.
+        # We define an optimizer that calls the step function 3 times
+        # and an accumulator that returns the last of those calls. We
+        # then test that the correct values were stored.
         from skorch.utils import FirstStepAccumulator
+
         side_effect = []
 
-        class Criterion3Calls:
-            """Call NLLLoss 3 times."""
-            loss = torch.nn.NLLLoss()
-            def __call__(self, *args, **kwargs):
-                loss = self.loss(*args, **kwargs)
-                side_effect.append(float(loss))
-                loss = self.loss(*args, **kwargs)
-                side_effect.append(float(loss))
-                loss = self.loss(*args, **kwargs)
-                side_effect.append(float(loss))
-                return loss
+        class SGD3Calls(torch.optim.SGD):
+            def step(self, closure):
+                for _ in range(3):
+                    loss = super().step(closure)
+                    side_effect.append(float(loss))
 
         class MyAccumulator(FirstStepAccumulator):
             """Accumulate all steps and return the last."""
@@ -1454,22 +1449,22 @@ class TestNeuralNet:
                     self.step.append(step)
 
             def get_step(self):
+                # Losses should only ever be retrieved after storing 3
+                # times.
+                assert len(self.step) == 3
                 return self.step[-1]
-
-        class MyNet(net_cls):
-            def get_train_step_accumulator(self):
-                return MyAccumulator()
 
         X, y = data
         max_epochs = 2
         batch_size = 100
-        net = MyNet(
+        net = net_cls(
             module_cls,
-            criterion=Criterion3Calls,
+            optimizer=SGD3Calls,
             max_epochs=max_epochs,
             batch_size=batch_size,
             train_split=None,
         )
+        net.get_train_step_accumulator = MyAccumulator
         net.fit(X, y)
 
         # Number of loss calculations is total number of batches x 3.
@@ -1477,11 +1472,11 @@ class TestNeuralNet:
         expected_calls = 3 * num_batches_per_epoch * max_epochs
         assert len(side_effect) == expected_calls
 
-        # Every 3rd loss calculation (i.e. the last) should be stored
-        # in the history.
+        # Every 3rd loss calculation (i.e. the last per call) should
+        # be stored in the history.
         expected_losses = list(
             flatten(net.history[:, 'batches', :, 'train_loss']))
-        assert np.allclose(side_effect[::3], expected_losses)
+        assert np.allclose(side_effect[2::3], expected_losses)
 
 
 class MyRegressor(nn.Module):
