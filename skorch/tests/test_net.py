@@ -17,6 +17,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from skorch.utils import flatten
 from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
 
@@ -1423,6 +1424,64 @@ class TestNeuralNet:
         net.set_params(optimizer=torch.optim.LBFGS)
         net.set_params(batch_size=len(X))
         net.fit(X, y)
+
+    def test_accumulator_that_returns_last_value(
+            self, net_cls, module_cls, data):
+        # We define a loss that is called 3 times and an accumulator
+        # that returns the last of those calls. We then test that the
+        # correct values were stored.
+        from skorch.utils import FirstStepAccumulator
+        side_effect = []
+
+        class Criterion3Calls:
+            """Call NLLLoss 3 times."""
+            loss = torch.nn.NLLLoss()
+            def __call__(self, *args, **kwargs):
+                loss = self.loss(*args, **kwargs)
+                side_effect.append(float(loss))
+                loss = self.loss(*args, **kwargs)
+                side_effect.append(float(loss))
+                loss = self.loss(*args, **kwargs)
+                side_effect.append(float(loss))
+                return loss
+
+        class MyAccumulator(FirstStepAccumulator):
+            """Accumulate all steps and return the last."""
+            def store_step(self, step):
+                if self.step is None:
+                    self.step = [step]
+                else:
+                    self.step.append(step)
+
+            def get_step(self):
+                return self.step[-1]
+
+        class MyNet(net_cls):
+            def get_train_step_accumulator(self):
+                return MyAccumulator()
+
+        X, y = data
+        max_epochs = 2
+        batch_size = 100
+        net = MyNet(
+            module_cls,
+            criterion=Criterion3Calls,
+            max_epochs=max_epochs,
+            batch_size=batch_size,
+            train_split=None,
+        )
+        net.fit(X, y)
+
+        # Number of loss calculations is total number of batches x 3.
+        num_batches_per_epoch = int(np.ceil(len(y) / batch_size))
+        expected_calls = 3 * num_batches_per_epoch * max_epochs
+        assert len(side_effect) == expected_calls
+
+        # Every 3rd loss calculation (i.e. the last) should be stored
+        # in the history.
+        expected_losses = list(
+            flatten(net.history[:, 'batches', :, 'train_loss']))
+        assert np.allclose(side_effect[::3], expected_losses)
 
 
 class MyRegressor(nn.Module):
