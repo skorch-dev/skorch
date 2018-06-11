@@ -31,6 +31,7 @@ from skorch.utils import open_file_like
 from skorch.utils import params_for
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
+from skorch.utils import StoreFirstValue
 
 
 # pylint: disable=unused-argument
@@ -489,12 +490,12 @@ class NeuralNet(object):
             'y_pred': y_pred,
             }
 
-    def train_step(self, Xi, yi, **fit_params):
-        """Perform a forward step using batched data, update module
-        parameters, and return the loss.
+    def train_step_gradient_calc(self, Xi, yi, accumulator, **fit_params):
+        """Compute y_pred, loss value, and update net's gradients.
 
         The module is set to be in train mode (e.g. dropout is
         applied).
+
 
         Parameters
         ----------
@@ -503,6 +504,9 @@ class NeuralNet(object):
 
         yi : target data
           A batch of the target data.
+
+        accumulator : `NeuralNet.TrainStepAccumulator`
+          Class collecting information about intermediate values from `train_step`
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
@@ -520,11 +524,56 @@ class NeuralNet(object):
             named_parameters=list(self.module_.named_parameters())
         )
 
-        self.optimizer_.step()
-        return {
+        step_values = {
             'loss': loss,
             'y_pred': y_pred,
             }
+        accumulator.store(step_values)
+        return loss
+
+    @staticmethod
+    def get_train_step_accumulator():
+        """
+        Method returning an object instance that stores intermediate
+        information from `train_step_calc_gradient` calls for one batch
+        and then retrieves the relevant ones (by default: the first set)
+
+        In case of some optimizers, e.g. LBFGS,
+        `train_step_calc_gradient` is called multiple times, as the loss
+        function is evaluated multiple times per optimizer step.
+        """
+        return StoreFirstValue()
+
+    def train_step(self, Xi, yi, **fit_params):
+        """Prepares a loss function callable and pass it to the optimizer,
+        hence performing one optimization step.
+        Loss function callable as required by some optimizers (and accepted by
+        all of them):
+        https://pytorch.org/docs/master/optim.html#optimizer-step-closure
+
+        The module is set to be in train mode (e.g. dropout is
+        applied).
+
+        Parameters
+        ----------
+        Xi : input data
+          A batch of the input data.
+
+        yi : target data
+          A batch of the target data.
+
+        **fit_params : dict
+          Additional parameters passed to the ``forward`` method of
+          the module and to the train_split call.
+
+        """
+        accumulator = self.get_train_step_accumulator()
+        gradient_fn = lambda: \
+            self.train_step_gradient_calc(Xi, yi, accumulator, **fit_params)
+
+        self.optimizer_.step(gradient_fn)
+        step = accumulator.get()
+        return step
 
     def evaluation_step(self, Xi, training=False):
         """Perform a forward step to produce the output used for
@@ -1394,7 +1443,6 @@ class NeuralNet(object):
 
         parts.append(')')
         return '\n'.join(parts)
-
 
 #######################
 # NeuralNetClassifier #

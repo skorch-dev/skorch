@@ -854,6 +854,15 @@ class TestNeuralNet:
         # anymore
         net.fit(*data)  # should not raise
 
+    def test_net_initialized_with_partialed_dataset(
+            self, net_cls, module_cls, data, dataset_cls):
+        net = net_cls(
+            module_cls,
+            dataset=partial(dataset_cls, device='cpu'),
+            max_epochs=1,
+        )
+        net.fit(*data)  # does not raise
+
     def test_net_initialized_with_initalized_dataset_and_kwargs_raises(
             self, net_cls, module_cls, data, dataset_cls):
         net = net_cls(
@@ -1408,6 +1417,12 @@ class TestNeuralNet:
         valid_kwargs = valid_loader_mock.call_args[1]
         assert train_kwargs['batch_size'] == expected_train_batch_size
         assert valid_kwargs['batch_size'] == expected_valid_batch_size
+
+    def test_fit_lbfgs_optimizer(self, net, data):
+        X, y = data
+        net.set_params(optimizer=torch.optim.LBFGS)
+        net.set_params(batch_size=len(X))
+        net.fit(X, y)
 
 
 class MyRegressor(nn.Module):
