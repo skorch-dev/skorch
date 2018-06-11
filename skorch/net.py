@@ -915,7 +915,7 @@ class NeuralNet(object):
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
-        train : bool (default=False)
+        training : bool (default=False)
           Whether train mode should be used or not.
 
         """
