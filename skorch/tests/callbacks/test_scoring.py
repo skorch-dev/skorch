@@ -445,7 +445,7 @@ class TestBatchScoring:
 
     @pytest.fixture
     def train_loss(self, scoring_cls):
-        from skorch.net import train_loss_score
+        from skorch.utils import train_loss_score
         return scoring_cls(
             train_loss_score,
             name='train_loss',
@@ -454,7 +454,7 @@ class TestBatchScoring:
 
     @pytest.fixture
     def valid_loss(self, scoring_cls):
-        from skorch.net import valid_loss_score
+        from skorch.utils import valid_loss_score
         return scoring_cls(
             valid_loss_score,
             name='valid_loss',

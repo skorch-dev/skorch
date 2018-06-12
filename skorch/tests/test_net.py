@@ -71,7 +71,7 @@ class TestNeuralNet:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from skorch.net import NeuralNetClassifier
+        from skorch import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture
@@ -885,7 +885,7 @@ class TestNeuralNet:
             module__num_units=55,
         )
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'>[uninitialized](
+        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[uninitialized](
   module=<class 'skorch.tests.test_net.MyClassifier'>,
   module__num_units=55,
 )"""
@@ -898,7 +898,7 @@ class TestNeuralNet:
         )
         net.initialize()
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
+        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
   module_=MyClassifier(
     (dense0): Linear(in_features=20, out_features=42, bias=True)
     (dropout): Dropout(p=0.5)
@@ -917,7 +917,7 @@ class TestNeuralNet:
         )
         net.fit(X[:50], y[:50])
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
+        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
   module_=MyClassifier(
     (dense0): Linear(in_features=20, out_features=11, bias=True)
     (nonlin): PReLU(num_parameters=1)
@@ -1515,7 +1515,7 @@ class TestNeuralNetRegressor:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from skorch.net import NeuralNetRegressor
+        from skorch import NeuralNetRegressor
         return NeuralNetRegressor
 
     @pytest.fixture(scope='module')

@@ -20,8 +20,8 @@ if parse_version(torch_version) < parse_version(MIN_TORCH_VERSION):
 
 from .history import History
 from .net import NeuralNet
-from .net import NeuralNetClassifier
-from .net import NeuralNetRegressor
+from .classifier import NeuralNetClassifier
+from .regressor import NeuralNetRegressor
 
 from . import callbacks
 
