@@ -641,8 +641,7 @@ class NeuralNet(object):
                 yi_res = yi if not y_train_is_ph else None
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
-                self.history.record_batch(
-                    'train_loss', step['loss'].data.item())
+                self.history.record_batch('train_loss', step['loss'].item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
 
@@ -654,8 +653,7 @@ class NeuralNet(object):
                 yi_res = yi if not y_valid_is_ph else None
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
-                self.history.record_batch(
-                    'valid_loss', step['loss'].data.item())
+                self.history.record_batch('valid_loss', step['loss'].item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
 
