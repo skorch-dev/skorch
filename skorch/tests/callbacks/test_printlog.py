@@ -1,0 +1,176 @@
+from functools import partial
+from unittest.mock import Mock
+from unittest.mock import patch
+
+import pytest
+
+
+class TestPrintLog:
+    @pytest.fixture
+    def print_log_cls(self):
+        from skorch.callbacks import PrintLog
+        keys_ignored = ['batches', 'dur', 'text']
+        return partial(PrintLog, sink=Mock(), keys_ignored=keys_ignored)
+
+    @pytest.fixture
+    def print_log(self, print_log_cls):
+        return print_log_cls().initialize()
+
+    @pytest.fixture
+    def scoring_cls(self):
+        from skorch.callbacks import EpochScoring
+        return EpochScoring
+
+    @pytest.fixture
+    def mse_scoring(self, scoring_cls):
+        return scoring_cls(
+            'neg_mean_squared_error',
+            name='nmse',
+        ).initialize()
+
+    @pytest.fixture
+    def net(self, net_cls, module_cls, train_split, mse_scoring, print_log,
+            data):
+        net = net_cls(
+            module_cls, batch_size=1, train_split=train_split,
+            callbacks=[mse_scoring], max_epochs=2)
+        net.initialize()
+        # replace default PrintLog with test PrintLog
+        net.callbacks_[-1] = ('print_log', print_log)
+        return net.partial_fit(*data)
+
+    @pytest.fixture
+    def history(self, net):
+        return net.history
+
+    # pylint: disable=unused-argument
+    @pytest.fixture
+    def sink(self, history, print_log):
+        # note: the history fixture is required even if not used because it
+        # triggers the calls on print_log
+        return print_log.sink
+
+    @pytest.fixture
+    def ansi(self):
+        from skorch.utils import Ansi
+        return Ansi
+
+    def test_call_count(self, sink):
+        # header + lines + 2 epochs
+        assert sink.call_count == 4
+
+    def test_header(self, sink):
+        header = sink.call_args_list[0][0][0]
+        columns = header.split()
+        expected = ['epoch', 'nmse', 'train_loss', 'valid_loss']
+        assert columns == expected
+
+    def test_lines(self, sink):
+        lines = sink.call_args_list[1][0][0].split()
+        # Lines have length 2 + length of column, or 8 if the column
+        # name is short and the values are floats.
+        expected = [
+            '-' * (len('epoch') + 2),
+            '-' * 8,
+            '-' * (len('train_loss') + 2),
+            '-' * (len('valid_loss') + 2),
+        ]
+        assert lines
+        assert lines == expected
+
+    @pytest.mark.parametrize('epoch', [0, 1])
+    def test_first_row(self, sink, ansi, epoch, history):
+        row = sink.call_args_list[epoch + 2][0][0]
+        items = row.split()
+
+        # epoch, nmse, valid, train
+        assert len(items) == 4
+
+        # epoch, starts at 1
+        assert items[0] == str(epoch + 1)
+
+        # is best
+        are_best = [
+            history[epoch, 'nmse_best'],
+            history[epoch, 'train_loss_best'],
+            history[epoch, 'valid_loss_best'],
+        ]
+
+        # test that cycled colors are used if best
+        for item, color, is_best in zip(items[1:], list(ansi)[1:], are_best):
+            if is_best:
+                # if best, text colored
+                assert item.startswith(color.value)
+                assert item.endswith(ansi.ENDC.value)
+            else:
+                # if not best, text is only float, so converting possible
+                float(item)
+
+    def test_args_passed_to_tabulate(self, history):
+        with patch('skorch.callbacks.logging.tabulate') as tab:
+            from skorch.callbacks import PrintLog
+            print_log = PrintLog(
+                tablefmt='latex',
+                floatfmt='.9f',
+            ).initialize()
+            print_log.table(history[-1])
+
+            assert tab.call_count == 1
+            assert tab.call_args_list[0][1]['tablefmt'] == 'latex'
+            assert tab.call_args_list[0][1]['floatfmt'] == '.9f'
+
+    def test_with_additional_key(self, history, print_log_cls):
+        keys_ignored = ['batches']  # 'dur' no longer ignored
+        print_log = print_log_cls(
+            sink=Mock(), keys_ignored=keys_ignored).initialize()
+        # does not raise
+        print_log.on_epoch_end(Mock(history=history))
+
+        header = print_log.sink.call_args_list[0][0][0]
+        columns = header.split()
+        expected = ['epoch', 'nmse', 'train_loss', 'valid_loss', 'dur']
+        assert columns == expected
+
+    def test_keys_ignored_as_str(self, print_log_cls):
+        print_log = print_log_cls(keys_ignored='a-key')
+        assert print_log.keys_ignored == ['a-key']
+
+    def test_witout_valid_data(
+            self, net_cls, module_cls, mse_scoring, print_log, data):
+        net = net_cls(
+            module_cls, batch_size=1, train_split=None,
+            callbacks=[mse_scoring], max_epochs=2)
+        net.initialize()
+        # replace default PrintLog with test PrintLog
+        net.callbacks_[-1] = ('print_log', print_log)
+        net.partial_fit(*data)
+
+        sink = print_log.sink
+        row = sink.call_args_list[2][0][0]
+        items = row.split()
+
+        assert len(items) == 2  # no valid, only epoch and train
+
+    def test_print_not_skipped_if_verbose(self, capsys):
+        from skorch.callbacks import PrintLog
+
+        print_log = PrintLog().initialize()
+        net = Mock(history=[{'loss': 123}], verbose=1)
+
+        print_log.on_epoch_end(net)
+
+        stdout = capsys.readouterr()[0]
+        result = [x.strip() for x in stdout.split()]
+        expected = ['loss', '------', '123']
+        assert result == expected
+
+    def test_print_skipped_if_not_verbose(self, capsys):
+        from skorch.callbacks import PrintLog
+
+        print_log = PrintLog().initialize()
+        net = Mock(history=[{'loss': 123}], verbose=0)
+
+        print_log.on_epoch_end(net)
+
+        stdout = capsys.readouterr()[0]
+        assert not stdout
