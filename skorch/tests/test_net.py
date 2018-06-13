@@ -342,9 +342,8 @@ class TestNeuralNet:
             'devices available. Loading on CPU instead.')
 
     def test_save_load_history_file_obj(
-            self, net_cls, module_cls, net_fit, data, tmpdir):
+            self, net_cls, module_cls, net_fit, tmpdir):
         net = net_cls(module_cls).initialize()
-        X, y = data
 
         history_before = net_fit.history
 
@@ -359,10 +358,9 @@ class TestNeuralNet:
 
     @pytest.mark.parametrize('converter', [str, Path])
     def test_save_load_history_file_path(
-            self, net_cls, module_cls, net_fit, data, tmpdir, converter):
+            self, net_cls, module_cls, net_fit, tmpdir, converter):
         # Test loading/saving with different kinds of path representations.
         net = net_cls(module_cls).initialize()
-        X, y = data
 
         history_before = net_fit.history
 
@@ -803,8 +801,10 @@ class TestNeuralNet:
     def test_binary_classification_with_cuda(self, net_cls, module_cls, data):
         X, y = data
         assert y.ndim == 1
+        assert set(y) == {0, 1}
 
         net = net_cls(module_cls, max_epochs=1, device='cuda')
+        # does not raise
         net.fit(X, y)
 
     @pytest.mark.parametrize('use_caching', [True, False])
@@ -1260,7 +1260,7 @@ class TestNeuralNet:
             net.set_params(foo=123)
 
         # TODO: check error message more precisely, depending on what
-        # the intended message shouldb e from sklearn side
+        # the intended message should be from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
 
     @pytest.fixture()
@@ -1321,7 +1321,7 @@ class TestNeuralNet:
             return y_pred[:, 0, 0]
         net.get_loss = loss_fn
 
-        # Check data complains about y.shape = (n,) but
+        # check_data complains about y.shape = (n,) but
         # we know that it is actually (n, m) with m in [1;3].
         net.check_data = lambda *_, **kw: None
         net.fit(X, y)
