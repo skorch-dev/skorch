@@ -19,10 +19,6 @@ from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
 
 
-def accuracy_pred_extractor(y):
-    return np.argmax(to_numpy(y), axis=1)
-
-
 neural_net_clf_doc_start = """NeuralNet for classification tasks
 
     Use this specifically if you have a standard classification task,
