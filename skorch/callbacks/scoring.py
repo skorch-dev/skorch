@@ -75,7 +75,9 @@ class ScoringBase(Callback):
         self.target_extractor = target_extractor
         self.use_caching = use_caching
 
+    # pylint: disable=protected-access
     def _get_name(self):
+        """Find name of scoring function."""
         if self.name is not None:
             return self.name
         if self.scoring_ is None:
@@ -94,7 +96,7 @@ class ScoringBase(Callback):
         self.name_ = self._get_name()
         return self
 
-    # pylint: disable=unused-parameters
+    # pylint: disable=attribute-defined-outside-init,arguments-differ
     def on_train_begin(self, net, X, y, **kwargs):
         self.X_indexing_ = check_indexing(X)
         self.y_indexing_ = check_indexing(y)
@@ -292,7 +294,7 @@ class EpochScoring(ScoringBase):
         self._initialize_cache()
         return self
 
-    # pylint: disable=arguments-differ
+    # pylint: disable=arguments-differ,unused-argument
     def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
         self._initialize_cache()
 

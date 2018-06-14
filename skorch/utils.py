@@ -118,6 +118,7 @@ def flatten(arr):
             yield item
 
 
+# pylint: disable=unused-argument
 def _indexing_none(data, i):
     return None
 
@@ -369,7 +370,7 @@ def noop(*args, **kwargs):
 @contextmanager
 def open_file_like(f, mode):
     """Wrapper for opening a file"""
-    new_fd = isinstance(f, str) or isinstance(f, pathlib.Path)
+    new_fd = isinstance(f, (str, pathlib.Path))
     if new_fd:
         f = open(f, mode)
     try:

@@ -212,7 +212,7 @@ method-rgx=^(?:(?P<exempt>__[a-z0-9_]+__|next)|(?P<camel_case>_{0,2}[A-Z][a-zA-Z
 
 # Regular expression matching correct attribute names
 # DEFAULT:  attr-rgx=[a-z_][a-z0-9_]{2,30}$
-attr-rgx=^_{0,2}[a-z][a-z0-9_]*$
+attr-rgx=^_{0,2}[a-zX][a-z0-9_]*$
 
 # Regular expression matching correct argument names
 # DEFAULT:  argument-rgx=[a-z_][a-z0-9_]{2,30}$
