@@ -134,7 +134,7 @@ dummy-variables-rgx=^\*{0,2}(_$|unused_|dummy_)
 
 # Maximum number of characters on a single line.
 # DEFAULT:  max-line-length=80
-max-line-length=80
+max-line-length=88
 
 # Regexp for a line that is allowed to be longer than the limit.
 # DEFAULT:  ignore-long-lines=^\s*(# )?<?https?://\S+>?$
