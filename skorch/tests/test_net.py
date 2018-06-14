@@ -1,9 +1,4 @@
-"""Tests for net.py
-
-Although NeuralNetClassifier is used in tests, test only functionality
-that is general to NeuralNet class.
-
-"""
+"""Tests for net.py"""
 
 from functools import partial
 import pickle
@@ -76,7 +71,7 @@ class TestNeuralNet:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from skorch import NeuralNetClassifier
+        from skorch.net import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture
@@ -186,6 +181,15 @@ class TestNeuralNet:
         y_forward = net_fit.forward(X, device='cuda:0')
         assert isinstance(X, np.ndarray)
         assert y_forward.is_cuda
+
+    def test_predict_and_predict_proba(self, net_fit, data):
+        X = data[0]
+
+        y_proba = net_fit.predict_proba(X)
+        assert np.allclose(y_proba.sum(1), 1, rtol=1e-7)
+
+        y_pred = net_fit.predict(X)
+        assert np.allclose(np.argmax(y_proba, 1), y_pred, rtol=1e-7)
 
     def test_dropout(self, net_fit, data):
         # Note: does not test that dropout is really active during
@@ -342,8 +346,9 @@ class TestNeuralNet:
             'devices available. Loading on CPU instead.')
 
     def test_save_load_history_file_obj(
-            self, net_cls, module_cls, net_fit, tmpdir):
+            self, net_cls, module_cls, net_fit, data, tmpdir):
         net = net_cls(module_cls).initialize()
+        X, y = data
 
         history_before = net_fit.history
 
@@ -358,9 +363,10 @@ class TestNeuralNet:
 
     @pytest.mark.parametrize('converter', [str, Path])
     def test_save_load_history_file_path(
-            self, net_cls, module_cls, net_fit, tmpdir, converter):
+            self, net_cls, module_cls, net_fit, data, tmpdir, converter):
         # Test loading/saving with different kinds of path representations.
         net = net_cls(module_cls).initialize()
+        X, y = data
 
         history_before = net_fit.history
 
@@ -801,10 +807,8 @@ class TestNeuralNet:
     def test_binary_classification_with_cuda(self, net_cls, module_cls, data):
         X, y = data
         assert y.ndim == 1
-        assert set(y) == {0, 1}
 
         net = net_cls(module_cls, max_epochs=1, device='cuda')
-        # does not raise
         net.fit(X, y)
 
     @pytest.mark.parametrize('use_caching', [True, False])
@@ -881,7 +885,7 @@ class TestNeuralNet:
             module__num_units=55,
         )
         result = net.__repr__()
-        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[uninitialized](
+        expected = """<class 'skorch.net.NeuralNetClassifier'>[uninitialized](
   module=<class 'skorch.tests.test_net.MyClassifier'>,
   module__num_units=55,
 )"""
@@ -894,7 +898,7 @@ class TestNeuralNet:
         )
         net.initialize()
         result = net.__repr__()
-        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
+        expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
   module_=MyClassifier(
     (dense0): Linear(in_features=20, out_features=42, bias=True)
     (dropout): Dropout(p=0.5)
@@ -913,7 +917,7 @@ class TestNeuralNet:
         )
         net.fit(X[:50], y[:50])
         result = net.__repr__()
-        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
+        expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
   module_=MyClassifier(
     (dense0): Linear(in_features=20, out_features=11, bias=True)
     (nonlin): PReLU(num_parameters=1)
@@ -1260,7 +1264,7 @@ class TestNeuralNet:
             net.set_params(foo=123)
 
         # TODO: check error message more precisely, depending on what
-        # the intended message should be from sklearn side
+        # the intended message shouldb e from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
 
     @pytest.fixture()
@@ -1321,10 +1325,39 @@ class TestNeuralNet:
             return y_pred[:, 0, 0]
         net.get_loss = loss_fn
 
-        # check_data complains about y.shape = (n,) but
+        # Check data complains about y.shape = (n,) but
         # we know that it is actually (n, m) with m in [1;3].
         net.check_data = lambda *_, **kw: None
         net.fit(X, y)
+
+    # classifier-specific test
+    def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
+        net = net_cls(module_cls, criterion=nn.NLLLoss, max_epochs=1)
+        net.initialize()
+
+        mock_loss = Mock(side_effect=nn.NLLLoss())
+        net.criterion_.forward = mock_loss
+        net.partial_fit(*data)  # call partial_fit to avoid re-initialization
+
+        # check that loss was called with log-probabilities
+        for (y_log, _), _ in mock_loss.call_args_list:
+            assert (y_log < 0).all()
+            y_proba = torch.exp(y_log)
+            assert torch.isclose(torch.ones(len(y_proba)), y_proba.sum(1)).all()
+
+    # classifier-specific test
+    def test_takes_no_log_without_nllloss(self, net_cls, module_cls, data):
+        net = net_cls(module_cls, criterion=nn.BCELoss, max_epochs=1)
+        net.initialize()
+
+        mock_loss = Mock(side_effect=nn.NLLLoss())
+        net.criterion_.forward = mock_loss
+        net.partial_fit(*data)  # call partial_fit to avoid re-initialization
+
+        # check that loss was called with raw probabilities
+        for (y_out, _), _ in mock_loss.call_args_list:
+            assert not (y_out < 0).all()
+            assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
 
     def test_no_grad_during_validation(self, net_cls, module_cls, data):
         """Test that gradient is only calculated during training step,
@@ -1444,3 +1477,93 @@ class TestNeuralNet:
         expected_losses = list(
             flatten(net.history[:, 'batches', :, 'train_loss']))
         assert np.allclose(side_effect[2::3], expected_losses)
+
+
+class MyRegressor(nn.Module):
+    """Simple regression module.
+
+    We cannot use the module fixtures from conftest because they are
+    not pickleable.
+
+    """
+    def __init__(self, num_units=10, nonlin=F.relu):
+        super(MyRegressor, self).__init__()
+
+        self.dense0 = nn.Linear(20, num_units)
+        self.nonlin = nonlin
+        self.dropout = nn.Dropout(0.5)
+        self.dense1 = nn.Linear(num_units, 10)
+        self.output = nn.Linear(10, 1)
+
+    # pylint: disable=arguments-differ
+    def forward(self, X):
+        X = self.nonlin(self.dense0(X))
+        X = self.dropout(X)
+        X = self.nonlin(self.dense1(X))
+        X = self.output(X)
+        return X
+
+
+class TestNeuralNetRegressor:
+    @pytest.fixture(scope='module')
+    def data(self, regression_data):
+        return regression_data
+
+    @pytest.fixture(scope='module')
+    def module_cls(self):
+        return MyRegressor
+
+    @pytest.fixture(scope='module')
+    def net_cls(self):
+        from skorch.net import NeuralNetRegressor
+        return NeuralNetRegressor
+
+    @pytest.fixture(scope='module')
+    def net(self, net_cls, module_cls):
+        return net_cls(
+            module_cls,
+            max_epochs=20,
+            lr=0.1,
+        )
+
+    @pytest.fixture(scope='module')
+    def net_fit(self, net, data):
+        # Careful, don't call additional fits on this, since that would have
+        # side effects on other tests.
+        X, y = data
+        return net.fit(X, y)
+
+    def test_fit(self, net_fit):
+        # fitting does not raise anything
+        pass
+
+    def test_net_learns(self, net_fit):
+        train_losses = net_fit.history[:, 'train_loss']
+        assert train_losses[0] > 2 * train_losses[-1]
+
+    def test_history_default_keys(self, net_fit):
+        expected_keys = {'train_loss', 'valid_loss', 'epoch', 'dur', 'batches'}
+        for row in net_fit.history:
+            assert expected_keys.issubset(row)
+
+    def test_target_1d_raises(self, net, data):
+        X, y = data
+        with pytest.raises(ValueError) as exc:
+            net.fit(X, y.flatten())
+        assert exc.value.args[0] == (
+            "The target data shouldn't be 1-dimensional but instead have "
+            "2 dimensions, with the second dimension having the same size "
+            "as the number of regression targets (usually 1). Please "
+            "reshape your target data to be 2-dimensional "
+            "(e.g. y = y.reshape(-1, 1).")
+
+    def test_predict_predict_proba(self, net_fit, data):
+        X = data[0]
+        y_pred = net_fit.predict(X)
+
+        # predictions should not be all zeros
+        assert not np.allclose(y_pred, 0)
+
+        y_proba = net_fit.predict_proba(X)
+        # predict and predict_proba should be identical for regression
+        assert np.allclose(y_pred, y_proba, atol=1e-6)

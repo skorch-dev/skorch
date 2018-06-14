@@ -3,17 +3,18 @@
 import fnmatch
 from itertools import chain
 import json
+import re
 import tempfile
 import warnings
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from sklearn.utils import deprecated
 import torch
 from torch.utils.data import DataLoader
 
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
+from skorch.callbacks import EpochScoring
 from skorch.callbacks import BatchScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
@@ -22,30 +23,25 @@ from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
-from skorch.utils import FirstStepAccumulator
 from skorch.utils import duplicate_items
+from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import noop
 from skorch.utils import open_file_like
 from skorch.utils import params_for
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import train_loss_score
-from skorch.utils import valid_loss_score
+from skorch.utils import FirstStepAccumulator
 
 
-# TODO: remove next release
-@deprecated("Please import like this: 'from skorch import NeuralNetClassifier'.")
-def NeuralNetClassifier(*args, **kwargs):
-    from skorch.classifier import NeuralNetClassifier as nnc
-    return nnc(*args, **kwargs)
+# pylint: disable=unused-argument
+def train_loss_score(net, X=None, y=None):
+    return net.history[-1, 'batches', -1, 'train_loss']
 
 
-# TODO: remove next release
-@deprecated("Please import like this: 'from skorch import NeuralNetRegressor'.")
-def NeuralNetRegressor(*args, **kwargs):
-    from skorch.classifier import NeuralNetRegressor as nnr
-    return nnr(*args, **kwargs)
+# pylint: disable=unused-argument
+def valid_loss_score(net, X=None, y=None):
+    return net.history[-1, 'batches', -1, 'valid_loss']
 
 
 # pylint: disable=too-many-instance-attributes
@@ -879,7 +875,7 @@ class NeuralNet(object):
         tuple, it is assumed that the first output contains the
         relevant information and the other values are ignored. If all
         values are relevant, consider using
-        :func:`~skorch.NeuralNet.forward` instead.
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -915,7 +911,7 @@ class NeuralNet(object):
         tuple, it is assumed that the first output contains the
         relevant information and the other values are ignored. If all
         values are relevant, consider using
-        :func:`~skorch.NeuralNet.forward` instead.
+        :func:`~skorch.net.NeuralNet.forward` instead.
 
         Parameters
         ----------
@@ -1443,3 +1439,265 @@ class NeuralNet(object):
 
         parts.append(')')
         return '\n'.join(parts)
+
+#######################
+# NeuralNetClassifier #
+#######################
+
+def accuracy_pred_extractor(y):
+    return np.argmax(to_numpy(y), axis=1)
+
+
+neural_net_clf_doc_start = """NeuralNet for classification tasks
+
+    Use this specifically if you have a standard classification task,
+    with input data X and target y.
+
+"""
+
+neural_net_clf_criterion_text = """
+
+    criterion : torch criterion (class, default=torch.nn.NLLLoss)
+      Negative log likelihood loss. Note that the module should return
+      probabilities, the log is applied during ``get_loss``."""
+
+
+def get_neural_net_clf_doc(doc):
+    doc = neural_net_clf_doc_start + doc.split("\n ", 4)[-1]
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    start, end = pattern.search(doc).span()
+    doc = doc[:start] + neural_net_clf_criterion_text + doc[end:]
+    return doc
+
+
+# pylint: disable=missing-docstring
+class NeuralNetClassifier(NeuralNet):
+    __doc__ = get_neural_net_clf_doc(NeuralNet.__doc__)
+
+    def __init__(
+            self,
+            module,
+            criterion=torch.nn.NLLLoss,
+            train_split=CVSplit(5, stratified=True),
+            *args,
+            **kwargs
+    ):
+        super(NeuralNetClassifier, self).__init__(
+            module,
+            criterion=criterion,
+            train_split=train_split,
+            *args,
+            **kwargs
+        )
+
+    @property
+    def _default_callbacks(self):
+        return [
+            ('epoch_timer', EpochTimer()),
+            ('train_loss', BatchScoring(
+                train_loss_score,
+                name='train_loss',
+                on_train=True,
+                target_extractor=noop,
+            )),
+            ('valid_loss', BatchScoring(
+                valid_loss_score,
+                name='valid_loss',
+                target_extractor=noop,
+            )),
+            ('valid_acc', EpochScoring(
+                'accuracy',
+                name='valid_acc',
+                lower_is_better=False,
+            )),
+            ('print_log', PrintLog()),
+        ]
+
+    # pylint: disable=signature-differs
+    def check_data(self, X, y):
+        if (
+                (y is None) and
+                (not is_dataset(X)) and
+                (self.iterator_train is DataLoader)
+        ):
+            msg = ("No y-values are given (y=None). You must either supply a "
+                   "Dataset as X or implement your own DataLoader for "
+                   "training (and your validation) and supply it using the "
+                   "``iterator_train`` and ``iterator_valid`` parameters "
+                   "respectively.")
+            raise ValueError(msg)
+
+    # pylint: disable=arguments-differ
+    def get_loss(self, y_pred, y_true, *args, **kwargs):
+        if isinstance(self.criterion_, torch.nn.NLLLoss):
+            y_pred = torch.log(y_pred)
+        return super().get_loss(y_pred, y_true, *args, **kwargs)
+
+    # pylint: disable=signature-differs
+    def fit(self, X, y, **fit_params):
+        """See ``NeuralNet.fit``.
+
+        In contrast to ``NeuralNet.fit``, ``y`` is non-optional to
+        avoid mistakenly forgetting about ``y``. However, ``y`` can be
+        set to ``None`` in case it is derived dynamically from
+        ``X``.
+
+        """
+        # pylint: disable=useless-super-delegation
+        # this is actually a pylint bug:
+        # https://github.com/PyCQA/pylint/issues/1085
+        return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
+
+    def predict_proba(self, X):
+        """Where applicable, return probability estimates for
+        samples.
+
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+            * a Dataset
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        Returns
+        -------
+        y_proba : numpy ndarray
+
+        """
+        # Only the docstring changed from parent.
+        # pylint: disable=useless-super-delegation
+        return super().predict_proba(X)
+
+    def predict(self, X):
+        """Where applicable, return class labels for samples in X.
+
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.net.NeuralNet.forward` instead.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+            * a Dataset
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        Returns
+        -------
+        y_pred : numpy ndarray
+
+        """
+        y_preds = []
+        for yp in self.forward_iter(X, training=False):
+            yp = yp[0] if isinstance(yp, tuple) else yp
+            y_preds.append(to_numpy(yp.max(-1)[-1]))
+        y_pred = np.concatenate(y_preds, 0)
+        return y_pred
+
+
+######################
+# NeuralNetRegressor #
+######################
+
+neural_net_reg_doc_start = """NeuralNet for regression tasks
+
+    Use this specifically if you have a standard regression task,
+    with input data X and target y. y must be 2d.
+
+"""
+
+neural_net_reg_criterion_text = """
+
+    criterion : torch criterion (class, default=torch.nn.MSELoss)
+      Mean squared error loss."""
+
+
+def get_neural_net_reg_doc(doc):
+    doc = neural_net_reg_doc_start + doc.split("\n ", 4)[-1]
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    start, end = pattern.search(doc).span()
+    doc = doc[:start] + neural_net_reg_criterion_text + doc[end:]
+    return doc
+
+
+# pylint: disable=missing-docstring
+class NeuralNetRegressor(NeuralNet):
+    __doc__ = get_neural_net_reg_doc(NeuralNet.__doc__)
+
+    def __init__(
+            self,
+            module,
+            criterion=torch.nn.MSELoss,
+            *args,
+            **kwargs
+    ):
+        super(NeuralNetRegressor, self).__init__(
+            module,
+            criterion=criterion,
+            *args,
+            **kwargs
+        )
+
+    # pylint: disable=signature-differs
+    def check_data(self, X, y):
+        if (
+                (y is None) and
+                (not is_dataset(X)) and
+                (self.iterator_train is DataLoader)
+        ):
+            raise ValueError("No y-values are given (y=None). You must "
+                             "implement your own DataLoader for training "
+                             "(and your validation) and supply it using the "
+                             "``iterator_train`` and ``iterator_valid`` "
+                             "parameters respectively.")
+        elif y is None:
+            # The user implements its own mechanism for generating y.
+            return
+
+        if get_dim(y) == 1:
+            msg = (
+                "The target data shouldn't be 1-dimensional but instead have "
+                "2 dimensions, with the second dimension having the same size "
+                "as the number of regression targets (usually 1). Please "
+                "reshape your target data to be 2-dimensional "
+                "(e.g. y = y.reshape(-1, 1).")
+            raise ValueError(msg)
+
+    # pylint: disable=signature-differs
+    def fit(self, X, y, **fit_params):
+        """See ``NeuralNet.fit``.
+
+        In contrast to ``NeuralNet.fit``, ``y`` is non-optional to
+        avoid mistakenly forgetting about ``y``. However, ``y`` can be
+        set to ``None`` in case it is derived dynamically from
+        ``X``.
+
+        """
+        # pylint: disable=useless-super-delegation
+        # this is actually a pylint bug:
+        # https://github.com/PyCQA/pylint/issues/1085
+        return super(NeuralNetRegressor, self).fit(X, y, **fit_params)

@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
 
-from skorch import NeuralNetClassifier
+from skorch.net import NeuralNetClassifier
 from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler, CyclicLR
 
 
@@ -103,16 +103,16 @@ class TestLRCallbacks:
 
 
 class TestReduceLROnPlateau:
-    def get_net_with_mock(self, monitor='train_loss'):
+
+    def get_net_with_mock(
+            self, classifier_data, classifier_module, monitor='train_loss'):
         """Returns a net with a mocked lr policy that allows to check what
         it's step method was called with.
 
         """
-        from .conftest import classifier_data, classifier_module
-
-        X, y = classifier_data()
+        X, y = classifier_data
         net = NeuralNetClassifier(
-            classifier_module(),
+            classifier_module,
             callbacks=[
                 ('scheduler', LRScheduler(ReduceLROnPlateau, monitor=monitor)),
             ],
@@ -133,17 +133,21 @@ class TestReduceLROnPlateau:
         return net, mock_step
 
     @pytest.mark.parametrize('monitor', ['train_loss', 'valid_loss', 'epoch'])
-    def test_reduce_lr_monitor_with_string(self, monitor):
+    def test_reduce_lr_monitor_with_string(
+            self, monitor, classifier_data, classifier_module):
         # step should be called with the 2nd to last value from that
         # history entry
-        net, mock_step = self.get_net_with_mock(monitor=monitor)
+        net, mock_step = self.get_net_with_mock(
+            classifier_data, classifier_module, monitor=monitor)
         score = mock_step.call_args_list[0][0][0]
         np.isclose(score, net.history[-2, monitor])
 
-    def test_reduce_lr_monitor_with_callable(self):
+    def test_reduce_lr_monitor_with_callable(
+            self, classifier_data, classifier_module):
         # step should always be called with the return value from the
         # callable, 55
-        _, mock_step = self.get_net_with_mock(monitor=lambda x: 55)
+        _, mock_step = self.get_net_with_mock(
+            classifier_data, classifier_module, monitor=lambda x: 55)
         score = mock_step.call_args_list[0][0][0]
         assert score == 55
 
