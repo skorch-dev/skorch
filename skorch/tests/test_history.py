@@ -2,7 +2,7 @@
 
 import pytest
 
-from skorch.net import History
+from skorch.history import History
 
 
 class TestHistory:

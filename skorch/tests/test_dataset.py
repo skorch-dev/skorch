@@ -321,7 +321,7 @@ class TestNetWithDict:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from skorch.net import NeuralNetClassifier
+        from skorch import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -375,7 +375,7 @@ class TestNetWithList:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from skorch.net import NeuralNetClassifier
+        from skorch import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -428,7 +428,7 @@ class TestNetWithPandas:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from skorch.net import NeuralNetClassifier
+        from skorch import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')

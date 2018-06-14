@@ -379,6 +379,16 @@ def open_file_like(f, mode):
             f.close()
 
 
+# pylint: disable=unused-argument
+def train_loss_score(net, X=None, y=None):
+    return net.history[-1, 'batches', -1, 'train_loss']
+
+
+# pylint: disable=unused-argument
+def valid_loss_score(net, X=None, y=None):
+    return net.history[-1, 'batches', -1, 'valid_loss']
+
+
 class FirstStepAccumulator:
     """Store and retrieve the train step data.
 
