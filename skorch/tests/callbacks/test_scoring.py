@@ -1,7 +1,6 @@
 """Tests for scoring"""
 
 from functools import partial
-import itertools
 from unittest.mock import Mock
 from unittest.mock import patch
 
