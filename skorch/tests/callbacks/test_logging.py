@@ -1,63 +1,9 @@
-"""Tests for callbacks.py"""
-
 from functools import partial
-import itertools
 from unittest.mock import Mock
 from unittest.mock import patch
 
 import numpy as np
 import pytest
-
-from skorch.utils import to_numpy
-
-
-class TestAllCallbacks:
-    @pytest.fixture
-    def callbacks(self):
-        """Return all callbacks"""
-        import skorch.callbacks
-
-        callbacks = []
-        for name in dir(skorch.callbacks):
-            attr = getattr(skorch.callbacks, name)
-            # pylint: disable=unidiomatic-typecheck
-            if not type(attr) is type:
-                continue
-            if issubclass(attr, skorch.callbacks.Callback):
-                callbacks.append(attr)
-        return callbacks
-
-    @pytest.fixture
-    def base_cls(self):
-        from skorch.callbacks import Callback
-        return Callback
-
-    @pytest.fixture
-    def on_x_methods(self):
-        return [
-            'on_train_begin',
-            'on_train_end',
-            'on_epoch_begin',
-            'on_epoch_end',
-            'on_batch_begin',
-            'on_batch_end',
-            'on_grad_computed',
-        ]
-
-    def test_on_x_methods_have_kwargs(self, callbacks, on_x_methods):
-        import inspect
-        for callback, method_name in itertools.product(
-                callbacks, on_x_methods):
-            method = getattr(callback, method_name)
-            assert "kwargs" in inspect.signature(method).parameters
-
-    def test_set_params_with_unknown_key_raises(self, base_cls):
-        with pytest.raises(ValueError) as exc:
-            base_cls().set_params(foo=123)
-
-        # TODO: check error message more precisely, depending on what
-        # the intended message shouldb e from sklearn side
-        assert exc.value.args[0].startswith('Invalid parameter foo for')
 
 
 class TestPrintLog:
@@ -231,94 +177,6 @@ class TestPrintLog:
         assert not stdout
 
 
-class TestCheckpoint:
-    @pytest.yield_fixture
-    def checkpoint_cls(self):
-        from skorch.callbacks import Checkpoint
-        return Checkpoint
-
-    @pytest.yield_fixture
-    def save_params_mock(self):
-        with patch('skorch.NeuralNet.save_params') as mock:
-            mock.side_effect = lambda x: x
-            yield mock
-
-    @pytest.fixture
-    def net_cls(self):
-        """very simple network that trains for 10 epochs"""
-        from skorch import NeuralNetRegressor
-        import torch
-
-        class Module(torch.nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.p = torch.nn.Linear(1, 1)
-            # pylint: disable=arguments-differ
-            def forward(self, x):
-                return self.p(x)
-
-        return partial(
-            NeuralNetRegressor,
-            module=Module,
-            max_epochs=10,
-            batch_size=10)
-
-    @pytest.fixture(scope='module')
-    def data(self):
-        # have 10 examples so we can do a nice CV split
-        X = np.zeros((10, 1), dtype='float32')
-        y = np.zeros((10, 1), dtype='float32')
-        return X, y
-
-    def test_none_monitor_saves_always(
-            self, save_params_mock, net_cls, checkpoint_cls, data):
-        net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None),
-        ])
-        net.fit(*data)
-
-        assert save_params_mock.call_count == len(net.history)
-
-    def test_default_without_validation_raises_meaningful_error(
-            self, net_cls, checkpoint_cls, data):
-        net = net_cls(
-            callbacks=[
-                checkpoint_cls(),
-            ],
-            train_split=None
-        )
-        from skorch.exceptions import SkorchException
-        with pytest.raises(SkorchException) as e:
-            net.fit(*data)
-            expected = (
-                "Monitor value '{}' cannot be found in history. "
-                "Make sure you have validation data if you use "
-                "validation scores for checkpointing.".format(
-                    'valid_loss_best')
-            )
-            assert str(e.value) == expected
-
-    def test_string_monitor_and_formatting(
-            self, save_params_mock, net_cls, checkpoint_cls, data):
-        def epoch_3_scorer(net, *_):
-            return 1 if net.history[-1, 'epoch'] == 3 else 0
-
-        from skorch.callbacks import EpochScoring
-        scoring = EpochScoring(
-            scoring=epoch_3_scorer, on_train=True)
-
-        net = net_cls(callbacks=[
-            ('my_score', scoring),
-            checkpoint_cls(
-                monitor='epoch_3_scorer',
-                target='model_{last_epoch[epoch]}_{net.max_epochs}.pt'),
-        ])
-        net.fit(*data)
-
-        assert save_params_mock.call_count == 1
-        save_params_mock.assert_called_with('model_3_10.pt')
-
-
 class TestProgressBar:
     @pytest.yield_fixture
     def progressbar_cls(self):
@@ -336,6 +194,7 @@ class TestProgressBar:
                 super().__init__()
                 self.p = torch.nn.Linear(1, 1)
             # pylint: disable=arguments-differ
+
             def forward(self, x):
                 return self.p(x)
 
@@ -379,48 +238,3 @@ class TestProgressBar:
             progressbar_cls(batches_per_epoch=scheme),
         ])
         net.fit(*data)
-
-
-class TestGradientNormClipping:
-    @pytest.yield_fixture
-    def grad_clip_cls_and_mock(self):
-        with patch('skorch.callbacks.regularization.clip_grad_norm_') as cgn:
-            from skorch.callbacks import GradientNormClipping
-            yield GradientNormClipping, cgn
-
-    def test_parameters_passed_correctly_to_torch_cgn(
-            self, grad_clip_cls_and_mock):
-        grad_norm_clip_cls, cgn = grad_clip_cls_and_mock
-
-        clipping = grad_norm_clip_cls(
-            gradient_clip_value=55, gradient_clip_norm_type=99)
-        named_parameters = [('p1', 1), ('p2', 2), ('p3', 3)]
-        parameter_values = [p for _, p in named_parameters]
-        clipping.on_grad_computed(None, named_parameters=named_parameters)
-
-        # Clip norm must receive values, not (name, value) pairs.
-        assert list(cgn.call_args_list[0][0][0]) == parameter_values
-        assert cgn.call_args_list[0][1]['max_norm'] == 55
-        assert cgn.call_args_list[0][1]['norm_type'] == 99
-
-    def test_no_parameter_updates_when_norm_0(
-            self, classifier_module, classifier_data):
-        from copy import deepcopy
-        from skorch import NeuralNetClassifier
-        from skorch.callbacks import GradientNormClipping
-
-        net = NeuralNetClassifier(
-            classifier_module,
-            callbacks=[('grad_norm', GradientNormClipping(0))],
-            train_split=None,
-            warm_start=True,
-            max_epochs=1,
-        )
-        net.initialize()
-
-        params_before = deepcopy(list(net.module_.parameters()))
-        net.fit(*classifier_data)
-        params_after = net.module_.parameters()
-        for p0, p1 in zip(params_before, params_after):
-            p0, p1 = to_numpy(p0), to_numpy(p1)
-            assert np.allclose(p0, p1)

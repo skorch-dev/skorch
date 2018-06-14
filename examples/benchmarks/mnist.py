@@ -201,7 +201,7 @@ def train_step(model, dataset, device, criterion, batch_size, optimizer):
         optimizer.step()
 
         y_preds.append(y_pred)
-        losses.append(loss.data.item())
+        losses.append(loss.item())
         batch_sizes.append(len(Xi))
     toc = time.time()
     return {
@@ -228,7 +228,7 @@ def valid_step(model, dataset, device, criterion, batch_size):
             loss = criterion(y_pred, yi)
 
             y_preds.append(y_pred)
-            loss = loss.data.item()
+            loss = loss.item()
             losses.append(loss)
             batch_sizes.append(len(Xi))
     toc = time.time()

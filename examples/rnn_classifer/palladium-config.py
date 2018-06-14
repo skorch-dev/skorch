@@ -32,7 +32,6 @@
             'net__lr': [0.003, 0.01, 0.03],
             'net__max_epochs': [5, 10],
         },
-        'verbose': 4,
     },
 
     'scoring': 'accuracy',
