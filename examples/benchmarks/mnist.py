@@ -34,8 +34,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 from sklearn.utils import shuffle
+from skorch import NeuralNetClassifier
 from skorch.callbacks import EpochScoring
-from skorch.net import NeuralNetClassifier
 import torch
 from torch import nn
 

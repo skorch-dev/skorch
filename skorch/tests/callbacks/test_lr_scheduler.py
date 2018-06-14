@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
 
-from skorch.net import NeuralNetClassifier
+from skorch import NeuralNetClassifier
 from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler, CyclicLR
 
 
