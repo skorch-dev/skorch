@@ -44,7 +44,7 @@ def NeuralNetClassifier(*args, **kwargs):
 # TODO: remove next release
 @deprecated("Please import like this: 'from skorch import NeuralNetRegressor'.")
 def NeuralNetRegressor(*args, **kwargs):
-    from skorch.classifier import NeuralNetRegressor as nnr
+    from skorch.regressor import NeuralNetRegressor as nnr
     return nnr(*args, **kwargs)
 
 
