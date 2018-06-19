@@ -11,5 +11,5 @@ skorch
    net
    utils
    helper
-   neuralnetclassifier
-   neuralnetregressor
+   classifier
+   regressor
