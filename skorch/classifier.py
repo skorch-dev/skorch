@@ -16,7 +16,6 @@ from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import noop
 from skorch.utils import to_numpy
-from skorch.utils import to_tensor
 from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
 
@@ -215,7 +214,7 @@ def get_neural_net_binary_clf_doc(doc):
 
 
 # pylint: disable=missing-docstring
-class NeuralNetBinaryClassifier(NeuralNetClassifier):
+class NeuralNetBinaryClassifier(NeuralNet):
     __doc__ = get_neural_net_binary_clf_doc(NeuralNet.__doc__)
 
     def __init__(
@@ -234,26 +233,112 @@ class NeuralNetBinaryClassifier(NeuralNetClassifier):
             **kwargs
         )
 
+    @property
+    def _default_callbacks(self):
+        return [
+            ('epoch_timer', EpochTimer()),
+            ('train_loss', BatchScoring(
+                train_loss_score,
+                name='train_loss',
+                on_train=True,
+                target_extractor=noop,
+            )),
+            ('valid_loss', BatchScoring(
+                valid_loss_score,
+                name='valid_loss',
+                target_extractor=noop,
+            )),
+            ('valid_acc', EpochScoring(
+                'accuracy',
+                name='valid_acc',
+                lower_is_better=False,
+            )),
+            ('print_log', PrintLog()),
+        ]
+
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         super().check_data(X, y)
         if get_dim(y) != 1:
             raise ValueError("The target data should be 1-dimensional.")
 
-    # Reverts back to using ``NeuralNet.get_loss``
-    # pylint: disable=arguments-differ
-    def get_loss(self, y_pred, y_true, *args, **kwargs):
-        y_true = to_tensor(y_true, device=self.device)
-        return self.criterion_(y_pred, y_true)
+    # pylint: disable=signature-differs
+    def fit(self, X, y, **fit_params):
+        """See ``NeuralNet.fit``.
 
-    # Uses ``NeuralNetClassifier.predict`` docstring
-    # pylint: disable=missing-docstring
-    def predict(self, X):
-        return (self.predict_proba(X) > 0.5).astype('uint8')
+        In contrast to ``NeuralNet.fit``, ``y`` is non-optional to
+        avoid mistakenly forgetting about ``y``. However, ``y`` can be
+        set to ``None`` in case it is derived dynamically from
+        ``X``.
 
-    # Uses ``NeuralNetClassifier.predict_prob`` docstring
+        """
+        # pylint: disable=useless-super-delegation
+        # this is actually a pylint bug:
+        # https://github.com/PyCQA/pylint/issues/1085
+        return super(NeuralNetBinaryClassifier, self).fit(X, y, **fit_params)
+
+    def predict(self, X, threshold=0.5):
+        """Where applicable, return class labels for samples in X.
+
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.NeuralNet.forward` instead.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+            * a Dataset
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        Returns
+        -------
+        y_pred : numpy ndarray
+
+        """
+        return (self.predict_proba(X) > threshold).astype('uint8')
+
     # pylint: disable=missing-docstring
     def predict_proba(self, X):
+        """Where applicable, return probability estimates for
+        samples.
+
+        If the module's forward method returns multiple outputs as a
+        tuple, it is assumed that the first output contains the
+        relevant information and the other values are ignored. If all
+        values are relevant, consider using
+        :func:`~skorch.NeuralNet.forward` instead.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * a dictionary of the former three
+            * a list/tuple of the former three
+            * a Dataset
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        Returns
+        -------
+        y_proba : numpy ndarray
+
+        """
         y_probas = []
         for yp in self.forward_iter(X, training=False):
             yp = yp[0] if isinstance(yp, tuple) else yp
@@ -261,4 +346,3 @@ class NeuralNetBinaryClassifier(NeuralNetClassifier):
             y_probas.append(to_numpy(yp))
         y_proba = np.concatenate(y_probas, 0)
         return y_proba
-
