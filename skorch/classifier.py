@@ -12,9 +12,11 @@ from skorch.callbacks import PrintLog
 from skorch.callbacks import EpochScoring
 from skorch.callbacks import BatchScoring
 from skorch.dataset import CVSplit
+from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import noop
 from skorch.utils import to_numpy
+from skorch.utils import to_tensor
 from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
 
@@ -188,3 +190,75 @@ class NeuralNetClassifier(NeuralNet):
             y_preds.append(to_numpy(yp.max(-1)[-1]))
         y_pred = np.concatenate(y_preds, 0)
         return y_pred
+
+
+neural_net_binary_clf_doc_start = """NeuralNet for binary classification tasks
+
+    Use this specifically if you have a binary classification task,
+    with input data X and target y. y must be 1d.
+
+"""
+
+neural_net_binary_clf_criterion_text = """
+
+    criterion : torch criterion (class, default=torch.nn.BCEWithLogitsLoss)
+      Binary cross entropy loss with logits. Note that the module should return
+      the logit of probabilities with shape (batch_size, )."""
+
+
+def get_neural_net_binary_clf_doc(doc):
+    doc = neural_net_binary_clf_doc_start + " " + doc.split("\n ", 4)[-1]
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    start, end = pattern.search(doc).span()
+    doc = doc[:start] + neural_net_binary_clf_criterion_text + doc[end:]
+    return doc
+
+
+# pylint: disable=missing-docstring
+class NeuralNetBinaryClassifier(NeuralNetClassifier):
+    __doc__ = get_neural_net_binary_clf_doc(NeuralNet.__doc__)
+
+    def __init__(
+            self,
+            module,
+            criterion=torch.nn.BCEWithLogitsLoss,
+            train_split=CVSplit(5, stratified=True),
+            *args,
+            **kwargs
+    ):
+        super().__init__(
+            module,
+            criterion=criterion,
+            train_split=train_split,
+            *args,
+            **kwargs
+        )
+
+    # pylint: disable=signature-differs
+    def check_data(self, X, y):
+        super().check_data(X, y)
+        if get_dim(y) != 1:
+            raise ValueError("The target data should be 1-dimensional.")
+
+    # Reverts back to using ``NeuralNet.get_loss``
+    # pylint: disable=arguments-differ
+    def get_loss(self, y_pred, y_true, *args, **kwargs):
+        y_true = to_tensor(y_true, device=self.device)
+        return self.criterion_(y_pred, y_true)
+
+    # Uses ``NeuralNetClassifier.predict`` docstring
+    # pylint: disable=missing-docstring
+    def predict(self, X):
+        return (self.predict_proba(X) > 0.5).astype('uint8')
+
+    # Uses ``NeuralNetClassifier.predict_prob`` docstring
+    # pylint: disable=missing-docstring
+    def predict_proba(self, X):
+        y_probas = []
+        for yp in self.forward_iter(X, training=False):
+            yp = yp[0] if isinstance(yp, tuple) else yp
+            yp = torch.nn.functional.sigmoid(yp)
+            y_probas.append(to_numpy(yp))
+        y_proba = np.concatenate(y_probas, 0)
+        return y_proba
+
