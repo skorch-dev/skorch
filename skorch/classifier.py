@@ -275,7 +275,7 @@ class NeuralNetBinaryClassifier(NeuralNet):
         # pylint: disable=useless-super-delegation
         # this is actually a pylint bug:
         # https://github.com/PyCQA/pylint/issues/1085
-        return super(NeuralNetBinaryClassifier, self).fit(X, y, **fit_params)
+        return super().fit(X, y, **fit_params)
 
     def predict(self, X, threshold=0.5):
         """Where applicable, return class labels for samples in X.
