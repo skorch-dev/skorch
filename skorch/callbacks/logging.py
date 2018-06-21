@@ -11,7 +11,7 @@ from tabulate import tabulate
 
 from skorch.utils import Ansi
 from skorch.dataset import get_len
-from skorch.callbacks import Callback
+from skorch.callbacks import Callback, PostponedCallback
 
 
 __all__ = ['EpochTimer', 'PrintLog', 'ProgressBar']
@@ -34,7 +34,7 @@ class EpochTimer(Callback):
         net.history.record('dur', time.time() - self.epoch_start_time_)
 
 
-class PrintLog(Callback):
+class PrintLog(PostponedCallback):
     """Print out useful information from the model's history.
 
     By default, ``PrintLog`` prints everything from the history except
@@ -175,7 +175,7 @@ class PrintLog(Callback):
             sys.stdout.flush()
 
 
-class ProgressBar(Callback):
+class ProgressBar(PostponedCallback):
     """Display a progress bar for each epoch including duration, estimated
     remaining time and user-defined metrics.
 

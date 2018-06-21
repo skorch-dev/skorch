@@ -1444,3 +1444,45 @@ class TestNeuralNet:
         expected_losses = list(
             flatten(net.history[:, 'batches', :, 'train_loss']))
         assert np.allclose(side_effect[2::3], expected_losses)
+
+    def test_postponed_callback_at_end(self, net_cls, module_cls, dummy_callback):
+        from skorch.callbacks import PostponedCallback
+        from skorch.callbacks.logging import ProgressBar
+        net = net_cls(
+            module_cls,
+            callbacks=[
+                ('progress', ProgressBar()),
+                ('postponed', PostponedCallback()),
+                ('dummy', dummy_callback)],
+            max_epochs=10,
+            lr=0.1
+        )
+        net.initialize()
+
+        # Last three callbacks are postponed, PrintLog, passed in
+        # PostpondedCallback and ProgressBar
+        assert isinstance(net.callbacks_[-3][1], PostponedCallback)
+        assert isinstance(net.callbacks_[-2][1], PostponedCallback)
+        assert isinstance(net.callbacks_[-1][1], PostponedCallback)
+
+    def test_postponed_callback_at_end_uninitialized(self, net_cls, module_cls, dummy_callback):
+        from skorch.callbacks import PostponedCallback
+        from skorch.callbacks.logging import ProgressBar
+
+        net = net_cls(
+            module_cls,
+            # Callbacks are initialized
+            callbacks=[
+                ('progress', ProgressBar),
+                ('postponed', PostponedCallback),
+                ('dummy', dummy_callback)],
+            max_epochs=10,
+            lr=0.1
+        )
+        net.initialize()
+
+        # Last three callbacks are postponed, PrintLog, passed in
+        # PostpondedCallback and ProgressBar
+        assert isinstance(net.callbacks_[-3][1], PostponedCallback)
+        assert isinstance(net.callbacks_[-2][1], PostponedCallback)
+        assert isinstance(net.callbacks_[-1][1], PostponedCallback)
