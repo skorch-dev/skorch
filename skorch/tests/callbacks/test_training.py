@@ -22,7 +22,7 @@ class TestCheckpoint:
     @pytest.fixture
     def net_cls(self):
         """very simple network that trains for 10 epochs"""
-        from skorch.net import NeuralNetRegressor
+        from skorch import NeuralNetRegressor
         import torch
 
         class Module(torch.nn.Module):
