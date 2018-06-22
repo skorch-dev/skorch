@@ -18,6 +18,10 @@ class Callback:
     ``set_params`` method.
 
     """
+
+    # ``NeuralNet`` sorts its callbacks based on this parameter.
+    sorting_order = 5
+
     def initialize(self):
         """(Re-)Set the initial state of the callback. Use this
         e.g. if the callback tracks some state that should be reset

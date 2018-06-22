@@ -1444,3 +1444,46 @@ class TestNeuralNet:
         expected_losses = list(
             flatten(net.history[:, 'batches', :, 'train_loss']))
         assert np.allclose(side_effect[2::3], expected_losses)
+
+    def test_callbacks_sorted(
+            self, net_cls, module_cls, dummy_callback):
+        from skorch.callbacks import ProgressBar
+        dummy_callback.sorting_order = 0
+
+        net = net_cls(
+            module_cls,
+            callbacks=[
+                ('progress', ProgressBar()),
+                ('dummy', dummy_callback)],
+            max_epochs=10,
+            lr=0.1
+        )
+        net.initialize()
+
+        assert net.callbacks_[0] == ('dummy', dummy_callback)
+
+        # ProgressBar and PrintLog has sorting_level == 10
+        assert net.callbacks_[-2][1].sorting_order == 10
+        assert net.callbacks_[-1][1].sorting_order == 10
+
+    def test_callbacks_sorted_uninitialized_callback(
+            self, net_cls, module_cls, dummy_callback):
+        from skorch.callbacks import ProgressBar
+        dummy_callback.sorting_order = 3
+
+        net = net_cls(
+            module_cls,
+            callbacks=[
+                # Uninitialized
+                ('progress', ProgressBar),
+                ('dummy', dummy_callback)],
+            max_epochs=10,
+            lr=0.1
+        )
+        net.initialize()
+
+        assert net.callbacks_[0] == ('dummy', dummy_callback)
+
+        # ProgressBar and PrintLog has sorting_order == 10
+        assert net.callbacks_[-2][1].sorting_order == 10
+        assert net.callbacks_[-1][1].sorting_order == 10
