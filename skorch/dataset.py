@@ -59,6 +59,7 @@ def uses_placeholder_y(ds):
 
 
 class Dataset(torch.utils.data.Dataset):
+    # pylint: disable=anomalous-backslash-in-string
     """General dataset wrapper that can be used in conjunction with
     PyTorch :class:`~torch.utils.data.DataLoader`.
 
@@ -127,6 +128,7 @@ class Dataset(torch.utils.data.Dataset):
         return self._len
 
     def transform(self, X, y):
+        # pylint: disable=anomalous-backslash-in-string
         """Additional transformations on ``X`` and ``y``.
 
         By default, they are cast to PyTorch :class:`~torch.Tensor`\s.

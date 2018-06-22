@@ -1232,6 +1232,7 @@ class NeuralNet(object):
         return self
 
     def _set_params_callback(self, **params):
+        """Special handling for setting params on callbacks."""
         # model after sklearn.utils._BaseCompostion._set_params
         # 1. All steps
         if 'callbacks' in params:

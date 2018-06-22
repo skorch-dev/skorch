@@ -1402,7 +1402,7 @@ class TestNeuralNet:
         side_effect = []
 
         class SGD3Calls(torch.optim.SGD):
-            def step(self, closure):
+            def step(self, closure=None):
                 for _ in range(3):
                     loss = super().step(closure)
                     side_effect.append(float(loss))
