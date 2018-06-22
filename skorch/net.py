@@ -330,7 +330,7 @@ class NeuralNet(object):
           * default and user callbacks
           * callbacks with and without name
           * initialized and uninitialized callbacks
-          * sorts callbacks by ascending ``sorting_order``
+          * sorts callbacks by ``sorting_order`` in ascending order
 
         """
         callbacks = self.get_default_callbacks() + (self.callbacks or [])
