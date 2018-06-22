@@ -334,7 +334,15 @@ class NeuralNet(object):
 
         """
         callbacks = self.get_default_callbacks() + (self.callbacks or [])
-        for item in sorted(callbacks, key=lambda x: x[1].sorting_order):
+
+        def sorting_order(item):
+            if isinstance(item, (tuple, list)):
+                _, cb = item
+            else:
+                cb = item
+            return cb.sorting_order
+
+        for item in sorted(callbacks, key=sorting_order):
             if isinstance(item, (tuple, list)):
                 name, cb = item
             else:
