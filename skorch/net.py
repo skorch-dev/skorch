@@ -5,7 +5,6 @@ from itertools import chain
 import json
 import tempfile
 import warnings
-import inspect
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -16,7 +15,6 @@ from torch.utils.data import DataLoader
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
 from skorch.callbacks import BatchScoring
-from skorch.callbacks import PostponedCallback
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
@@ -37,16 +35,14 @@ from skorch.utils import valid_loss_score
 
 
 # TODO: remove next release
-@deprecated(
-    "Please import like this: 'from skorch import NeuralNetClassifier'.")
+@deprecated("Please import like this: 'from skorch import NeuralNetClassifier'.")
 def NeuralNetClassifier(*args, **kwargs):
     from skorch.classifier import NeuralNetClassifier as nnc
     return nnc(*args, **kwargs)
 
 
 # TODO: remove next release
-@deprecated(
-    "Please import like this: 'from skorch import NeuralNetRegressor'.")
+@deprecated("Please import like this: 'from skorch import NeuralNetRegressor'.")
 def NeuralNetRegressor(*args, **kwargs):
     from skorch.regressor import NeuralNetRegressor as nnr
     return nnr(*args, **kwargs)
@@ -200,30 +196,30 @@ class NeuralNet(object):
       a tuple with unique names.
 
     """
-    prefixes_ = [
-        'module', 'iterator_train', 'iterator_valid', 'optimizer', 'criterion',
-        'callbacks', 'dataset'
-    ]
+    prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
+                 'criterion', 'callbacks', 'dataset']
 
     cuda_dependent_attributes_ = ['module_', 'optimizer_']
 
     # pylint: disable=too-many-arguments
-    def __init__(self,
-                 module,
-                 criterion,
-                 optimizer=torch.optim.SGD,
-                 lr=0.01,
-                 max_epochs=10,
-                 batch_size=128,
-                 iterator_train=DataLoader,
-                 iterator_valid=DataLoader,
-                 dataset=Dataset,
-                 train_split=CVSplit(5),
-                 callbacks=None,
-                 warm_start=False,
-                 verbose=1,
-                 device='cpu',
-                 **kwargs):
+    def __init__(
+            self,
+            module,
+            criterion,
+            optimizer=torch.optim.SGD,
+            lr=0.01,
+            max_epochs=10,
+            batch_size=128,
+            iterator_train=DataLoader,
+            iterator_valid=DataLoader,
+            dataset=Dataset,
+            train_split=CVSplit(5),
+            callbacks=None,
+            warm_start=False,
+            verbose=1,
+            device='cpu',
+            **kwargs
+    ):
         self.module = module
         self.criterion = criterion
         self.optimizer = optimizer
@@ -266,19 +262,17 @@ class NeuralNet(object):
     def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss',
-             BatchScoring(
-                 train_loss_score,
-                 name='train_loss',
-                 on_train=True,
-                 target_extractor=noop,
-             )),
-            ('valid_loss',
-             BatchScoring(
-                 valid_loss_score,
-                 name='valid_loss',
-                 target_extractor=noop,
-             )),
+            ('train_loss', BatchScoring(
+                train_loss_score,
+                name='train_loss',
+                on_train=True,
+                target_extractor=noop,
+            )),
+            ('valid_loss', BatchScoring(
+                valid_loss_score,
+                name='valid_loss',
+                target_extractor=noop,
+            )),
             ('print_log', PrintLog()),
         ]
 
@@ -336,10 +330,10 @@ class NeuralNet(object):
           * default and user callbacks
           * callbacks with and without name
           * initialized and uninitialized callbacks
-          * puts PostponedCallback(s) last
+          * puts PrintLog(s) last
 
         """
-        postponed_callbacks = []
+        print_logs = []
         for item in self.get_default_callbacks() + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
                 name, cb = item
@@ -349,12 +343,11 @@ class NeuralNet(object):
                     name = cb.__name__
                 else:
                     name = cb.__class__.__name__
-            if (isinstance(cb, PostponedCallback) or inspect.isclass(cb)
-                    and issubclass(cb, PostponedCallback)):
-                postponed_callbacks.append((name, cb))
+            if isinstance(cb, PrintLog) or (cb == PrintLog):
+                print_logs.append((name, cb))
             else:
                 yield name, cb
-        yield from postponed_callbacks
+        yield from print_logs
 
     def initialize_callbacks(self):
         """Initializes all callbacks and save the result in the
@@ -499,7 +492,7 @@ class NeuralNet(object):
         return {
             'loss': loss,
             'y_pred': y_pred,
-        }
+            }
 
     def train_step_single(self, Xi, yi, **fit_params):
         """Compute y_pred, loss value, and update net's gradients.
@@ -528,12 +521,13 @@ class NeuralNet(object):
 
         self.notify(
             'on_grad_computed',
-            named_parameters=list(self.module_.named_parameters()))
+            named_parameters=list(self.module_.named_parameters())
+        )
 
         return {
             'loss': loss,
             'y_pred': y_pred,
-        }
+            }
 
     def get_train_step_accumulator(self):
         """Return the train step accumulator.
@@ -576,12 +570,10 @@ class NeuralNet(object):
 
         """
         step_accumulator = self.get_train_step_accumulator()
-
         def step_fn():
             step = self.train_step_single(Xi, yi, **fit_params)
             step_accumulator.store_step(step)
             return step['loss']
-
         self.optimizer_.step(step_fn)
         return step_accumulator.get_step()
 
@@ -655,8 +647,7 @@ class NeuralNet(object):
                 step = self.train_step(Xi, yi, **fit_params)
                 self.history.record_batch('train_loss', step['loss'].item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
-                self.notify(
-                    'on_batch_end', X=Xi, y=yi_res, training=True, **step)
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
 
             if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
@@ -668,8 +659,7 @@ class NeuralNet(object):
                 step = self.validation_step(Xi, yi, **fit_params)
                 self.history.record_batch('valid_loss', step['loss'].item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
-                self.notify(
-                    'on_batch_end', X=Xi, y=yi_res, training=False, **step)
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
@@ -1140,10 +1130,8 @@ class NeuralNet(object):
         pgroups = []
 
         for pattern, group in kwargs.pop('param_groups', []):
-            matches = [
-                i for i, (name, _) in enumerate(params)
-                if fnmatch.fnmatch(name, pattern)
-            ]
+            matches = [i for i, (name, _) in enumerate(params) if
+                       fnmatch.fnmatch(name, pattern)]
             if matches:
                 p = [params.pop(i)[1] for i in reversed(matches)]
                 pgroups.append({'params': p, **group})
@@ -1265,8 +1253,9 @@ class NeuralNet(object):
             if callback is not None:
                 callback.set_params(**kwarg)
             else:
-                raise ValueError("Trying to set a parameter for callback {} "
-                                 "which does not exist.".format(part0))
+                raise ValueError(
+                    "Trying to set a parameter for callback {} "
+                    "which does not exist.".format(part0))
 
         return self
 
@@ -1305,8 +1294,10 @@ class NeuralNet(object):
             with tempfile.SpooledTemporaryFile() as f:
                 f.write(dump)
                 f.seek(0)
-                if (uses_cuda(state['device'])
-                        and not torch.cuda.is_available()):
+                if (
+                        uses_cuda(state['device']) and
+                        not torch.cuda.is_available()
+                ):
                     disable_cuda = True
                     val = torch.load(
                         f, map_location=lambda storage, loc: storage)
@@ -1316,7 +1307,8 @@ class NeuralNet(object):
         if disable_cuda:
             warnings.warn(
                 "Model configured to use CUDA but no CUDA devices "
-                "available. Loading on CPU instead.", DeviceWarning)
+                "available. Loading on CPU instead.",
+                DeviceWarning)
             state['device'] = 'cpu'
 
         self.__dict__.update(state)
@@ -1380,7 +1372,8 @@ class NeuralNet(object):
             if cuda_req_not_met:
                 warnings.warn(
                     "Model configured to use CUDA but no CUDA devices "
-                    "available. Loading on CPU instead.", ResourceWarning)
+                    "available. Loading on CPU instead.",
+                    ResourceWarning)
                 self.device = 'cpu'
             model = torch.load(f, lambda storage, loc: storage)
         else:

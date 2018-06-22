@@ -3,7 +3,7 @@
 from sklearn.base import BaseEstimator
 
 
-__all__ = ['Callback', 'PostponedCallback']
+__all__ = ['Callback']
 
 
 class Callback:
@@ -67,14 +67,3 @@ class Callback:
 
     def set_params(self, **params):
         BaseEstimator.set_params(self, **params)
-
-
-class PostponedCallback(Callback):
-    """Base class for postponed callbacks.
-
-    ``PostponedCallback``s are appended to the end of ``Neuralnet``'s
-    callback list. ``PostponedCallback`` will have access to all processed
-    values added by ``Callback``s such as ``BatchScoring`` or
-    ``EpochScoring``.
-    """
-    pass
