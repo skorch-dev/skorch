@@ -437,9 +437,11 @@ class TestFilterRequiresGrad():
         }]
 
         filter_pgroups = list(filter_requires_grad(pgroups))
+        assert len(filter_pgroups) == 2
         assert len(list(filter_pgroups[0]['params'])) == 2
-        assert filter_pgroups[0]['lr'] == 0.1
         assert len(list((filter_pgroups[1]['params']))) == 1
+
+        assert filter_pgroups[0]['lr'] == 0.1
 
     def test_some_params_requires_graident(
             self, filter_requires_grad):
@@ -455,5 +457,32 @@ class TestFilterRequiresGrad():
         filter_pgroups = list(filter_requires_grad(pgroups))
         assert len(filter_pgroups) == 2
         assert len(list(filter_pgroups[0]['params'])) == 2
-        assert filter_pgroups[0]['lr'] == 0.1
         assert len(list(filter_pgroups[1]['params'])) == 0
+
+        assert filter_pgroups[0]['lr'] == 0.1
+
+
+class TestFilteredOptimizer:
+
+    @pytest.fixture
+    def filtered_optimizer(self):
+        from skorch.utils import filtered_optimizer
+        return filtered_optimizer
+
+    def test_passes_filtered_cgroups(self, filtered_optimizer):
+        pgroups = [{
+            'params': [torch.zeros(1, requires_grad=True),
+                       torch.zeros(1, requires_grad=False)],
+            'lr': 0.1
+        }, {
+            'params': [torch.zeros(1, requires_grad=True)]
+        }]
+
+        filtered_opt = filtered_optimizer(torch.optim.SGD, pgroups, lr=0.2)
+
+        assert isinstance(filtered_opt, torch.optim.SGD)
+        assert len(list(filtered_opt.param_groups[0]['params'])) == 1
+        assert len(list(filtered_opt.param_groups[1]['params'])) == 1
+
+        assert filtered_opt.param_groups[0]['lr'] == 0.1
+        assert filtered_opt.param_groups[1]['lr'] == 0.2
