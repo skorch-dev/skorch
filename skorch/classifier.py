@@ -202,7 +202,11 @@ neural_net_binary_clf_criterion_text = """
 
     criterion : torch criterion (class, default=torch.nn.BCEWithLogitsLoss)
       Binary cross entropy loss with logits. Note that the module should return
-      the logit of probabilities with shape (batch_size, )."""
+      the logit of probabilities with shape (batch_size, ).
+
+    threshold : float (default=0.5)
+      Probabilities above this threshold is classified as 1. ``threshold``
+      is used by ``predict`` and ``predict_proba`` for classification."""
 
 
 def get_neural_net_binary_clf_doc(doc):
@@ -222,6 +226,7 @@ class NeuralNetBinaryClassifier(NeuralNet):
             module,
             criterion=torch.nn.BCEWithLogitsLoss,
             train_split=CVSplit(5, stratified=True),
+            threshold=0.5,
             *args,
             **kwargs
     ):
@@ -232,6 +237,7 @@ class NeuralNetBinaryClassifier(NeuralNet):
             *args,
             **kwargs
         )
+        self.threshold = threshold
 
     @property
     def _default_callbacks(self):
@@ -277,7 +283,7 @@ class NeuralNetBinaryClassifier(NeuralNet):
         # https://github.com/PyCQA/pylint/issues/1085
         return super().fit(X, y, **fit_params)
 
-    def predict(self, X, threshold=0.5):
+    def predict(self, X):
         """Where applicable, return class labels for samples in X.
 
         If the module's forward method returns multiple outputs as a
@@ -306,7 +312,7 @@ class NeuralNetBinaryClassifier(NeuralNet):
         y_pred : numpy ndarray
 
         """
-        return (self.predict_proba(X) > threshold).astype('uint8')
+        return (self.predict_proba(X) > self.threshold).astype('uint8')
 
     # pylint: disable=missing-docstring
     def predict_proba(self, X):

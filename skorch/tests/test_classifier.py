@@ -186,16 +186,19 @@ class TestNeuralNetBinaryClassifier:
         for row in net_fit.history:
             assert expected_keys.issubset(row)
 
-    @pytest.mark.parametrize('threshold', [0, 0.5, 1])
-    def test_predict_predict_proba(self, net_fit, data, threshold):
-        X = data[0]
-        y_pred_proba = net_fit.predict_proba(X)
+    @pytest.mark.parametrize('threshold', [0, 0.25, 0.5, 0.75, 1])
+    def test_predict_predict_proba(self, net, data, threshold):
+        X, y = data
+        net.threshold = threshold
+        net.fit(X, y)
+
+        y_pred_proba = net.predict_proba(X)
         assert len(y_pred_proba.shape) == 1
         assert y_pred_proba.shape[0] == X.shape[0]
 
         y_pred_exp = (y_pred_proba > threshold).astype('uint8')
 
-        y_pred_actual = net_fit.predict(X, threshold=threshold)
+        y_pred_actual = net.predict(X)
         assert np.allclose(y_pred_exp, y_pred_actual)
 
     def test_target_2d_raises(self, net, data):
