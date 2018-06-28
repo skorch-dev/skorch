@@ -1,5 +1,6 @@
 
 from functools import partial
+from unittest.mock import Mock
 from unittest.mock import patch
 
 import numpy as np
@@ -21,7 +22,7 @@ class TestCheckpoint:
     @pytest.fixture
     def net_cls(self):
         """very simple network that trains for 10 epochs"""
-        from skorch.net import NeuralNetRegressor
+        from skorch import NeuralNetRegressor
         import torch
 
         class Module(torch.nn.Module):
@@ -48,12 +49,14 @@ class TestCheckpoint:
 
     def test_none_monitor_saves_always(
             self, save_params_mock, net_cls, checkpoint_cls, data):
+        sink = Mock()
         net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None),
+            checkpoint_cls(monitor=None, sink=sink),
         ])
         net.fit(*data)
 
         assert save_params_mock.call_count == len(net.history)
+        assert sink.call_count == len(net.history)
 
     def test_default_without_validation_raises_meaningful_error(
             self, net_cls, checkpoint_cls, data):
@@ -83,13 +86,16 @@ class TestCheckpoint:
         scoring = EpochScoring(
             scoring=epoch_3_scorer, on_train=True)
 
+        sink = Mock()
         net = net_cls(callbacks=[
             ('my_score', scoring),
             checkpoint_cls(
                 monitor='epoch_3_scorer',
-                target='model_{last_epoch[epoch]}_{net.max_epochs}.pt'),
+                target='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
+                sink=sink),
         ])
         net.fit(*data)
 
         assert save_params_mock.call_count == 1
         save_params_mock.assert_called_with('model_3_10.pt')
+        assert sink.call_count == 1
