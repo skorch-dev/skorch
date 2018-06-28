@@ -448,7 +448,7 @@ class TestFilterRequiresGrad():
         pgroups = [{
             'params': [
                 torch.zeros(1, requires_grad=True),
-                torch.zeros(1, requires_grad=True)
+                torch.zeros(1, requires_grad=False)
             ], 'lr':0.1
         }, {
             'params': [torch.zeros(1, requires_grad=False)]
@@ -456,7 +456,7 @@ class TestFilterRequiresGrad():
 
         filter_pgroups = list(filter_requires_grad(pgroups))
         assert len(filter_pgroups) == 2
-        assert len(list(filter_pgroups[0]['params'])) == 2
+        assert len(list(filter_pgroups[0]['params'])) == 1
         assert len(list(filter_pgroups[1]['params'])) == 0
 
         assert filter_pgroups[0]['lr'] == 0.1
