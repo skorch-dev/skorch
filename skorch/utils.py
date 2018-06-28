@@ -417,7 +417,7 @@ class FirstStepAccumulator:
         return self.step
 
 
-def _filter_requires_grad(pgroups):
+def filter_parameter_groups_requires_grad(pgroups):
     """Returns parameter groups where parameters with
     ``requires_grad==False`` are filtered out.
     """
