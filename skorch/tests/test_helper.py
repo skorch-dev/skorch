@@ -255,3 +255,24 @@ class TestFilteredOptimizer:
 
         assert filtered_opt.param_groups[0]['lr'] == 0.1
         assert filtered_opt.param_groups[1]['lr'] == 0.2
+
+    def test_passes_kwargs_to_neuralnet_optimizer(self, filtered_optimizer):
+        from skorch import NeuralNetClassifier
+
+        class MyModule(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.dense0 = torch.nn.Linear(1, 1)
+
+            def forward(self, X):
+                return self.dense0(X)
+
+        net = NeuralNetClassifier(
+            MyModule,
+            optimizer=filtered_optimizer(torch.optim.SGD),
+            optimizer__momentum=0.9)
+
+        net.initialize()
+        assert isinstance(net.optimizer_, torch.optim.SGD)
+        assert len(net.optimizer_.param_groups) == 1
+        assert net.optimizer_.param_groups[0]['momentum'] == 0.9
