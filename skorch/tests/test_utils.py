@@ -426,7 +426,7 @@ class TestFilterRequiresGrad():
         from skorch.utils import filter_requires_grad
         return filter_requires_grad
 
-    def test_all_parameters_requires_graident(
+    def test_all_parameters_requires_gradient(
             self, filter_requires_grad):
         pgroups = [{
             'params': [torch.zeros(1, requires_grad=True),
@@ -443,7 +443,7 @@ class TestFilterRequiresGrad():
 
         assert filter_pgroups[0]['lr'] == 0.1
 
-    def test_some_params_requires_graident(
+    def test_some_params_requires_gradient(
             self, filter_requires_grad):
         pgroups = [{
             'params': [
