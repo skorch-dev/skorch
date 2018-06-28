@@ -415,24 +415,3 @@ class FirstStepAccumulator:
     def get_step(self):
         """Return the stored step."""
         return self.step
-
-
-def filter_requires_grad(pgroups):
-    """Returns parameter groups where parameters with
-    ``requires_grad==False`` are filtered out.
-    """
-    for pgroup in pgroups:
-        output = {k: v for k, v in pgroup.items() if k != 'params'}
-        output['params'] = (p for p in pgroup['params'] if p.requires_grad)
-        yield output
-
-
-def filtered_optimizer(optimizer):
-    """Wraps an optimizer that filters out parameters with
-    ``require_grad==False`` in ``pgroups``.
-    """
-    def opt(pgroups, **kwargs):
-        filter_pgroups = filter_requires_grad(pgroups)
-        return optimizer(filter_pgroups, **kwargs)
-    return opt
-
