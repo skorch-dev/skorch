@@ -346,9 +346,13 @@ class NeuralNetBinaryClassifier(NeuralNet):
 
         """
         y_probas = []
+        bce_logits_loss = isinstance(
+            self.criterion_, torch.nn.BCEWithLogitsLoss)
+
         for yp in self.forward_iter(X, training=False):
             yp = yp[0] if isinstance(yp, tuple) else yp
-            yp = torch.nn.functional.sigmoid(yp)
+            if bce_logits_loss:
+                yp = torch.nn.functional.sigmoid(yp)
             y_probas.append(to_numpy(yp))
         y_proba = np.concatenate(y_probas, 0)
         return y_proba
