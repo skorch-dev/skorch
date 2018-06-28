@@ -496,7 +496,8 @@ class TestFilteredOptimizer:
             'params': [torch.zeros(1, requires_grad=True)]
         }]
 
-        filtered_opt = filtered_optimizer(torch.optim.SGD, pgroups, lr=0.2)
+        filtered_func = filtered_optimizer(torch.optim.SGD)
+        filtered_opt = filtered_func(pgroups, lr=0.2)
 
         assert isinstance(filtered_opt, torch.optim.SGD)
         assert len(list(filtered_opt.param_groups[0]['params'])) == 1

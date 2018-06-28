@@ -427,10 +427,12 @@ def filter_requires_grad(pgroups):
         yield output
 
 
-def filtered_optimizer(optimizer, pgroups, **kwargs):
-    """Returns an optimizer that filters out parameters with
+def filtered_optimizer(optimizer):
+    """Wraps an optimizer that filters out parameters with
     ``require_grad==False`` in ``pgroups``.
     """
-    filter_pgroups = filter_requires_grad(pgroups)
-    return optimizer(filter_pgroups, **kwargs)
+    def opt(pgroups, **kwargs):
+        filter_pgroups = filter_requires_grad(pgroups)
+        return optimizer(filter_pgroups, **kwargs)
+    return opt
 
