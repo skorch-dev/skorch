@@ -50,6 +50,7 @@ class TestNeuralNet:
     def dummy_callback(self):
         from skorch.callbacks import Callback
         cb = Mock(spec=Callback)
+        cb.sorting_order = 5
         # make dummy behave like an estimator
         cb.get_params.return_value = {}
         cb.set_params = lambda **kwargs: cb

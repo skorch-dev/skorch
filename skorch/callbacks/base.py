@@ -17,7 +17,17 @@ class Callback:
     Classes that inherit from this also gain the ``get_params`` and
     ``set_params`` method.
 
+    Attributes
+    ----------
+
+    sorting_order : int
+      ``NeuralNet`` sorts its callbacks based on this parameter
+      in ascending order. The default ``sorting_order`` is 5.
+
     """
+
+    sorting_order = 5
+
     def initialize(self):
         """(Re-)Set the initial state of the callback. Use this
         e.g. if the callback tracks some state that should be reset

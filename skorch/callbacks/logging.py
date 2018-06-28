@@ -71,6 +71,9 @@ class PrintLog(Callback):
       package for more details.
 
     """
+
+    sorting_order = 10
+
     def __init__(
             self,
             keys_ignored='batches',
@@ -205,6 +208,8 @@ class ProgressBar(Callback):
 
       >>> net.history[-1, 'batches', -1, key]
     """
+
+    sorting_order = 10
 
     def __init__(
             self,

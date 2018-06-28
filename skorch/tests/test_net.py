@@ -65,6 +65,7 @@ class TestNeuralNet:
     def dummy_callback(self):
         from skorch.callbacks import Callback
         cb = Mock(spec=Callback)
+        cb.sorting_order = 5
         # make dummy behave like an estimator
         cb.get_params.return_value = {}
         cb.set_params = lambda **kwargs: cb
@@ -523,6 +524,7 @@ class TestNeuralNet:
 
     def test_callback_with_name_init_with_params(self, net_cls, module_cls):
         mock = Mock()
+        mock.sorting_order = 5
         net = net_cls(
             module_cls,
             criterion=Mock(),
@@ -535,6 +537,7 @@ class TestNeuralNet:
 
     def test_callback_set_params(self, net_cls, module_cls):
         mock = Mock()
+        mock.sorting_order = 5
         net = net_cls(
             module_cls,
             criterion=Mock(),
@@ -546,7 +549,9 @@ class TestNeuralNet:
         assert mock.set_params.call_args_list[-1][1]['spam'] == 'eggs'
 
     def test_callback_name_collides_with_default(self, net_cls, module_cls):
-        net = net_cls(module_cls, callbacks=[('train_loss', Mock())])
+        mock = Mock()
+        mock.sorting_order = 5
+        net = net_cls(module_cls, callbacks=[('train_loss', mock)])
 
         with pytest.raises(ValueError) as exc:
             net.initialize()
@@ -557,6 +562,8 @@ class TestNeuralNet:
         callbacks = [('cb0', Mock()),
                      ('cb1', Mock()),
                      ('cb0', Mock())]
+        for _, cb in callbacks:
+            cb.sorting_order = 5
         net = net_cls(module_cls, callbacks=callbacks)
 
         with pytest.raises(ValueError) as exc:
@@ -567,6 +574,8 @@ class TestNeuralNet:
     def test_callback_same_inferred_name_twice(self, net_cls, module_cls):
         cb0 = Mock()
         cb1 = Mock()
+        cb0.sorting_order = 5
+        cb1.sorting_order = 5
         cb0.__class__.__name__ = 'some-name'
         cb1.__class__.__name__ = 'some-name'
         net = net_cls(module_cls, callbacks=[cb0, cb1])
@@ -1338,6 +1347,7 @@ class TestNeuralNet:
                 assert not loss.requires_grad
 
         mock_cb = Mock(on_batch_end=check_grad)
+        mock_cb.sorting_order = 5
         net = net_cls(module_cls, max_epochs=1, callbacks=[mock_cb])
         net.fit(*data)
 
@@ -1444,3 +1454,46 @@ class TestNeuralNet:
         expected_losses = list(
             flatten(net.history[:, 'batches', :, 'train_loss']))
         assert np.allclose(side_effect[2::3], expected_losses)
+
+    def test_callbacks_sorted(
+            self, net_cls, module_cls, dummy_callback):
+        from skorch.callbacks import ProgressBar
+        dummy_callback.sorting_order = 0
+
+        net = net_cls(
+            module_cls,
+            callbacks=[
+                ('progress', ProgressBar()),
+                ('dummy', dummy_callback)],
+            max_epochs=10,
+            lr=0.1
+        )
+        net.initialize()
+
+        assert net.callbacks_[0] == ('dummy', dummy_callback)
+
+        # ProgressBar and PrintLog has sorting_order == 10
+        assert net.callbacks_[-2][1].sorting_order == 10
+        assert net.callbacks_[-1][1].sorting_order == 10
+
+    def test_callbacks_sorted_uninitialized_callback(
+            self, net_cls, module_cls, dummy_callback):
+        from skorch.callbacks import ProgressBar
+        dummy_callback.sorting_order = 3
+
+        net = net_cls(
+            module_cls,
+            callbacks=[
+                # Uninitialized
+                ('progress', ProgressBar),
+                ('dummy', dummy_callback)],
+            max_epochs=10,
+            lr=0.1
+        )
+        net.initialize()
+
+        assert net.callbacks_[0] == ('dummy', dummy_callback)
+
+        # ProgressBar and PrintLog has sorting_order == 10
+        assert net.callbacks_[-2][1].sorting_order == 10
+        assert net.callbacks_[-1][1].sorting_order == 10

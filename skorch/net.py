@@ -330,11 +330,19 @@ class NeuralNet(object):
           * default and user callbacks
           * callbacks with and without name
           * initialized and uninitialized callbacks
-          * puts PrintLog(s) last
+          * sorts callbacks by ``sorting_order`` in ascending order
 
         """
-        print_logs = []
-        for item in self.get_default_callbacks() + (self.callbacks or []):
+        callbacks = self.get_default_callbacks() + (self.callbacks or [])
+
+        def sorting_order(item):
+            if isinstance(item, (tuple, list)):
+                _, cb = item
+            else:
+                cb = item
+            return cb.sorting_order
+
+        for item in sorted(callbacks, key=sorting_order):
             if isinstance(item, (tuple, list)):
                 name, cb = item
             else:
@@ -343,11 +351,7 @@ class NeuralNet(object):
                     name = cb.__name__
                 else:
                     name = cb.__class__.__name__
-            if isinstance(cb, PrintLog) or (cb == PrintLog):
-                print_logs.append((name, cb))
-            else:
-                yield name, cb
-        yield from print_logs
+            yield name, cb
 
     def initialize_callbacks(self):
         """Initializes all callbacks and save the result in the
