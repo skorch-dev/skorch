@@ -208,3 +208,27 @@ class TestNeuralNetBinaryClassifier:
 
         assert exc.value.args[0] == (
             "The target data should be 1-dimensional.")
+
+    def test_custom_loss_does_not_call_sigmoid(
+            self, net_cls, data, module_cls, monkeypatch):
+        mock = Mock(side_effect=lambda x: x)
+        monkeypatch.setattr(torch.nn.functional, "sigmoid", mock)
+
+        net = net_cls(module_cls, max_epochs=20, lr=0.1, criterion=nn.MSELoss)
+        X, y = data
+        net.fit(X, y)
+
+        net.predict_proba(X)
+        mock.assert_not_called()
+
+    def test_default_loss_does_calls_sigmoid(
+            self, net_cls, data, module_cls, monkeypatch):
+        mock = Mock(side_effect=lambda x: x)
+        monkeypatch.setattr(torch.nn.functional, "sigmoid", mock)
+
+        net = net_cls(module_cls, max_epochs=20, lr=0.1)
+        X, y = data
+        net.fit(X, y)
+
+        net.predict_proba(X)
+        mock.assert_called()
