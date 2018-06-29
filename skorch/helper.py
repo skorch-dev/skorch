@@ -80,7 +80,7 @@ class SliceDict(dict):
         return (self._len,)
 
 
-def filter_requires_grad(optimizer):
+def optimizer_params_requires_grad(optimizer):
     """Wraps an optimizer that filters out parameters with
     ``require_grad==False`` in ``pgroups``.
 

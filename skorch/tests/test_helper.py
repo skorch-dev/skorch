@@ -169,14 +169,14 @@ class TestSliceDict:
         print(gs.best_score_, gs.best_params_)
 
 
-class TestFilterRequiresGrad:
+class TestOptimizerParamsRequiresGrad:
 
     @pytest.fixture
-    def filter_requires_grad(self):
-        from skorch.helper import filter_requires_grad
-        return filter_requires_grad
+    def optimizer_params_requires_grad(self):
+        from skorch.helper import optimizer_params_requires_grad
+        return optimizer_params_requires_grad
 
-    def test_passes_filtered_cgroups(self, filter_requires_grad):
+    def test_passes_filtered_cgroups(self, optimizer_params_requires_grad):
         pgroups = [{
             'params': [torch.zeros(1, requires_grad=True),
                        torch.zeros(1, requires_grad=False)],
@@ -185,7 +185,7 @@ class TestFilterRequiresGrad:
             'params': [torch.zeros(1, requires_grad=True)]
         }]
 
-        filtered_func = filter_requires_grad(torch.optim.SGD)
+        filtered_func = optimizer_params_requires_grad(torch.optim.SGD)
         filtered_opt = filtered_func(pgroups, lr=0.2)
 
         assert isinstance(filtered_opt, torch.optim.SGD)
@@ -195,7 +195,8 @@ class TestFilterRequiresGrad:
         assert filtered_opt.param_groups[0]['lr'] == 0.1
         assert filtered_opt.param_groups[1]['lr'] == 0.2
 
-    def test_passes_kwargs_to_neuralnet_optimizer(self, filter_requires_grad):
+    def test_passes_kwargs_to_neuralnet_optimizer(
+            self, optimizer_params_requires_grad):
         from skorch import NeuralNetClassifier
 
         class MyModule(torch.nn.Module):
@@ -208,7 +209,7 @@ class TestFilterRequiresGrad:
 
         net = NeuralNetClassifier(
             MyModule,
-            optimizer=filter_requires_grad(torch.optim.SGD),
+            optimizer=optimizer_params_requires_grad(torch.optim.SGD),
             optimizer__momentum=0.9)
 
         net.initialize()

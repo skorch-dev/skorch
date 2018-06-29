@@ -478,4 +478,3 @@ class TestFilterParameterGroupsRequiresGrad():
         assert len(list(filter_pgroups[1]['params'])) == 0
 
         assert filter_pgroups[0]['lr'] == 0.1
-
