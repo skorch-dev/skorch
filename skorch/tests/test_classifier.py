@@ -164,7 +164,7 @@ class TestNeuralNetBinaryClassifier:
     def net(self, net_cls, module_cls):
         return net_cls(
             module_cls,
-            max_epochs=20,
+            max_epochs=1,
             lr=0.1,
         )
 
@@ -214,21 +214,21 @@ class TestNeuralNetBinaryClassifier:
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch.nn.functional, "sigmoid", mock)
 
-        net = net_cls(module_cls, max_epochs=20, lr=0.1, criterion=nn.MSELoss)
+        net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss)
         X, y = data
         net.fit(X, y)
 
         net.predict_proba(X)
-        mock.assert_not_called()
+        assert mock.call_count == 0
 
-    def test_default_loss_does_calls_sigmoid(
+    def test_default_loss_does_call_sigmoid(
             self, net_cls, data, module_cls, monkeypatch):
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch.nn.functional, "sigmoid", mock)
 
-        net = net_cls(module_cls, max_epochs=20, lr=0.1)
+        net = net_cls(module_cls, max_epochs=1, lr=0.1)
         X, y = data
         net.fit(X, y)
 
         net.predict_proba(X)
-        mock.assert_called()
+        assert mock.call_count > 0
