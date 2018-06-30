@@ -224,10 +224,10 @@ class NeuralNetBinaryClassifier(NeuralNet):
     def __init__(
             self,
             module,
+            *args,
             criterion=torch.nn.BCEWithLogitsLoss,
             train_split=CVSplit(5, stratified=True),
             threshold=0.5,
-            *args,
             **kwargs
     ):
         super().__init__(
