@@ -3,6 +3,7 @@
 They should not be used in skorch directly.
 
 """
+from skorch.utils import filter_parameter_groups_requires_grad
 
 
 class SliceDict(dict):
@@ -90,8 +91,6 @@ def optimizer_params_requires_grad(optimizer):
       The uninitialized optimizer that is wrapped
 
     """
-    from skorch.utils import filter_parameter_groups_requires_grad
-
     def opt(pgroups, **kwargs):
         filter_pgroups = filter_parameter_groups_requires_grad(pgroups)
         return optimizer(filter_pgroups, **kwargs)
