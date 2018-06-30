@@ -314,6 +314,16 @@ class TestCyclicLR():
                              mode='triangular')
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
+    def test_triangular_mode_different_step_size(self, init_optimizer, num_groups):
+        target = [1, 2, 3, 4, 5, 4 + 1/3,
+                  3 + 2/3, 3, 2 + 1/3, 1 + 2/3, 1]
+        targets = [target] * num_groups
+        scheduler = CyclicLR(init_optimizer, base_lr=1, max_lr=5,
+                             step_size=4,
+                             step_size_2=6,
+                             mode='triangular')
+        self._test_cycle_lr(init_optimizer, scheduler, targets)
+
     def test_triangular2_mode(self, init_optimizer, num_groups):
         base_target = ([1, 2, 3, 4, 5, 4, 3, 2, 1,
                         1.5, 2.0, 2.5, 3.0, 2.5, 2.0, 1.5, 1,
