@@ -314,9 +314,8 @@ class TestCyclicLR():
                              mode='triangular')
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
-    def test_triangular_mode_different_step_size(self, init_optimizer, num_groups):
-        target = [1, 2, 3, 4, 5, 4 + 1/3,
-                  3 + 2/3, 3, 2 + 1/3, 1 + 2/3, 1]
+    def test_triangular_mode_step_size_2(self, init_optimizer, num_groups):
+        target = [1, 2, 3, 4, 5, 13/3, 11/3, 9/3, 7/3, 5/3, 1]
         targets = [target] * num_groups
         scheduler = CyclicLR(init_optimizer, base_lr=1, max_lr=5,
                              step_size=4,
@@ -336,6 +335,19 @@ class TestCyclicLR():
                              step_size=4, mode='triangular2')
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
+    def test_triangular2_mode_step_size_2(self, init_optimizer, num_groups):
+        base_target = ([1, 3, 5, 13/3, 11/3, 9/3, 7/3, 5/3,
+                        1, 2, 3, 8/3, 7/3, 6/3, 5/3, 4/3,
+                        1, 3/2, 2, 11/6, 10/6, 9/6, 8/6, 7/6])
+        deltas = [2*i for i in range(0, num_groups)]
+        base_lrs = [1 + delta for delta in deltas]
+        max_lrs = [5 + delta for delta in deltas]
+        targets = [[x + delta for x in base_target] for delta in deltas]
+        scheduler = CyclicLR(init_optimizer, base_lr=base_lrs, max_lr=max_lrs,
+                             step_size=2, step_size_2=6,
+                             mode='triangular2')
+        self._test_cycle_lr(init_optimizer, scheduler, targets)
+
     def test_exp_range_mode(self, init_optimizer, num_groups):
         base_lr, max_lr = 1, 5
         diff_lr = max_lr - base_lr
@@ -346,6 +358,18 @@ class TestCyclicLR():
         targets = [target] * num_groups
         scheduler = CyclicLR(init_optimizer, base_lr=base_lr, max_lr=max_lr,
                              step_size=4, mode='exp_range', gamma=gamma)
+        self._test_cycle_lr(init_optimizer, scheduler, targets)
+
+    def test_exp_range_mode_step_size_2(self, init_optimizer, num_groups):
+        base_lr, max_lr = 1, 5
+        diff_lr = max_lr - base_lr
+        gamma = 0.9
+        xs = ([0, 0.5, 1, 5/6, 4/6, 3/6, 2/6, 1/6, 0, 0.5, 1, 5/6, 4/6])
+        target = [base_lr + x*diff_lr*gamma**i for i, x in enumerate(xs)]
+        targets = [target] * num_groups
+        scheduler = CyclicLR(init_optimizer, base_lr=base_lr, max_lr=max_lr,
+                             step_size=2, step_size_2=6,
+                             mode='exp_range', gamma=gamma)
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
     def test_batch_idx_with_none(self, init_optimizer):
