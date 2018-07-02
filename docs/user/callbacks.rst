@@ -178,8 +178,8 @@ we need to process it before passing it on.
 Checkpoint
 ----------
 
-Creates a checkpoint of your model parameters after each epoch if your
-valid loss improved.
+The :class:`.Checkpoint` callback creates a checkpoint of your model
+parameters after each epoch if your validation loss improved.
 
 To change where your model is saved, change the ``target``
 argument. To change under what circumstances your model is saved,
@@ -196,3 +196,8 @@ arguments:
 - function or callable: In that case, the function should take the
   :class:`.NeuralNet` instance as sole input and return a bool as
   output.
+
+The model parameters are saved using
+:func:`~skorch.net.NeuralNet.save_params`. Please refer to
+:ref:`saving and loading` for more information about restoring your
+network from a checkpoint.

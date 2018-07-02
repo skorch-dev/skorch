@@ -52,7 +52,7 @@ pass are not touched afterwards, which makes it possible to clone the
 Only when the :func:`~skorch.net.NeuralNet.fit` or
 :func:`~skorch.net.NeuralNet.initialize` method are called, are the
 different attributes of the net, such as the ``module``, initialized.
-An initialzed attribute's name always ends on an underscore; e.g., the
+An initialized attribute's name always ends on an underscore; e.g., the
 initialized ``module`` is called ``module_``. (This is the same
 nomenclature as sklearn uses.) Thefore, you always know which
 attributes you set and which ones were created by :class:`.NeuralNet`.
@@ -150,13 +150,13 @@ The maximum number of epochs to train with each
 :func:`~skorch.net.NeuralNet.fit` call. When you call
 :func:`~skorch.net.NeuralNet.fit`, the net will train for this many
 epochs, except if you interrupt training before the end (e.g. by using
-an early stopping callback or interrupt manually with ctrl+c).
+an early stopping callback or interrupt manually with *ctrl+c*).
 
 If you want to change the number of epochs to train, you can either
 set a different value for ``max_epochs``, or you call
 :func:`~skorch.net.NeuralNet.fit_loop` instead of
 :func:`~skorch.net.NeuralNet.fit` and pass the desired number of
-epochs explicitely:
+epochs explicitly:
 
 .. code:: python
 
@@ -168,7 +168,7 @@ batch_size
 
 This argument controls the batch size for ``iterator_train`` and
 ``iterator_valid`` at the same time. ``batch_size=128`` is thus a
-convenient shortcut for explicitely typing
+convenient shortcut for explicitly typing
 ``iterator_train__batch_size=128`` and
 ``iterator_valid__batch_size=128``. If you set all three arguments,
 the latter two will have precedence.
@@ -242,11 +242,13 @@ double-underscore notation):
 Use this, for instance, when trying out different callback parameters
 in a grid search.
 
-*Note*: The user-defined callbacks are always called *after* the
-default callbacks. This is so that user-defined callbacks can make use
-of the things provided by the default callbacks. The only exception is
-the default callback :class:`~skorch.callbacks.PrintLog`, which is
-always called last.
+*Note*: The user-defined callbacks are always called in the same order
+as they appeared in the list. If there are dependencies between the
+callbacks, the user has to make sure that the order respects them.
+Also note that the user-defined callbacks will be called *after* the
+default callbacks so that they can make use of the things provided by
+the default callbacks. The only exception is the default callback
+:class:`~skorch.callbacks.PrintLog`, which is always called last.
 
 warm_start
 ^^^^^^^^^^
@@ -301,10 +303,11 @@ more input data than just one array, it is possible for ``X`` to be a
 list or dictionary of data (see :ref:`dataset <dataset>`). And if your
 task does not have an actual ``y``, you may pass ``y=None``.
 
-If you fit with a torch Dataset and don't explicitely pass ``y``,
-several components down the line might not work anymore, since sklearn
-sometimes requires an explicit ``y`` (e.g. for scoring). In general,
-Datasets should work, though.
+If you fit with a PyTorch :class:`~torch.utils.data.Dataset` and don't
+explicitly pass ``y``, several components down the line might not work
+anymore, since sklearn sometimes requires an explicit ``y`` (e.g. for
+scoring). In general, PyTorch :class:`~torch.utils.data.Dataset`\s
+should work, though.
 
 In addition to :func:`~skorch.net.NeuralNet.fit`, there is also the
 :func:`~skorch.net.NeuralNet.partial_fit` method, known from some
@@ -315,7 +318,7 @@ you to continue training from your current status, even if you set
 fit into memory and you thus need to have several training steps.
 
 *Tip* :
-skorch gracefully cathes the ``KeyboardInterrupt``
+skorch gracefully catches the ``KeyboardInterrupt``
 exception. Therefore, during a training run, you can send a
 ``KeyboardInterrupt`` signal without the Python process exiting
 (typically, ``KeyboardInterrupt`` can be triggered by *ctrl+c* or, in
@@ -452,7 +455,7 @@ continue training:
 Special arguments
 -----------------
 
-In addition to the arguments explicitely listed for
+In addition to the arguments explicitly listed for
 :class:`.NeuralNet`, there are some arguments with special prefixes,
 as shown below:
 
