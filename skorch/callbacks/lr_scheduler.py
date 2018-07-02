@@ -1,6 +1,7 @@
 """Contains learning rate scheduler callbacks"""
 
 import sys
+import warnings
 
 # pylint: disable=unused-import
 import numpy as np
@@ -225,14 +226,12 @@ class CyclicLR(object):
       of base_lr and some scaling of the amplitude; therefore max_lr
       may not actually be reached depending on scaling function.
 
-    step_size : int (default=2000)
-      Number of training iterations in the first half of a cycle.
-      Authors suggest setting step_size 2-8 x training iterations in an
-      epoch.
+    step_size_up : int (default=2000)
+      Number of training iterations in the increasing half of a cycle.
 
-    step_size_2 : int (default=None)
-      Number of training iterations in the second half of a cycle.
-      If step_size_2 is None, it is set to step_size.
+    step_size_down : int (default=None)
+      Number of training iterations in the decreasing half of a cycle.
+      If step_size_down is None, it is set to step_size_up.
 
     mode : str (default='triangular')
       One of {triangular, triangular2, exp_range}. Values correspond
@@ -277,9 +276,9 @@ class CyclicLR(object):
     """
 
     def __init__(self, optimizer, base_lr=1e-3, max_lr=6e-3,
-                 step_size=2000, step_size_2=None, mode='triangular',
+                 step_size_up=2000, step_size_down=None, mode='triangular',
                  gamma=1., scale_fn=None, scale_mode='cycle',
-                 last_batch_idx=-1):
+                 last_batch_idx=-1, step_size=None):
 
         if not isinstance(optimizer, Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
@@ -288,9 +287,18 @@ class CyclicLR(object):
         self.base_lrs = self._format_lr('base_lr', optimizer, base_lr)
         self.max_lrs = self._format_lr('max_lr', optimizer, max_lr)
 
-        step_size_2 = step_size_2 or step_size
-        self.total_size = float(step_size + step_size_2)
-        self.step_ratio = float(step_size) / self.total_size
+        # TODO: Remove warning in a future release
+        if step_size is not None:
+            warnings.warn(
+                "step_size is deprecated in CycleLR, please use step_size_up "
+                "and step_size_down instead",
+                DeprecationWarning)
+            step_size_up = step_size
+            step_size_down = step_size
+
+        step_size_down = step_size_down or step_size_up
+        self.total_size = float(step_size_up + step_size_down)
+        self.step_ratio = float(step_size_up) / self.total_size
 
         if mode not in ['triangular', 'triangular2', 'exp_range'] \
                 and scale_fn is None:
