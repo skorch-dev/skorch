@@ -84,6 +84,36 @@ class TestEpochScoring:
     @pytest.mark.parametrize('lower_is_better, expected', [
         (True, [True, True, True, False, False]),
         (False, [True, False, False, True, False]),
+    ])
+    def test_scoring_uses_best_score_when_continuing_training(
+        self, net_cls, module_cls, scoring_cls, train_split, data,
+        lower_is_better, expected, tmpdir
+    ):
+        # set scoring to None so that mocked net.score is used
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(
+                scoring=None,
+                lower_is_better=lower_is_better)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        history_fn = tmpdir.mkdir('skorch').join('history.json')
+        net.save_history(str(history_fn))
+
+        net.initialize()
+        net.load_history(str(history_fn))
+        net.max_epochs = 3
+        net.partial_fit(*data)
+
+        is_best = net.history[:, 'score_best']
+        assert is_best == expected
+
+    @pytest.mark.parametrize('lower_is_better, expected', [
+        (True, [True, True, True, False, False]),
+        (False, [True, False, False, True, False]),
         (None, []),
     ])
     def test_best_score_when_lower_is_better(
@@ -519,6 +549,36 @@ class TestBatchScoring:
         train_loss.on_epoch_end(net)
 
         assert history[0, 'train_loss'] == 30
+
+    @pytest.mark.parametrize('lower_is_better, expected', [
+        (True, [True, True, True, False, False]),
+        (False, [True, False, False, True, False]),
+    ])
+    def test_scoring_uses_best_score_when_continuing_training(
+        self, net_cls, module_cls, scoring_cls, train_split, data,
+        lower_is_better, expected, tmpdir
+    ):
+        # set scoring to None so that mocked net.score is used
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(
+                scoring=None,
+                lower_is_better=lower_is_better)],
+            max_epochs=2,
+            train_split=train_split,
+        )
+        net.fit(*data)
+
+        history_fn = tmpdir.mkdir('skorch').join('history.json')
+        net.save_history(str(history_fn))
+
+        net.max_epochs = 3
+        net.initialize()
+        net.load_history(str(history_fn))
+        net.partial_fit(*data)
+
+        is_best = net.history[:, 'score_best']
+        assert is_best == expected
 
     @pytest.mark.parametrize('lower_is_better, expected', [
         (True, [True, True, True, False, False]),
