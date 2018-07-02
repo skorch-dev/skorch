@@ -102,7 +102,8 @@ class ScoringBase(Callback):
         self.X_indexing_ = check_indexing(X)
         self.y_indexing_ = check_indexing(y)
         with suppress(ValueError, IndexError):
-            idx_best = net.history[:, f'{self.name_}_best'].index(True)
+            best_name = '{}_best'.format(self.name_)
+            idx_best = net.history[:, best_name].index(True)
             self.best_score_ = net.history[idx_best, self.name_]
 
     def _scoring(self, net, X_test, y_test):
