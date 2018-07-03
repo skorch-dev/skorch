@@ -314,7 +314,7 @@ class TestCyclicLR():
                              mode='triangular')
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
-    def test_triangular_mode_step_size_2(self, init_optimizer, num_groups):
+    def test_triangular_mode_step_size_up_down(self, init_optimizer, num_groups):
         target = [1, 2, 3, 4, 5, 13/3, 11/3, 9/3, 7/3, 5/3, 1]
         targets = [target] * num_groups
         scheduler = CyclicLR(init_optimizer, base_lr=1, max_lr=5,
@@ -335,7 +335,7 @@ class TestCyclicLR():
                              step_size_up=4, mode='triangular2')
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
-    def test_triangular2_mode_step_size_2(self, init_optimizer, num_groups):
+    def test_triangular2_mode_step_size_up_down(self, init_optimizer, num_groups):
         base_target = ([1, 3, 5, 13/3, 11/3, 9/3, 7/3, 5/3,
                         1, 2, 3, 8/3, 7/3, 6/3, 5/3, 4/3,
                         1, 3/2, 2, 11/6, 10/6, 9/6, 8/6, 7/6])
@@ -360,7 +360,7 @@ class TestCyclicLR():
                              step_size_up=4, mode='exp_range', gamma=gamma)
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
-    def test_exp_range_mode_step_size_2(self, init_optimizer, num_groups):
+    def test_exp_range_mode_step_size_up_down(self, init_optimizer, num_groups):
         base_lr, max_lr = 1, 5
         diff_lr = max_lr - base_lr
         gamma = 0.9
