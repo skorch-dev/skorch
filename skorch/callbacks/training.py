@@ -94,30 +94,34 @@ class Checkpoint(Callback):
 
 
 class EarlyStopping(Callback):
-    """Stop training early if a specified `monitor` metric did not improve in
-    `patience` number of epochs by at least `threshold`.
+    """Callback for stopping training when scores don't improve.
+
+    Stop training early if a specified `monitor` metric did not
+    improve in `patience` number of epochs by at least `threshold`.
 
     Parameters
     ----------
     monitor : str (default='valid_loss')
-      Value of the history to monitor to decide whether to stop training or not.
-      The value is expected to be double and is commonly provided by scoring
-      callbacks such as :class:`skorch.callbacks.EpochScoring`.
+      Value of the history to monitor to decide whether to stop
+      training or not.  The value is expected to be double and is
+      commonly provided by scoring callbacks such as
+      :class:`skorch.callbacks.EpochScoring`.
 
     lower_is_better : bool (default=True)
       Whether lower scores should be considered better or worse.
 
     patience : int (default=5)
-      Number of epochs to wait for improvement of the monitor value until
-      the training process is stopped.
+      Number of epochs to wait for improvement of the monitor value
+      until the training process is stopped.
 
     threshold : int (default=1e-4)
       Ignore score improvements smaller than `threshold`.
 
     threshold_mode : str (default='rel')
         One of `rel`, `abs`. Decides whether the `threshold` value is
-        interpreted in absolute terms or as a fraction of the best score
-        so far (relative)
+        interpreted in absolute terms or as a fraction of the best
+        score so far (relative)
+
     """
     def __init__(self, monitor='valid_loss', patience=5, threshold=1e-4,
                  threshold_mode='rel', lower_is_better=True):
@@ -135,8 +139,7 @@ class EarlyStopping(Callback):
             raise ValueError("Invalid threshold mode: '{}'"
                              .format(self.threshold_mode))
         self.misses_ = 0
-        self.dynamic_threshold_ = \
-            np.inf if self.lower_is_better else -np.inf
+        self.dynamic_threshold_ = np.inf if self.lower_is_better else -np.inf
 
     def on_epoch_end(self, net, **kwargs):
         current_score = net.history[-1, self.monitor]
@@ -157,6 +160,7 @@ class EarlyStopping(Callback):
         return score > self.dynamic_threshold_
 
     def _calc_new_threshold(self, score):
+        """Determine threshold based on score."""
         if self.threshold_mode == 'rel':
             abs_threshold_change = self.threshold * score
         else:

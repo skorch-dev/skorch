@@ -1,6 +1,5 @@
 """Tests for early stopping callback"""
 
-import numpy as np
 import pytest
 
 
@@ -45,10 +44,7 @@ class TestEarlyStopping:
         )
         net.fit(*classifier_data)
 
-        ok_run = (
-            len(net.history) == max_epochs
-        )
-        assert ok_run
+        assert len(net.history) == max_epochs
 
     def test_typical_use_case_stopping(
             self, net_clf_cls, broken_classifier_module, classifier_data,
@@ -66,15 +62,12 @@ class TestEarlyStopping:
         )
         net.fit(*classifier_data)
 
-        bad_run = (
-            len(net.history) != max_epochs
-        )
-
-        assert bad_run
+        assert len(net.history) == patience + 1 < max_epochs
 
     def test_custom_scoring_nonstop(
-        self, net_clf_cls, classifier_module, classifier_data,
-            early_stopping_cls, epoch_scoring_cls):
+            self, net_clf_cls, classifier_module, classifier_data,
+            early_stopping_cls, epoch_scoring_cls,
+    ):
         lower_is_better = False
         scoring_name = 'valid_roc_auc'
         patience = 5
@@ -95,14 +88,12 @@ class TestEarlyStopping:
         )
         net.fit(*classifier_data)
 
-        ok_run = (
-                len(net.history) == max_epochs
-        )
-        assert ok_run
+        assert len(net.history) == max_epochs
 
     def test_custom_scoring_stop(
-        self, net_clf_cls, broken_classifier_module, classifier_data,
-            early_stopping_cls, epoch_scoring_cls):
+            self, net_clf_cls, broken_classifier_module, classifier_data,
+            early_stopping_cls, epoch_scoring_cls,
+    ):
         lower_is_better = False
         scoring_name = 'valid_roc_auc'
         patience = 5
@@ -123,10 +114,7 @@ class TestEarlyStopping:
         )
         net.fit(*classifier_data)
 
-        stopped_run = (
-                len(net.history) != max_epochs
-        )
-        assert stopped_run
+        assert len(net.history) < max_epochs
 
     def test_stopping_big_absolute_threshold(
             self, net_clf_cls, classifier_module, classifier_data,
@@ -146,25 +134,25 @@ class TestEarlyStopping:
         )
         net.fit(*classifier_data)
 
-        stopped_run = (
-            len(net.history) != max_epochs
-        )
-        assert stopped_run
+        assert len(net.history) == patience + 1 < max_epochs
 
     def test_wrong_threshold_mode(
             self, net_clf_cls, classifier_module, classifier_data,
             early_stopping_cls):
-        with pytest.raises(ValueError) as e_info:
-            patience = 5
-            max_epochs = 8
-            early_stopping_cb = early_stopping_cls\
-                (patience=patience, threshold_mode='incorrect')
+        patience = 5
+        max_epochs = 8
+        early_stopping_cb = early_stopping_cls(
+            patience=patience, threshold_mode='incorrect')
+        net = net_clf_cls(
+            classifier_module,
+            callbacks=[
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
 
-            net = net_clf_cls(
-                classifier_module,
-                callbacks=[
-                    early_stopping_cb,
-                ],
-                max_epochs=max_epochs,
-            )
+        with pytest.raises(ValueError) as exc:
             net.fit(*classifier_data)
+
+        expected_msg = "Invalid threshold mode: 'incorrect'"
+        assert exc.value.args[0] == expected_msg
