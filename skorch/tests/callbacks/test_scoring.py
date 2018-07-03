@@ -85,9 +85,10 @@ class TestEpochScoring:
         (True, [True, True, True, False, False]),
         (False, [True, False, False, True, False]),
     ])
+    @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
     def test_scoring_uses_best_score_when_continuing_training(
         self, net_cls, module_cls, scoring_cls, train_split, data,
-        lower_is_better, expected, tmpdir
+        lower_is_better, expected, tmpdir, initial_epochs
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
@@ -95,7 +96,7 @@ class TestEpochScoring:
             callbacks=[scoring_cls(
                 scoring=None,
                 lower_is_better=lower_is_better)],
-            max_epochs=2,
+            max_epochs=initial_epochs,
             train_split=train_split,
         )
         net.fit(*data)
@@ -105,7 +106,7 @@ class TestEpochScoring:
 
         net.initialize()
         net.load_history(str(history_fn))
-        net.max_epochs = 3
+        net.max_epochs = 5 - initial_epochs
         net.partial_fit(*data)
 
         is_best = net.history[:, 'score_best']
@@ -554,9 +555,10 @@ class TestBatchScoring:
         (True, [True, True, True, False, False]),
         (False, [True, False, False, True, False]),
     ])
+    @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
     def test_scoring_uses_best_score_when_continuing_training(
         self, net_cls, module_cls, scoring_cls, train_split, data,
-        lower_is_better, expected, tmpdir
+        lower_is_better, expected, tmpdir, initial_epochs
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
@@ -564,7 +566,7 @@ class TestBatchScoring:
             callbacks=[scoring_cls(
                 scoring=None,
                 lower_is_better=lower_is_better)],
-            max_epochs=2,
+            max_epochs=initial_epochs,
             train_split=train_split,
         )
         net.fit(*data)
@@ -572,7 +574,7 @@ class TestBatchScoring:
         history_fn = tmpdir.mkdir('skorch').join('history.json')
         net.save_history(str(history_fn))
 
-        net.max_epochs = 3
+        net.max_epochs = 5 - initial_epochs
         net.initialize()
         net.load_history(str(history_fn))
         net.partial_fit(*data)
