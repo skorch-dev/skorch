@@ -2,9 +2,10 @@
 History
 =======
 
-A ``NeuralNet`` object logs training progress internally in the
-``history`` attribute. Among other use cases, ``history`` is used to
-print the training progress after each epoch:
+A :class:`.NeuralNet` object logs training progress internally using a
+:class:`.History` object, stored in the ``history`` attribute.  Among
+other use cases, ``history`` is used to print the training progress
+after each epoch:
 
 .. code::
 
@@ -22,18 +23,18 @@ All this information (and more) is stored in and can be accessed
 through ``net.history``. It is thus best practice to make use of
 ``history`` for storing training-related data.
 
-In general, ``history`` works like a list of dictionaries, where each
-item in the list corresponds to one epoch, and each key of the
+In general, :class:`.History` works like a list of dictionaries, where
+each item in the list corresponds to one epoch, and each key of the
 dictionary to one column. Thus, if you would like to access the
 ``'train_loss'`` of the last epoch, you can call
 ``net.history[-1]['train_loss']``. To make the ``history`` more
 accessible, though, it is possible to just pass the indices separated
 by a comma: ``net.history[-1, 'train_loss']``.
 
-Moreover, ``history`` stores the results from each individual batch
-under the ``batches`` key during each epoch. So to get the train loss
-of the 3rd batch of the 7th epoch, use ``net.history[7, 'batches', 3,
-'train_loss']``.
+Moreover, :class:`.History` stores the results from each individual
+batch under the ``batches`` key during each epoch. So to get the train
+loss of the 3rd batch of the 7th epoch, use ``net.history[7,
+'batches', 3, 'train_loss']``.
 
 Here are some examples showing how to index ``history``:
 
@@ -56,12 +57,13 @@ Here are some examples showing how to index ``history``:
     # get train and valid losses from current batch, a list of tuples
     history[-1, 'batches', :, ('train_loss', 'valid_loss')]
 
-As ``history`` essentially is a list of dictionaries, you can also
-write to it as if it were a list of dictionaries. Here too, skorch
-provides some convenience functions to make life easier. First there
-is ``history.new_epoch()``, which will add a new epoch dictionary to
-the end of the list. Also, there is ``history.new_batch()`` for adding
-new batches to the current epoch.
+As :class:`.History` essentially is a list of dictionaries, you can
+also write to it as if it were a list of dictionaries. Here too,
+skorch provides some convenience functions to make life easier. First
+there is :func:`~skorch.history.History.new_epoch`, which will add a
+new epoch dictionary to the end of the list. Also, there is
+:func:`~skorch.history.History.new_batch` for adding new batches to
+the current epoch.
 
 To add a new item to the current epoch, use ``net.record('foo',
 123)``. This will set the value ``123`` for the key ``foo`` of the

@@ -267,3 +267,4 @@ class TestEarlyStopping:
 
         expected_msg = "Invalid threshold mode: 'incorrect'"
         assert exc.value.args[0] == expected_msg
+

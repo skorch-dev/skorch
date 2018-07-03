@@ -1,18 +1,19 @@
 """Tests for lr_scheduler.py"""
 
-import pytest
-import numpy as np
+from unittest.mock import Mock
 
+import numpy as np
+import pytest
 from torch.optim import SGD
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
-from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR
 
-from skorch.net import NeuralNetClassifier
-from skorch.callbacks.lr_scheduler import (
-    WarmRestartLR, LRScheduler, CyclicLR)
+from skorch import NeuralNetClassifier
+from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler, CyclicLR
 
 
 class TestLRCallbacks:
@@ -25,6 +26,7 @@ class TestLRCallbacks:
         ('ReduceLROnPlateau', ReduceLROnPlateau, {}),
         ('WarmRestartLR', WarmRestartLR, {}),
         ('CyclicLR', CyclicLR, {}),
+        ('CosineAnnealingLR', CosineAnnealingLR, {'T_max': 5, 'eta_min': 1e-3}),
         (WarmRestartLR, WarmRestartLR, {}),
     ])
     def test_lr_callback_init_policies(
@@ -54,6 +56,7 @@ class TestLRCallbacks:
         ('ExponentialLR', {'gamma': 0.1}),
         ('ReduceLROnPlateau', {}),
         ('WarmRestartLR', {}),
+        ('CosineAnnealingLR', {'T_max': 3}),
     ])
     def test_lr_callback_steps_correctly(
             self,
@@ -94,15 +97,66 @@ class TestLRCallbacks:
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
-        expected = (num_examples // batch_size) * max_epochs
+        expected = (num_examples // batch_size) * max_epochs - 1
         # pylint: disable=protected-access
         assert lr_policy.lr_scheduler_.last_batch_idx == expected
+
+
+class TestReduceLROnPlateau:
+
+    def get_net_with_mock(
+            self, classifier_data, classifier_module, monitor='train_loss'):
+        """Returns a net with a mocked lr policy that allows to check what
+        it's step method was called with.
+
+        """
+        X, y = classifier_data
+        net = NeuralNetClassifier(
+            classifier_module,
+            callbacks=[
+                ('scheduler', LRScheduler(ReduceLROnPlateau, monitor=monitor)),
+            ],
+            max_epochs=1,
+        ).fit(X, y)
+
+        # mock the policy
+        policy = dict(net.callbacks_)['scheduler'].lr_scheduler_
+        mock_step = Mock(side_effect=policy.step)
+        policy.step = mock_step
+
+        # make sure that mocked policy is set
+        scheduler = dict(net.callbacks_)['scheduler']
+        # pylint: disable=protected-access
+        scheduler._get_scheduler = lambda *args, **kwargs: policy
+
+        net.partial_fit(X, y)
+        return net, mock_step
+
+    @pytest.mark.parametrize('monitor', ['train_loss', 'valid_loss', 'epoch'])
+    def test_reduce_lr_monitor_with_string(
+            self, monitor, classifier_data, classifier_module):
+        # step should be called with the 2nd to last value from that
+        # history entry
+        net, mock_step = self.get_net_with_mock(
+            classifier_data, classifier_module, monitor=monitor)
+        score = mock_step.call_args_list[0][0][0]
+        np.isclose(score, net.history[-2, monitor])
+
+    def test_reduce_lr_monitor_with_callable(
+            self, classifier_data, classifier_module):
+        # step should always be called with the return value from the
+        # callable, 55
+        _, mock_step = self.get_net_with_mock(
+            classifier_data, classifier_module, monitor=lambda x: 55)
+        score = mock_step.call_args_list[0][0][0]
+        assert score == 55
 
 
 class TestWarmRestartLR():
     def assert_lr_correct(
             self, optimizer, targets, epochs, min_lr, max_lr, base_period,
             period_mult):
+        """Test that learning rate was set correctly."""
         targets = [targets] if len(optimizer.param_groups) == 1 else targets
         scheduler = WarmRestartLR(
             optimizer, min_lr, max_lr, base_period, period_mult
@@ -256,7 +310,16 @@ class TestCyclicLR():
     def test_triangular_mode(self, init_optimizer, num_groups):
         target = [1, 2, 3, 4, 5, 4, 3, 2, 1, 2, 3]
         targets = [target] * num_groups
-        scheduler = CyclicLR(init_optimizer, base_lr=1, max_lr=5, step_size=4,
+        scheduler = CyclicLR(init_optimizer, base_lr=1, max_lr=5, step_size_up=4,
+                             mode='triangular')
+        self._test_cycle_lr(init_optimizer, scheduler, targets)
+
+    def test_triangular_mode_step_size_up_down(self, init_optimizer, num_groups):
+        target = [1, 2, 3, 4, 5, 13/3, 11/3, 9/3, 7/3, 5/3, 1]
+        targets = [target] * num_groups
+        scheduler = CyclicLR(init_optimizer, base_lr=1, max_lr=5,
+                             step_size_up=4,
+                             step_size_down=6,
                              mode='triangular')
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
@@ -269,7 +332,20 @@ class TestCyclicLR():
         max_lrs = [5 + delta for delta in deltas]
         targets = [[x + delta for x in base_target] for delta in deltas]
         scheduler = CyclicLR(init_optimizer, base_lr=base_lrs, max_lr=max_lrs,
-                             step_size=4, mode='triangular2')
+                             step_size_up=4, mode='triangular2')
+        self._test_cycle_lr(init_optimizer, scheduler, targets)
+
+    def test_triangular2_mode_step_size_up_down(self, init_optimizer, num_groups):
+        base_target = ([1, 3, 5, 13/3, 11/3, 9/3, 7/3, 5/3,
+                        1, 2, 3, 8/3, 7/3, 6/3, 5/3, 4/3,
+                        1, 3/2, 2, 11/6, 10/6, 9/6, 8/6, 7/6])
+        deltas = [2*i for i in range(0, num_groups)]
+        base_lrs = [1 + delta for delta in deltas]
+        max_lrs = [5 + delta for delta in deltas]
+        targets = [[x + delta for x in base_target] for delta in deltas]
+        scheduler = CyclicLR(init_optimizer, base_lr=base_lrs, max_lr=max_lrs,
+                             step_size_up=2, step_size_down=6,
+                             mode='triangular2')
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
     def test_exp_range_mode(self, init_optimizer, num_groups):
@@ -281,7 +357,19 @@ class TestCyclicLR():
         target = [base_lr + x*diff_lr*gamma**i for i, x in enumerate(xs)]
         targets = [target] * num_groups
         scheduler = CyclicLR(init_optimizer, base_lr=base_lr, max_lr=max_lr,
-                             step_size=4, mode='exp_range', gamma=gamma)
+                             step_size_up=4, mode='exp_range', gamma=gamma)
+        self._test_cycle_lr(init_optimizer, scheduler, targets)
+
+    def test_exp_range_mode_step_size_up_down(self, init_optimizer, num_groups):
+        base_lr, max_lr = 1, 5
+        diff_lr = max_lr - base_lr
+        gamma = 0.9
+        xs = ([0, 0.5, 1, 5/6, 4/6, 3/6, 2/6, 1/6, 0, 0.5, 1, 5/6, 4/6])
+        target = [base_lr + x*diff_lr*gamma**i for i, x in enumerate(xs)]
+        targets = [target] * num_groups
+        scheduler = CyclicLR(init_optimizer, base_lr=base_lr, max_lr=max_lr,
+                             step_size_up=2, step_size_down=6,
+                             mode='exp_range', gamma=gamma)
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
     def test_batch_idx_with_none(self, init_optimizer):

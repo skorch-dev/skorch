@@ -2,6 +2,7 @@
 
 from functools import partial
 from numbers import Number
+import warnings
 
 import numpy as np
 from sklearn.model_selection import ShuffleSplit
@@ -13,9 +14,9 @@ import torch.utils.data
 
 from skorch.utils import flatten
 from skorch.utils import is_pandas_ndframe
+from skorch.utils import check_indexing
 from skorch.utils import multi_indexing
 from skorch.utils import to_numpy
-from skorch.utils import to_tensor
 
 
 def _apply_to_data(data, func, unpack_dict=False):
@@ -46,20 +47,33 @@ def get_len(data):
     return list(len_set)[0]
 
 
+def uses_placeholder_y(ds):
+    """If ``ds`` is a ``skorch.dataset.Dataset`` or a
+    ``skorch.dataset.Dataset`` nested inside a
+    ``torch.utils.data.dataset.Subset`` and uses
+    y as a placeholder, return ``True``."""
+
+    if isinstance(ds, torch.utils.data.dataset.Subset):
+        return uses_placeholder_y(ds.dataset)
+    return isinstance(ds, Dataset) and ds.y is None
+
+
 class Dataset(torch.utils.data.Dataset):
+    # pylint: disable=anomalous-backslash-in-string
     """General dataset wrapper that can be used in conjunction with
-    pytorch's DataLoader.
+    PyTorch :class:`~torch.utils.data.DataLoader`.
 
     The dataset will always yield a tuple of two values, the first
-    from the data (``X``) and the second from the target
-    (``y``). However, the target is allowed to be None. In that case,
-    Dataset will currently return a dummy tensor, since DataLoader
-    does not work with Nones.
+    from the data (``X``) and the second from the target (``y``).
+    However, the target is allowed to be ``None``. In that case,
+    :class:`.Dataset` will currently return a dummy tensor, since
+    :class:`~torch.utils.data.DataLoader` does not work with
+    ``None``\s.
 
-    Dataset currently works with the following data types:
+    :class:`.Dataset` currently works with the following data types:
 
-    * numpy arrays
-    * torch tensors
+    * numpy ``array``\s
+    * PyTorch :class:`~torch.Tensor`\s
     * pandas NDFrame
     * a dictionary of the former three
     * a list/tuple of the former three
@@ -72,25 +86,31 @@ class Dataset(torch.utils.data.Dataset):
     y : see above or None (default=None)
       Everything pertaining to the target, if there is anything.
 
-    device : str, torch.device (default='cpu')
-      Which computation device to use (e.g., 'cuda').
-
     length : int or None (default=None)
-      If not None, determines the length (``len``) of the data. Should
-      usually be left at None, in which case the length is determined
-      by the data itself.
+      If not ``None``, determines the length (``len``) of the data.
+      Should usually be left at ``None``, in which case the length is
+      determined by the data itself.
 
     """
     def __init__(
             self,
             X,
             y=None,
-            device='cpu',
+            device=None,
             length=None,
     ):
+        # TODO: Remove warning in a future release
+        if device is not None:
+            warnings.warn(
+                "device is no longer needed by Dataset and will be ignored.",
+                DeprecationWarning)
+
         self.X = X
         self.y = y
-        self.device = device
+
+        self.X_indexing = check_indexing(X)
+        self.y_indexing = check_indexing(y)
+        self.X_is_ndframe = is_pandas_ndframe(X)
 
         if length is not None:
             self._len = length
@@ -108,14 +128,16 @@ class Dataset(torch.utils.data.Dataset):
         return self._len
 
     def transform(self, X, y):
-        """Additional transformations on X and y.
+        # pylint: disable=anomalous-backslash-in-string
+        """Additional transformations on ``X`` and ``y``.
 
-        By default, they are cast to torch tensors. Override this if
-        you want a different behavior.
+        By default, they are cast to PyTorch :class:`~torch.Tensor`\s.
+        Override this if you want a different behavior.
 
-        Note: If you use this in conjuction with pytorch's DataLoader,
-        the latter will call the dataset for each row separately,
-        which means that the incoming X and y each are single rows.
+        Note: If you use this in conjuction with PyTorch
+        :class:`~torch.utils.data.DataLoader`, the latter will call
+        the dataset for each row separately, which means that the
+        incoming ``X`` and ``y`` each are single rows.
 
         """
         # pytorch DataLoader cannot deal with None so we use 0 as a
@@ -124,24 +146,17 @@ class Dataset(torch.utils.data.Dataset):
         # DataLoader calls __getitem__ for each row in the batch
         # anyway, which results in a dummy ``y`` value for each row in
         # the batch.
-        # FIXME:  BatchScoring and EpochScoring with caching will get
-        # FIXME:: this placeholder value as `y` since they are operating
-        # FIXME:: on batch level. This might be easy to trip over, esp.
-        # FIXME:: since this value may look meaningful.
         y = torch.Tensor([0]) if y is None else y
 
-        return (
-            to_tensor(X, device=self.device),
-            to_tensor(y, device=self.device),
-        )
+        return X, y
 
     def __getitem__(self, i):
         X, y = self.X, self.y
-        if is_pandas_ndframe(X):
+        if self.X_is_ndframe:
             X = {k: X[k].values.reshape(-1, 1) for k in X}
 
-        Xi = multi_indexing(X, i)
-        yi = y if y is None else multi_indexing(y, i)
+        Xi = multi_indexing(X, i, self.X_indexing)
+        yi = multi_indexing(y, i, self.y_indexing)
         return self.transform(Xi, yi)
 
 

@@ -1,9 +1,15 @@
-"""Tests for net.py"""
+"""Tests for net.py
+
+Although NeuralNetClassifier is used in tests, test only functionality
+that is general to NeuralNet class.
+
+"""
 
 from functools import partial
 import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -16,6 +22,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from skorch.utils import flatten
 from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
 
@@ -69,7 +76,7 @@ class TestNeuralNet:
 
     @pytest.fixture(scope='module')
     def net_cls(self):
-        from skorch.net import NeuralNetClassifier
+        from skorch import NeuralNetClassifier
         return NeuralNetClassifier
 
     @pytest.fixture
@@ -179,15 +186,6 @@ class TestNeuralNet:
         y_forward = net_fit.forward(X, device='cuda:0')
         assert isinstance(X, np.ndarray)
         assert y_forward.is_cuda
-
-    def test_predict_and_predict_proba(self, net_fit, data):
-        X = data[0]
-
-        y_proba = net_fit.predict_proba(X)
-        assert np.allclose(y_proba.sum(1), 1, rtol=1e-7)
-
-        y_pred = net_fit.predict(X)
-        assert np.allclose(np.argmax(y_proba, 1), y_pred, rtol=1e-7)
 
     def test_dropout(self, net_fit, data):
         # Note: does not test that dropout is really active during
@@ -342,6 +340,36 @@ class TestNeuralNet:
         assert w.list[0].message.args[0] == (
             'Model configured to use CUDA but no CUDA '
             'devices available. Loading on CPU instead.')
+
+    def test_save_load_history_file_obj(
+            self, net_cls, module_cls, net_fit, tmpdir):
+        net = net_cls(module_cls).initialize()
+
+        history_before = net_fit.history
+
+        p = tmpdir.mkdir('skorch').join('history.json')
+        with open(str(p), 'w') as f:
+            net_fit.save_history(f)
+        del net_fit
+        with open(str(p), 'r') as f:
+            net.load_history(f)
+
+        assert net.history == history_before
+
+    @pytest.mark.parametrize('converter', [str, Path])
+    def test_save_load_history_file_path(
+            self, net_cls, module_cls, net_fit, tmpdir, converter):
+        # Test loading/saving with different kinds of path representations.
+        net = net_cls(module_cls).initialize()
+
+        history_before = net_fit.history
+
+        p = tmpdir.mkdir('skorch').join('history.json')
+        net_fit.save_history(converter(p))
+        del net_fit
+        net.load_history(converter(p))
+
+        assert net.history == history_before
 
     @pytest.mark.parametrize('method, call_count', [
         ('on_train_begin', 1),
@@ -773,8 +801,10 @@ class TestNeuralNet:
     def test_binary_classification_with_cuda(self, net_cls, module_cls, data):
         X, y = data
         assert y.ndim == 1
+        assert set(y) == {0, 1}
 
         net = net_cls(module_cls, max_epochs=1, device='cuda')
+        # does not raise
         net.fit(X, y)
 
     @pytest.mark.parametrize('use_caching', [True, False])
@@ -851,7 +881,7 @@ class TestNeuralNet:
             module__num_units=55,
         )
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'>[uninitialized](
+        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[uninitialized](
   module=<class 'skorch.tests.test_net.MyClassifier'>,
   module__num_units=55,
 )"""
@@ -864,7 +894,7 @@ class TestNeuralNet:
         )
         net.initialize()
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
+        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
   module_=MyClassifier(
     (dense0): Linear(in_features=20, out_features=42, bias=True)
     (dropout): Dropout(p=0.5)
@@ -883,7 +913,7 @@ class TestNeuralNet:
         )
         net.fit(X[:50], y[:50])
         result = net.__repr__()
-        expected = """<class 'skorch.net.NeuralNetClassifier'>[initialized](
+        expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
   module_=MyClassifier(
     (dense0): Linear(in_features=20, out_features=11, bias=True)
     (nonlin): PReLU(num_parameters=1)
@@ -1230,9 +1260,9 @@ class TestNeuralNet:
             net.set_params(foo=123)
 
         # TODO: check error message more precisely, depending on what
-        # the intended message shouldb e from sklearn side
+        # the intended message should be from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
-        
+
     @pytest.fixture()
     def sequence_module_cls(self):
         """Simple sequence model with variable size dim 1."""
@@ -1291,126 +1321,126 @@ class TestNeuralNet:
             return y_pred[:, 0, 0]
         net.get_loss = loss_fn
 
-        # Check data complains about y.shape = (n,) but
+        # check_data complains about y.shape = (n,) but
         # we know that it is actually (n, m) with m in [1;3].
         net.check_data = lambda *_, **kw: None
         net.fit(X, y)
 
-    # classifier-specific test
-    def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
-        net = net_cls(module_cls, criterion=nn.NLLLoss, max_epochs=1)
-        net.initialize()
+    def test_no_grad_during_validation(self, net_cls, module_cls, data):
+        """Test that gradient is only calculated during training step,
+        not validation step."""
 
-        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
-        net.criterion_.forward = mock_loss
-        net.partial_fit(*data)  # call partial_fit to avoid re-initialization
+        # pylint: disable=unused-argument
+        def check_grad(*args, loss, training, **kwargs):
+            if training:
+                assert loss.requires_grad
+            else:
+                assert not loss.requires_grad
 
-        # check that loss was called with log-probabilities
-        for (y_log, _), _ in mock_loss.call_args_list:
-            assert (y_log < 0).all()
-            y_proba = torch.exp(y_log)
-            assert torch.isclose(torch.ones(len(y_proba)), y_proba.sum(1)).all()
+        mock_cb = Mock(on_batch_end=check_grad)
+        net = net_cls(module_cls, max_epochs=1, callbacks=[mock_cb])
+        net.fit(*data)
 
-    # classifier-specific test
-    def test_takes_no_log_without_nllloss(self, net_cls, module_cls, data):
-        net = net_cls(module_cls, criterion=nn.BCELoss, max_epochs=1)
-        net.initialize()
+    @pytest.mark.parametrize('training', [True, False])
+    def test_no_grad_during_evaluation_unless_training(
+            self, net_cls, module_cls, data, training):
+        """Test that gradient is only calculated in training mode
+        during evaluation step."""
+        from skorch.utils import to_tensor
 
-        mock_loss = Mock(side_effect=lambda x, y: nn.NLLLoss()(x, y))
-        net.criterion_.forward = mock_loss
-        net.partial_fit(*data)  # call partial_fit to avoid re-initialization
+        net = net_cls(module_cls).initialize()
+        Xi = to_tensor(data[0][:3], device='cpu')
+        y_eval = net.evaluation_step(Xi, training=training)
 
-        # check that loss was called with raw probabilities
-        for (y_out, _), _ in mock_loss.call_args_list:
-            assert not (y_out < 0).all()
-            assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
+        assert y_eval.requires_grad is training
 
+    @pytest.mark.parametrize(
+        'net_kwargs,expected_train_batch_size,expected_valid_batch_size',
+        [
+            ({'batch_size': -1}, 800, 200),
+            ({'iterator_train__batch_size': -1}, 800, 128),
+            ({'iterator_valid__batch_size': -1}, 128, 200),
+        ]
+    )
+    def test_batch_size_neg_1_uses_whole_dataset(
+            self, net_cls, module_cls, data, net_kwargs,
+            expected_train_batch_size, expected_valid_batch_size):
 
-class MyRegressor(nn.Module):
-    """Simple regression module.
+        train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+        valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
 
-    We cannot use the module fixtures from conftest because they are
-    not pickleable.
+        net = net_cls(module_cls, max_epochs=1,
+                      iterator_train=train_loader_mock,
+                      iterator_valid=valid_loader_mock,
+                      **net_kwargs)
+        net.fit(*data)
 
-    """
-    def __init__(self, num_units=10, nonlin=F.relu):
-        super(MyRegressor, self).__init__()
+        train_batch_size = net.history[:, 'batches', 'train_batch_size'][0][0]
+        valid_batch_size = net.history[:, 'batches', 'valid_batch_size'][0][0]
 
-        self.dense0 = nn.Linear(20, num_units)
-        self.nonlin = nonlin
-        self.dropout = nn.Dropout(0.5)
-        self.dense1 = nn.Linear(num_units, 10)
-        self.output = nn.Linear(10, 1)
+        assert train_batch_size == expected_train_batch_size
+        assert valid_batch_size == expected_valid_batch_size
 
-    # pylint: disable=arguments-differ
-    def forward(self, X):
-        X = self.nonlin(self.dense0(X))
-        X = self.dropout(X)
-        X = self.nonlin(self.dense1(X))
-        X = self.output(X)
-        return X
+        train_kwargs = train_loader_mock.call_args[1]
+        valid_kwargs = valid_loader_mock.call_args[1]
+        assert train_kwargs['batch_size'] == expected_train_batch_size
+        assert valid_kwargs['batch_size'] == expected_valid_batch_size
 
+    def test_fit_lbfgs_optimizer(self, net, data):
+        X, y = data
+        net.set_params(optimizer=torch.optim.LBFGS)
+        net.set_params(batch_size=len(X))
+        net.fit(X, y)
 
-class TestNeuralNetRegressor:
-    @pytest.fixture(scope='module')
-    def data(self, regression_data):
-        return regression_data
+    def test_accumulator_that_returns_last_value(
+            self, net_cls, module_cls, data):
+        # We define an optimizer that calls the step function 3 times
+        # and an accumulator that returns the last of those calls. We
+        # then test that the correct values were stored.
+        from skorch.utils import FirstStepAccumulator
 
-    @pytest.fixture(scope='module')
-    def module_cls(self):
-        return MyRegressor
+        side_effect = []
 
-    @pytest.fixture(scope='module')
-    def net_cls(self):
-        from skorch.net import NeuralNetRegressor
-        return NeuralNetRegressor
+        class SGD3Calls(torch.optim.SGD):
+            def step(self, closure=None):
+                for _ in range(3):
+                    loss = super().step(closure)
+                    side_effect.append(float(loss))
 
-    @pytest.fixture(scope='module')
-    def net(self, net_cls, module_cls):
-        return net_cls(
+        class MyAccumulator(FirstStepAccumulator):
+            """Accumulate all steps and return the last."""
+            def store_step(self, step):
+                if self.step is None:
+                    self.step = [step]
+                else:
+                    self.step.append(step)
+
+            def get_step(self):
+                # Losses should only ever be retrieved after storing 3
+                # times.
+                assert len(self.step) == 3
+                return self.step[-1]
+
+        X, y = data
+        max_epochs = 2
+        batch_size = 100
+        net = net_cls(
             module_cls,
-            max_epochs=20,
-            lr=0.1,
+            optimizer=SGD3Calls,
+            max_epochs=max_epochs,
+            batch_size=batch_size,
+            train_split=None,
         )
+        net.get_train_step_accumulator = MyAccumulator
+        net.fit(X, y)
 
-    @pytest.fixture(scope='module')
-    def net_fit(self, net, data):
-        # Careful, don't call additional fits on this, since that would have
-        # side effects on other tests.
-        X, y = data
-        return net.fit(X, y)
+        # Number of loss calculations is total number of batches x 3.
+        num_batches_per_epoch = int(np.ceil(len(y) / batch_size))
+        expected_calls = 3 * num_batches_per_epoch * max_epochs
+        assert len(side_effect) == expected_calls
 
-    def test_fit(self, net_fit):
-        # fitting does not raise anything
-        pass
-
-    def test_net_learns(self, net_fit):
-        train_losses = net_fit.history[:, 'train_loss']
-        assert train_losses[0] > 2 * train_losses[-1]
-
-    def test_history_default_keys(self, net_fit):
-        expected_keys = {'train_loss', 'valid_loss', 'epoch', 'dur', 'batches'}
-        for row in net_fit.history:
-            assert expected_keys.issubset(row)
-
-    def test_target_1d_raises(self, net, data):
-        X, y = data
-        with pytest.raises(ValueError) as exc:
-            net.fit(X, y.flatten())
-        assert exc.value.args[0] == (
-            "The target data shouldn't be 1-dimensional but instead have "
-            "2 dimensions, with the second dimension having the same size "
-            "as the number of regression targets (usually 1). Please "
-            "reshape your target data to be 2-dimensional "
-            "(e.g. y = y.reshape(-1, 1).")
-
-    def test_predict_predict_proba(self, net_fit, data):
-        X = data[0]
-        y_pred = net_fit.predict(X)
-
-        # predictions should not be all zeros
-        assert not np.allclose(y_pred, 0)
-
-        y_proba = net_fit.predict_proba(X)
-        # predict and predict_proba should be identical for regression
-        assert np.allclose(y_pred, y_proba, atol=1e-6)
+        # Every 3rd loss calculation (i.e. the last per call) should
+        # be stored in the history.
+        expected_losses = list(
+            flatten(net.history[:, 'batches', :, 'train_loss']))
+        assert np.allclose(side_effect[2::3], expected_losses)
