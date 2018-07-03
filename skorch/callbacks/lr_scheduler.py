@@ -1,6 +1,7 @@
 """Contains learning rate scheduler callbacks"""
 
 import sys
+import warnings
 
 # pylint: disable=unused-import
 import numpy as np
@@ -225,9 +226,12 @@ class CyclicLR(object):
       of base_lr and some scaling of the amplitude; therefore max_lr
       may not actually be reached depending on scaling function.
 
-    step_size : int (default=2000)
-      Number of training iterations per half cycle. Authors suggest
-      setting step_size 2-8 x training iterations in epoch.
+    step_size_up : int (default=2000)
+      Number of training iterations in the increasing half of a cycle.
+
+    step_size_down : int (default=None)
+      Number of training iterations in the decreasing half of a cycle.
+      If step_size_down is None, it is set to step_size_up.
 
     mode : str (default='triangular')
       One of {triangular, triangular2, exp_range}. Values correspond
@@ -272,9 +276,9 @@ class CyclicLR(object):
     """
 
     def __init__(self, optimizer, base_lr=1e-3, max_lr=6e-3,
-                 step_size=2000, mode='triangular', gamma=1.,
-                 scale_fn=None, scale_mode='cycle',
-                 last_batch_idx=-1):
+                 step_size_up=2000, step_size_down=None, mode='triangular',
+                 gamma=1., scale_fn=None, scale_mode='cycle',
+                 last_batch_idx=-1, step_size=None):
 
         if not isinstance(optimizer, Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
@@ -282,7 +286,19 @@ class CyclicLR(object):
         self.optimizer = optimizer
         self.base_lrs = self._format_lr('base_lr', optimizer, base_lr)
         self.max_lrs = self._format_lr('max_lr', optimizer, max_lr)
-        self.step_size = step_size
+
+        # TODO: Remove warning in a future release
+        if step_size is not None:
+            warnings.warn(
+                "step_size is deprecated in CycleLR, please use step_size_up "
+                "and step_size_down instead",
+                DeprecationWarning)
+            step_size_up = step_size
+            step_size_down = step_size
+
+        step_size_down = step_size_down or step_size_up
+        self.total_size = float(step_size_up + step_size_down)
+        self.step_ratio = float(step_size_up) / self.total_size
 
         if mode not in ['triangular', 'triangular2', 'exp_range'] \
                 and scale_fn is None:
@@ -356,13 +372,16 @@ class CyclicLR(object):
         """Calculates the learning rate at batch index:
         ``self.last_batch_idx``.
         """
-        step_size = float(self.step_size)
-        cycle = np.floor(1 + self.last_batch_idx / (2 * step_size))
-        x = np.abs(self.last_batch_idx / step_size - 2 * cycle + 1)
+        cycle = np.floor(1 + self.last_batch_idx / self.total_size)
+        x = 1 + self.last_batch_idx / self.total_size - cycle
+        if x <= self.step_ratio:
+            scale_factor = x / self.step_ratio
+        else:
+            scale_factor = (x-1)/(self.step_ratio-1)
 
         lrs = []
         for base_lr, max_lr in zip(self.base_lrs, self.max_lrs):
-            base_height = (max_lr - base_lr) * np.maximum(0, (1 - x))
+            base_height = (max_lr - base_lr) * scale_factor
             if self.scale_mode == 'cycle':
                 lr = base_lr + base_height * self.scale_fn(cycle)
             else:

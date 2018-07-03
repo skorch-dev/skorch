@@ -15,7 +15,7 @@ class GradientNormClipping(Callback):
     concatenated into a single vector. Gradients are modified
     in-place.
 
-    See ``torch.nn.utils.clip_grad_norm_`` for more information.
+    See :func:`torch.nn.utils.clip_grad_norm_` for more information.
 
     Parameters
     ----------
