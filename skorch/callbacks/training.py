@@ -92,6 +92,11 @@ class Checkpoint(Callback):
                 print("Checkpoint! Saving model to {}.".format(target))
             net.save_params(target)
 
+    def _sink(self, text, verbose):
+        #  We do not want to be affected by verbosity if sink is not print
+        if (self.sink is not print) or verbose:
+            self.sink(text)
+
 
 class EarlyStopping(Callback):
     """Callback for stopping training when scores don't improve.
