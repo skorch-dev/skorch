@@ -150,7 +150,12 @@ class TestEarlyStopping:
             early_stopping_cls):
         patience = 5
         max_epochs = 8
-        early_stopping_cb = early_stopping_cls(patience=patience)
+        side_effect = []
+
+        def sink(x):
+            side_effect.append(x)
+
+        early_stopping_cb = early_stopping_cls(patience=patience, sink=sink)
 
         net = net_clf_cls(
             broken_classifier_module,
@@ -162,6 +167,13 @@ class TestEarlyStopping:
         net.fit(*classifier_data)
 
         assert len(net.history) == patience + 1 < max_epochs
+
+        # check correct output message
+        assert len(side_effect) == 1
+        msg = side_effect[0]
+        expected_msg = ("Stopping since valid_loss has not improved in "
+                        "the last 5 epochs.")
+        assert msg == expected_msg
 
     def test_custom_scoring_nonstop(
             self, net_clf_cls, classifier_module, classifier_data,

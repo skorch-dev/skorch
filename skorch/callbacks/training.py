@@ -133,9 +133,21 @@ class EarlyStopping(Callback):
         interpreted in absolute terms or as a fraction of the best
         score so far (relative)
 
+    sink : callable (default=print)
+      The target that the information about created checkpoints is
+      sent to. By default, the output is printed to stdout, but the
+      sink could also be a logger or :func:`~skorch.utils.noop`.
+
     """
-    def __init__(self, monitor='valid_loss', patience=5, threshold=1e-4,
-                 threshold_mode='rel', lower_is_better=True):
+    def __init__(
+            self,
+            monitor='valid_loss',
+            patience=5,
+            threshold=1e-4,
+            threshold_mode='rel',
+            lower_is_better=True,
+            sink=print,
+    ):
         self.monitor = monitor
         self.lower_is_better = lower_is_better
         self.patience = patience
@@ -143,6 +155,7 @@ class EarlyStopping(Callback):
         self.threshold_mode = threshold_mode
         self.misses_ = 0
         self.dynamic_threshold_ = None
+        self.sink = sink
 
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
@@ -161,8 +174,9 @@ class EarlyStopping(Callback):
             self.dynamic_threshold_ = self._calc_new_threshold(current_score)
         if self.misses_ == self.patience:
             if net.verbose:
-                print("Stopping since {} did not improve for the last "
-                      "{} epochs.".format(self.monitor, self.patience))
+                self._sink("Stopping since {} has not improved in the last "
+                           "{} epochs.".format(self.monitor, self.patience),
+                           verbose=net.verbose)
             raise KeyboardInterrupt
 
     def _is_score_improved(self, score):
@@ -182,3 +196,8 @@ class EarlyStopping(Callback):
         else:
             new_threshold = score + abs_threshold_change
         return new_threshold
+
+    def _sink(self, text, verbose):
+        #  We do not want to be affected by verbosity if sink is not print
+        if (self.sink is not print) or verbose:
+            self.sink(text)
