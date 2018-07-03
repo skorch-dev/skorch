@@ -3,7 +3,6 @@
 They should not be used in skorch directly.
 
 """
-from skorch.utils import filter_parameter_groups_requires_grad
 
 
 class SliceDict(dict):
@@ -81,7 +80,23 @@ class SliceDict(dict):
         return (self._len,)
 
 
-def optimizer_params_requires_grad(optimizer):
+def filter_requires_grad(pgroups):
+    """Returns parameter groups where parameters with
+    ``requires_grad==False`` are filtered out.
+
+    Parameters
+    ----------
+    pgroups : dict
+      Parameter groups to be filtered
+
+    """
+    for pgroup in pgroups:
+        output = {k: v for k, v in pgroup.items() if k != 'params'}
+        output['params'] = (p for p in pgroup['params'] if p.requires_grad)
+        yield output
+
+
+def filtered_optimizer(optimizer, filter_fn):
     """Wraps an optimizer that filters out parameters with
     ``require_grad==False`` in ``pgroups``.
 
@@ -90,8 +105,11 @@ def optimizer_params_requires_grad(optimizer):
     optimizer : torch optim (class)
       The uninitialized optimizer that is wrapped
 
+    filter_fn : function
+      Use this function to filter parameter groups before passing
+      it to ``optimizer``.
+
     """
     def opt(pgroups, **kwargs):
-        filter_pgroups = filter_parameter_groups_requires_grad(pgroups)
-        return optimizer(filter_pgroups, **kwargs)
+        return optimizer(filter_fn(pgroups), **kwargs)
     return opt
