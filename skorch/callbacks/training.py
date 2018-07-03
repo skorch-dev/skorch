@@ -47,9 +47,9 @@ class Checkpoint(Callback):
       >>> cb = Checkpoint(target="target_{last_epoch[epoch]}.pt")
 
     monitor : str, function, None
-      Value of the history to monitor or callback that determines whether
-      this epoch should to a checkpoint. The callback takes the network
-      instance as parameter.
+      Value of the history to monitor or callback that determines
+      whether this epoch should lead to a checkpoint. The callback
+      takes the network instance as parameter.
 
       In case ``monitor`` is set to ``None``, the callback will save
       the network at every epoch.
@@ -57,14 +57,21 @@ class Checkpoint(Callback):
       **Note:** If you supply a lambda expression as monitor, you cannot
       pickle the wrapper anymore as lambdas cannot be pickled. You can
       mitigate this problem by using importable functions instead.
+
+    sink : callable (default=print)
+      The target that the information about created checkpoints is
+      sent to. By default, the output is printed to stdout, but the
+      sink could also be a logger or :func:`~skorch.utils.noop`.
     """
     def __init__(
             self,
             target='model.pt',
             monitor='valid_loss_best',
+            sink=print,
     ):
         self.monitor = monitor
         self.target = target
+        self.sink = sink
 
     def on_epoch_end(self, net, **kwargs):
         if self.monitor is None:
@@ -88,8 +95,7 @@ class Checkpoint(Callback):
                     last_epoch=net.history[-1],
                     last_batch=net.history[-1, 'batches', -1],
                 )
-            if net.verbose > 0:
-                print("Checkpoint! Saving model to {}.".format(target))
+            self._sink("Checkpoint! Saving model to {}.".format(target), net.verbose)
             net.save_params(target)
 
     def _sink(self, text, verbose):
