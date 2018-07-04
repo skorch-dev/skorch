@@ -134,7 +134,7 @@ dummy-variables-rgx=^\*{0,2}(_$|unused_|dummy_)
 
 # Maximum number of characters on a single line.
 # DEFAULT:  max-line-length=80
-max-line-length=80
+max-line-length=88
 
 # Regexp for a line that is allowed to be longer than the limit.
 # DEFAULT:  ignore-long-lines=^\s*(# )?<?https?://\S+>?$
@@ -212,7 +212,7 @@ method-rgx=^(?:(?P<exempt>__[a-z0-9_]+__|next)|(?P<camel_case>_{0,2}[A-Z][a-zA-Z
 
 # Regular expression matching correct attribute names
 # DEFAULT:  attr-rgx=[a-z_][a-z0-9_]{2,30}$
-attr-rgx=^_{0,2}[a-z][a-z0-9_]*$
+attr-rgx=^_{0,2}[a-zX][a-z0-9_]*$
 
 # Regular expression matching correct argument names
 # DEFAULT:  argument-rgx=[a-z_][a-z0-9_]{2,30}$

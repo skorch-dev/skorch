@@ -134,11 +134,9 @@ class PrintLog(Callback):
 
     def _yield_keys_formatted(self, row):
         colors = cycle([color.value for color in Ansi if color != color.ENDC])
-        color = next(colors)
-        for key in self._sorted_keys(row.keys()):
+        for key, color in zip(self._sorted_keys(row.keys()), colors):
             formatted = self.format_row(row, key, color=color)
             yield key, formatted
-            color = next(colors)
 
     def table(self, row):
         headers = []
