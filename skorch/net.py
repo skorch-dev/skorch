@@ -28,6 +28,7 @@ from skorch.utils import is_dataset
 from skorch.utils import noop
 from skorch.utils import open_file_like
 from skorch.utils import params_for
+from skorch.utils import recursive_set_params
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 from skorch.utils import train_loss_score
@@ -384,7 +385,10 @@ class NeuralNet(object):
 
             # below: check for callback params
             # don't set a parameter for non-existing callback
-            params = self._get_params_for('callbacks__{}'.format(name))
+            param_name = 'callbacks__{}'.format(name)
+            params = self._get_params_for(param_name)
+            params_deep = self._get_params_for(param_name, deep=True)
+
             if (cb is None) and params:
                 raise ValueError("Trying to set a parameter for callback {} "
                                  "which does not exist.".format(name))
@@ -395,6 +399,10 @@ class NeuralNet(object):
                 cb = cb(**params)
             else:
                 cb.set_params(**params)
+
+            if params_deep:
+                recursive_set_params(cb, params_deep)
+
             cb.initialize()
             callbacks_.append((name, cb))
 
@@ -414,19 +422,27 @@ class NeuralNet(object):
         reset.
 
         """
-        kwargs = self._get_params_for('module')
+        kwargs = self._get_params_for('module', deep=False)
+        kwargs_deep = self._get_params_for('module', deep=True)
         module = self.module
         is_initialized = isinstance(module, torch.nn.Module)
 
-        if kwargs or not is_initialized:
+        if kwargs or kwargs_deep or not is_initialized:
+            args = ()
             if is_initialized:
+                if isinstance(module, torch.nn.Sequential):
+                    # Sequential must be treated separately, otherwise
+                    # an empty Sequential is generated
+                    # pylint: disable=protected-access
+                    args += (module._modules,)
                 module = type(module)
 
             if is_initialized or self.initialized_:
                 if self.verbose:
                     print("Re-initializing module!")
 
-            module = module(**kwargs)
+            module = module(*args, **kwargs)
+            recursive_set_params(module, kwargs_deep)
 
         self.module_ = module.to(self.device)
         return self
@@ -1110,8 +1126,8 @@ class NeuralNet(object):
 
         return iterator(dataset, **kwargs)
 
-    def _get_params_for(self, prefix):
-        return params_for(prefix, self.__dict__)
+    def _get_params_for(self, prefix, deep=False):
+        return params_for(prefix, self.__dict__, deep=deep)
 
     def _get_params_for_optimizer(self, prefix, named_parameters):
         """Parse kwargs configuration for the optimizer identified by
@@ -1192,10 +1208,13 @@ class NeuralNet(object):
 
         """
         self._check_deprecated_params(**kwargs)
-        normal_params, cb_params, special_params = {}, {}, {}
+        normal_params, cb_params, module_deep_params, special_params = {}, {}, {}, {}
         for key, val in kwargs.items():
             if key.startswith('callbacks'):
                 cb_params[key] = val
+            elif key.startswith('module') and ('__' in key[8:]):
+                # setting an attribute on an attribute of module
+                module_deep_params[key[8:]] = val
             elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
             else:
@@ -1218,13 +1237,17 @@ class NeuralNet(object):
         if any(key.startswith('module') for key in special_params):
             self.initialize_module()
             self.initialize_optimizer()
-        if any(key.startswith('optimizer') for key in special_params):
+        if (
+                module_deep_params or
+                any(key.startswith('optimizer') for key in special_params)
+        ):
             # Model selectors such as GridSearchCV will set the
             # parameters before .initialize() is called, therefore we
             # need to make sure that we have an initialized model here
             # as the optimizer depends on it.
             if not hasattr(self, 'module_'):
                 self.initialize_module()
+            recursive_set_params(self.module_, module_deep_params)
             self.initialize_optimizer()
 
         vars(self).update(kwargs)
@@ -1248,11 +1271,11 @@ class NeuralNet(object):
         # 3. Step parameters and other initilisation arguments
         for key in params.copy():
             name = key[11:]
-            part0, part1 = name.split('__')
+            part0, _, part1 = name.partition('__')
             kwarg = {part1: params.pop(key)}
             callback = dict(self.callbacks_).get(part0)
             if callback is not None:
-                callback.set_params(**kwarg)
+                recursive_set_params(callback, kwarg)
             else:
                 raise ValueError(
                     "Trying to set a parameter for callback {} "
