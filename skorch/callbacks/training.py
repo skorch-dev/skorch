@@ -134,7 +134,7 @@ class EarlyStopping(Callback):
         score so far (relative)
 
     sink : callable (default=print)
-      The target that the information about created checkpoints is
+      The target that the information about early stopping is
       sent to. By default, the output is printed to stdout, but the
       sink could also be a logger or :func:`~skorch.utils.noop`.
 
