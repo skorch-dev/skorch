@@ -47,6 +47,23 @@ class LRScheduler(Callback):
         self.kwargs = kwargs
 
     def simulate(self, steps, initial_lr):
+        """
+        Simulates the learning rate scheduler.
+
+        Parameters
+        ----------
+        steps: int
+          Number of steps to simulate
+
+        initial_lr: float
+          Initial learning rate
+
+        Returns
+        -------
+        lrs: numpy ndarray
+          Simulated learning rates
+
+        """
         test = torch.ones(1, requires_grad=True)
         opt = torch.optim.SGD([{'params': test, 'lr': initial_lr}])
         sch = self.policy(opt, **self.kwargs)
@@ -58,7 +75,7 @@ class LRScheduler(Callback):
             sch.batch_step() if has_batch_step else sch.step()
             lrs.append(sch.get_lr()[0])
 
-        return np.array(steps), np.array(lrs)
+        return np.array(lrs)
 
     def initialize(self):
         if isinstance(self.policy, str):

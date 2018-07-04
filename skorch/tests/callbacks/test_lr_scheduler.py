@@ -20,17 +20,15 @@ class TestLRCallbacks:
 
     def test_simulate_lrs_epoch_step(self):
         lr_policy = LRScheduler(StepLR, step_size=2)
-        idxs, lrs = lr_policy.simulate(6, 1)
+        lrs = lr_policy.simulate(6, 1)
         expected = np.array([1.0, 1.0, 0.1, 0.1, 0.01, 0.01])
-        assert np.allclose(np.array(len(expected)), idxs)
         assert np.allclose(expected, lrs)
 
     def test_simulate_lrs_batch_step(self):
         lr_policy = LRScheduler(
             CyclicLR, base_lr=1, max_lr=5, step_size_up=4)
-        idxs, lrs = lr_policy.simulate(11, 1)
+        lrs = lr_policy.simulate(11, 1)
         expected = np.array([1, 2, 3, 4, 5, 4, 3, 2, 1, 2, 3])
-        assert np.allclose(np.array(len(expected)), idxs)
         assert np.allclose(expected, lrs)
 
     @pytest.mark.parametrize('policy, instance, kwargs', [
