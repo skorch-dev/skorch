@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+from sklearn.base import clone
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.lr_scheduler import ExponentialLR
@@ -100,6 +101,22 @@ class TestLRCallbacks:
         expected = (num_examples // batch_size) * max_epochs - 1
         # pylint: disable=protected-access
         assert lr_policy.lr_scheduler_.last_batch_idx == expected
+
+    def test_lr_scheduler_cloneable(self):
+        # reproduces bug #271
+        scheduler = LRScheduler(CyclicLR, base_lr=123)
+        clone(scheduler)  # does not raise
+
+    def test_lr_scheduler_set_params(self, classifier_module, classifier_data):
+        scheduler = LRScheduler(CyclicLR, base_lr=123)
+        net = NeuralNetClassifier(
+            classifier_module,
+            max_epochs=0,
+            callbacks=[('scheduler', scheduler)],
+        )
+        net.set_params(callbacks__scheduler__base_lr=456)
+        net.fit(*classifier_data)  # we need to trigger on_train_begin
+        assert net.callbacks[0][1].lr_scheduler_.base_lrs[0] == 456
 
 
 class TestReduceLROnPlateau:

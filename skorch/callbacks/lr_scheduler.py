@@ -43,7 +43,7 @@ class LRScheduler(Callback):
     def __init__(self, policy='WarmRestartLR', monitor='train_loss', **kwargs):
         self.policy = policy
         self.monitor = monitor
-        self.kwargs = kwargs
+        vars(self).update(kwargs)
 
     def initialize(self):
         if isinstance(self.policy, str):
@@ -52,6 +52,18 @@ class LRScheduler(Callback):
             self.policy_ = self.policy
         self.lr_scheduler_ = None
         return self
+
+    @property
+    def kwargs(self):
+        # These are the parameters that are passed to the
+        # scheduler. Parameters that don't belong there must be
+        # excluded.
+        excluded = ('policy', 'monitor')
+        kwargs = vars(self).copy()
+        for key in vars(self):
+            if key in excluded or key.endswith('_'):
+                del kwargs[key]
+        return kwargs
 
     def on_train_begin(self, net, **kwargs):
         self.lr_scheduler_ = self._get_scheduler(
