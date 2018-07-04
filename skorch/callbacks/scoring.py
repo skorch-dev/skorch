@@ -1,6 +1,7 @@
 """ Callbacks for calculating scores."""
 
 from contextlib import contextmanager
+from contextlib import suppress
 from functools import partial
 
 import numpy as np
@@ -100,6 +101,14 @@ class ScoringBase(Callback):
     def on_train_begin(self, net, X, y, **kwargs):
         self.X_indexing_ = check_indexing(X)
         self.y_indexing_ = check_indexing(y)
+
+        # Looks for the right most index where `*_best` is True
+        # That index is used to get the best score in `net.history`
+        with suppress(ValueError, IndexError, KeyError):
+            best_name_history = net.history[:, '{}_best'.format(self.name_)]
+            idx_best_reverse = best_name_history[::-1].index(True)
+            idx_best = len(best_name_history) - idx_best_reverse - 1
+            self.best_score_ = net.history[idx_best, self.name_]
 
     def _scoring(self, net, X_test, y_test):
         """Resolve scoring and apply it to data. Use cached prediction

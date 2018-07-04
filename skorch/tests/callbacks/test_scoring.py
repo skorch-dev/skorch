@@ -84,6 +84,42 @@ class TestEpochScoring:
     @pytest.mark.parametrize('lower_is_better, expected', [
         (True, [True, True, True, False, False]),
         (False, [True, False, False, True, False]),
+    ])
+    @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
+    def test_scoring_uses_best_score_when_continuing_training(
+        self, net_cls, module_cls, scoring_cls, train_split, data,
+        lower_is_better, expected, tmpdir, initial_epochs
+    ):
+        # set scoring to None so that mocked net.score is used
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(
+                scoring=None,
+                on_train=True,
+                lower_is_better=lower_is_better)],
+            max_epochs=initial_epochs,
+            # Set train_split to None so that the default 'valid_loss'
+            # callback is effectively disabled and does not write to
+            # the history. This should not cause problems when trying
+            # to load best score for this scorer.
+            train_split=None,
+        )
+        net.fit(*data)
+
+        history_fn = tmpdir.mkdir('skorch').join('history.json')
+        net.save_history(str(history_fn))
+
+        net.initialize()
+        net.load_history(str(history_fn))
+        net.max_epochs = 5 - initial_epochs
+        net.partial_fit(*data)
+
+        is_best = net.history[:, 'score_best']
+        assert is_best == expected
+
+    @pytest.mark.parametrize('lower_is_better, expected', [
+        (True, [True, True, True, False, False]),
+        (False, [True, False, False, True, False]),
         (None, []),
     ])
     def test_best_score_when_lower_is_better(
@@ -519,6 +555,42 @@ class TestBatchScoring:
         train_loss.on_epoch_end(net)
 
         assert history[0, 'train_loss'] == 30
+
+    @pytest.mark.parametrize('lower_is_better, expected', [
+        (True, [True, True, True, False, False]),
+        (False, [True, False, False, True, False]),
+    ])
+    @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
+    def test_scoring_uses_best_score_when_continuing_training(
+        self, net_cls, module_cls, scoring_cls, train_split, data,
+        lower_is_better, expected, tmpdir, initial_epochs
+    ):
+        # set scoring to None so that mocked net.score is used
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(
+                scoring=None,
+                on_train=True,
+                lower_is_better=lower_is_better)],
+            max_epochs=initial_epochs,
+            # Set train_split to None so that the default 'valid_loss'
+            # callback is effectively disabled and does not write to
+            # the history. This should not cause problems when trying
+            # to load best score for this scorer.
+            train_split=None,
+        )
+        net.fit(*data)
+
+        history_fn = tmpdir.mkdir('skorch').join('history.json')
+        net.save_history(str(history_fn))
+
+        net.max_epochs = 5 - initial_epochs
+        net.initialize()
+        net.load_history(str(history_fn))
+        net.partial_fit(*data)
+
+        is_best = net.history[:, 'score_best']
+        assert is_best == expected
 
     @pytest.mark.parametrize('lower_is_better, expected', [
         (True, [True, True, True, False, False]),
