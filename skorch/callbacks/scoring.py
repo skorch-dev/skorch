@@ -104,7 +104,7 @@ class ScoringBase(Callback):
 
         # Looks for the right most index where `*_best` is True
         # That index is used to get the best score in `net.history`
-        with suppress(ValueError, IndexError):
+        with suppress(ValueError, IndexError, KeyError):
             best_name_history = net.history[:, '{}_best'.format(self.name_)]
             idx_best_reverse = best_name_history[::-1].index(True)
             idx_best = len(best_name_history) - idx_best_reverse - 1
