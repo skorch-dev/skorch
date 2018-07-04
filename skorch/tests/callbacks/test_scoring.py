@@ -95,9 +95,14 @@ class TestEpochScoring:
             module_cls,
             callbacks=[scoring_cls(
                 scoring=None,
+                on_train=True,
                 lower_is_better=lower_is_better)],
             max_epochs=initial_epochs,
-            train_split=train_split,
+            # Set train_split to None so that the default 'valid_loss'
+            # callback is effectively disabled and does not write to
+            # the history. This should not cause problems when trying
+            # to load best score for this scorer.
+            train_split=None,
         )
         net.fit(*data)
 
@@ -565,9 +570,14 @@ class TestBatchScoring:
             module_cls,
             callbacks=[scoring_cls(
                 scoring=None,
+                on_train=True,
                 lower_is_better=lower_is_better)],
             max_epochs=initial_epochs,
-            train_split=train_split,
+            # Set train_split to None so that the default 'valid_loss'
+            # callback is effectively disabled and does not write to
+            # the history. This should not cause problems when trying
+            # to load best score for this scorer.
+            train_split=None,
         )
         net.fit(*data)
 
