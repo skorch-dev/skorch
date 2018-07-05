@@ -1265,6 +1265,7 @@ class TestNeuralNet:
         assert exc.value.args[0].startswith('Invalid parameter foo for')
 
     def test_set_params_on_submodule(self, net_cls, module_cls):
+        """Module contains a sub-module"""
         class SuperModule(nn.Module):
             def __init__(self):
                 super().__init__()
@@ -1276,6 +1277,8 @@ class TestNeuralNet:
         net = net_cls(SuperModule, module__sub_module__num_units=123)
         net.initialize()
         assert net.module_.sub_module.num_units == 123
+        assert net.module_.sub_module.dense0.out_features == 123
+        assert net.module_.sub_module.dense1.in_features == 123
 
         net.set_params(module__sub_module__num_units=456)
         assert net.module_.sub_module.num_units == 456
@@ -1290,6 +1293,15 @@ class TestNeuralNet:
 
         net.set_params(module__dense1__weight__cuda=456)
         assert net.module_.dense1.weight.cuda == 456
+
+    def test_set_params_nonexisting_recursively_on_module(
+            self, net_cls, module_cls):
+        net = net_cls(
+            module_cls,
+            module__dense0__weight__nonexisting=123,
+        )
+        with pytest.raises(ValueError):
+            net.initialize()
 
     def test_set_params_recursively_on_callback(self, net_cls, module_cls):
         dummy = Mock()
