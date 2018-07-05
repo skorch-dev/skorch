@@ -1,3 +1,4 @@
+"""Tests for callbacks in training.py"""
 
 from functools import partial
 from unittest.mock import Mock
@@ -99,3 +100,171 @@ class TestCheckpoint:
         assert save_params_mock.call_count == 1
         save_params_mock.assert_called_with('model_3_10.pt')
         assert sink.call_count == 1
+
+
+class TestEarlyStopping:
+
+    @pytest.fixture
+    def early_stopping_cls(self):
+        from skorch.callbacks import EarlyStopping
+        return EarlyStopping
+
+    @pytest.fixture
+    def epoch_scoring_cls(self):
+        from skorch.callbacks import EpochScoring
+        return EpochScoring
+
+    @pytest.fixture
+    def net_clf_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def broken_classifier_module(self, classifier_module):
+        """Return a classifier that does not improve over time."""
+        class BrokenClassifier(classifier_module):
+            def forward(self, x):
+                return super().forward(x) * 0 + 0.5
+        return BrokenClassifier
+
+    def test_typical_use_case_nonstop(
+            self, net_clf_cls, classifier_module, classifier_data,
+            early_stopping_cls):
+        patience = 5
+        max_epochs = 8
+        early_stopping_cb = early_stopping_cls(patience=patience)
+
+        net = net_clf_cls(
+            classifier_module,
+            callbacks=[
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
+        net.fit(*classifier_data)
+
+        assert len(net.history) == max_epochs
+
+    def test_typical_use_case_stopping(
+            self, net_clf_cls, broken_classifier_module, classifier_data,
+            early_stopping_cls):
+        patience = 5
+        max_epochs = 8
+        side_effect = []
+
+        def sink(x):
+            side_effect.append(x)
+
+        early_stopping_cb = early_stopping_cls(patience=patience, sink=sink)
+
+        net = net_clf_cls(
+            broken_classifier_module,
+            callbacks=[
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
+        net.fit(*classifier_data)
+
+        assert len(net.history) == patience + 1 < max_epochs
+
+        # check correct output message
+        assert len(side_effect) == 1
+        msg = side_effect[0]
+        expected_msg = ("Stopping since valid_loss has not improved in "
+                        "the last 5 epochs.")
+        assert msg == expected_msg
+
+    def test_custom_scoring_nonstop(
+            self, net_clf_cls, classifier_module, classifier_data,
+            early_stopping_cls, epoch_scoring_cls,
+    ):
+        lower_is_better = False
+        scoring_name = 'valid_roc_auc'
+        patience = 5
+        max_epochs = 8
+        scoring_cb = epoch_scoring_cls(
+            'roc_auc', lower_is_better, name=scoring_name)
+        early_stopping_cb = early_stopping_cls(
+            patience=patience, lower_is_better=lower_is_better,
+            monitor=scoring_name)
+
+        net = net_clf_cls(
+            classifier_module,
+            callbacks=[
+                scoring_cb,
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
+        net.fit(*classifier_data)
+
+        assert len(net.history) == max_epochs
+
+    def test_custom_scoring_stop(
+            self, net_clf_cls, broken_classifier_module, classifier_data,
+            early_stopping_cls, epoch_scoring_cls,
+    ):
+        lower_is_better = False
+        scoring_name = 'valid_roc_auc'
+        patience = 5
+        max_epochs = 8
+        scoring_cb = epoch_scoring_cls(
+            'roc_auc', lower_is_better, name=scoring_name)
+        early_stopping_cb = early_stopping_cls(
+            patience=patience, lower_is_better=lower_is_better,
+            monitor=scoring_name)
+
+        net = net_clf_cls(
+            broken_classifier_module,
+            callbacks=[
+                scoring_cb,
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
+        net.fit(*classifier_data)
+
+        assert len(net.history) < max_epochs
+
+    def test_stopping_big_absolute_threshold(
+            self, net_clf_cls, classifier_module, classifier_data,
+            early_stopping_cls):
+        patience = 5
+        max_epochs = 8
+        early_stopping_cb = early_stopping_cls(patience=patience,
+                                               threshold_mode='abs',
+                                               threshold=0.1)
+
+        net = net_clf_cls(
+            classifier_module,
+            callbacks=[
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
+        net.fit(*classifier_data)
+
+        assert len(net.history) == patience + 1 < max_epochs
+
+    def test_wrong_threshold_mode(
+            self, net_clf_cls, classifier_module, classifier_data,
+            early_stopping_cls):
+        patience = 5
+        max_epochs = 8
+        early_stopping_cb = early_stopping_cls(
+            patience=patience, threshold_mode='incorrect')
+        net = net_clf_cls(
+            classifier_module,
+            callbacks=[
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
+
+        with pytest.raises(ValueError) as exc:
+            net.fit(*classifier_data)
+
+        expected_msg = "Invalid threshold mode: 'incorrect'"
+        assert exc.value.args[0] == expected_msg
+
