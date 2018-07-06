@@ -58,6 +58,7 @@ class TestCheckpoint:
 
         assert save_params_mock.call_count == len(net.history)
         assert sink.call_count == len(net.history)
+        assert all((x is True) for x in net.history[:, 'event_cp'])
 
     def test_default_without_validation_raises_meaningful_error(
             self, net_cls, checkpoint_cls, data):
@@ -100,6 +101,9 @@ class TestCheckpoint:
         assert save_params_mock.call_count == 1
         save_params_mock.assert_called_with('model_3_10.pt')
         assert sink.call_count == 1
+        assert all((x is False) for x in net.history[:2, 'event_cp'])
+        assert net.history[2, 'event_cp'] is True
+        assert all((x is False) for x in net.history[3:, 'event_cp'])
 
 
 class TestEarlyStopping:
@@ -268,4 +272,3 @@ class TestEarlyStopping:
 
         expected_msg = "Invalid threshold mode: 'incorrect'"
         assert exc.value.args[0] == expected_msg
-
