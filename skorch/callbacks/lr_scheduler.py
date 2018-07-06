@@ -5,6 +5,7 @@ import warnings
 
 # pylint: disable=unused-import
 import numpy as np
+import torch
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.lr_scheduler import ExponentialLR
@@ -44,6 +45,37 @@ class LRScheduler(Callback):
         self.policy = policy
         self.monitor = monitor
         self.kwargs = kwargs
+
+    def simulate(self, steps, initial_lr):
+        """
+        Simulates the learning rate scheduler.
+
+        Parameters
+        ----------
+        steps: int
+          Number of steps to simulate
+
+        initial_lr: float
+          Initial learning rate
+
+        Returns
+        -------
+        lrs: numpy ndarray
+          Simulated learning rates
+
+        """
+        test = torch.ones(1, requires_grad=True)
+        opt = torch.optim.SGD([{'params': test, 'lr': initial_lr}])
+        sch = self.policy(opt, **self.kwargs)
+
+        lrs = []
+        has_batch_step = (hasattr(sch, 'batch_step')
+                          and callable(sch.batch_step))
+        for _ in range(steps):
+            sch.batch_step() if has_batch_step else sch.step()
+            lrs.append(sch.get_lr()[0])
+
+        return np.array(lrs)
 
     def initialize(self):
         if isinstance(self.policy, str):
