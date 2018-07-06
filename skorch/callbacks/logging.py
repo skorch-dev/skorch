@@ -93,10 +93,14 @@ class PrintLog(Callback):
 
     def format_row(self, row, key, color):
         """For a given row from the table, format it (i.e. floating
-        points and color if applicable.
+        points and color if applicable).
 
         """
         value = row[key]
+
+        if isinstance(value, bool) or value is None:
+            return '+' if value else ''
+
         if not isinstance(value, Number):
             return value
 
@@ -111,12 +115,14 @@ class PrintLog(Callback):
         return template.format(value)
 
     def _sorted_keys(self, keys):
-        """Sort keys alphabetically, but put 'epoch' first and 'dur'
-        last.
+        """Sort keys, dropping the ones that should be ignored.
 
-        Ignore keys that are in ``self.ignored_keys`` or that end on
-        '_best'.
-
+        The keys that are in ``self.ignored_keys`` or that end on
+        '_best' are dropped. Among the remaining keys:
+          * 'epoch' is put first;
+          * 'dur' is put last;
+          * keys that start with 'event_' are put just before 'dur';
+          * all remaining keys are sorted alphabetically.
         """
         sorted_keys = []
         if ('epoch' in keys) and ('epoch' not in self.keys_ignored_):
@@ -126,10 +132,14 @@ class PrintLog(Callback):
             if not (
                     (key in ('epoch', 'dur')) or
                     (key in self.keys_ignored_) or
-                    key.endswith('_best')
+                    key.endswith('_best') or
+                    key.startswith('event_')
             ):
                 sorted_keys.append(key)
 
+        for key in sorted(keys):
+            if key.startswith('event_') and (key not in self.keys_ignored_):
+                sorted_keys.append(key)
         if ('dur' in keys) and ('dur' not in self.keys_ignored_):
             sorted_keys.append('dur')
         return sorted_keys
@@ -138,6 +148,8 @@ class PrintLog(Callback):
         colors = cycle([color.value for color in Ansi if color != color.ENDC])
         for key, color in zip(self._sorted_keys(row.keys()), colors):
             formatted = self.format_row(row, key, color=color)
+            if key.startswith('event_'):
+                key = key[6:]
             yield key, formatted
 
     def table(self, row):

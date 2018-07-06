@@ -10,7 +10,7 @@ class TestPrintLog:
     @pytest.fixture
     def print_log_cls(self):
         from skorch.callbacks import PrintLog
-        keys_ignored = ['batches', 'dur', 'text']
+        keys_ignored = ['dur', 'event_odd']
         return partial(PrintLog, sink=Mock(), keys_ignored=keys_ignored)
 
     @pytest.fixture
@@ -30,11 +30,19 @@ class TestPrintLog:
         ).initialize()
 
     @pytest.fixture
-    def net(self, net_cls, module_cls, train_split, mse_scoring, print_log,
-            data):
+    def odd_epoch_callback(self):
+        from skorch.callbacks import Callback
+        class OddEpochCallback(Callback):
+            def on_epoch_end(self, net, **kwargs):
+                net.history[-1]['event_odd'] = bool(len(net.history) % 2)
+        return OddEpochCallback().initialize()
+
+    @pytest.fixture
+    def net(self, net_cls, module_cls, train_split, mse_scoring,
+            odd_epoch_callback, print_log, data):
         net = net_cls(
             module_cls, batch_size=1, train_split=train_split,
-            callbacks=[mse_scoring], max_epochs=2)
+            callbacks=[mse_scoring, odd_epoch_callback], max_epochs=2)
         net.initialize()
         # replace default PrintLog with test PrintLog
         net.callbacks_[-1] = ('print_log', print_log)
@@ -121,7 +129,7 @@ class TestPrintLog:
             assert tab.call_args_list[0][1]['floatfmt'] == '.9f'
 
     def test_with_additional_key(self, history, print_log_cls):
-        keys_ignored = ['batches']  # 'dur' no longer ignored
+        keys_ignored = ['event_odd']  # 'dur' no longer ignored
         print_log = print_log_cls(
             sink=Mock(), keys_ignored=keys_ignored).initialize()
         # does not raise
@@ -145,6 +153,23 @@ class TestPrintLog:
 
         print_log.initialize()
         assert print_log.keys_ignored_ == set(['batches'])
+
+    def test_with_event_key(self, history, print_log_cls):
+        print_log = print_log_cls(sink=Mock(), keys_ignored=None).initialize()
+        # history has two epochs, write them one by one
+        print_log.on_epoch_end(Mock(history=history[:-1]))
+        print_log.on_epoch_end(Mock(history=history))
+
+        header = print_log.sink.call_args_list[0][0][0]
+        columns = header.split()
+        expected = ['epoch', 'nmse', 'train_loss', 'valid_loss', 'odd', 'dur']
+        assert columns == expected
+
+        odd_row = print_log.sink.call_args_list[2][0][0].split()
+        even_row = print_log.sink.call_args_list[3][0][0].split()
+        assert len(odd_row) == 6   # odd row has entries in every column
+        assert odd_row[4] == '+'   # including '+' sign for the 'event_odd'
+        assert len(even_row) == 5  # even row does not have 'event_odd' entry
 
     def test_witout_valid_data(
             self, net_cls, module_cls, mse_scoring, print_log, data):
