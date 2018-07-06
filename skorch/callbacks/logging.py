@@ -35,7 +35,7 @@ class EpochTimer(Callback):
 
 
 class PrintLog(Callback):
-    """Print out useful information from the model's history.
+    """Print useful information from the model's history as a table.
 
     By default, ``PrintLog`` prints everything from the history except
     for ``'batches'``.
@@ -45,6 +45,14 @@ class PrintLog(Callback):
     ``'train_loss_best'`` will be matched with ``'train_loss'``. The
     ``Scoring`` callback takes care of creating those entries, which is
     why ``PrintLog`` works best in conjunction with that callback.
+
+    ``PrintLog`` treats keys with the ``'event_'`` prefix in a special
+    way. They are assumed to contain information about occasionally
+    occuring events. The ``False`` or ``None`` entries (indicating
+    that an event did not occur) are not printed, resulting in empty
+    cells in the table, and ``True`` entries are printed with ``+``
+    symbol. ``PrintLog`` groups all event columns together and pushes
+    them to the right, just before the ``'dur'`` column.
 
     *Note*: ``PrintLog`` will not result in good outputs if the number
     of columns varies between epochs, e.g. if the valid loss is only
