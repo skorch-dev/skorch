@@ -65,10 +65,10 @@ new epoch dictionary to the end of the list. Also, there is
 :func:`~skorch.history.History.new_batch` for adding new batches to
 the current epoch.
 
-To add a new item to the current epoch, use ``net.record('foo',
+To add a new item to the current epoch, use ``history.record('foo',
 123)``. This will set the value ``123`` for the key ``foo`` of the
 current epoch. To write a value to the current batch, use
-``net.record_batch('bar', 456)``. Below are some more examples:
+``history.record_batch('bar', 456)``. Below are some more examples:
 
 .. code:: python
 
