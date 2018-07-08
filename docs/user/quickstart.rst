@@ -100,4 +100,4 @@ Another advantage of skorch is that you can perform an sklearn
 Whats next?
 -----------
 
-Please visit the :ref:`tutorials` page to explore additional examples of using skorch!
+Please visit the :ref:`tutorials` page to explore additional examples on using skorch!
