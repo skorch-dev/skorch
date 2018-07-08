@@ -23,7 +23,7 @@ Additionally, skorch abstracts away the training loop, making a
 lot of boilerplate code obsolete. A simple ``net.fit(X, y)`` is
 enough. Out of the box, skorch works with many types of data, be
 it PyTorch Tensors, NumPy arrays, Python dicts, and so
-on. However, if you have other data, extending skorch is easy to 
+on. However, if you have other data, extending skorch is easy to
 allow for that.
 
 Overall, skorch aims at being as flexible as PyTorch while
@@ -37,13 +37,14 @@ User's Guide
 
    user/installation
    user/quickstart
+   user/tutorials
    user/neuralnet
    user/callbacks
    user/dataset
    user/history
    user/helper
    user/REST
-   user/parallelism           
+   user/parallelism
    user/FAQ
 
 

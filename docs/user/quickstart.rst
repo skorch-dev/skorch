@@ -97,9 +97,7 @@ Another advantage of skorch is that you can perform an sklearn
     print(gs.best_score_, gs.best_params_)
 
 
-Notebooks
----------
+Whats next?
+-----------
 
-To see a more elaborate examples, check out the example notebooks
-`here
-<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/>`__.
+Please visit the :ref:`tutorials` page to explore additional examples of using skorch!
