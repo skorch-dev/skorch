@@ -10,3 +10,19 @@
 .wy-side-nav-search > a {
 	color: black;
 }
+
+/* Adds logo in header for mobile */
+
+.wy-nav-top {
+	background-color: #fcfcfc;
+	background-image: url('../logo.svg');
+	background-repeat: no-repeat;
+	background-position: bottom;
+	padding: 0;
+	margin: 0.4045em 0.809em;
+	color: #333;
+}
+
+.wy-nav-top > a {
+	display: none;
+}
