@@ -78,6 +78,11 @@ class PrintLog(Callback):
       The number formatting. See the documentation of the ``tabulate``
       package for more details.
 
+    stralign : str (default='right')
+      The alignment of columns with strings. Can be 'left', 'center',
+      'right', or ``None`` (disable alignment). Default is 'right' (to
+      be consistent with numerical columns).
+
     """
     def __init__(
             self,
@@ -85,6 +90,7 @@ class PrintLog(Callback):
             sink=print,
             tablefmt='simple',
             floatfmt='.4f',
+            stralign='right',
     ):
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
@@ -92,6 +98,7 @@ class PrintLog(Callback):
         self.sink = sink
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
+        self.stralign = stralign
 
     def initialize(self):
         self.first_iteration_ = True
@@ -172,6 +179,7 @@ class PrintLog(Callback):
             headers=headers,
             tablefmt=self.tablefmt,
             floatfmt=self.floatfmt,
+            stralign=self.stralign,
         )
 
     def _sink(self, text, verbose):
