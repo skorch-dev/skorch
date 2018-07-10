@@ -59,10 +59,8 @@ class LRScheduler(Callback):
         # scheduler. Parameters that don't belong there must be
         # excluded.
         excluded = ('policy', 'monitor')
-        kwargs = vars(self).copy()
-        for key in vars(self):
-            if key in excluded or key.endswith('_'):
-                del kwargs[key]
+        kwargs = {key: val for key, val in vars(self).items()
+                  if not (key in excluded or key.endswith('_'))}
         return kwargs
 
     def on_train_begin(self, net, **kwargs):
