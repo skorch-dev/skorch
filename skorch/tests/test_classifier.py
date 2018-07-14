@@ -232,3 +232,15 @@ class TestNeuralNetBinaryClassifier:
 
         net.predict_proba(X)
         assert mock.call_count > 0
+
+    def test_train_valid_dataset(self, net_cls, module_cls, data):
+        from skorch.dataset import TrainValidDataset
+        from skorch.dataset import Dataset
+
+        train_ds = Dataset(*data)
+        valid_ds = Dataset(*data)
+
+        net = net_cls(module_cls, max_epochs=1)
+
+        train_valid_ds = TrainValidDataset(train_ds, valid_ds)
+        net.fit(train_valid_ds, None)  # Does not raise

@@ -1444,3 +1444,14 @@ class TestNeuralNet:
         expected_losses = list(
             flatten(net.history[:, 'batches', :, 'train_loss']))
         assert np.allclose(side_effect[2::3], expected_losses)
+
+    def test_train_valid_dataset(self, net_cls, module_cls, data, dataset_cls):
+        from skorch.dataset import TrainValidDataset
+
+        train_ds = dataset_cls(*data)
+        valid_ds = dataset_cls(*data)
+
+        net = net_cls(module_cls, max_epochs=1)
+
+        train_valid_ds = TrainValidDataset(train_ds, valid_ds)
+        net.fit(train_valid_ds, None)  # Does not raise

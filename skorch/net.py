@@ -25,6 +25,7 @@ from skorch.history import History
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import duplicate_items
 from skorch.utils import is_dataset
+from skorch.utils import is_train_valid_dataset
 from skorch.utils import noop
 from skorch.utils import open_file_like
 from skorch.utils import params_for
@@ -607,9 +608,13 @@ class NeuralNet(object):
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
+            * a TrainValidDataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
+
+          If you have your own train and validation datasets,
+          ``TrainValidDataset`` can be uesd.
 
         y : target data, compatible with skorch.dataset.Dataset
           The same data types as for ``X`` are supported. If your X is
@@ -683,9 +688,13 @@ class NeuralNet(object):
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
+            * a TrainValidDataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
+
+          If you have your own train and validation datasets,
+          ``TrainValidDataset`` can be uesd.
 
         y : target data, compatible with skorch.dataset.Dataset
           The same data types as for ``X`` are supported. If your X is
@@ -728,9 +737,13 @@ class NeuralNet(object):
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
+            * a TrainValidDataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
+
+          If you have your own train and validation datasets,
+          ``TrainValidDataset`` can be uesd.
 
         y : target data, compatible with skorch.dataset.Dataset
           The same data types as for ``X`` are supported. If your X is
@@ -1030,6 +1043,9 @@ class NeuralNet(object):
         Override this if you want to change how the net splits
         incoming data into train and validation part.
 
+        If ``X`` is a ``TrainValidDataset``, then the corresponding
+        training and validation datasets will be returned.
+
         Parameters
         ----------
         X : input data, compatible with skorch.dataset.Dataset
@@ -1041,6 +1057,7 @@ class NeuralNet(object):
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
+            * a TrainValidDataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -1063,6 +1080,9 @@ class NeuralNet(object):
           The initialized validation dataset or None
 
         """
+        if is_train_valid_dataset(X):
+            return X.train_dataset, X.valid_dataset
+
         dataset = self.get_dataset(X, y)
         if self.train_split:
             dataset_train, dataset_valid = self.train_split(
