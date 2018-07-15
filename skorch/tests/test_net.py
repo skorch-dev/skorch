@@ -1451,7 +1451,21 @@ class TestNeuralNet:
         train_ds = dataset_cls(*data)
         valid_ds = dataset_cls(*data)
 
-        net = net_cls(module_cls, max_epochs=1)
+        train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+        valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            iterator_train=train_loader_mock,
+            iterator_valid=valid_loader_mock,
+        )
 
         train_valid_ds = TrainValidDataset(train_ds, valid_ds)
         net.fit(train_valid_ds, None)  # Does not raise
+
+        train_dataset = train_loader_mock.call_args[0][0]
+        valid_dataset = valid_loader_mock.call_args[0][0]
+
+        assert train_dataset == train_ds
+        assert valid_dataset == valid_ds
