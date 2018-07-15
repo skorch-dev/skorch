@@ -417,3 +417,44 @@ class TestIsSkorchDataset:
         type_truth_table())
     def test_data_types(self, is_skorch_dataset, input_data, expected):
         assert is_skorch_dataset(input_data) == expected
+
+
+class TestIsTrainValidDataset:
+
+    @pytest.fixture
+    def is_train_valid_dataset(self):
+        from skorch.utils import is_train_valid_dataset
+        return is_train_valid_dataset
+
+    # pylint: disable=no-method-argument
+    def type_truth_table():
+        """Return a table of (type, bool) tuples that describe what
+        is_train_valid_dataset should return when called with that type.
+        """
+        from skorch.dataset import Dataset
+        from skorch.dataset import TrainValidDataset
+        from torch.utils.data.dataset import Subset
+
+        numpy_data = np.array([1, 2, 3])
+        tensor_data = torch.from_numpy(numpy_data)
+        torch_dataset = torch.utils.data.TensorDataset(
+            tensor_data, tensor_data)
+        torch_subset = Subset(torch_dataset, [1, 2])
+        skorch_dataset = Dataset(numpy_data)
+        skorch_subset = Subset(skorch_dataset, [1, 2])
+        train_valid_ds = TrainValidDataset(skorch_dataset, skorch_subset)
+
+        return [
+            (numpy_data, False),
+            (torch_dataset, False),
+            (torch_subset, False),
+            (skorch_dataset, False),
+            (skorch_subset, False),
+            (train_valid_ds, True)
+        ]
+
+    @pytest.mark.parametrize(
+        'input_data,expected',
+        type_truth_table())
+    def test_data_types(self, is_train_valid_dataset, input_data, expected):
+        assert is_train_valid_dataset(input_data) == expected

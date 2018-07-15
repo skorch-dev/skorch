@@ -281,3 +281,24 @@ class CVSplit(object):
     def __repr__(self):
         # pylint: disable=useless-super-delegation
         return super(CVSplit, self).__repr__()
+
+
+class TrainValidDataset:
+    """Small wrapper class to support pre-existing training and
+    validation datasets.
+    This class can be passed into ``NeutralNet.fit``,
+    ``NeutralNet.fit_loop``, ``NeutralNet.parital_fit``, or
+    ``NeutralNet.get_split_datasets``.
+
+    Parameters
+    ----------
+    train_dataset: Dataset
+        Training dataset
+
+    valid_dataset: Dataset
+        Validation dataset
+
+    """
+    def __init__(self, train_dataset, valid_dataset):
+        self.train_dataset = train_dataset
+        self.valid_dataset = valid_dataset

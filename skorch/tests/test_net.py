@@ -1444,3 +1444,28 @@ class TestNeuralNet:
         expected_losses = list(
             flatten(net.history[:, 'batches', :, 'train_loss']))
         assert np.allclose(side_effect[2::3], expected_losses)
+
+    def test_train_valid_dataset(self, net_cls, module_cls, data, dataset_cls):
+        from skorch.dataset import TrainValidDataset
+
+        train_ds = dataset_cls(*data)
+        valid_ds = dataset_cls(*data)
+
+        train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+        valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            iterator_train=train_loader_mock,
+            iterator_valid=valid_loader_mock,
+        )
+
+        train_valid_ds = TrainValidDataset(train_ds, valid_ds)
+        net.fit(train_valid_ds, None)  # Does not raise
+
+        train_dataset = train_loader_mock.call_args[0][0]
+        valid_dataset = valid_loader_mock.call_args[0][0]
+
+        assert train_dataset == train_ds
+        assert valid_dataset == valid_ds

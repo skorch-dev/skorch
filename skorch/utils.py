@@ -357,6 +357,13 @@ def is_skorch_dataset(ds):
     return isinstance(ds, Dataset)
 
 
+def is_train_valid_dataset(ds):
+    """Checks if the supplied dataset is an instance of
+    ``skorch.dataset.TrainValidDataset``."""
+    from skorch.dataset import TrainValidDataset
+    return isinstance(ds, TrainValidDataset)
+
+
 # pylint: disable=unused-argument
 def noop(*args, **kwargs):
     """No-op function that does nothing and returns ``None``.

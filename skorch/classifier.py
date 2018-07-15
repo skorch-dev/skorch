@@ -14,6 +14,7 @@ from skorch.callbacks import BatchScoring
 from skorch.dataset import CVSplit
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
+from skorch.utils import is_train_valid_dataset
 from skorch.utils import noop
 from skorch.utils import to_numpy
 from skorch.utils import train_loss_score
@@ -89,6 +90,7 @@ class NeuralNetClassifier(NeuralNet):
     def check_data(self, X, y):
         if (
                 (y is None) and
+                (not is_train_valid_dataset(X)) and
                 (not is_dataset(X)) and
                 (self.iterator_train is DataLoader)
         ):
@@ -265,7 +267,7 @@ class NeuralNetBinaryClassifier(NeuralNet):
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         super().check_data(X, y)
-        if get_dim(y) != 1:
+        if (not is_train_valid_dataset(X)) and get_dim(y) != 1:
             raise ValueError("The target data should be 1-dimensional.")
 
     # pylint: disable=signature-differs
