@@ -608,7 +608,7 @@ class NeuralNet(object):
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
-            * a TrainValidDataset
+            * a skorch.dataset.TrainValidDataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -688,7 +688,7 @@ class NeuralNet(object):
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
-            * a TrainValidDataset
+            * a skorch.dataset.TrainValidDataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -737,7 +737,7 @@ class NeuralNet(object):
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
-            * a TrainValidDataset
+            * a skorch.dataset.TrainValidDataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
@@ -1057,7 +1057,7 @@ class NeuralNet(object):
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
-            * a TrainValidDataset
+            * a skorch.dataset.TrainValidDataset
 
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.

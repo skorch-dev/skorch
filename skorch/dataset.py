@@ -284,8 +284,9 @@ class CVSplit(object):
 
 
 class TrainValidDataset:
-    """Small wrapper class to support custom training and validation
-    datasets. This class can be passed into ``NeutralNet.fit``,
+    """Small wrapper class to support pre-existing training and
+    validation datasets.
+    This class can be passed into ``NeutralNet.fit``,
     ``NeutralNet.fit_loop``, ``NeutralNet.parital_fit``, or
     ``NeutralNet.get_split_datasets``.
 
