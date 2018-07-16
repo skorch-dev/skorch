@@ -116,8 +116,9 @@ I already split my data into training and validation sets, how can I use them?
 ------------------------------------------------------------------------------
 
 If you have already defined a training and validation datasets that are
-subclasses of :class:`~torch.utils.data.Dataset`, you can use
-:func:`~skorch.helpers.predefined_split` to train your network:
+subclasses of PyTorch :class:`~torch.utils.data.Dataset`, you can use
+:func:`~skorch.helper.predefined_split` to wrap your validation dataset and
+pass it to :class:`~skorch.net.NeuralNet`'s ``train_split`` parameter:
 
 .. code:: python
 
@@ -131,8 +132,8 @@ subclasses of :class:`~torch.utils.data.Dataset`, you can use
     net.fit(train_ds, None)
 
 If you split your data by using :func:`~sklearn.model_selection.train_test_split`,
-you can create your own :class:`~skorch.dataset.Dataset`, and then pass it
-to :func:`~skorch.helpers.predefined_split`:
+you can create your own skorch :class:`~skorch.dataset.Dataset`, and then pass
+it to :func:`~skorch.helper.predefined_split`:
 
 .. code:: python
 
