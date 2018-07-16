@@ -122,7 +122,7 @@ def predefined_split(dataset):
     Examples
     --------
     >>> valid_ds = skorch.Dataset(X, y)
-    >>> net = NeutralNet(..., rain_split=predefined_split(valid_ds))
+    >>> net = NeutralNet(..., train_split=predefined_split(valid_ds))
 
     Parameters
     ----------
