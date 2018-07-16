@@ -415,3 +415,8 @@ class FirstStepAccumulator:
     def get_step(self):
         """Return the stored step."""
         return self.step
+
+
+def make_split(X, y, valid_ds, **kwargs):
+    """Used by ``predefined_split`` to allow for pickling"""
+    return X, valid_ds

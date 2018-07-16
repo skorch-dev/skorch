@@ -3,6 +3,7 @@
 They should not be used in skorch directly.
 
 """
+from functools import partial
 
 
 class SliceDict(dict):
@@ -113,3 +114,21 @@ def filtered_optimizer(optimizer, filter_fn):
     def opt(pgroups, **kwargs):
         return optimizer(filter_fn(pgroups), **kwargs)
     return opt
+
+
+def predefined_split(dataset):
+    """Uses ``dataset`` for validiation in ``NeutralNet``.
+
+    Examples
+    --------
+    >>> valid_ds = skorch.Dataset(X, y)
+    >>> net = NeutralNet(..., rain_split=predefined_split(valid_ds))
+
+    Parameters
+    ----------
+    dataset: torch Dataset
+       Validiation dataset
+
+    """
+    from skorch.utils import make_split
+    return partial(make_split, valid_ds=dataset)

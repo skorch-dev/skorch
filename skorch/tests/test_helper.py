@@ -1,4 +1,5 @@
 """Test for helper.py"""
+import pickle
 
 import numpy as np
 import pytest
@@ -280,3 +281,24 @@ class TestOptimizerParamsRequiresGrad:
         assert isinstance(net.optimizer_, torch.optim.SGD)
         assert len(net.optimizer_.param_groups) == 1
         assert net.optimizer_.param_groups[0]['momentum'] == 0.9
+
+
+class TestPredefinedSplit():
+
+    @pytest.fixture
+    def predefined_split(self):
+        from skorch.helper import predefined_split
+        return predefined_split
+
+    def test_pickles(self, tmpdir, predefined_split, data):
+        from skorch.dataset import Dataset
+
+        valid_dataset = Dataset(*data)
+        train_split = predefined_split(valid_dataset)
+
+        tmp_fn = tmpdir.mkdir('predefined_split').join('test.pkl')
+
+        # does not raise
+        with tmp_fn.open('wb') as f:
+            pickle.dump(train_split, f)
+
