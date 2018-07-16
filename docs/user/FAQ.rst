@@ -110,3 +110,43 @@ dictionary. Below, there is example code on how to achieve this:
     # for each sample so that it can be weighted
     net = MyNet(MyModule, ..., criterion__reduce=False)
     net.fit(X, y)
+
+
+I already split my data into training and validation sets, how can I use them?
+------------------------------------------------------------------------------
+
+If you have already defined a training and validation datasets that are
+subclasses of :class:`~torch.utils.data.Dataset`, you can use
+:func:`~skorch.helpers.predefined_split` to train your network:
+
+.. code:: python
+
+    from skorch.helpers import predefined_split
+
+    net = NeuralNet(
+        ...,
+        train_split=predefined_split(valid_ds)
+    )
+    # None is passed because train_ds already contains the target
+    net.fit(train_ds, None)
+
+If you split your data by using :func:`~sklearn.model_selection.train_test_split`,
+you can create your own :class:`~skorch.dataset.Dataset`, and then pass it
+to :func:`~skorch.helpers.predefined_split`:
+
+.. code:: python
+
+    from sklearn.model_selection import train_test_split
+    from skorch.helpers import predefined_split
+    from skorch.dataset import Dataset
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+
+    valid_ds = Dataset(X_test, y_test)
+
+    net = NeuralNet(
+        ...,
+        train_split=predefined_split(valid_ds)
+    )
+
+    net.fit(X_train, y_train)
