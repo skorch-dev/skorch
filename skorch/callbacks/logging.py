@@ -52,7 +52,7 @@ class PrintLog(Callback):
 
     Parameters
     ----------
-    keys_ignored : str or list of str (default='batches')
+    keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be part of the printed
       table. Note that keys ending on '_best' are also ignored.
 
@@ -73,7 +73,7 @@ class PrintLog(Callback):
     """
     def __init__(
             self,
-            keys_ignored='batches',
+            keys_ignored=None,
             sink=print,
             tablefmt='simple',
             floatfmt='.4f',
@@ -87,6 +87,8 @@ class PrintLog(Callback):
 
     def initialize(self):
         self.first_iteration_ = True
+        self.keys_ignored_ = set(self.keys_ignored or [])
+        self.keys_ignored_.add('batches')
         return self
 
     def format_row(self, row, key, color):
@@ -117,18 +119,18 @@ class PrintLog(Callback):
 
         """
         sorted_keys = []
-        if ('epoch' in keys) and ('epoch' not in self.keys_ignored):
+        if ('epoch' in keys) and ('epoch' not in self.keys_ignored_):
             sorted_keys.append('epoch')
 
         for key in sorted(keys):
             if not (
                     (key in ('epoch', 'dur')) or
-                    (key in self.keys_ignored) or
+                    (key in self.keys_ignored_) or
                     key.endswith('_best')
             ):
                 sorted_keys.append(key)
 
-        if ('dur' in keys) and ('dur' not in self.keys_ignored):
+        if ('dur' in keys) and ('dur' not in self.keys_ignored_):
             sorted_keys.append('dur')
         return sorted_keys
 
