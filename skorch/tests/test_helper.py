@@ -1,4 +1,5 @@
 """Test for helper.py"""
+import pickle
 
 import numpy as np
 import pytest
@@ -280,3 +281,8 @@ class TestOptimizerParamsRequiresGrad:
         assert isinstance(net.optimizer_, torch.optim.SGD)
         assert len(net.optimizer_.param_groups) == 1
         assert net.optimizer_.param_groups[0]['momentum'] == 0.9
+
+    def test_pickle(self, filtered_optimizer, filter_requires_grad):
+        opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
+        # Does not raise
+        pickle.dumps(opt)
