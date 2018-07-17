@@ -136,6 +136,16 @@ class TestPrintLog:
         print_log = print_log_cls(keys_ignored='a-key')
         assert print_log.keys_ignored == ['a-key']
 
+        print_log.initialize()
+        assert print_log.keys_ignored_ == set(['a-key', 'batches'])
+
+    def test_keys_ignored_is_None(self, print_log_cls):
+        print_log = print_log_cls(keys_ignored=None)
+        assert print_log.keys_ignored is None
+
+        print_log.initialize()
+        assert print_log.keys_ignored_ == set(['batches'])
+
     def test_witout_valid_data(
             self, net_cls, module_cls, mse_scoring, print_log, data):
         net = net_cls(
