@@ -183,8 +183,9 @@ class TestEarlyStopping:
         scoring_name = 'valid_roc_auc'
         patience = 5
         max_epochs = 8
+        scoring_mock = Mock(side_effect=list(range(2, 10)))
         scoring_cb = epoch_scoring_cls(
-            'roc_auc', lower_is_better, name=scoring_name)
+            scoring_mock, lower_is_better, name=scoring_name)
         early_stopping_cb = early_stopping_cls(
             patience=patience, lower_is_better=lower_is_better,
             monitor=scoring_name)
