@@ -4,7 +4,7 @@ They should not be used in skorch directly.
 
 """
 from functools import partial
-from skorch.utils import make_split
+from skorch.utils import _make_split
 
 
 class SliceDict(dict):
@@ -131,4 +131,4 @@ def predefined_split(dataset):
        Validiation dataset
 
     """
-    return partial(make_split, valid_ds=dataset)
+    return partial(_make_split, valid_ds=dataset)
