@@ -115,7 +115,7 @@ dictionary. Below, there is example code on how to achieve this:
 I already split my data into training and validation sets, how can I use them?
 ------------------------------------------------------------------------------
 
-If you have already defined a training and validation datasets that are
+If you have predefined training and validation datasets that are
 subclasses of PyTorch :class:`~torch.utils.data.Dataset`, you can use
 :func:`~skorch.helper.predefined_split` to wrap your validation dataset and
 pass it to :class:`~skorch.net.NeuralNet`'s ``train_split`` parameter:
@@ -128,8 +128,7 @@ pass it to :class:`~skorch.net.NeuralNet`'s ``train_split`` parameter:
         ...,
         train_split=predefined_split(valid_ds)
     )
-    # None is passed because train_ds already contains the target
-    net.fit(train_ds, None)
+    net.fit(train_ds)
 
 If you split your data by using :func:`~sklearn.model_selection.train_test_split`,
 you can create your own skorch :class:`~skorch.dataset.Dataset`, and then pass
