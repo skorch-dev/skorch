@@ -282,10 +282,7 @@ class TestOptimizerParamsRequiresGrad:
         assert len(net.optimizer_.param_groups) == 1
         assert net.optimizer_.param_groups[0]['momentum'] == 0.9
 
-    def test_pickle(self, filtered_optimizer, filter_requires_grad, tmpdir):
-        opt_fn = tmpdir.mkdir('filtered_optiizer').join('opt.pkl')
+    def test_pickle(self, filtered_optimizer, filter_requires_grad):
         opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
-
         # Does not raise
-        with opt_fn.open('wb') as f:
-            pickle.dump(opt, f)
+        pickle.dumps(opt)
