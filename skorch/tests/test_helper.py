@@ -290,14 +290,11 @@ class TestPredefinedSplit():
         from skorch.helper import predefined_split
         return predefined_split
 
-    def test_pickle(self, tmpdir, predefined_split, data):
+    def test_pickle(self, predefined_split, data):
         from skorch.dataset import Dataset
 
         valid_dataset = Dataset(*data)
         train_split = predefined_split(valid_dataset)
 
-        tmp_fn = tmpdir.mkdir('predefined_split').join('test.pkl')
-
         # does not raise
-        with tmp_fn.open('wb') as f:
-            pickle.dump(train_split, f)
+        pickle.dumps(train_split)
