@@ -112,9 +112,8 @@ def filtered_optimizer(optimizer, filter_fn):
       it to ``optimizer``.
 
     """
-    def opt(pgroups, **kwargs):
-        return optimizer(filter_fn(pgroups), **kwargs)
-    return opt
+    from skorch.utils import make_optimizer
+    return partial(make_optimizer, optimizer=optimizer, filter_fn=filter_fn)
 
 
 def predefined_split(dataset):
