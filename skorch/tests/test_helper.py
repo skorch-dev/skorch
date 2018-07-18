@@ -286,3 +286,20 @@ class TestOptimizerParamsRequiresGrad:
         opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
         # Does not raise
         pickle.dumps(opt)
+
+
+class TestPredefinedSplit():
+
+    @pytest.fixture
+    def predefined_split(self):
+        from skorch.helper import predefined_split
+        return predefined_split
+
+    def test_pickle(self, predefined_split, data):
+        from skorch.dataset import Dataset
+
+        valid_dataset = Dataset(*data)
+        train_split = predefined_split(valid_dataset)
+
+        # does not raise
+        pickle.dumps(train_split)

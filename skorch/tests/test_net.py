@@ -1444,3 +1444,28 @@ class TestNeuralNet:
         expected_losses = list(
             flatten(net.history[:, 'batches', :, 'train_loss']))
         assert np.allclose(side_effect[2::3], expected_losses)
+
+    def test_predefined_split(self, net_cls, module_cls, data):
+        from skorch.dataset import Dataset
+        from skorch.helper import predefined_split
+
+        train_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+        valid_loader_mock = Mock(side_effect=torch.utils.data.DataLoader)
+
+        train_ds = Dataset(*data)
+        valid_ds = Dataset(*data)
+
+        net = net_cls(
+            module_cls, max_epochs=1,
+            iterator_train=train_loader_mock,
+            iterator_valid=valid_loader_mock,
+            train_split=predefined_split(valid_ds)
+        )
+
+        net.fit(train_ds, None)
+
+        train_loader_ds = train_loader_mock.call_args[0][0]
+        valid_loader_ds = valid_loader_mock.call_args[0][0]
+
+        assert train_loader_ds == train_ds
+        assert valid_loader_ds == valid_ds
