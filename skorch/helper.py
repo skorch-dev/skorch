@@ -5,6 +5,7 @@ They should not be used in skorch directly.
 """
 from functools import partial
 from skorch.utils import _make_split
+from skorch.utils import _make_optimizer
 
 
 class SliceDict(dict):
@@ -112,8 +113,7 @@ def filtered_optimizer(optimizer, filter_fn):
       it to ``optimizer``.
 
     """
-    from skorch.utils import make_optimizer
-    return partial(make_optimizer, optimizer=optimizer, filter_fn=filter_fn)
+    return partial(_make_optimizer, optimizer=optimizer, filter_fn=filter_fn)
 
 
 def predefined_split(dataset):

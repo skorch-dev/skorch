@@ -417,7 +417,7 @@ class FirstStepAccumulator:
         return self.step
 
 
-def make_optimizer(pgroups, optimizer, filter_fn, **kwargs):
+def _make_optimizer(pgroups, optimizer, filter_fn, **kwargs):
     """Used by ``skorch.helper.filtered_optimizer`` to allow for pickling"""
     return optimizer(filter_fn(pgroups), **kwargs)
 
