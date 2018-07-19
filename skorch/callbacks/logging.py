@@ -35,7 +35,7 @@ class EpochTimer(Callback):
 
 
 class PrintLog(Callback):
-    """Print out useful information from the model's history.
+    """Print useful information from the model's history as a table.
 
     By default, ``PrintLog`` prints everything from the history except
     for ``'batches'``.
@@ -45,6 +45,14 @@ class PrintLog(Callback):
     ``'train_loss_best'`` will be matched with ``'train_loss'``. The
     ``Scoring`` callback takes care of creating those entries, which is
     why ``PrintLog`` works best in conjunction with that callback.
+
+    ``PrintLog`` treats keys with the ``'event_'`` prefix in a special
+    way. They are assumed to contain information about occasionally
+    occuring events. The ``False`` or ``None`` entries (indicating
+    that an event did not occur) are not printed, resulting in empty
+    cells in the table, and ``True`` entries are printed with ``+``
+    symbol. ``PrintLog`` groups all event columns together and pushes
+    them to the right, just before the ``'dur'`` column.
 
     *Note*: ``PrintLog`` will not result in good outputs if the number
     of columns varies between epochs, e.g. if the valid loss is only
@@ -70,6 +78,11 @@ class PrintLog(Callback):
       The number formatting. See the documentation of the ``tabulate``
       package for more details.
 
+    stralign : str (default='right')
+      The alignment of columns with strings. Can be 'left', 'center',
+      'right', or ``None`` (disable alignment). Default is 'right' (to
+      be consistent with numerical columns).
+
     """
     def __init__(
             self,
@@ -77,6 +90,7 @@ class PrintLog(Callback):
             sink=print,
             tablefmt='simple',
             floatfmt='.4f',
+            stralign='right',
     ):
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
@@ -84,6 +98,7 @@ class PrintLog(Callback):
         self.sink = sink
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
+        self.stralign = stralign
 
     def initialize(self):
         self.first_iteration_ = True
@@ -93,10 +108,14 @@ class PrintLog(Callback):
 
     def format_row(self, row, key, color):
         """For a given row from the table, format it (i.e. floating
-        points and color if applicable.
+        points and color if applicable).
 
         """
         value = row[key]
+
+        if isinstance(value, bool) or value is None:
+            return '+' if value else ''
+
         if not isinstance(value, Number):
             return value
 
@@ -111,12 +130,14 @@ class PrintLog(Callback):
         return template.format(value)
 
     def _sorted_keys(self, keys):
-        """Sort keys alphabetically, but put 'epoch' first and 'dur'
-        last.
+        """Sort keys, dropping the ones that should be ignored.
 
-        Ignore keys that are in ``self.ignored_keys`` or that end on
-        '_best'.
-
+        The keys that are in ``self.ignored_keys`` or that end on
+        '_best' are dropped. Among the remaining keys:
+          * 'epoch' is put first;
+          * 'dur' is put last;
+          * keys that start with 'event_' are put just before 'dur';
+          * all remaining keys are sorted alphabetically.
         """
         sorted_keys = []
         if ('epoch' in keys) and ('epoch' not in self.keys_ignored_):
@@ -126,10 +147,14 @@ class PrintLog(Callback):
             if not (
                     (key in ('epoch', 'dur')) or
                     (key in self.keys_ignored_) or
-                    key.endswith('_best')
+                    key.endswith('_best') or
+                    key.startswith('event_')
             ):
                 sorted_keys.append(key)
 
+        for key in sorted(keys):
+            if key.startswith('event_') and (key not in self.keys_ignored_):
+                sorted_keys.append(key)
         if ('dur' in keys) and ('dur' not in self.keys_ignored_):
             sorted_keys.append('dur')
         return sorted_keys
@@ -138,6 +163,8 @@ class PrintLog(Callback):
         colors = cycle([color.value for color in Ansi if color != color.ENDC])
         for key, color in zip(self._sorted_keys(row.keys()), colors):
             formatted = self.format_row(row, key, color=color)
+            if key.startswith('event_'):
+                key = key[6:]
             yield key, formatted
 
     def table(self, row):
@@ -152,6 +179,7 @@ class PrintLog(Callback):
             headers=headers,
             tablefmt=self.tablefmt,
             floatfmt=self.floatfmt,
+            stralign=self.stralign,
         )
 
     def _sink(self, text, verbose):

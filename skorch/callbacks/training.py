@@ -3,6 +3,7 @@
 import numpy as np
 from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
+from skorch.utils import noop
 
 
 __all__ = ['Checkpoint', 'EarlyStopping']
@@ -19,6 +20,9 @@ class Checkpoint(Callback):
     You can also specify your own metric to monitor or supply a
     callback that dynamically evaluates whether the model should
     be saved in this epoch.
+
+    This callback writes a bool flag to the history column
+    ``event_cp`` indicating whether a checkpoint was created or not.
 
     Example:
 
@@ -58,16 +62,16 @@ class Checkpoint(Callback):
       pickle the wrapper anymore as lambdas cannot be pickled. You can
       mitigate this problem by using importable functions instead.
 
-    sink : callable (default=print)
+    sink : callable (default=noop)
       The target that the information about created checkpoints is
-      sent to. By default, the output is printed to stdout, but the
-      sink could also be a logger or :func:`~skorch.utils.noop`.
+      sent to. This can be a logger or ``print`` function (to send to
+      stdout). By default the output is discarded.
     """
     def __init__(
             self,
             target='model.pt',
             monitor='valid_loss_best',
-            sink=print,
+            sink=noop,
     ):
         self.monitor = monitor
         self.target = target
@@ -97,6 +101,8 @@ class Checkpoint(Callback):
                 )
             self._sink("Checkpoint! Saving model to {}.".format(target), net.verbose)
             net.save_params(target)
+
+        net.history.record('event_cp', bool(do_checkpoint))
 
     def _sink(self, text, verbose):
         #  We do not want to be affected by verbosity if sink is not print
