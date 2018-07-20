@@ -37,14 +37,26 @@ def is_dataset(x):
 
 # pylint: disable=not-callable
 def to_tensor(X, device):
-    """Turn to torch tensor.
+    """Turn input data to torch tensor.
 
-    Handles the cases:
-      * PackedSequence
-      * numpy array
-      * torch Tensor
-      * list or tuple of one of the former
-      * dict of one of the former
+    Parameters
+    ----------
+    X : input data
+      Handles the cases:
+        * PackedSequence
+        * numpy array
+        * torch Tensor
+        * list or tuple of one of the former
+        * dict with values of one of the former
+
+    device : str, torch.device
+      The compute device to be used. If set to 'cuda', data in torch
+      tensors will be pushed to cuda tensors before being sent to the
+      module.
+
+    Returns
+    -------
+    output : torch Tensor
 
     """
     to_tensor_ = partial(to_tensor, device=device)
