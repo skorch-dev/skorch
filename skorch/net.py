@@ -139,8 +139,8 @@ class NeuralNet(object):
     train_split : None or callable (default=skorch.dataset.CVSplit(5))
       If None, there is no train/validation split. Else, train_split
       should be a function or callable that is called with X and y
-      data and should return the tuple ``X_train, X_valid, y_train,
-      y_valid``. The validation data may be None.
+      data and should return the tuple ``dataset_train, dataset_valid``.
+      The validation data may be None.
 
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those returned by
