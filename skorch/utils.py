@@ -47,9 +47,6 @@ def to_tensor(X, device):
       * dict of one of the former
 
     """
-    assert not isinstance(device, bool), (
-        "possible bug: used `device` parameter like `use_cuda`. "
-        "Set `device='cuda'` instead.")
     to_tensor_ = partial(to_tensor, device=device)
 
     if is_torch_data_type(X):

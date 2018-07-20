@@ -1173,13 +1173,8 @@ class NeuralNet(object):
         params.update(params_cb)
         return params
 
-    # XXX remove once deprecation for use_cuda is phased out
-    # Also remember to update NeuralNet docstring
     def _check_deprecated_params(self, **kwargs):
-        if kwargs.get('use_cuda') is not None:
-            msg = ("The parameter use_cuda is no longer supported. Use "
-                   "device='cuda' instead.")
-            raise ValueError(msg)
+        pass
 
     def set_params(self, **kwargs):
         """Set the parameters of this class.

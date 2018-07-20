@@ -853,12 +853,14 @@ class TestNeuralNet:
 
     def test_net_initialized_with_partialed_dataset(
             self, net_cls, module_cls, data, dataset_cls):
+        X, y = data
         net = net_cls(
             module_cls,
-            dataset=partial(dataset_cls, device='cpu'),
+            dataset=partial(dataset_cls, length=len(y)),
+            train_split=None,
             max_epochs=1,
         )
-        net.fit(*data)  # does not raise
+        net.fit(X, y)  # does not raise
 
     def test_net_initialized_with_initalized_dataset_and_kwargs_raises(
             self, net_cls, module_cls, data, dataset_cls):
@@ -1092,15 +1094,6 @@ class TestNeuralNet:
             net.fit(ds, None)
 
         msg = "Stratified CV requires explicitely passing a suitable y."
-        assert exc.value.args[0] == msg
-
-    # XXX remove once deprecation for use_cuda is phased out
-    def test_init_use_cuda_deprecated(self, net_cls, module_cls):
-        with pytest.raises(ValueError) as exc:
-            net_cls(module_cls, use_cuda=True)
-
-        msg = ("The parameter use_cuda is no longer supported. Use "
-               "device='cuda' instead.")
         assert exc.value.args[0] == msg
 
     @pytest.fixture
