@@ -248,7 +248,7 @@ class NeuralNet(object):
                 continue
             unexpected_kwargs.append(key)
         if unexpected_kwargs:
-            msg = ("__init__() got unexpected argument(s) {}."
+            msg = ("__init__() got unexpected argument(s) {}. "
                    "Either you made a typo, or you added new arguments "
                    "in a subclass; if that is the case, the subclass "
                    "should deal with the new arguments explicitely.")
