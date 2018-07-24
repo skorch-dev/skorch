@@ -1,9 +1,13 @@
 """ Callbacks related to training progress. """
 
+import pickle
+import warnings
+
 import numpy as np
 from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
 from skorch.utils import noop
+from skorch.utils import open_file_like
 
 
 __all__ = ['Checkpoint', 'EarlyStopping']
@@ -69,12 +73,25 @@ class Checkpoint(Callback):
     """
     def __init__(
             self,
-            target='model.pt',
+            target=None,
             monitor='valid_loss_best',
+            f_params='params.pt',
+            f_history=None,
+            f_pickle=None,
             sink=noop,
     ):
+        if target is not None:
+            warnings.warn(
+                "target argument was renamed to f_params and will be removed "
+                "in the next release. To make your code future-proof it is "
+                "recommended to explicitly specify keyword arguments' names "
+                "instead of relying on positional order.",
+                DeprecationWarning)
+            f_params = target
         self.monitor = monitor
-        self.target = target
+        self.f_params = f_params
+        self.f_history = f_history
+        self.f_pickle = f_pickle
         self.sink = sink
 
     def on_epoch_end(self, net, **kwargs):
@@ -92,17 +109,31 @@ class Checkpoint(Callback):
                     "validation scores for checkpointing.".format(e.args[0]))
 
         if do_checkpoint:
-            target = self.target
-            if isinstance(self.target, str):
-                target = self.target.format(
-                    net=net,
-                    last_epoch=net.history[-1],
-                    last_batch=net.history[-1, 'batches', -1],
-                )
-            self._sink("Checkpoint! Saving model to {}.".format(target), net.verbose)
-            net.save_params(target)
+            self.save_model(net)
+            self._sink("A checkpoint was triggered in epoch {}.".format(
+                len(net.history) + 1
+            ), net.verbose)
 
         net.history.record('event_cp', bool(do_checkpoint))
+
+    def save_model(self, net):
+        if self.f_params:
+            net.save_params(self._format_target(net, self.f_params))
+        if self.f_history:
+            net.save_history(self._format_target(net, self.f_history))
+        if self.f_pickle:
+            f_pickle = self._format_target(net, self.f_pickle)
+            with open_file_like(f_pickle, 'wb') as f:
+                pickle.dump(net, f)
+
+    def _format_target(self, net, f):
+        if isinstance(f, str):
+            return f.format(
+                net=net,
+                last_epoch=net.history[-1],
+                last_batch=net.history[-1, 'batches', -1],
+            )
+        return f
 
     def _sink(self, text, verbose):
         #  We do not want to be affected by verbosity if sink is not print
