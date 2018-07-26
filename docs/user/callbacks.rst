@@ -179,25 +179,30 @@ Checkpoint
 ----------
 
 The :class:`.Checkpoint` callback creates a checkpoint of your model
-parameters after each epoch if your validation loss improved.
-
-To change where your model is saved, change the ``target``
-argument. To change under what circumstances your model is saved,
-change the ``monitor`` argument. The latter can take 3 types of
+after each epoch that met certain criteria. By default, the condition
+is that the validation loss has improved, however you may change this
+by specifying the ``monitor`` parameter. It can take three types of
 arguments:
 
-- ``None``: The model is saved after each epoch
+- ``None``: The model is saved after each epoch;
 - string: The model checks whether the last entry in the model
   ``history`` for that key is truthy. This is useful in conjunction
   with scores determined by a scoring callback. They write a
   ``<score>_best`` entry to the ``history``, which can be used for
   checkpointing. By default, the :class:`.Checkpoint` callback looks
-  at ``'valid_loss_best'``.
+  at ``'valid_loss_best'``;
 - function or callable: In that case, the function should take the
   :class:`.NeuralNet` instance as sole input and return a bool as
   output.
 
-The model parameters are saved using
-:func:`~skorch.net.NeuralNet.save_params`. Please refer to
-:ref:`saving and loading` for more information about restoring your
-network from a checkpoint.
+To specify where and how your model is saved, change the arguments
+starting with ``f_``:
+
+- ``f_params``: to save model parameters (uses
+  :func:`~skorch.net.NeuralNet.save_params`);
+- ``f_history``: to save training history (uses
+  :func:`~skorch.net.NeuralNet.save_history`);
+- ``f_pickle``: to pickle the entire model object.
+
+Please refer to :ref:`saving and loading` for more information about
+restoring your network from a checkpoint.

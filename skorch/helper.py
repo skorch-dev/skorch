@@ -84,8 +84,8 @@ class SliceDict(dict):
 
 
 def filter_requires_grad(pgroups):
-    """Returns parameter groups where parameters with
-    ``requires_grad==False`` are filtered out.
+    """Returns parameter groups where parameters
+    that don't require a gradient are filtered out.
 
     Parameters
     ----------
@@ -100,8 +100,14 @@ def filter_requires_grad(pgroups):
 
 
 def filtered_optimizer(optimizer, filter_fn):
-    """Wraps an optimizer that filters out parameters with
-    ``require_grad==False`` in ``pgroups``.
+    """Wraps an optimizer that filters out parameters where
+    ``filter_fn`` over ``pgroups`` returns ``False``.
+    This function can be used, for example, to filter parameters
+    that do not require a gradient:
+
+    >>> from skorch.helper import filtered_optimizer, filter_requires_grad
+    >>> optimizer = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
+    >>> net = NeuralNetClassifier(module, optimizer=optimizer)
 
     Parameters
     ----------

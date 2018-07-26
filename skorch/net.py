@@ -248,7 +248,7 @@ class NeuralNet(object):
                 continue
             unexpected_kwargs.append(key)
         if unexpected_kwargs:
-            msg = ("__init__() got unexpected argument(s) {}."
+            msg = ("__init__() got unexpected argument(s) {}. "
                    "Either you made a typo, or you added new arguments "
                    "in a subclass; if that is the case, the subclass "
                    "should deal with the new arguments explicitely.")
@@ -1175,13 +1175,8 @@ class NeuralNet(object):
         params.update(params_cb)
         return params
 
-    # XXX remove once deprecation for use_cuda is phased out
-    # Also remember to update NeuralNet docstring
     def _check_deprecated_params(self, **kwargs):
-        if kwargs.get('use_cuda') is not None:
-            msg = ("The parameter use_cuda is no longer supported. Use "
-                   "device='cuda' instead.")
-            raise ValueError(msg)
+        pass
 
     def set_params(self, **kwargs):
         """Set the parameters of this class.
