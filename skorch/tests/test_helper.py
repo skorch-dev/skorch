@@ -198,7 +198,7 @@ class TestFilterParameterGroupsRequiresGrad():
             'params': [
                 torch.zeros(1, requires_grad=True),
                 torch.zeros(1, requires_grad=False)
-            ], 'lr':0.1
+            ], 'lr': 0.1
         }, {
             'params': [torch.zeros(1, requires_grad=False)]
         }]
@@ -216,7 +216,7 @@ class TestFilterParameterGroupsRequiresGrad():
             'params': [
                 torch.zeros(1, requires_grad=False),
                 torch.zeros(1, requires_grad=False)
-            ], 'lr':0.1
+            ], 'lr': 0.1
         }, {
             'params': [torch.zeros(1, requires_grad=False)]
         }]
