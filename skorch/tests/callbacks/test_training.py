@@ -20,6 +20,16 @@ class TestCheckpoint:
             mock.side_effect = lambda x: x
             yield mock
 
+    @pytest.yield_fixture
+    def save_history_mock(self):
+        with patch('skorch.NeuralNet.save_history') as mock:
+            yield mock
+
+    @pytest.yield_fixture
+    def pickle_dump_mock(self):
+        with patch('pickle.dump') as mock:
+            yield mock
+
     @pytest.fixture
     def net_cls(self):
         """very simple network that trains for 10 epochs"""
@@ -93,7 +103,7 @@ class TestCheckpoint:
             ('my_score', scoring),
             checkpoint_cls(
                 monitor='epoch_3_scorer',
-                target='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
+                f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
                 sink=sink),
         ])
         net.fit(*data)
@@ -104,6 +114,41 @@ class TestCheckpoint:
         assert all((x is False) for x in net.history[:2, 'event_cp'])
         assert net.history[2, 'event_cp'] is True
         assert all((x is False) for x in net.history[3:, 'event_cp'])
+
+    def test_save_all_targets(
+            self, save_params_mock, save_history_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data):
+        net = net_cls(callbacks=[
+            checkpoint_cls(monitor=None, f_params='params.pt',
+                f_history='history.json', f_pickle='model.pkl'),
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == len(net.history)
+        assert save_history_mock.call_count == len(net.history)
+        assert pickle_dump_mock.call_count == len(net.history)
+        save_params_mock.assert_called_with('params.pt')
+        save_history_mock.assert_called_with('history.json')
+
+    def test_save_no_targets(
+            self, save_params_mock, save_history_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data):
+        net = net_cls(callbacks=[
+            checkpoint_cls(monitor=None, f_params=None, f_history=None,
+                f_pickle=None),
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 0
+        assert save_history_mock.call_count == 0
+        assert pickle_dump_mock.call_count == 0
+
+    def test_target_argument(self, net_cls, checkpoint_cls):
+        # TODO: remove this test when the target argument is removed
+        # after its deprecation grace period is over.
+        with pytest.warns(DeprecationWarning):
+            checkpoint = checkpoint_cls(target='foobar.pt')
+        assert checkpoint.f_params == 'foobar.pt'
 
 
 class TestEarlyStopping:
