@@ -521,7 +521,9 @@ class NeuralNet(object):
 
         self.notify(
             'on_grad_computed',
-            named_parameters=list(self.module_.named_parameters())
+            named_parameters=list(self.module_.named_parameters()),
+            X=Xi,
+            y=yi
         )
 
         return {
