@@ -327,9 +327,9 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
 
     Parameters
     ----------
-    dataset : skorch.dataset.Dataset or torch.utils.data.dataset.Subset
+    dataset : skorch.dataset.Dataset or torch.utils.data.Subset
       The incoming dataset should be a ``skorch.dataset.Dataset`` or a
-      ``torch.utils.data.dataset.Subset`` of a
+      ``torch.utils.data.Subset`` of a
       ``skorch.dataset.Dataset``.
 
     X_indexing : function/callable or None (default=None)
