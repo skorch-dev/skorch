@@ -68,11 +68,11 @@ def to_tensor(X, device):
     elif isinstance(X, (list, tuple)):
         return [to_tensor_(x) for x in X]
     elif np.isscalar(X):
-        return torch.tensor(X).to(device)
+        return torch.as_tensor(X, device=device)
     elif isinstance(X, Sequence):
-        return torch.tensor(np.array(X)).to(device)
+        return torch.as_tensor(np.array(X), device=device)
     elif isinstance(X, np.ndarray):
-        return torch.tensor(X).to(device)
+        return torch.as_tensor(X, device=device)
     elif isinstance(X, nn.utils.rnn.PackedSequence):
         return X
     else:

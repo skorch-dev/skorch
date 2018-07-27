@@ -503,7 +503,7 @@ class TestTrainSplitIsUsed:
 
     @pytest.fixture
     def data(self):
-        X = torch.arange(0, 12).view(4, 3)
+        X = torch.arange(0, 12, dtype=torch.float32).view(4, 3)
         y = torch.LongTensor([0, 1, 1, 0])
         return X, y
 
