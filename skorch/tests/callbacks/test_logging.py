@@ -74,6 +74,13 @@ class TestPrintLog:
         expected = ['epoch', 'nmse', 'train_loss', 'valid_loss']
         assert columns == expected
 
+    def test_header_partial_fit(self, net, data, sink):
+        net.partial_fit(*data)
+        second_header = sink.call_args_list[4][0][0]
+        columns = second_header.split()
+        expected = ['epoch', 'nmse', 'train_loss', 'valid_loss']
+        assert columns == expected
+
     def test_lines(self, sink):
         lines = sink.call_args_list[1][0][0].split()
         # Lines have length 2 + length of column, or 8 if the column

@@ -106,6 +106,9 @@ class PrintLog(Callback):
         self.keys_ignored_.add('batches')
         return self
 
+    def on_train_begin(self, net, **kwargs):
+        self.first_iteration_ = True
+
     def format_row(self, row, key, color):
         """For a given row from the table, format it (i.e. floating
         points and color if applicable).
