@@ -1,4 +1,4 @@
-FROM nvidia/cuda:8.0-cudnn7-devel
+FROM nvidia/cuda:9.0-cudnn7-runtime
 
 RUN apt-get update && \
 	apt-get install -y python3.5-dev vim git g++ sudo zip python3-setuptools
@@ -6,7 +6,7 @@ RUN easy_install3 --upgrade pip setuptools
 
 ENV PIP_CACHE_DIR=/cache PYTHONDONTWRITEBYTECODE=1
 
-RUN pip3 install http://download.pytorch.org/whl/cu90/torch-0.4.0-cp35-cp35m-linux_x86_64.whl
+RUN pip3 install torch
 RUN pip3 install torchvision
 
 WORKDIR /app

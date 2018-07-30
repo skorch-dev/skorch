@@ -359,7 +359,7 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
 def is_skorch_dataset(ds):
     """Checks if the supplied dataset is an instance of
     ``skorch.dataset.Dataset`` even when it is nested inside
-    ``torch.util.data.dataset.Subset``."""
+    ``torch.util.data.Subset``."""
     from skorch.dataset import Dataset
     if isinstance(ds, Subset):
         return is_skorch_dataset(ds.dataset)

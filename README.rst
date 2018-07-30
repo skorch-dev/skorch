@@ -212,7 +212,7 @@ In general, this should work (assuming CUDA 9):
     # using conda:
     conda install pytorch cuda90 -c pytorch
     # using pip
-    pip install http://download.pytorch.org/whl/cu90/torch-0.4.0-cp36-cp36m-linux_x86_64.whl
+    pip install torch
 
 =============
 Communication
