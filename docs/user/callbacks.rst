@@ -48,30 +48,35 @@ on_train_begin
 ^^^^^^^^^^^^^^
 
 Called once at the start of the training process (e.g. when calling
-fit).
+fit).  Signature: `on_train_begin(net, X, y)`.
 
 on_train_end
 ^^^^^^^^^^^^
 
-Called once at the end of the training process.
+Called once at the end of the training process.  Signature:
+`on_train_end(net, X, y)`.
 
 on_epoch_begin
 ^^^^^^^^^^^^^^
 
 Called once at the start of the epoch, i.e. possibly several times per
 fit call. Gets training and validation data as additional input.
+Signature: `on_epoch_begin(net, dataset_train, dataset_valid)`
 
 on_epoch_end
 ^^^^^^^^^^^^
 
 Called once at the end of the epoch, i.e. possibly several times per
 fit call. Gets training and validation data as additional input.
+Signature: `on_epoch_end(net, dataset_train, dataset_valid)`
 
 on_batch_begin
 ^^^^^^^^^^^^^^
 
 Called once before each batch of data is processed, i.e. possibly
-several times per epoch. Gets batch data as additional input.
+several times per epoch. Gets batch data as additional input.  
+Also includes a bool indicating if this is a training batch or not.
+Signature: `on_batch_begin(net, Xi, yi, training)`
 
 
 on_batch_end
@@ -79,13 +84,15 @@ on_batch_end
 
 Called once after each batch of data is processed, i.e. possibly
 several times per epoch. Gets batch data as additional input.
+Signature: `on_batch_end(net, Xi, yi, training, loss, y_pred)`
 
 on_grad_computed
 ^^^^^^^^^^^^^^^^
 
 Called once per batch after gradients have been computed but before an
 update step was performed. Gets the module parameters as additional
-input. Useful if you want to tinker with gradients.
+input as well as the batch data. Useful if you want to tinker with
+gradients. Signature: `on_grad_computed(net, named_parameters, Xi, yi)`
 
 
 Deactivating callbacks
