@@ -547,22 +547,22 @@ class TestNeuralNet:
 
     def test_callback_name_collides_with_default(self, net_cls, module_cls):
         net = net_cls(module_cls, callbacks=[('train_loss', Mock())])
+        net.initialize()
+        cbs = dict(net.callbacks_)
 
-        with pytest.raises(ValueError) as exc:
-            net.initialize()
-        expected = "The callback name 'train_loss' appears more than once."
-        assert str(exc.value) == expected
+        assert 'train_loss_1' in cbs
+        assert 'train_loss_2' in cbs
 
     def test_callback_same_name_twice(self, net_cls, module_cls):
         callbacks = [('cb0', Mock()),
                      ('cb1', Mock()),
                      ('cb0', Mock())]
         net = net_cls(module_cls, callbacks=callbacks)
+        net.initialize()
+        cbs = dict(net.callbacks_)
 
-        with pytest.raises(ValueError) as exc:
-            net.initialize()
-        expected = "The callback name 'cb0' appears more than once."
-        assert str(exc.value) == expected
+        assert 'cb0_1' in cbs
+        assert 'cb0_2' in cbs
 
     def test_callback_same_inferred_name_twice(self, net_cls, module_cls):
         cb0 = Mock()
@@ -571,10 +571,13 @@ class TestNeuralNet:
         cb1.__class__.__name__ = 'some-name'
         net = net_cls(module_cls, callbacks=[cb0, cb1])
 
-        with pytest.raises(ValueError) as exc:
-            net.initialize()
-        expected = "The callback name 'some-name' appears more than once."
-        assert str(exc.value) == expected
+        net.initialize()
+
+        cbs = dict(net.callbacks_)
+        assert 'some-name_1' in cbs
+        assert 'some-name_2' in cbs
+        assert cbs['some-name_1'] is cb0
+        assert cbs['some-name_2'] is cb1
 
     def test_in_sklearn_pipeline(self, pipe, data):
         X, y = data

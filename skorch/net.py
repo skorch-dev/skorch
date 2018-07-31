@@ -363,7 +363,7 @@ class NeuralNet(object):
         not unique, a ValueError is raised.
 
         """
-        names_seen = set()
+        names_seen = {}
         callbacks_ = []
 
         class Dummy:
@@ -372,11 +372,19 @@ class NeuralNet(object):
             pass
 
         for name, cb in self._yield_callbacks():
-            if name in names_seen:
-                raise ValueError("The callback name '{}' appears more than "
-                                 "once.".format(name))
-            names_seen.add(name)
+            names_seen[name] = names_seen.get(name, []) + [cb]
 
+        named_callbacks = []
+
+        for name, cbs in names_seen.items():
+            for i, cb in enumerate(cbs):
+                if len(cbs) > 1:
+                    unique_name = '{}_{}'.format(name, i+1)
+                else:
+                    unique_name = name
+                named_callbacks.append((unique_name, cb))
+
+        for name, cb in named_callbacks:
             # check if callback itself is changed
             param_callback = getattr(self, 'callbacks__' + name, Dummy)
             if param_callback is not Dummy:  # callback itself was set
