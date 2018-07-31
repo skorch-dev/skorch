@@ -547,22 +547,11 @@ class TestNeuralNet:
 
     def test_callback_name_collides_with_default(self, net_cls, module_cls):
         net = net_cls(module_cls, callbacks=[('train_loss', Mock())])
-        net.initialize()
-        cbs = dict(net.callbacks_)
-
-        assert 'train_loss_1' in cbs
-        assert 'train_loss_2' in cbs
-
-    def test_callback_same_name_twice(self, net_cls, module_cls):
-        callbacks = [('cb0', Mock()),
-                     ('cb1', Mock()),
-                     ('cb0', Mock())]
-        net = net_cls(module_cls, callbacks=callbacks)
-        net.initialize()
-        cbs = dict(net.callbacks_)
-
-        assert 'cb0_1' in cbs
-        assert 'cb0_2' in cbs
+        with pytest.raises(ValueError) as exc:
+            net.initialize()
+        expected = ("Found duplicate user-set callback name 'train_loss'. "
+                    "Use unique names to correct this.")
+        assert str(exc.value) == expected
 
     def test_callback_same_inferred_name_twice(self, net_cls, module_cls):
         cb0 = Mock()
@@ -578,6 +567,35 @@ class TestNeuralNet:
         assert 'some-name_2' in cbs
         assert cbs['some-name_1'] is cb0
         assert cbs['some-name_2'] is cb1
+
+    def test_callback_custom_name_is_untouched(self, net_cls, module_cls):
+        callbacks = [('cb0', Mock()),
+                     ('cb0', Mock())]
+        net = net_cls(module_cls, callbacks=callbacks)
+
+        with pytest.raises(ValueError) as exc:
+            net.initialize()
+        expected = ("Found duplicate user-set callback name 'cb0'. "
+                    "Use unique names to correct this.")
+        assert str(exc.value) == expected
+
+    def test_callback_unique_naming_avoids_conflicts(self, net_cls,
+            module_cls):
+        from skorch.callbacks import Callback
+
+        class cb0(Callback):
+            pass
+
+        class cb0_1(Callback):
+            pass
+
+        callbacks = [cb0(), cb0(), cb0_1()]
+        net = net_cls(module_cls, callbacks=callbacks)
+        with pytest.raises(ValueError) as exc:
+            net.initialize()
+        expected = ("Setting unique name failed since the "
+                    "new name 'cb0_1' exists already.")
+        assert str(exc.value) == expected
 
     def test_in_sklearn_pipeline(self, pipe, data):
         X, y = data

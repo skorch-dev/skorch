@@ -324,7 +324,8 @@ class NeuralNet(object):
         pass
 
     def _yield_callbacks(self):
-        """Yield all callbacks set on this instance.
+        """Yield all callbacks set on this instance including
+        a set whether its name was set by the user.
 
         Handles these cases:
           * default and user callbacks
@@ -336,18 +337,57 @@ class NeuralNet(object):
         print_logs = []
         for item in self.get_default_callbacks() + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
+                named_by_user = True
                 name, cb = item
             else:
+                named_by_user = False
                 cb = item
                 if isinstance(cb, type):  # uninitialized:
                     name = cb.__name__
                 else:
                     name = cb.__class__.__name__
             if isinstance(cb, PrintLog) or (cb == PrintLog):
-                print_logs.append((name, cb))
+                print_logs.append((name, cb, named_by_user))
             else:
-                yield name, cb
+                yield name, cb, named_by_user
         yield from print_logs
+
+    def _callbacks_grouped_by_name(self):
+        """Group callbacks by name and collect names set by the user."""
+        callbacks, names_set_by_user = {}, set()
+        for name, cb, named_by_user in self._yield_callbacks():
+            if named_by_user:
+                names_set_by_user.add(name)
+            callbacks[name] = callbacks.get(name, []) + [cb]
+        return callbacks, names_set_by_user
+
+    def _uniquely_named_callbacks(self):
+        """Make sure that the returned dict of named callbacks is unique
+        w.r.t. to the callback name. User-defined names will not be
+        renamed on conflict, instead an exception will be raised. The
+        same goes for the event where renaming leads to a conflict.
+        """
+        grouped_cbs, names_set_by_user = self._callbacks_grouped_by_name()
+        named_callbacks = []
+
+        for name, cbs in grouped_cbs.items():
+            if len(cbs) > 1 and name in names_set_by_user:
+                raise ValueError("Found duplicate user-set callback name "
+                                 "'{}'. Use unique names to correct this."
+                                 .format(name))
+
+            for i, cb in enumerate(cbs):
+                if len(cbs) > 1:
+                    unique_name = '{}_{}'.format(name, i+1)
+                    if unique_name in grouped_cbs:
+                        raise ValueError("Setting unique name failed since "
+                                         "the new name '{}' exists already."
+                                         .format(unique_name))
+                else:
+                    unique_name = name
+
+                named_callbacks.append((unique_name, cb))
+        return named_callbacks
 
     def initialize_callbacks(self):
         """Initializes all callbacks and save the result in the
@@ -363,7 +403,6 @@ class NeuralNet(object):
         not unique, a ValueError is raised.
 
         """
-        names_seen = {}
         callbacks_ = []
 
         class Dummy:
@@ -371,18 +410,7 @@ class NeuralNet(object):
             # legitimate value to be set.
             pass
 
-        for name, cb in self._yield_callbacks():
-            names_seen[name] = names_seen.get(name, []) + [cb]
-
-        named_callbacks = []
-
-        for name, cbs in names_seen.items():
-            for i, cb in enumerate(cbs):
-                if len(cbs) > 1:
-                    unique_name = '{}_{}'.format(name, i+1)
-                else:
-                    unique_name = name
-                named_callbacks.append((unique_name, cb))
+        named_callbacks = self._uniquely_named_callbacks()
 
         for name, cb in named_callbacks:
             # check if callback itself is changed
