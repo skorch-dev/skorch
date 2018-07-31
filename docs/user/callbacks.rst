@@ -88,6 +88,29 @@ update step was performed. Gets the module parameters as additional
 input. Useful if you want to tinker with gradients.
 
 
+Setting callback parameters
+---------------------------
+
+You can set specific callback parameters using the ususal `set_params`
+interface on the network by using the `callbacks__` prefix and the
+callback's name. For example to change the scoring order of the train
+loss you can write this:
+
+.. code:: python
+
+    net = NeuralNet()
+    net.set_params(callbacks__train_loss__lower_is_better=False)
+
+Changes will be applied on initialization and callbacks that
+are changed using `set_params` will be re-initialized.
+
+The name you use to address the callback can be chosen during
+initialization of the network and defaults to the class name.
+If there is a conflict, the conflicting names will be made unique
+by appending a count suffix starting at 1, e.g.
+``EpochScoring_1``, ``EpochScoring_2``, etc.
+
+
 Deactivating callbacks
 -----------------------
 
