@@ -593,8 +593,9 @@ class TestNeuralNet:
         net = net_cls(module_cls, callbacks=callbacks)
         with pytest.raises(ValueError) as exc:
             net.initialize()
-        expected = ("Setting unique name failed since the "
-                    "new name 'cb0_1' exists already.")
+        expected = ("Assigning new callback name failed "
+                    "since new name 'cb0_1' exists already.")
+
         assert str(exc.value) == expected
 
     def test_in_sklearn_pipeline(self, pipe, data):
