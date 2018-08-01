@@ -145,14 +145,15 @@ class NeuralNet(object):
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those returned by
       ``get_default_callbacks``. Each callback should inherit from
-      :class:`.Callback`. If not ``None``, a list of tuples (name,
-      callback) should be passed, where names should be unique.
-      Callbacks may or may not be instantiated.
-      Alternatively, it is possible to just pass a list of callbacks,
-      which results in names being inferred from the class name.
+      :class:`.Callback`. If not ``None``, a list of callbacks is
+      expected where the callback names are inferred from the class
+      name. Name conflicts are resolved by appending a count suffix
+      starting with 1, e.g. ``EpochScoring_1``. Alternatively,
+      a tuple ``(name, callback)`` can be passed, where ``name``
+      should be unique. Callbacks may or may not be instantiated.
       The callback name can be used to set parameters on specific
       callbacks (e.g., for the callback with name ``'print_log'``, use
-      ``net.set_params(callbacks__print_log__keys=['epoch',
+      ``net.set_params(callbacks__print_log__keys_ignored=['epoch',
       'train_loss'])``).
 
     warm_start : bool (default=False)
@@ -378,8 +379,8 @@ class NeuralNet(object):
                 if len(cbs) > 1:
                     unique_name = '{}_{}'.format(name, i+1)
                     if unique_name in grouped_cbs:
-                        raise ValueError("Setting unique name failed since "
-                                         "the new name '{}' exists already."
+                        raise ValueError("Assigning new callback name failed "
+                                         "since new name '{}' exists already."
                                          .format(unique_name))
                 else:
                     unique_name = name
