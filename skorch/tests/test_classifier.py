@@ -84,10 +84,10 @@ class TestNeuralNet:
         X = data[0]
 
         y_proba = net_fit.predict_proba(X)
-        assert np.allclose(y_proba.sum(1), 1, rtol=1e-7)
+        assert np.allclose(y_proba.sum(1), 1, rtol=1e-5)
 
         y_pred = net_fit.predict(X)
-        assert np.allclose(np.argmax(y_proba, 1), y_pred, rtol=1e-7)
+        assert np.allclose(np.argmax(y_proba, 1), y_pred, rtol=1e-5)
 
     # classifier-specific test
     def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
@@ -212,7 +212,7 @@ class TestNeuralNetBinaryClassifier:
     def test_custom_loss_does_not_call_sigmoid(
             self, net_cls, data, module_cls, monkeypatch):
         mock = Mock(side_effect=lambda x: x)
-        monkeypatch.setattr(torch.nn.functional, "sigmoid", mock)
+        monkeypatch.setattr(torch, "sigmoid", mock)
 
         net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss)
         X, y = data
@@ -224,7 +224,7 @@ class TestNeuralNetBinaryClassifier:
     def test_default_loss_does_call_sigmoid(
             self, net_cls, data, module_cls, monkeypatch):
         mock = Mock(side_effect=lambda x: x)
-        monkeypatch.setattr(torch.nn.functional, "sigmoid", mock)
+        monkeypatch.setattr(torch, "sigmoid", mock)
 
         net = net_cls(module_cls, max_epochs=1, lr=0.1)
         X, y = data

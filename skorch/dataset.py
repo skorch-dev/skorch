@@ -50,10 +50,10 @@ def get_len(data):
 def uses_placeholder_y(ds):
     """If ``ds`` is a ``skorch.dataset.Dataset`` or a
     ``skorch.dataset.Dataset`` nested inside a
-    ``torch.utils.data.dataset.Subset`` and uses
+    ``torch.utils.data.Subset`` and uses
     y as a placeholder, return ``True``."""
 
-    if isinstance(ds, torch.utils.data.dataset.Subset):
+    if isinstance(ds, torch.utils.data.Subset):
         return uses_placeholder_y(ds.dataset)
     return isinstance(ds, Dataset) and ds.y is None
 
@@ -274,8 +274,8 @@ class CVSplit(object):
             args = args + (to_numpy(y),)
 
         idx_train, idx_valid = next(iter(cv.split(*args, groups=groups)))
-        dataset_train = torch.utils.data.dataset.Subset(dataset, idx_train)
-        dataset_valid = torch.utils.data.dataset.Subset(dataset, idx_valid)
+        dataset_train = torch.utils.data.Subset(dataset, idx_train)
+        dataset_valid = torch.utils.data.Subset(dataset, idx_valid)
         return dataset_train, dataset_valid
 
     def __repr__(self):

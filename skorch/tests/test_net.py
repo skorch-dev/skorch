@@ -409,14 +409,14 @@ class TestNeuralNet:
 
         net.set_params(
             module__num_units=20,
-            module__nonlin=F.tanh,
+            module__nonlin=torch.tanh,
             lr=0.2,
         )
         net.fit(X, y)
 
         assert net.module_.dense0.out_features == 20
         assert net.module_.dense1.in_features == 20
-        assert net.module_.nonlin is F.tanh
+        assert net.module_.nonlin is torch.tanh
         assert np.isclose(net.lr, 0.2)
 
     def test_set_params_then_initialize_remembers_param(
@@ -493,13 +493,13 @@ class TestNeuralNet:
         net = net_cls(
             module=module_cls,
             module__num_units=20,
-            module__nonlin=F.tanh,
+            module__nonlin=torch.tanh,
         )
         net.fit(X, y)
 
         assert net.module_.dense0.out_features == 20
         assert net.module_.dense1.in_features == 20
-        assert net.module_.nonlin is F.tanh
+        assert net.module_.nonlin is torch.tanh
 
     def test_module_initialized_with_partial_module(self, net_cls, module_cls):
         net = net_cls(partial(module_cls, num_units=123))

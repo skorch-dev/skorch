@@ -1,4 +1,4 @@
 numpy>=1.13.3
-http://download.pytorch.org/whl/cpu/torch-0.4.0-cp35-cp35m-linux_x86_64.whl
+torch==0.4.1
 sphinx-rtd-theme==0.4.0
 numpydoc==0.8.0

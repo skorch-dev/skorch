@@ -68,11 +68,11 @@ def to_tensor(X, device):
     elif isinstance(X, (list, tuple)):
         return [to_tensor_(x) for x in X]
     elif np.isscalar(X):
-        return torch.tensor(X).to(device)
+        return torch.as_tensor(X, device=device)
     elif isinstance(X, Sequence):
-        return torch.tensor(np.array(X)).to(device)
+        return torch.as_tensor(np.array(X), device=device)
     elif isinstance(X, np.ndarray):
-        return torch.tensor(X).to(device)
+        return torch.as_tensor(X, device=device)
     elif isinstance(X, nn.utils.rnn.PackedSequence):
         return X
     else:
@@ -327,9 +327,9 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
 
     Parameters
     ----------
-    dataset : skorch.dataset.Dataset or torch.utils.data.dataset.Subset
+    dataset : skorch.dataset.Dataset or torch.utils.data.Subset
       The incoming dataset should be a ``skorch.dataset.Dataset`` or a
-      ``torch.utils.data.dataset.Subset`` of a
+      ``torch.utils.data.Subset`` of a
       ``skorch.dataset.Dataset``.
 
     X_indexing : function/callable or None (default=None)
@@ -359,7 +359,7 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
 def is_skorch_dataset(ds):
     """Checks if the supplied dataset is an instance of
     ``skorch.dataset.Dataset`` even when it is nested inside
-    ``torch.util.data.dataset.Subset``."""
+    ``torch.util.data.Subset``."""
     from skorch.dataset import Dataset
     if isinstance(ds, Subset):
         return is_skorch_dataset(ds.dataset)
