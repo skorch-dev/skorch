@@ -66,7 +66,8 @@ class LRScheduler(Callback):
         """
         test = torch.ones(1, requires_grad=True)
         opt = torch.optim.SGD([{'params': test, 'lr': initial_lr}])
-        sch = self.policy(opt, **self.kwargs)
+        policy_cls = self._get_policy_cls()
+        sch = policy_cls(opt, **self.kwargs)
 
         lrs = []
         has_batch_step = (hasattr(sch, 'batch_step')
@@ -78,12 +79,14 @@ class LRScheduler(Callback):
         return np.array(lrs)
 
     def initialize(self):
-        if isinstance(self.policy, str):
-            self.policy_ = getattr(sys.modules[__name__], self.policy)
-        else:
-            self.policy_ = self.policy
+        self.policy_ = self._get_policy_cls()
         self.lr_scheduler_ = None
         return self
+
+    def _get_policy_cls(self):
+        if isinstance(self.policy, str):
+            return getattr(sys.modules[__name__], self.policy)
+        return self.policy
 
     @property
     def kwargs(self):

@@ -19,16 +19,18 @@ from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler, CyclicLR
 
 class TestLRCallbacks:
 
-    def test_simulate_lrs_epoch_step(self):
-        lr_policy = LRScheduler(StepLR, step_size=2)
-        lrs = lr_policy.simulate(6, 1)
+    @pytest.mark.parametrize('policy', [StepLR, 'StepLR'])
+    def test_simulate_lrs_epoch_step(self, policy):
+        lr_sch = LRScheduler(policy, step_size=2)
+        lrs = lr_sch.simulate(6, 1)
         expected = np.array([1.0, 1.0, 0.1, 0.1, 0.01, 0.01])
         assert np.allclose(expected, lrs)
 
-    def test_simulate_lrs_batch_step(self):
-        lr_policy = LRScheduler(
-            CyclicLR, base_lr=1, max_lr=5, step_size_up=4)
-        lrs = lr_policy.simulate(11, 1)
+    @pytest.mark.parametrize('policy', [CyclicLR, 'CyclicLR'])
+    def test_simulate_lrs_batch_step(self, policy):
+        lr_sch = LRScheduler(
+            policy, base_lr=1, max_lr=5, step_size_up=4)
+        lrs = lr_sch.simulate(11, 1)
         expected = np.array([1, 2, 3, 4, 5, 4, 3, 2, 1, 2, 3])
         assert np.allclose(expected, lrs)
 
