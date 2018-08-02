@@ -145,14 +145,15 @@ class NeuralNet(object):
     callbacks : None or list of Callback instances (default=None)
       More callbacks, in addition to those returned by
       ``get_default_callbacks``. Each callback should inherit from
-      :class:`.Callback`. If not ``None``, a list of tuples (name,
-      callback) should be passed, where names should be unique.
-      Callbacks may or may not be instantiated.
-      Alternatively, it is possible to just pass a list of callbacks,
-      which results in names being inferred from the class name.
+      :class:`.Callback`. If not ``None``, a list of callbacks is
+      expected where the callback names are inferred from the class
+      name. Name conflicts are resolved by appending a count suffix
+      starting with 1, e.g. ``EpochScoring_1``. Alternatively,
+      a tuple ``(name, callback)`` can be passed, where ``name``
+      should be unique. Callbacks may or may not be instantiated.
       The callback name can be used to set parameters on specific
       callbacks (e.g., for the callback with name ``'print_log'``, use
-      ``net.set_params(callbacks__print_log__keys=['epoch',
+      ``net.set_params(callbacks__print_log__keys_ignored=['epoch',
       'train_loss'])``).
 
     warm_start : bool (default=False)
@@ -324,7 +325,8 @@ class NeuralNet(object):
         pass
 
     def _yield_callbacks(self):
-        """Yield all callbacks set on this instance.
+        """Yield all callbacks set on this instance including
+        a set whether its name was set by the user.
 
         Handles these cases:
           * default and user callbacks
@@ -336,18 +338,53 @@ class NeuralNet(object):
         print_logs = []
         for item in self.get_default_callbacks() + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
+                named_by_user = True
                 name, cb = item
             else:
+                named_by_user = False
                 cb = item
                 if isinstance(cb, type):  # uninitialized:
                     name = cb.__name__
                 else:
                     name = cb.__class__.__name__
             if isinstance(cb, PrintLog) or (cb == PrintLog):
-                print_logs.append((name, cb))
+                print_logs.append((name, cb, named_by_user))
             else:
-                yield name, cb
+                yield name, cb, named_by_user
         yield from print_logs
+
+    def _callbacks_grouped_by_name(self):
+        """Group callbacks by name and collect names set by the user."""
+        callbacks, names_set_by_user = {}, set()
+        for name, cb, named_by_user in self._yield_callbacks():
+            if named_by_user:
+                names_set_by_user.add(name)
+            callbacks[name] = callbacks.get(name, []) + [cb]
+        return callbacks, names_set_by_user
+
+    def _uniquely_named_callbacks(self):
+        """Make sure that the returned dict of named callbacks is unique
+        w.r.t. to the callback name. User-defined names will not be
+        renamed on conflict, instead an exception will be raised. The
+        same goes for the event where renaming leads to a conflict.
+        """
+        grouped_cbs, names_set_by_user = self._callbacks_grouped_by_name()
+        for name, cbs in grouped_cbs.items():
+            if len(cbs) > 1 and name in names_set_by_user:
+                raise ValueError("Found duplicate user-set callback name "
+                                 "'{}'. Use unique names to correct this."
+                                 .format(name))
+
+            for i, cb in enumerate(cbs):
+                if len(cbs) > 1:
+                    unique_name = '{}_{}'.format(name, i+1)
+                    if unique_name in grouped_cbs:
+                        raise ValueError("Assigning new callback name failed "
+                                         "since new name '{}' exists already."
+                                         .format(unique_name))
+                else:
+                    unique_name = name
+                yield unique_name, cb
 
     def initialize_callbacks(self):
         """Initializes all callbacks and save the result in the
@@ -363,7 +400,6 @@ class NeuralNet(object):
         not unique, a ValueError is raised.
 
         """
-        names_seen = set()
         callbacks_ = []
 
         class Dummy:
@@ -371,12 +407,7 @@ class NeuralNet(object):
             # legitimate value to be set.
             pass
 
-        for name, cb in self._yield_callbacks():
-            if name in names_seen:
-                raise ValueError("The callback name '{}' appears more than "
-                                 "once.".format(name))
-            names_seen.add(name)
-
+        for name, cb in self._uniquely_named_callbacks():
             # check if callback itself is changed
             param_callback = getattr(self, 'callbacks__' + name, Dummy)
             if param_callback is not Dummy:  # callback itself was set
