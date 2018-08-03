@@ -54,8 +54,7 @@ class Callback:
         pass
 
     def on_batch_end(self, net,
-                     Xi=None, yi=None, training=None, loss=None, y_pred=None,
-                     **kwargs):
+                     Xi=None, yi=None, training=None, **kwargs):
         """Called at the end of each batch."""
         pass
 
