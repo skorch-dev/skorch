@@ -44,11 +44,10 @@ To see a more elaborate example, look `here
 
     import numpy as np
     from sklearn.datasets import make_classification
-    import torch
     from torch import nn
     import torch.nn.functional as F
 
-    from skorch.net import NeuralNetClassifier
+    from skorch import NeuralNetClassifier
 
 
     X, y = make_classification(1000, 20, n_informative=10, random_state=0)
