@@ -1,6 +1,10 @@
 # Nuclei Image Segmentation With UNets
 
+This tutorial can be viewed at [nbviewer](https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/examples/nuclei_image_segmentation/Nuclei_Image_Segmentation.ipynb).
+
 ## Setup
+
+To run the notebook locally, please following the following setup procedure:
 
 1. Install dependencies: `pip install -r requirements.txt`
 1. Follow [Kaggle's installation and configuration documentation](https://github.com/Kaggle/kaggle-api#installation) to install and configure the kaggle cli
