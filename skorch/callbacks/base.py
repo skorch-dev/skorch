@@ -28,34 +28,40 @@ class Callback:
         """
         return self
 
-    def on_train_begin(self, net, **kwargs):
+    def on_train_begin(self, net,
+                       X=None, y=None, **kwargs):
         """Called at the beginning of training."""
         pass
 
-    def on_train_end(self, net, **kwargs):
+    def on_train_end(self, net,
+                     X=None, y=None, **kwargs):
         """Called at the end of training."""
         pass
 
-    def on_epoch_begin(self, net, **kwargs):
+    def on_epoch_begin(self, net,
+                       dataset_train=None, dataset_valid=None, **kwargs):
         """Called at the beginning of each epoch."""
         pass
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net,
+                     dataset_train=None, dataset_valid=None, **kwargs):
         """Called at the end of each epoch."""
         pass
 
-    def on_batch_begin(self, net, **kwargs):
+    def on_batch_begin(self, net,
+                       Xi=None, yi=None, training=None, **kwargs):
         """Called at the beginning of each batch."""
         pass
 
-    def on_batch_end(self, net, **kwargs):
+    def on_batch_end(self, net,
+                     Xi=None, yi=None, training=None, **kwargs):
         """Called at the end of each batch."""
         pass
 
-    def on_grad_computed(self, net, named_parameters, **kwargs):
+    def on_grad_computed(self, net, named_parameters,
+                         Xi=None, yi=None, training=None, **kwargs):
         """Called once per batch after gradients have been computed but before
         an update step was performed.
-
         """
         pass
 

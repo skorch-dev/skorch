@@ -298,30 +298,38 @@ class NeuralNet(object):
             getattr(cb, method_name)(self, **cb_kwargs)
 
     # pylint: disable=unused-argument
-    def on_train_begin(self, net, **kwargs):
+    def on_train_begin(self, net,
+                       X=None, y=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_train_end(self, net, **kwargs):
+    def on_train_end(self, net,
+                     X=None, y=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_epoch_begin(self, net, **kwargs):
+    def on_epoch_begin(self, net,
+                       dataset_train=None, dataset_valid=None, **kwargs):
         self.history.new_epoch()
         self.history.record('epoch', len(self.history))
 
     # pylint: disable=unused-argument
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net,
+                     dataset_train=None, dataset_valid=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_batch_begin(self, net, training=False, **kwargs):
+    def on_batch_begin(self, net,
+                       Xi=None, yi=None, training=False, **kwargs):
         self.history.new_batch()
 
-    def on_batch_end(self, net, **kwargs):
+    def on_batch_end(self, net,
+                     Xi=None, yi=None, training=False, **kwargs):
         pass
 
-    def on_grad_computed(self, net, named_parameters, **kwargs):
+    def on_grad_computed(self, net, named_parameters,
+                         Xi=None, yi=None,
+                         training=False, **kwargs):
         pass
 
     def _yield_callbacks(self):
@@ -552,7 +560,9 @@ class NeuralNet(object):
 
         self.notify(
             'on_grad_computed',
-            named_parameters=list(self.module_.named_parameters())
+            named_parameters=list(self.module_.named_parameters()),
+            X=Xi,
+            y=yi
         )
 
         return {
