@@ -69,7 +69,8 @@ class PatchedDataset(Dataset):
     def __len__(self):
         if self.length_ is not None:
             return self.length_
-        return len(self.coords)
+        self.length_ = len(self.coords)
+        return self.length_
 
     def __getitem__(self, idx):
         img_idx, (i, j) = self.coords[idx]
