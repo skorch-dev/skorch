@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""Each sample contains multiple masks. This script combines theese masks into
+one image, thus creating one mask for each sample.
+"""
 from multiprocessing import Pool
 from pathlib import Path
 from contextlib import ExitStack

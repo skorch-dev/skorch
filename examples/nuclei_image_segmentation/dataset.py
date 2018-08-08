@@ -11,6 +11,8 @@ from PIL import Image
 
 
 def calcuate_bboxes(im_shape, patch_size):
+    """Calculate bound boxes based on image shape and size of the bounding box
+    given by `patch_size`"""
     h, w = im_shape
     ph, pw = patch_size
 
@@ -21,6 +23,20 @@ def calcuate_bboxes(im_shape, patch_size):
 
 
 class PatchedDataset(Dataset):
+    """Creates patches of cells.
+
+    Parameters
+    ----------
+    base_dataset: CellsDataset
+        Dataset of cells
+    patch_size: tuple of ints (default=(256, 256))
+        The size of each patch
+    random_flips: bool (default=False)
+        If true, patches and masks will be randomly flipped horizontally and
+        vertically.
+    padding: int (default=16)
+        Amount of paddding around each image and mask
+    """
     def __init__(self,
                  base_dataset,
                  patch_size=(256, 256),
@@ -85,6 +101,7 @@ class PatchedDataset(Dataset):
 
 
 class CellsDataset(Dataset):
+    """Constructs cell dataset"""
     def __init__(self, sample_dirs):
         super().__init__()
         self.sample_dirs = sample_dirs

@@ -13,6 +13,20 @@ def make_decoder_block(in_channels, middle_channels, out_channels):
 
 
 class UNet(nn.Module):
+    """UNet Model inspired by the the original UNet paper
+
+    Parameters
+    ----------
+    pretrained: bool (default=True)
+        Option to use pretrained vgg16_bn based on ImageNet
+
+    References
+    ----------
+
+    .. [1] Olaf Ronneberger, Philipp Fischer, Thomas Brox, 2015,
+        "U-Net: Convolutional Networks for Biomedical Image Segmentation,".
+        "MICCAI" `<https://arxiv.org/abs/1505.04597>`_
+    """
     def __init__(self, pretrained=False):
         super().__init__()
         encoder = models.vgg16_bn(pretrained=pretrained).features
