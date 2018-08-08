@@ -5,19 +5,6 @@ from torchvision.transforms.functional import to_pil_image
 import matplotlib.pyplot as plt
 
 
-class BCEWithLogitsLossPadding(nn.Module):
-    def __init__(self, padding=16):
-        super().__init__()
-        self.padding = padding
-
-    def forward(self, input, target):
-        input = input.squeeze_(
-            dim=1)[:, self.padding:-self.padding, self.padding:-self.padding]
-        target = target.squeeze_(
-            dim=1)[:, self.padding:-self.padding, self.padding:-self.padding]
-        return binary_cross_entropy_with_logits(input, target)
-
-
 def freeze_layer(module, layer):
     for name, parameters in module.named_parameters():
         if name.startswith(layer):
