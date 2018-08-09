@@ -122,7 +122,7 @@ pass it to :class:`~skorch.net.NeuralNet`'s ``train_split`` parameter:
 
 .. code:: python
 
-    from skorch.helpers import predefined_split
+    from skorch.helper import predefined_split
 
     net = NeuralNet(
         ...,
@@ -137,7 +137,7 @@ it to :func:`~skorch.helper.predefined_split`:
 .. code:: python
 
     from sklearn.model_selection import train_test_split
-    from skorch.helpers import predefined_split
+    from skorch.helper import predefined_split
     from skorch.dataset import Dataset
 
     X_train, X_test, y_train, y_test = train_test_split(X, y)
