@@ -49,28 +49,17 @@ class PatchedDataset(Dataset):
                                     patch_size[1] + 2 * padding)
         self.padding = padding
         self.random_flips = random_flips
-        self.length_ = None
-        self.coords_ = None
 
-    @property
-    def coords(self):
-        if self.coords_ is not None:
-            return self.coords_
         coords = []
         for idx, (_, mask) in enumerate(self.base_dataset):
             w, h = mask.size
             bboxes = calcuate_bboxes((h, w), self.patch_size)
             idx_bboxes = list(zip_longest([], bboxes, fillvalue=idx))
             coords.extend(idx_bboxes)
-
-        self.coords_ = coords
-        return coords
+        self.coords = coords
 
     def __len__(self):
-        if self.length_ is not None:
-            return self.length_
-        self.length_ = len(self.coords)
-        return self.length_
+        return len(self.coords)
 
     def __getitem__(self, idx):
         img_idx, (i, j) = self.coords[idx]
