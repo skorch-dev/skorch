@@ -1,5 +1,5 @@
 """Dataset for cells"""
-from itertools import zip_longest, product, chain
+from itertools import product, chain
 import random
 
 import numpy as np
@@ -8,7 +8,6 @@ from torch.utils.data import Dataset
 from torchvision.transforms.functional import (pad, to_tensor, normalize,
                                                hflip, vflip, crop)
 from PIL import Image
-
 
 def calcuate_bboxes(im_shape, patch_size):
     """Calculate bound boxes based on image shape and size of the bounding box
@@ -20,7 +19,6 @@ def calcuate_bboxes(im_shape, patch_size):
     steps_w = chain(range(0, w - pw, pw), [w - pw])
 
     return product(steps_h, steps_w)
-
 
 class PatchedDataset(Dataset):
     """Creates patches of cells.
@@ -60,8 +58,8 @@ class PatchedDataset(Dataset):
                 image_cache.append(np.array(crop(cell, i, j, h, w)))
                 mask_cache.append(np.array(crop(mask, i, j, h, w)))
 
-        self.image_cache = np.concatenate(image_cache, 0)
-        self.mask_cache = np.concatenate(mask_cache, 0)
+        self.image_cache = np.stack(image_cache)
+        self.mask_cache = np.stack(mask_cache)
 
     def __len__(self):
         return self.mask_cache.shape[0]
