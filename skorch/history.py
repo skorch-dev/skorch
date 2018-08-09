@@ -4,7 +4,8 @@
 # pylint: disable=invalid-name
 class _missingno:
     def __init__(self, e):
-        self.e = e
+        self.error_type = type(e)
+        self.msg = str(e)
 
     def __repr__(self):
         return 'missingno'
@@ -162,7 +163,7 @@ class History(list):
                 x = filter_missing(x_dirty)
                 # pylint: disable=unidiomatic-typecheck
                 if type(x) is _missingno:
-                    raise x.e
+                    raise x.error_type(x.msg)
             return x
         raise ValueError("Invalid parameter type passed to index. "
                          "Pass string, int or tuple.")
