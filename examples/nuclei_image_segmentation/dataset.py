@@ -45,43 +45,33 @@ class PatchedDataset(Dataset):
         super().__init__()
         self.base_dataset = base_dataset
         self.patch_size = patch_size
-        self.patch_size_expanded = (patch_size[0] + 2 * padding,
-                                    patch_size[1] + 2 * padding)
-        self.padding = padding
         self.random_flips = random_flips
-        self.length_ = None
-        self.coords_ = None
 
-    @property
-    def coords(self):
-        if self.coords_ is not None:
-            return self.coords_
-        coords = []
-        for idx, (_, mask) in enumerate(self.base_dataset):
+        image_cache = []
+        mask_cache = []
+        h, w = patch_size[0] + 2 * padding, patch_size[1] + 2 * padding
+        for idx, (cell, mask) in enumerate(self.base_dataset):
             w, h = mask.size
             bboxes = calcuate_bboxes((h, w), self.patch_size)
-            idx_bboxes = list(zip_longest([], bboxes, fillvalue=idx))
-            coords.extend(idx_bboxes)
 
-        self.coords_ = coords
-        return coords
+            cell = pad(cell, padding, padding_mode='reflect')
+            mask = pad(mask, padding, padding_mode='reflect')
+
+            for i, j in bboxes:
+                image_cache.append(np.array(crop(cell, i, j, h, w)))
+                mask_cache.append(np.array(crop(mask, i, j, h, w)))
+
+        self.image_cache = np.concatenate(image_cache, 0)
+        self.mask_cache = np.concatenate(mask_cache, 0)
 
     def __len__(self):
-        if self.length_ is not None:
-            return self.length_
-        self.length_ = len(self.coords)
-        return self.length_
+        return self.mask_cache.shape[0]
 
     def __getitem__(self, idx):
-        img_idx, (i, j) = self.coords[idx]
-        cell, mask = self.base_dataset[img_idx]
-        h, w = self.patch_size_expanded
+        cell = self.image_cache[idx]
+        mask = self.mask_cache[idx]
 
-        cell = pad(cell, self.padding, padding_mode='reflect')
-        mask = pad(mask, self.padding, padding_mode='reflect')
-
-        cell = crop(cell, i, j, h, w)
-        mask = crop(mask, i, j, h, w)
+        cell, mask = Image.fromarray(cell), Image.fromarray(mask)
 
         if self.random_flips:
             if random.random() < 0.5:
