@@ -1,5 +1,5 @@
 """Dataset for cells"""
-from itertools import product, chain
+from itertools import zip_longest, product, chain
 import random
 
 import numpy as np
@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from torchvision.transforms.functional import (pad, to_tensor, normalize,
                                                hflip, vflip, crop)
 from PIL import Image
+
 
 def calcuate_bboxes(im_shape, patch_size):
     """Calculate bound boxes based on image shape and size of the bounding box
@@ -19,6 +20,7 @@ def calcuate_bboxes(im_shape, patch_size):
     steps_w = chain(range(0, w - pw, pw), [w - pw])
 
     return product(steps_h, steps_w)
+
 
 class PatchedDataset(Dataset):
     """Creates patches of cells.
@@ -43,32 +45,43 @@ class PatchedDataset(Dataset):
         super().__init__()
         self.base_dataset = base_dataset
         self.patch_size = patch_size
+        self.patch_size_expanded = (patch_size[0] + 2 * padding,
+                                    patch_size[1] + 2 * padding)
+        self.padding = padding
         self.random_flips = random_flips
+        self.length_ = None
+        self.coords_ = None
 
-        image_cache = []
-        mask_cache = []
-        h, w = patch_size[0] + 2 * padding, patch_size[1] + 2 * padding
-        for idx, (cell, mask) in enumerate(self.base_dataset):
+    @property
+    def coords(self):
+        if self.coords_ is not None:
+            return self.coords_
+        coords = []
+        for idx, (_, mask) in enumerate(self.base_dataset):
+            w, h = mask.size
             bboxes = calcuate_bboxes((h, w), self.patch_size)
+            idx_bboxes = list(zip_longest([], bboxes, fillvalue=idx))
+            coords.extend(idx_bboxes)
 
-            cell = pad(cell, padding, padding_mode='reflect')
-            mask = pad(mask, padding, padding_mode='reflect')
-
-            for i, j in bboxes:
-                image_cache.append(np.array(crop(cell, i, j, h, w)))
-                mask_cache.append(np.array(crop(mask, i, j, h, w)))
-
-        self.image_cache = np.stack(image_cache)
-        self.mask_cache = np.stack(mask_cache)
+        self.coords_ = coords
+        return coords
 
     def __len__(self):
-        return self.mask_cache.shape[0]
+        if self.length_ is not None:
+            return self.length_
+        self.length_ = len(self.coords)
+        return self.length_
 
     def __getitem__(self, idx):
-        cell = self.image_cache[idx]
-        mask = self.mask_cache[idx]
+        img_idx, (i, j) = self.coords[idx]
+        cell, mask = self.base_dataset[img_idx]
+        h, w = self.patch_size_expanded
 
-        cell, mask = Image.fromarray(cell), Image.fromarray(mask)
+        cell = pad(cell, self.padding, padding_mode='reflect')
+        mask = pad(mask, self.padding, padding_mode='reflect')
+
+        cell = crop(cell, i, j, h, w)
+        mask = crop(mask, i, j, h, w)
 
         if self.random_flips:
             if random.random() < 0.5:
