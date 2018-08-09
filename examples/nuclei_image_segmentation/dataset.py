@@ -51,7 +51,6 @@ class PatchedDataset(Dataset):
         mask_cache = []
         h, w = patch_size[0] + 2 * padding, patch_size[1] + 2 * padding
         for idx, (cell, mask) in enumerate(self.base_dataset):
-            w, h = mask.size
             bboxes = calcuate_bboxes((h, w), self.patch_size)
 
             cell = pad(cell, padding, padding_mode='reflect')
