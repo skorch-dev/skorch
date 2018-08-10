@@ -55,7 +55,7 @@ def uses_placeholder_y(ds):
 
     if isinstance(ds, torch.utils.data.Subset):
         return uses_placeholder_y(ds.dataset)
-    return isinstance(ds, Dataset) and ds.y is None
+    return isinstance(ds, Dataset) and hasattr(ds, "y") and ds.y is None
 
 
 class Dataset(torch.utils.data.Dataset):

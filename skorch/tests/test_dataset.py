@@ -69,6 +69,14 @@ class TestUsesPlaceholderY:
         return Dataset
 
     @pytest.fixture
+    def custom_dataset_cls(self):
+        from skorch.dataset import Dataset
+        class CustomDataset(Dataset):
+            def __init__(self):
+                pass
+        return CustomDataset
+
+    @pytest.fixture
     def cv_split_cls(self):
         from skorch.dataset import CVSplit
         return CVSplit
@@ -83,6 +91,11 @@ class TestUsesPlaceholderY:
             self, dataset_cls, data, uses_placeholder_y):
         X, y = data
         ds = dataset_cls(X, y)
+        assert not uses_placeholder_y(ds)
+
+    def test_custom_dataset_uses_non_y_placeholder(
+            self, custom_dataset_cls, uses_placeholder_y):
+        ds = custom_dataset_cls()
         assert not uses_placeholder_y(ds)
 
     def test_subset_uses_placeholder_y(
