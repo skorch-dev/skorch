@@ -26,7 +26,7 @@ def partial_index(l, idx):
                 output.append(None)
                 error_n = n
 
-        if not any(output) and error_n is not None:
+        if all(o is None for o in output) and error_n is not None:
             # Raises KeyError
             return partial_index(error_n, idx)
         return output
