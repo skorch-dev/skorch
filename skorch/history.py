@@ -1,21 +1,10 @@
 """Contains history class and helper functions."""
 
 
-# pylint: disable=invalid-name
-class _missingno:
-    def __init__(self, e):
-        self.error_type = type(e)
-        self.msg = str(e)
-
-    def __repr__(self):
-        return 'missingno'
-
-
 def _incomplete_mapper(x):
     for xs in x:
-        # pylint: disable=unidiomatic-typecheck
-        if type(xs) is _missingno:
-            return xs
+        if xs is None:
+            return None
     return x
 
 
@@ -27,7 +16,18 @@ def partial_index(l, idx):
     needs_indirection = isinstance(l, list) and not isinstance(idx, types)
 
     if needs_unrolling or needs_indirection:
-        return [partial_index(n, idx) for n in l]
+        output = []
+        for n in l:
+            try:
+                v = partial_index(n, idx)
+                output.append(v)
+            except KeyError:
+                output.append(None)
+
+        if not any(output):
+            # Raises KeyError
+            return partial_index(n, idx)
+        return output
 
     # join results of multiple indices
     if isinstance(idx, (tuple, list)):
@@ -40,22 +40,19 @@ def partial_index(l, idx):
             inner_join = _incomplete_mapper(total_join)
         return inner_join
 
-    try:
-        return l[idx]
-    except KeyError as e:
-        return _missingno(e)
+    return l[idx]
 
 
 # pylint: disable=missing-docstring
-def filter_missing(x):
+def filter_none(x):
     if isinstance(x, list):
-        children = [filter_missing(n) for n in x]
+        children = [filter_none(n) for n in x]
         # pylint: disable=unidiomatic-typecheck
-        filtered = list(filter(lambda x: type(x) != _missingno, children))
+        filtered = list(filter(lambda x: x is not None, children))
 
         if children and not filtered:
             # pylint: disable=unidiomatic-typecheck
-            return next(filter(lambda x: type(x) == _missingno, children))
+            return next(filter(lambda x: x is None, children))
         return filtered
     return x
 
@@ -160,10 +157,7 @@ class History(list):
         if isinstance(i, tuple):
             for part in i:
                 x_dirty = partial_index(x, part)
-                x = filter_missing(x_dirty)
-                # pylint: disable=unidiomatic-typecheck
-                if type(x) is _missingno:
-                    raise x.error_type(x.msg)
+                x = filter_none(x_dirty)
             return x
         raise ValueError("Invalid parameter type passed to index. "
                          "Pass string, int or tuple.")
