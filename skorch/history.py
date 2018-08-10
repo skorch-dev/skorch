@@ -20,8 +20,7 @@ def partial_index(l, idx):
         error_n = None
         for n in l:
             try:
-                v = partial_index(n, idx)
-                output.append(v)
+                output.append(partial_index(n, idx))
             except KeyError:
                 output.append(None)
                 error_n = n
