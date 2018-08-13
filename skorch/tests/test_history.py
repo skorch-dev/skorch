@@ -73,7 +73,6 @@ class TestHistory:
         total_loss_with_extra = history[:, ('total_loss', 'extra')]
 
         assert len(total_loss_with_extra) == 1
-        print(total_loss_with_extra)
         assert total_loss_with_extra[0][0] == ref[2]['total_loss']
         assert total_loss_with_extra[0][1] == ref[2]['extra']
 
