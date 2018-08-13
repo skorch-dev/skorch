@@ -17,19 +17,17 @@ def partial_index(l, idx):
 
     if needs_unrolling or needs_indirection:
         output = []
-        error = None
+        error_n = None
         for n in l:
             try:
                 output.append(partial_index(n, idx))
-            except KeyError as e:
+            except KeyError:
                 output.append(None)
-                if error is None:
-                    error = e
+                error_n = n
 
-        if all(o is None for o in output) and error is not None:
-            raise error
-        if error is not None:
-            error.__traceback__ = None
+        if all(o is None for o in output) and error_n is not None:
+            # Raises KeyError
+            return partial_index(error_n, idx)
         return output
 
     # join results of multiple indices
