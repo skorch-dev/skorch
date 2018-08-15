@@ -130,8 +130,23 @@ class TestHistory:
         assert loss_with_extra[0] == expected_e0
         assert loss_with_extra[1] == expected_e1
 
-    def test_history_partial_batches(self, history, ref):
+    def test_history_partial_batches_batch_key_3rd(self, history, ref):
         extra_batches = history[:, 'batches', 'extra_batch']
+
+        expected_e0 = [b['extra_batch'] for b in ref[0]['batches']
+                       if 'extra_batch' in b]
+        expected_e1 = [b['extra_batch'] for b in ref[1]['batches']
+                       if 'extra_batch' in b]
+
+        # In every epoch there are 2 batches with the 'extra_batch'
+        # key except for the last epoch. We therefore two results
+        # of which one of them is an empty list.
+        assert len(extra_batches) == self.test_epochs - 1
+        assert extra_batches[0] == expected_e0
+        assert extra_batches[1] == expected_e1
+
+    def test_history_partial_batches_batch_key_4th(self, history, ref):
+        extra_batches = history[:, 'batches', :, 'extra_batch']
 
         expected_e0 = [b['extra_batch'] for b in ref[0]['batches']
                        if 'extra_batch' in b]
@@ -152,3 +167,21 @@ class TestHistory:
         # pylint: disable=unidiomatic-typecheck
         assert type(values) == tuple
         assert values == expected
+
+    def test_history_slice_beyond_batches_but_key_not_batches(self, history):
+        with pytest.raises(KeyError) as exc:
+            history[:, 'not-batches', 0]
+
+        msg = exc.value.args[0]
+        expected = ("History indexing beyond the 2nd level is "
+                    "only possible if key 'batches' is used, "
+                    "found key 'not-batches'.")
+        assert msg == expected
+
+    @pytest.mark.parametrize('keys', [
+        (slice(None), 'batches', 'loss', slice(None)),
+        (slice(None), 'not-batches'),
+    ])
+    def test_history_invalid_key_combination(self, history, keys):
+        with pytest.raises(KeyError):
+            history[keys]
