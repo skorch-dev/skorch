@@ -36,9 +36,14 @@ def _unpack_index(i):
     """Unpack index and return exactly four elements.
 
     If index is more shallow than 4, return None for trailing
-    dimensions.
+    dimensions. If index is deeper than 4, raise a KeyError.
 
     """
+    if len(i) > 4:
+        raise KeyError(
+            "Tried to index history with {} indices but only "
+            "4 indices are possible.".format(len(i)))
+
     # fill trailing indices with None
     i_e, k_e, i_b, k_b = i + tuple([None] * (4 - len(i)))
 

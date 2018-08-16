@@ -185,3 +185,12 @@ class TestHistory:
     def test_history_invalid_key_combination(self, history, keys):
         with pytest.raises(KeyError):
             history[keys]
+
+    def test_history_too_many_indices(self, history):
+        with pytest.raises(KeyError) as exc:
+            history[:, 'batches', :, 'train_loss', :]
+
+        msg = exc.value.args[0]
+        expected = ("Tried to index history with 5 indices but only "
+                    "4 indices are possible.")
+        assert msg == expected
