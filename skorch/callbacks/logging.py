@@ -260,15 +260,15 @@ class ProgressBar(Callback):
         net_params = net.get_params()
         return net_params.get(name + '__batch_size', net_params['batch_size'])
 
-    def _get_batches_per_epoch_phase(self, net, X, training):
-        if X is None:
+    def _get_batches_per_epoch_phase(self, net, dataset, training):
+        if dataset is None:
             return 0
         batch_size = self._get_batch_size(net, training)
-        return int(np.ceil(get_len(X) / batch_size))
+        return int(np.ceil(get_len(dataset) / batch_size))
 
-    def _get_batches_per_epoch(self, net, X, X_valid):
-        return (self._get_batches_per_epoch_phase(net, X, True) +
-                self._get_batches_per_epoch_phase(net, X_valid, False))
+    def _get_batches_per_epoch(self, net, dataset_train, dataset_valid):
+        return (self._get_batches_per_epoch_phase(net, dataset_train, True) +
+                self._get_batches_per_epoch_phase(net, dataset_valid, False))
 
     def _get_postfix_dict(self, net):
         postfix = {}
@@ -285,12 +285,14 @@ class ProgressBar(Callback):
         self.pbar.update()
 
     # pylint: disable=attribute-defined-outside-init, arguments-differ
-    def on_epoch_begin(self, net, X=None, X_valid=None, **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         # Assume it is a number until proven otherwise.
         batches_per_epoch = self.batches_per_epoch
 
         if self.batches_per_epoch == 'auto':
-            batches_per_epoch = self._get_batches_per_epoch(net, X, X_valid)
+            batches_per_epoch = self._get_batches_per_epoch(
+                net, dataset_train, dataset_valid
+            )
         elif self.batches_per_epoch == 'count':
             # No limit is known until the end of the first epoch.
             batches_per_epoch = None
