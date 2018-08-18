@@ -296,9 +296,9 @@ class ProgressBar(Callback):
             batches_per_epoch = None
 
         if self._use_notebook():
-            self.pbar = tqdm.tqdm_notebook(total=batches_per_epoch)
+            self.pbar = tqdm.tqdm_notebook(total=batches_per_epoch, leave=False)
         else:
-            self.pbar = tqdm.tqdm(total=batches_per_epoch)
+            self.pbar = tqdm.tqdm(total=batches_per_epoch, leave=False)
 
     def on_epoch_end(self, net, **kwargs):
         if self.batches_per_epoch == 'count':
