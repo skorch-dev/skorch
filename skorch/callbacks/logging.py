@@ -281,7 +281,7 @@ class ProgressBar(Callback):
 
     # pylint: disable=attribute-defined-outside-init
     def on_batch_end(self, net, **kwargs):
-        self.pbar.set_postfix(self._get_postfix_dict(net))
+        self.pbar.set_postfix(self._get_postfix_dict(net), refresh=False)
         self.pbar.update()
 
     # pylint: disable=attribute-defined-outside-init, arguments-differ
