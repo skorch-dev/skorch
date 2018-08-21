@@ -126,24 +126,48 @@ class TestNeuralNet:
         net_fit.callbacks_ = callbacks_
         return net_clone
 
-    def test_copy(self, net_cls, module_cls, data):
+    @pytest.mark.parametrize("copy_method", ["pickle", "copy.deepcopy"])
+    def test_train_net_after_copy(self, net_cls, module_cls, data,
+                                  copy_method):
+        # This test comes from [issue #317], and makes sure that models
+        # can be trained after copying (which is really pickling).
+        #
+        # [issue #317]:https://github.com/dnouri/skorch/issues/317
         X, y = data
         n1 = net_cls(module_cls)
-        n1.fit(X, y)
-        n2 = copy.deepcopy(n1)
+        n1.partial_fit(X, y, epochs=1)
+        if copy_method == "copy.deepcopy":
+            n2 = copy.deepcopy(n1)
+        elif copy_method == "pickle":
+            n2 = pickle.loads(pickle.dumps(n1))
+        else:
+            raise ValueError
+
+        # Test to make sure the parameters got copied correctly
         close = [torch.allclose(p1, p2)
                  for p1, p2 in zip(n1.module_.parameters(),
                                    n2.module_.parameters())]
         assert all(close)
-        n2.fit(X, y)
+
+        # make sure the parameters change
+        n2.partial_fit(X, y, epochs=1)
         far = [not torch.allclose(p1, p2)
                for p1, p2 in zip(n1.module_.parameters(),
                                  n2.module_.parameters())]
         assert all(far)
+
+        # Make sure the model is being trained, and the loss actually changes
+        # (and hopefully decreases, but no test for that)
+        # If copied incorrectly, the optimizer can't see the gradients
+        # calculated by loss.backward(), so the loss stays *exactly* the same
         assert n2.history[-1]['train_loss'] != n2.history[-2]['train_loss']
-        p2 = next(n2.module_.parameters())
-        o2 = n2.optimizer_.param_groups[0]['params'][0]
-        assert p2 is o2
+
+        # Make sure the optimizer params and module params point to the same
+        # memory
+        for opt_param, param in zip(
+                n2.module_.parameters(),
+                n2.optimizer_.param_groups[0]['params']):
+            assert param is opt_param
 
     def test_net_init_one_unknown_argument(self, net_cls, module_cls):
         with pytest.raises(TypeError) as e:
