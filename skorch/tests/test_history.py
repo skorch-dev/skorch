@@ -94,18 +94,18 @@ class TestHistory:
         assert total_loss_0_to_1 == [n['total_loss'] for n in ref[0:1]]
 
     def test_history_non_existing_values(self, history):
-        with pytest.raises(KeyError):
+        with pytest.raises(KeyError, match='non-existing'):
             # pylint: disable=pointless-statement
             history[:, 'non-existing']
-        with pytest.raises(KeyError):
+        with pytest.raises(KeyError, match='extra'):
             # pylint: disable=pointless-statement
             history[0, 'extra']
 
     def test_history_non_existing_values_batch(self, history):
-        with pytest.raises(KeyError):
+        with pytest.raises(KeyError, match='non-existing'):
             # pylint: disable=pointless-statement
             history[:, 'batches', :, 'non-existing']
-        with pytest.raises(KeyError):
+        with pytest.raises(KeyError, match='extra_batch'):
             # pylint: disable=pointless-statement
             history[:, 'batches', 1, 'extra_batch']
 
