@@ -150,6 +150,8 @@ class TestNeuralNet:
         assert all(close)
 
         # make sure the parameters change
+        # cal this twice to make sure history updates below
+        n2.partial_fit(X, y, epochs=1)
         n2.partial_fit(X, y, epochs=1)
         far = [not torch.allclose(p1, p2)
                for p1, p2 in zip(n1.module_.parameters(),
