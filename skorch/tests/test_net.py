@@ -10,6 +10,7 @@ import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
 from pathlib import Path
+import copy
 
 import numpy as np
 import pytest
@@ -124,6 +125,25 @@ class TestNeuralNet:
         net_fit.callbacks = callbacks
         net_fit.callbacks_ = callbacks_
         return net_clone
+
+    def test_copy(self, net_cls, module_cls, data):
+        X, y = data
+        n1 = net_cls(module_cls)
+        n1.fit(X, y)
+        n2 = copy.deepcopy(n1)
+        close = [torch.allclose(p1, p2)
+                 for p1, p2 in zip(n1.module_.parameters(),
+                                   n2.module_.parameters())]
+        assert all(close)
+        n2.fit(X, y)
+        far = [not torch.allclose(p1, p2)
+               for p1, p2 in zip(n1.module_.parameters(),
+                                 n2.module_.parameters())]
+        assert all(far)
+        assert n2.history[-1]['train_loss'] != n2.history[-2]['train_loss']
+        p2 = next(n2.module_.parameters())
+        o2 = n2.optimizer_.param_groups[0]['params'][0]
+        assert p2 is o2
 
     def test_net_init_one_unknown_argument(self, net_cls, module_cls):
         with pytest.raises(TypeError) as e:
