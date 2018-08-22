@@ -13,7 +13,7 @@ The following are examples and notebooks on how to use skorch.
 
 * `Transfer Learning with skorch <https://github.com/dnouri/skorch/blob/master/notebooks/Transfer_Learning.ipynb>`_ - Train a neutral network using transfer learning with skorch.
 
-* `Image Segmentation with UNets <https://github.com/dnouri/skorch/blob/master/examples/Nuclei_Image_Segmentation.ipynb>`_ - Use transfer learning to train a UNet model for image segmentation.
+* `Image Segmentation with UNets <https://github.com/dnouri/skorch/blob/master/examples/nuclei_image_segmentation>`_ - Use transfer learning to train a UNet model for image segmentation.
 
 * `Using skorch with Dask <https://github.com/dnouri/skorch/tree/master/examples/rnn_classifer>`_ - Using Dask to parallelize grid search across GPUs.
 
