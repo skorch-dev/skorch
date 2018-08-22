@@ -1325,8 +1325,11 @@ class NeuralNet(object):
                 device = device.type
             return device.startswith('cuda')
 
-        disable_cuda = uses_cuda(state['device']) and not torch.cuda.is_available()
-        load_kwargs = {} if not disable_cuda else {'map_location': lambda store, loc: store}
+        disable_cuda = (uses_cuda(state['device']) and
+                        not torch.cuda.is_available())
+        load_kwargs = {}
+        if disable_cuda:
+            load_kwargs = {'map_location': lambda store, loc: store}
 
         with tempfile.SpooledTemporaryFile() as f:
             f.write(state['cuda_dependent_attributes_'])
