@@ -213,7 +213,7 @@ class TestPrintLog:
 
 
 class TestProgressBar:
-    @pytest.yield_fixture
+    @pytest.fixture
     def progressbar_cls(self):
         from skorch.callbacks import ProgressBar
         return ProgressBar
