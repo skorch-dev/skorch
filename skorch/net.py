@@ -1307,13 +1307,15 @@ class NeuralNet(object):
 
     def __getstate__(self):
         state = self.__dict__.copy()
+        cuda_attrs = {}
         for key in self.cuda_dependent_attributes_:
             if key in state:
                 val = state.pop(key)
-                with tempfile.SpooledTemporaryFile() as f:
-                    torch.save(val, f)
-                    f.seek(0)
-                    state[key] = f.read()
+                cuda_attrs[key] = val
+        with tempfile.SpooledTemporaryFile() as f:
+            torch.save(cuda_attrs, f)
+            f.seek(0)
+            state['cuda_dependent_attributes_'] = f.read()
 
         return state
 
@@ -1323,24 +1325,29 @@ class NeuralNet(object):
                 device = device.type
             return device.startswith('cuda')
 
-        disable_cuda = False
+        disable_cuda = (uses_cuda(state['device']) and
+                        not torch.cuda.is_available())
+        load_kwargs = {}
+        if disable_cuda:
+            load_kwargs = {'map_location': lambda store, loc: store}
+
+        with tempfile.SpooledTemporaryFile() as f:
+            f.write(state['cuda_dependent_attributes_'])
+            f.seek(0)
+            cuda_attrs = torch.load(f, **load_kwargs)
+
+        set_cuda_attrs = {}
+        state.update(cuda_attrs)
         for key in self.cuda_dependent_attributes_:
-            if key not in state:
+            if key not in cuda_attrs:
                 continue
-            dump = state.pop(key)
-            with tempfile.SpooledTemporaryFile() as f:
-                f.write(dump)
-                f.seek(0)
-                if (
-                        uses_cuda(state['device']) and
-                        not torch.cuda.is_available()
-                ):
-                    disable_cuda = True
-                    val = torch.load(
-                        f, map_location=lambda storage, loc: storage)
-                else:
-                    val = torch.load(f)
-            state[key] = val
+            set_cuda_attrs[key] = state.pop(key)
+        with tempfile.SpooledTemporaryFile() as f:
+            torch.save(cuda_attrs, f)
+            f.seek(0)
+            cuda_attrs = torch.load(f, **load_kwargs)
+
+        state.update(cuda_attrs)
         if disable_cuda:
             warnings.warn(
                 "Model configured to use CUDA but no CUDA devices "
