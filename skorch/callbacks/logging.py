@@ -204,24 +204,37 @@ class PrintLog(Callback):
 
 
 class ProgressBar(Callback):
-    """Display a progress bar for each epoch including duration, estimated
-    remaining time and user-defined metrics.
+    """Display a progress bar for each epoch.
 
-    For jupyter notebooks a non-ASCII progress bar is printed instead.
-    To use this feature, you need to have `ipywidgets
-    <https://ipywidgets.readthedocs.io/en/stable/user_install.html>`
+    The progress bar includes elapsed and estimated remaining time for
+    the current epoch, the number of batches processed, and other
+    user-defined metrics. The progress bar is erased once the epoch is
+    completed.
+
+    ``ProgressBar`` needs to know the total number of batches per
+    epoch in order to display a meaningful progress bar. By default,
+    this number is determined automatically using the dataset length
+    and the batch size. If this heuristic does not work for some
+    reason, you may either specify the number of batches explicitly
+    or let the ``ProgressBar`` determine it empirically by counting
+    the number of batches in the very first epoch.
+
+    For jupyter notebooks a non-ASCII progress bar can be printed
+    instead. To use this feature, you need to have `ipywidgets
+    <https://ipywidgets.readthedocs.io/en/stable/user_install.html>`_
     installed.
 
     Parameters
     ----------
 
-    batches_per_epoch : int, str (default='count')
-      The progress bar determines the number of batches per epoch
-      by itself in ``'count'`` mode where the number of iterations is
-      determined after one epoch which will leave you without a progress
-      bar at the first epoch. To fix that you can provide this number manually
-      or set ``'auto'`` where the callback attempts to compute the
-      number of batches per epoch beforehand.
+    batches_per_epoch : int, str (default='auto')
+      Either a concrete number or a string specifying the method used
+      to determine the number of batches per epoch automatically.
+      ``'auto'`` means that the number is computed from the length of
+      the dataset and the batch size. ``'count'`` means that the
+      number is determined by counting the batches in the first epoch.
+      Note that this will leave you without a progress bar at the
+      first epoch.
 
     detect_notebook : bool (default=True)
       If enabled, the progress bar determines if its current environment
@@ -238,7 +251,7 @@ class ProgressBar(Callback):
 
     def __init__(
             self,
-            batches_per_epoch='count',
+            batches_per_epoch='auto',
             detect_notebook=True,
             postfix_keys=None
     ):
