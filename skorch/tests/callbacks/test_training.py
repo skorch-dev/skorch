@@ -9,23 +9,23 @@ import pytest
 
 
 class TestCheckpoint:
-    @pytest.yield_fixture
+    @pytest.fixture
     def checkpoint_cls(self):
         from skorch.callbacks import Checkpoint
         return Checkpoint
 
-    @pytest.yield_fixture
+    @pytest.fixture
     def save_params_mock(self):
         with patch('skorch.NeuralNet.save_params') as mock:
             mock.side_effect = lambda x: x
             yield mock
 
-    @pytest.yield_fixture
+    @pytest.fixture
     def save_history_mock(self):
         with patch('skorch.NeuralNet.save_history') as mock:
             yield mock
 
-    @pytest.yield_fixture
+    @pytest.fixture
     def pickle_dump_mock(self):
         with patch('pickle.dump') as mock:
             yield mock
