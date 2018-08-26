@@ -236,12 +236,12 @@ class TestProgressBar:
         return partial(
             NeuralNetRegressor,
             module=Module,
+            train_split=None,
             max_epochs=2,
             batch_size=10)
 
     @pytest.fixture(scope='module')
     def data(self):
-        # have 10 examples so we can do a nice CV split
         X = np.zeros((20, 1), dtype='float32')
         y = np.zeros((20, 1), dtype='float32')
         return X, y
@@ -259,17 +259,21 @@ class TestProgressBar:
         ])
         net.fit(*data)
 
-    @pytest.mark.parametrize('scheme', [
-        'count',
-        'auto',
-        None,
-        2,  # correct number of batches_per_epoch (20 // 10)
-        3,  # offset by +1, should still work
-        1,  # offset by -1, should still work
+    @patch('tqdm.tqdm')
+    @pytest.mark.parametrize('scheme,expected_total', [
+        ('auto', [2, 2]),
+        ('count', [None, 2]),
+        (None, [None, None]),
+        (2, [2, 2]),  # correct number of batches_per_epoch (20 // 10)
+        (3, [3, 3]),  # offset by +1, should still work
+        (1, [1, 1]),  # offset by -1, should still work
     ])
     def test_different_count_schemes(
-            self, scheme, net_cls, progressbar_cls, data):
+            self, tqdm_mock, scheme, expected_total, net_cls, progressbar_cls, data):
         net = net_cls(callbacks=[
             progressbar_cls(batches_per_epoch=scheme),
         ])
         net.fit(*data)
+        assert tqdm_mock.call_count == 2
+        for i, total in enumerate(expected_total):
+            assert tqdm_mock.call_args_list[i][1]['total'] == total
