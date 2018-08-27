@@ -216,8 +216,8 @@ class ProgressBar(Callback):
     this number is determined automatically using the dataset length
     and the batch size. If this heuristic does not work for some
     reason, you may either specify the number of batches explicitly
-    or let the ``ProgressBar`` determine it empirically by counting
-    the number of batches in the very first epoch.
+    or let the ``ProgressBar`` count the actual number of batches in
+    the previous epoch.
 
     For jupyter notebooks a non-ASCII progress bar can be printed
     instead. To use this feature, you need to have `ipywidgets
@@ -232,9 +232,9 @@ class ProgressBar(Callback):
       to determine the number of batches per epoch automatically.
       ``'auto'`` means that the number is computed from the length of
       the dataset and the batch size. ``'count'`` means that the
-      number is determined by counting the batches in the first epoch.
-      Note that this will leave you without a progress bar at the
-      first epoch.
+      number is determined by counting the batches in the previous
+      epoch. Note that this will leave you without a progress bar at
+      the first epoch.
 
     detect_notebook : bool (default=True)
       If enabled, the progress bar determines if its current environment
@@ -307,8 +307,11 @@ class ProgressBar(Callback):
                 net, dataset_train, dataset_valid
             )
         elif self.batches_per_epoch == 'count':
-            # No limit is known until the end of the first epoch.
-            batches_per_epoch = None
+            if len(net.history) <= 1:
+                # No limit is known until the end of the first epoch.
+                batches_per_epoch = None
+            else:
+                batches_per_epoch = len(net.history[-2, 'batches'])
 
         if self._use_notebook():
             self.pbar = tqdm.tqdm_notebook(total=batches_per_epoch, leave=False)
@@ -316,6 +319,4 @@ class ProgressBar(Callback):
             self.pbar = tqdm.tqdm(total=batches_per_epoch, leave=False)
 
     def on_epoch_end(self, net, **kwargs):
-        if self.batches_per_epoch == 'count':
-            self.batches_per_epoch = self.pbar.n
         self.pbar.close()
