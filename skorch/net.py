@@ -825,7 +825,7 @@ class NeuralNet(object):
           Result from a forward call on an individual batch.
 
         """
-        dataset = X if is_dataset(X) else self.get_dataset(X)
+        dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
