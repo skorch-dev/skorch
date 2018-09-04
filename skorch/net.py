@@ -2,6 +2,7 @@
 
 import fnmatch
 from itertools import chain
+from collections import OrderedDict
 import json
 import tempfile
 import warnings
@@ -363,7 +364,7 @@ class NeuralNet(object):
 
     def _callbacks_grouped_by_name(self):
         """Group callbacks by name and collect names set by the user."""
-        callbacks, names_set_by_user = {}, set()
+        callbacks, names_set_by_user = OrderedDict(), set()
         for name, cb, named_by_user in self._yield_callbacks():
             if named_by_user:
                 names_set_by_user.add(name)
