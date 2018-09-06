@@ -615,6 +615,21 @@ class TestNeuralNet:
         assert cbs['some-name_1'] is cb0
         assert cbs['some-name_2'] is cb1
 
+    def test_callback_keeps_order(self, net_cls, module_cls):
+        cb0 = Mock()
+        cb1 = Mock()
+        cb0.__class__.__name__ = 'B-some-name'
+        cb1.__class__.__name__ = 'A-some-name'
+        net = net_cls(module_cls, callbacks=[cb0, cb1])
+
+        net.initialize()
+
+        cbs_names = [name for name, _ in net.callbacks_]
+        expected_names = ['epoch_timer', 'train_loss', 'valid_loss',
+                          'valid_acc', 'B-some-name', 'A-some-name',
+                          'print_log']
+        assert expected_names == cbs_names
+
     def test_callback_custom_name_is_untouched(self, net_cls, module_cls):
         callbacks = [('cb0', Mock()),
                      ('cb0', Mock())]
