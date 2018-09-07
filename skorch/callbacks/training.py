@@ -2,6 +2,7 @@
 
 import pickle
 import warnings
+import fnmatch
 
 import numpy as np
 from skorch.callbacks import Callback
@@ -10,7 +11,7 @@ from skorch.utils import noop
 from skorch.utils import open_file_like
 
 
-__all__ = ['Checkpoint', 'EarlyStopping']
+__all__ = ['Checkpoint', 'EarlyStopping', 'SetRequiresGradParams']
 
 
 class Checkpoint(Callback):
@@ -273,3 +274,27 @@ class EarlyStopping(Callback):
         #  We do not want to be affected by verbosity if sink is not print
         if (self.sink is not print) or verbose:
             self.sink(text)
+
+
+class SetRequiresGradParams(Callback):
+    """Sets the ``requires_grad`` attribute in a ``NeutralNet`` module
+    that matches ``patterns``. The matching is done using unix filename
+    pattern matching with ``fnmatch``.
+
+    Parameters
+    ----------
+    patterns: list of str
+      List of patterns to be matched
+
+    requires_grad: bool (default=False)
+      Value to set the requires_grad attribute
+    """
+    def __init__(self, patterns, requires_grad=False):
+        self.patterns = patterns
+        self.requires_grad = requires_grad
+
+    def on_train_begin(self, net, **kwargs):
+        for name, param in net.module_.named_parameters():
+            for pat in self.patterns:
+                if fnmatch.fnmatch(name, pat):
+                    param.requires_grad_(self.requires_grad)

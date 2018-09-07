@@ -1,6 +1,7 @@
 """Tests for callbacks in training.py"""
 
 from functools import partial
+import fnmatch
 from unittest.mock import Mock
 from unittest.mock import patch
 
@@ -317,3 +318,63 @@ class TestEarlyStopping:
 
         expected_msg = "Invalid threshold mode: 'incorrect'"
         assert exc.value.args[0] == expected_msg
+
+
+class TestSetRequiresGradParams:
+
+    @pytest.fixture
+    def set_requires_grad_params_cls(self):
+        from skorch.callbacks import SetRequiresGradParams
+        return SetRequiresGradParams
+
+    @pytest.fixture
+    def net_cls(self):
+        """very simple network that trains for 1 epochs"""
+        from skorch import NeuralNetRegressor
+        import torch
+
+        class Module2(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.b1 = torch.nn.Linear(1, 1)
+                self.b2 = torch.nn.Linear(1, 1)
+
+            def forward(self, x):
+                return self.b2(self.b1(x))
+
+        class Module(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.p1 = torch.nn.Linear(1, 1)
+                self.p2 = Module2()
+            # pylint: disable=arguments-differ
+
+            def forward(self, x):
+                return self.p2(self.p1(x))
+
+        return partial(
+            NeuralNetRegressor,
+            module=Module,
+            max_epochs=1,
+            batch_size=10)
+
+    @pytest.fixture(scope='module')
+    def data(self):
+        # have 10 examples so we can do a nice CV split
+        X = np.zeros((10, 1), dtype='float32')
+        y = np.zeros((10, 1), dtype='float32')
+        return X, y
+
+    @pytest.mark.parametrize('patterns',
+                             [['p1*'], ['p2*b1*'],
+                              ['p2*', 'p1*b2*'], ['p2*']])
+    def test_set_grad_params(self, set_requires_grad_params_cls, patterns,
+                             net_cls, data):
+        net = net_cls(
+            callbacks=[set_requires_grad_params_cls(patterns)])
+        net.fit(*data)
+
+        for name, param in net.module_.named_parameters():
+            for pat in patterns:
+                if fnmatch.fnmatch(name, pat):
+                    assert not param.requires_grad
