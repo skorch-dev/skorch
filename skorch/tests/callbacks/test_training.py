@@ -371,10 +371,18 @@ class TestSetRequiresGradParams:
     def test_set_grad_params(self, set_requires_grad_params_cls, patterns,
                              net_cls, data):
         net = net_cls(
-            callbacks=[set_requires_grad_params_cls(patterns)])
+            callbacks=[('set_grad', set_requires_grad_params_cls(patterns))])
         net.fit(*data)
 
         for name, param in net.module_.named_parameters():
             for pat in patterns:
                 if fnmatch.fnmatch(name, pat):
                     assert not param.requires_grad
+
+        net.set_params(callbacks__set_grad__requires_grad=True)
+        net.fit(*data)
+
+        for name, param in net.module_.named_parameters():
+            for pat in patterns:
+                if fnmatch.fnmatch(name, pat):
+                    assert param.requires_grad
