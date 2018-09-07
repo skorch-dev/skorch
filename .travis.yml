@@ -4,7 +4,7 @@ python:
   - "3.5"
 cache:
   apt: true
-  timeout: 1000
+  timeout: 1500
   directories:
     - $HOME/miniconda/pkgs/
 before_cache:
