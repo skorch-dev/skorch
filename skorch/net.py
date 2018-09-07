@@ -254,7 +254,7 @@ class NeuralNet(object):
                    "Either you made a typo, or you added new arguments "
                    "in a subclass; if that is the case, the subclass "
                    "should deal with the new arguments explicitely.")
-            raise TypeError(msg.format(', '.join(unexpected_kwargs)))
+            raise TypeError(msg.format(', '.join(sorted(unexpected_kwargs))))
         vars(self).update(kwargs)
 
         self.history = history
