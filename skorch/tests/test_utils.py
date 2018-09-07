@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 import torch
+from torch.nn.utils.rnn import PackedSequence
 
 from skorch.tests.conftest import pandas_installed
 
@@ -27,6 +28,39 @@ class TestToTensor:
 
         t = to_tensor(t, device='cpu')
         assert t.device.type == 'cpu'
+
+    x = torch.zeros((5, 3)).float()
+    y = torch.as_tensor([2, 2, 1])
+    z = np.arange(15).reshape(5, 3)
+
+    def tensors_equal(self, x, y):
+        """"Test that tensors in diverse containers are equal."""
+        if isinstance(x, PackedSequence):
+            return x == y
+
+        if isinstance(x, dict):
+            return (
+                (x.keys() == y.keys()) and
+                self.tensors_equal(list(x.values()), list(y.values()))
+            )
+
+        if isinstance(x, (list, tuple)):
+            return all(self.tensors_equal(xi, yi) for xi, yi in zip(x, y))
+
+        return (x == y).all()
+
+    @pytest.mark.parametrize('X, expected', [
+        (x, x),
+        (y, y),
+        (z, torch.as_tensor(z)),
+        ({'a': x, 'b': y, 'c': z}, {'a': x, 'b': y, 'c': torch.as_tensor(z)}),
+        (torch.as_tensor(55), torch.as_tensor(55)),
+        (PackedSequence(x, y), PackedSequence(x, y)),
+    ])
+    def test_tensor_conversion(self, to_tensor, X, expected):
+        result = to_tensor(X, 'cpu')
+        assert self.tensors_equal(result, expected)
+        assert self.tensors_equal(expected, result)
 
 
 class TestDuplicateItems:
