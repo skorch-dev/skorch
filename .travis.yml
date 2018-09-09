@@ -4,11 +4,11 @@ python:
 cache:
   apt: true
   timeout: 1000
-  directories:
-    - $HOME/miniconda/pkgs/
-before_cache:
-  - rm $HOME/miniconda/pkgs/*.tar.bz2
-  - rm $HOME/miniconda/pkgs/urls.txt
+#   directories:
+#     - $HOME/miniconda/pkgs/
+# before_cache:
+#   - rm $HOME/miniconda/pkgs/*.tar.bz2
+#   - rm $HOME/miniconda/pkgs/urls.txt
 install:
   - sudo apt-get update
 
