@@ -20,7 +20,7 @@ install:
   - conda update -q conda
   - conda info -a
 
-  - conda env create -q -n skorch-env -f environment.yml python=${TRAVIS_PYTHON_VERSION:-3.6}
+  - conda env create -q -n skorch-env -f environment.yml python=${TRAVIS_PYTHON_VERSION}
   - source activate skorch-env
   - conda install --file=requirements-dev.txt
   - python setup.py install
