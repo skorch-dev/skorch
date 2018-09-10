@@ -5,22 +5,22 @@ cache:
   apt: true
   timeout: 1000
   directories:
-    - $HOME/miniconda/pkgs/
+    - $HOME/cache
 before_cache:
-  - rm $HOME/miniconda/pkgs/*.tar.bz2
-  - rm $HOME/miniconda/pkgs/urls.txt
+  - find ${HOME}/conda/pkgs/ -mindepth 1 -maxdepth 1 -type d -exec rm -r {} \;
 install:
   - sudo apt-get update
+  - mkdir -p ${HOME}/cache/pkgs
+  - "[ ! -f ${HOME}/cache/miniconda.sh ] && wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ${HOME}/cache/miniconda.sh || :"
+  - bash ${HOME}/cache/miniconda.sh -b -p ${HOME}/conda && export PATH=${HOME}/conda/bin:$PATH
+  - rm -rf ${HOME}/conda/pkgs && ln -s ${HOME}/cache/pkgs ${HOME}/conda/pkgs
 
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh;
-  - bash $HOME/miniconda.sh -b -u -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
 
-  - conda env create -q -n skorch-env -f environment.yml
+  - conda env create -q -n skorch-env -f environment.yml python=${TRAVIS_PYTHON_VERSION}
   - source activate skorch-env
   - conda install --file=requirements-dev.txt
   - python setup.py install
