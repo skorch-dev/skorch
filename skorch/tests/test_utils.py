@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import torch
 from torch.nn.utils.rnn import PackedSequence
+from torch.nn.utils.rnn import pack_padded_sequence
 
 from skorch.tests.conftest import pandas_installed
 
@@ -29,14 +30,10 @@ class TestToTensor:
         t = to_tensor(t, device='cpu')
         assert t.device.type == 'cpu'
 
-    x = torch.zeros((5, 3)).float()
-    y = torch.as_tensor([2, 2, 1])
-    z = np.arange(15).reshape(5, 3)
-
     def tensors_equal(self, x, y):
         """"Test that tensors in diverse containers are equal."""
         if isinstance(x, PackedSequence):
-            return x == y
+            return self.tensors_equal(x[0], y[0]) and self.tensors_equal(x[1], y[1])
 
         if isinstance(x, dict):
             return (
@@ -49,16 +46,41 @@ class TestToTensor:
 
         return (x == y).all()
 
+    x = torch.zeros((5, 3)).float()
+    y = torch.as_tensor([2, 2, 1])
+    z = np.arange(15).reshape(5, 3)
+
     @pytest.mark.parametrize('X, expected', [
         (x, x),
         (y, y),
+        ([x, y], [x, y]),
+        ((x, y), (x, y)),
         (z, torch.as_tensor(z)),
         ({'a': x, 'b': y, 'c': z}, {'a': x, 'b': y, 'c': torch.as_tensor(z)}),
         (torch.as_tensor(55), torch.as_tensor(55)),
-        (PackedSequence(x, y), PackedSequence(x, y)),
+        (pack_padded_sequence(x, y), pack_padded_sequence(x, y)),
     ])
-    def test_tensor_conversion(self, to_tensor, X, expected):
+    def test_tensor_conversion_cpu(self, to_tensor, X, expected):
         result = to_tensor(X, 'cpu')
+        assert self.tensors_equal(result, expected)
+        assert self.tensors_equal(expected, result)
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    @pytest.mark.parametrize('X, expected', [
+        (x.to('cuda'), x.to('cuda')),
+        (y.to('cuda'), y.to('cuda')),
+        ([x.to('cuda'), y.to('cuda')], [x.to('cuda'), y.to('cuda')]),
+        ((x.to('cuda'), y.to('cuda')), (x.to('cuda'), y.to('cuda'))),
+        (z, torch.as_tensor(z).to('cuda')),
+        (
+            {'a': x, 'b': y, 'c': z},
+            {'a': x.to('cuda'), 'b': y.to('cuda'), 'c': torch.as_tensor(z).to('cuda')},
+        ),
+        (torch.as_tensor(55), torch.as_tensor(55).to('cuda')),
+        (pack_padded_sequence(x, y), pack_padded_sequence(x, y).to('cuda'))
+    ])
+    def test_tensor_conversion_cuda(self, to_tensor, X, expected):
+        result = to_tensor(X, 'cuda')
         assert self.tensors_equal(result, expected)
         assert self.tensors_equal(expected, result)
 
