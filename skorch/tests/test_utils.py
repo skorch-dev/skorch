@@ -46,41 +46,53 @@ class TestToTensor:
 
         return (x == y).all()
 
-    x = torch.zeros((5, 3)).float()
-    y = torch.as_tensor([2, 2, 1])
-    z = np.arange(15).reshape(5, 3)
+    def parameters():
+        device = 'cpu'
+        x = torch.zeros((5, 3)).float()
+        y = torch.as_tensor([2, 2, 1])
+        z = np.arange(15).reshape(5, 3)
+        for X, expected in [
+                (x, x),
+                (y, y),
+                ([x, y], [x, y]),
+                ((x, y), (x, y)),
+                (z, torch.as_tensor(z)),
+                (
+                    {'a': x, 'b': y, 'c': z},
+                    {'a': x, 'b': y, 'c': torch.as_tensor(z)}
+                ),
+                (torch.as_tensor(55), torch.as_tensor(55)),
+                (pack_padded_sequence(x, y), pack_padded_sequence(x, y)),
+        ]:
+            yield X, expected, device
 
-    @pytest.mark.parametrize('X, expected', [
-        (x, x),
-        (y, y),
-        ([x, y], [x, y]),
-        ((x, y), (x, y)),
-        (z, torch.as_tensor(z)),
-        ({'a': x, 'b': y, 'c': z}, {'a': x, 'b': y, 'c': torch.as_tensor(z)}),
-        (torch.as_tensor(55), torch.as_tensor(55)),
-        (pack_padded_sequence(x, y), pack_padded_sequence(x, y)),
-    ])
-    def test_tensor_conversion_cpu(self, to_tensor, X, expected):
-        result = to_tensor(X, 'cpu')
-        assert self.tensors_equal(result, expected)
-        assert self.tensors_equal(expected, result)
+        if not torch.cuda.is_available():
+            return
 
-    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
-    @pytest.mark.parametrize('X, expected', [
-        (x.to('cuda'), x.to('cuda')),
-        (y.to('cuda'), y.to('cuda')),
-        ([x.to('cuda'), y.to('cuda')], [x.to('cuda'), y.to('cuda')]),
-        ((x.to('cuda'), y.to('cuda')), (x.to('cuda'), y.to('cuda'))),
-        (z, torch.as_tensor(z).to('cuda')),
-        (
-            {'a': x, 'b': y, 'c': z},
-            {'a': x.to('cuda'), 'b': y.to('cuda'), 'c': torch.as_tensor(z).to('cuda')},
-        ),
-        (torch.as_tensor(55), torch.as_tensor(55).to('cuda')),
-        (pack_padded_sequence(x, y), pack_padded_sequence(x, y).to('cuda'))
-    ])
-    def test_tensor_conversion_cuda(self, to_tensor, X, expected):
-        result = to_tensor(X, 'cuda')
+        device = 'cuda'
+        x = x.to('cuda')
+        y = y.to('cuda')
+        for X, expected in [
+                (x, x),
+                (y, y),
+                ([x, y], [x, y]),
+                ((x, y), (x, y)),
+                (z, torch.as_tensor(z).to('cuda')),
+                (
+                    {'a': x, 'b': y, 'c': z},
+                    {'a': x, 'b': y, 'c': torch.as_tensor(z).to('cuda')}
+                ),
+                (torch.as_tensor(55), torch.as_tensor(55).to('cuda')),
+                (
+                    pack_padded_sequence(x, y),
+                    pack_padded_sequence(x, y).to('cuda')
+                ),
+        ]:
+            yield X, expected, device
+
+    @pytest.mark.parametrize('X, expected, device', parameters())
+    def test_tensor_conversion_cuda(self, to_tensor, X, expected, device):
+        result = to_tensor(X, device)
         assert self.tensors_equal(result, expected)
         assert self.tensors_equal(expected, result)
 
