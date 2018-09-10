@@ -4,7 +4,7 @@ python:
   - "3.5"
 cache:
   apt: true
-  timeout: 1500
+  timeout: 1000
   directories:
     - $HOME/cache
 before_cache:
