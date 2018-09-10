@@ -458,11 +458,10 @@ class TestEpochScoring:
             assert id(c1) == id(c2)
 
     def test_subclassing_epoch_scoring(
-            self, net_cls, classifier_module, classifier_data):
+            self, classifier_module, classifier_data):
         # This test's purpose is to check that it is possible to
         # easily subclass EpochScoring by overriding on_epoch_end to
         # record 2 scores.
-        from sklearn.metrics import accuracy_score
         from skorch import NeuralNetClassifier
         from skorch.callbacks import EpochScoring
 
@@ -473,7 +472,8 @@ class TestEpochScoring:
                     dataset_train,
                     dataset_valid,
                     **kwargs):
-                _, y_test, y_proba = self.get_test_data(dataset_valid)
+                _, y_test, y_proba = self.get_test_data(
+                    dataset_train, dataset_valid)
                 y_pred = np.concatenate(y_proba).argmax(1)
 
                 # record 2 valid scores

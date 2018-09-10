@@ -324,16 +324,20 @@ class EpochScoring(ScoringBase):
             self.y_trues_.append(y)
         self.y_preds_.append(y_pred)
 
-    def get_test_data(self, dataset):
+    def get_test_data(self, dataset_train, dataset_valid):
         """Return data needed to perform scoring.
 
-        This is a convenience method that handles different types of
-        input data, use of cache, etc. for you.
+        This is a convenience method that handles picking of
+        train/valid, different types of input data, use of cache,
+        etc. for you.
 
         Parameters
         ----------
-        dataset
-          Incoming data or dataset from train or validation.
+        dataset_train
+          Incoming training data or dataset.
+
+        dataset_valid
+          Incoming validation data or dataset.
 
         Returns
         -------
@@ -352,6 +356,8 @@ class EpochScoring(ScoringBase):
           ``y_pred = np.concatenate(y_pred)``
 
         """
+        dataset = dataset_train if self.on_train else dataset_valid
+
         if self.use_caching:
             X_test = dataset
             y_pred = self.y_preds_
@@ -398,8 +404,7 @@ class EpochScoring(ScoringBase):
             dataset_train,
             dataset_valid,
             **kwargs):
-        dataset = dataset_train if self.on_train else dataset_valid
-        X_test, y_test, y_pred = self.get_test_data(dataset)
+        X_test, y_test, y_pred = self.get_test_data(dataset_train, dataset_valid)
         if X_test is None:
             return
 
