@@ -5,6 +5,7 @@ that is general to NeuralNet class.
 
 """
 
+from collections import OrderedDict
 from functools import partial
 import pickle
 from unittest.mock import Mock
@@ -590,7 +591,7 @@ class TestNeuralNet:
         net.initialize()
         net.set_params(callbacks__cb0__spam='eggs')
         assert mock.initialize.call_count == 2  # callbacks are re-initialized
-        assert mock.set_params.call_args_list[-1][1]['spam'] == 'eggs'
+        assert dict(net.callbacks_)['cb0'].spam == 'eggs'
 
     def test_callback_name_collides_with_default(self, net_cls, module_cls):
         net = net_cls(module_cls, callbacks=[('train_loss', Mock())])
@@ -1339,6 +1340,72 @@ class TestNeuralNet:
         # TODO: check error message more precisely, depending on what
         # the intended message should be from sklearn side
         assert exc.value.args[0].startswith('Invalid parameter foo for')
+
+    def test_set_params_on_submodule(self, net_cls, module_cls):
+        """Module contains a sub-module"""
+        class SuperModule(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.sub_module = module_cls()
+
+            def forward(self, X):
+                return self.sub_module(X)
+
+        net = net_cls(SuperModule, module__sub_module__num_units=123)
+        net.initialize()
+        assert net.module_.sub_module.num_units == 123
+        assert net.module_.sub_module.dense0.out_features == 123
+        assert net.module_.sub_module.dense1.in_features == 123
+
+        net.set_params(module__sub_module__num_units=456)
+        assert net.module_.sub_module.num_units == 456
+
+    def test_set_params_recursively_on_module(self, net_cls, module_cls):
+        net = net_cls(
+            module_cls,
+            module__dense0__weight__cuda=123,
+        )
+        net.initialize()
+        assert net.module_.dense0.weight.cuda == 123
+
+        net.set_params(module__dense1__weight__cuda=456)
+        assert net.module_.dense1.weight.cuda == 456
+
+    def test_set_params_nonexisting_recursively_on_module(
+            self, net_cls, module_cls):
+        net = net_cls(
+            module_cls,
+            module__dense0__weight__nonexisting=123,
+        )
+        with pytest.raises(ValueError):
+            net.initialize()
+
+    def test_set_params_recursively_on_callback(self, net_cls, module_cls):
+        dummy = Mock()
+        net = net_cls(
+            module_cls,
+            callbacks=[('dummy', dummy)],
+            callbacks__dummy__foo__bar=123,
+        ).initialize()
+        assert dict(net.callbacks_)['dummy'].foo.bar == 123
+
+        net.set_params(callbacks__dummy__foo__bar=456)
+        assert dict(net.callbacks_)['dummy'].foo.bar == 456
+
+    # pylint: disable=protected-access
+    def test_set_params_on_sequential_with_ordered_dict(self, net_cls):
+        net = net_cls(
+            nn.Sequential(OrderedDict([
+                ('dense0', nn.Linear(5, 20)),
+                ('nonlin', nn.ReLU()),
+                ('dense1', nn.Linear(20, 10)),
+            ])),
+            module__dense0__in_features=123,
+        ).initialize()
+        assert net.module_._modules['dense0'].in_features == 123
+
+        net.set_params(module__dense0__in_features=456)
+        assert net.module_._modules['dense0'].in_features == 456
 
     @pytest.fixture()
     def sequence_module_cls(self):

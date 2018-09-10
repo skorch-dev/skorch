@@ -297,22 +297,46 @@ def duplicate_items(*collections):
     return duplicates
 
 
-def params_for(prefix, kwargs):
+def params_for(prefix, kwargs, deep=False):
     """Extract parameters that belong to a given sklearn module prefix from
-    ``kwargs``. This is useful to obtain parameters that belong to a
-    submodule.
+    ``kwargs``.
+
+    This is useful to obtain parameters that belong to a submodule.
+
+    Parameters
+    ----------
+    prefix : str
+      Return only parameters that start with this prefix.
+
+    kwargs : dict
+      The parameters that are searched.
+
+    deep : bool (default=False)
+
+      Whether to return parameters that refer to another
+      sub-parameter. E.g. 'foo__bar' is returned if and only if
+      ``deep=True``. Note that in contrast to sklearn, when
+      ``deep=True``, flat parameters are *not* returned.
 
     Examples
     --------
-    >>> kwargs = {'encoder__a': 3, 'encoder__b': 4, 'decoder__a': 5}
+    >>> kwargs = {'encoder__a': 3, 'encoder__b__c': 4, 'decoder__a': 5}
     >>> params_for('encoder', kwargs)
-    {'a': 3, 'b': 4}
+    {'a': 3}
+    >>> params_for('encoder', kwargs, deep=True)
+    {'b__c': 4}
 
     """
     if not prefix.endswith('__'):
         prefix += '__'
-    return {key[len(prefix):]: val for key, val in kwargs.items()
-            if key.startswith(prefix)}
+    n = len(prefix)
+
+    if deep:
+        cond = lambda k: k.startswith(prefix) and ('__' in k[n:])
+    else:
+        cond = lambda k: k.startswith(prefix) and ('__' not in k[n:])
+
+    return {key[n:]: val for key, val in kwargs.items() if cond(key)}
 
 
 # pylint: disable=invalid-name
@@ -397,6 +421,20 @@ def train_loss_score(net, X=None, y=None):
 # pylint: disable=unused-argument
 def valid_loss_score(net, X=None, y=None):
     return net.history[-1, 'batches', -1, 'valid_loss']
+
+
+def recursive_set_params(obj, params):
+    """Set parameters on 'deep' attributes, separated by '__'"""
+    for key, val in params.items():
+        if '__' not in key:
+            setattr(obj, key, val)
+            continue
+
+        name, _, param = key.partition('__')
+        if not param:
+            continue
+
+        recursive_set_params(getattr(obj, name), {param: val})
 
 
 class FirstStepAccumulator:
