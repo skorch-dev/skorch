@@ -13,7 +13,7 @@ import pathlib
 import numpy as np
 from sklearn.utils import safe_indexing
 import torch
-from torch import nn
+from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
 
 
@@ -28,7 +28,7 @@ class Ansi(Enum):
 
 def is_torch_data_type(x):
     # pylint: disable=protected-access
-    return isinstance(x, torch.Tensor)
+    return isinstance(x, (torch.Tensor, PackedSequence))
 
 
 def is_dataset(x):
@@ -73,8 +73,6 @@ def to_tensor(X, device):
         return torch.as_tensor(np.array(X), device=device)
     elif isinstance(X, np.ndarray):
         return torch.as_tensor(X, device=device)
-    elif isinstance(X, nn.utils.rnn.PackedSequence):
-        return X
     else:
         raise TypeError("Cannot convert this data type to a torch tensor.")
 
