@@ -1,6 +1,7 @@
 language: python
 python:
   - "3.6"
+  - "3.5"
 cache:
   apt: true
   timeout: 1000

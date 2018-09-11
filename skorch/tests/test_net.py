@@ -5,12 +5,13 @@ that is general to NeuralNet class.
 
 """
 
+import copy
 from functools import partial
+from pathlib import Path
 import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
-from pathlib import Path
-import copy
+import sys
 
 import numpy as np
 import pytest
@@ -188,7 +189,7 @@ class TestNeuralNet:
                     warm_start=False, bathc_size=20)
 
         expected = ("__init__() got unexpected argument(s) "
-                    "mxa_epochs, bathc_size. "
+                    "bathc_size, mxa_epochs. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
                     "should deal with the new arguments explicitely.")
@@ -407,6 +408,11 @@ class TestNeuralNet:
     def test_save_load_history_file_path(
             self, net_cls, module_cls, net_fit, tmpdir, converter):
         # Test loading/saving with different kinds of path representations.
+
+        if converter is Path and sys.version < '3.6':
+            # `PosixPath` cannot be `open`ed in Python < 3.6
+            pytest.skip()
+
         net = net_cls(module_cls).initialize()
 
         history_before = net_fit.history
