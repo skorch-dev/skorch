@@ -432,3 +432,11 @@ def _make_optimizer(pgroups, optimizer, filter_fn, **kwargs):
 def _make_split(X, y, valid_ds, **kwargs):
     """Used by ``predefined_split`` to allow for pickling"""
     return X, valid_ds
+
+
+def freeze_parameter(param):
+    param.requires_grad = False
+
+
+def unfreeze_parameter(param):
+    param.requires_grad = True

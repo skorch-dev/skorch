@@ -2,15 +2,20 @@
 
 import pickle
 import warnings
+from fnmatch import fnmatch
+from functools import partial
 
 import numpy as np
 from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
 from skorch.utils import noop
 from skorch.utils import open_file_like
+from skorch.utils import freeze_parameter
+from skorch.utils import unfreeze_parameter
 
 
-__all__ = ['Checkpoint', 'EarlyStopping']
+__all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
+           'Unfreezer', 'Initializer']
 
 
 class Checkpoint(Callback):
@@ -273,3 +278,96 @@ class EarlyStopping(Callback):
         #  We do not want to be affected by verbosity if sink is not print
         if (self.sink is not print) or verbose:
             self.sink(text)
+
+
+
+class ParamMapper(Callback):
+    """Map arbitrary functions over module parameters filtered by pattern
+    matching.
+
+    Parameters
+    ----------
+    patterns : str or list
+      The pattern(s) to match parameter names against.
+      Example: ``'linear*.weight'`` or ``['linear0.*', 'linear1.bias']``.
+
+    fn : function
+      The function to apply to each parameter separately.
+
+    at : int or function
+      In case you specify an integer it represents the epoch number the
+      function ``fn`` is applied to the parameters, in case ``at`` is
+      a function it will receive ``net`` as parameter and the function
+      is applied to the parameter once ``at`` returns ``True``.
+
+    schedule : function or None
+      If specified it determines how ``fn`` and ``at`` are used.
+      This function receives ``net``, ``at`` and ``fn`` and returns
+      the function to be applied on the matched parameters.
+
+    """
+    def __init__(self, patterns, fn=noop, at=1, schedule=None):
+        self.at = at
+        self.fn = fn
+        self.schedule = schedule or self._default_schedule
+        self.patterns = patterns
+
+        if not isinstance(patterns, (list, tuple)):
+            self.patterns = [self.patterns]
+
+        if isinstance(self.at, int):
+            self.at = partial(self._epoch_at, epoch=self.at)
+
+    def named_parameters(self, net):
+        return list(net.module_.named_parameters())
+
+    def filter_parameters(self, patterns, params):
+        for pattern in patterns:
+            for name, param in params:
+                if fnmatch(name, pattern):
+                    yield name, param
+
+    def _default_schedule(self, net, at, fn):
+        if at(net):
+            return fn
+        return noop
+
+    def _epoch_at(self, net, epoch=1):
+        return len(net.history) == epoch
+
+    def on_epoch_begin(self, net, **kwargs):
+        params = self.named_parameters(net)
+        params = self.filter_parameters(self.patterns, params)
+        map_fn = self.schedule(net, self.at, self.fn)
+
+        for _, p in params:
+            map_fn(p)
+
+
+
+class Freezer(ParamMapper):
+    """Freeze matching parameters in the first epoch. You may
+    specify a specific point in time (either by epoch number or using a callable)
+    when the parameters are frozen using the ``at`` parameter.
+
+    See ``ParamMapper`` for details.
+    """
+    def __init__(self, *args, **kwargs):
+        kwargs['at'] = kwargs.get('at', 1)
+        kwargs['fn'] = kwargs.get('fn', freeze_parameter)
+        super().__init__(*args, **kwargs)
+
+
+class Unfreezer(ParamMapper):
+    """Inverse operation of ``Freezer``."""
+    def __init__(self, *args, **kwargs):
+        kwargs['at'] = kwargs.get('at', 1)
+        kwargs['fn'] = kwargs.get('fn', unfreeze_parameter)
+        super().__init__(*args, **kwargs)
+
+
+class Initializer(ParamMapper):
+    """Apply any function on matching parameters in the first epoch."""
+    def __init__(self, *args, **kwargs):
+        kwargs['at'] = kwargs.get('at', 1)
+        super().__init__(*args, **kwargs)
