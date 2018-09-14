@@ -283,7 +283,35 @@ class EarlyStopping(Callback):
 
 class ParamMapper(Callback):
     """Map arbitrary functions over module parameters filtered by pattern
-    matching.
+    matching. In the simplest case the function is only applied once at
+    the beginning of a given epoch (at ``on_epoch_begin``) but more complex
+    execution schemes (e.g. periodic application) are possible using
+    ``at`` and ``scheduler``.
+
+    Examples
+    --------
+    Initialize a layer on first epoch before the first training step:
+
+    >>> init = partial(torch.nn.init.uniform_, a=0, b=1)
+    >>> cb = ParamMapper('linear*.weight', at=1, fn=init)
+    >>> net = Net(myModule, callbacks=[cb])
+
+    Reset layer initialization if train loss reaches a certain value:
+
+    >>> at = lambda net: net.history[-1, 'train_loss'] > 1
+    >>> init = partial(torch.nn.init.uniform_, a=0, b=1)
+    >>> cb = ParamMapper('linear0.weight', at=at, fn=init)
+    >>> net = Net(myModule, callbacks=[cb])
+
+    Periodically freeze and unfreeze all embedding layers:
+
+    >>> def my_sched(net, _at, _fn):
+    ...    if len(net.history) % 2 == 0:
+    ...        return skorch.utils.freeze_parameter
+    ...    else:
+    ...        return skorch.utils.unfreeze_parameter
+    >>> cb = ParamMapper('embedding*.weight', schedule=my_sched)
+    >>> net = Net(myModule, callbacks=[cb])
 
     Parameters
     ----------
@@ -294,13 +322,13 @@ class ParamMapper(Callback):
     fn : function
       The function to apply to each parameter separately.
 
-    at : int or function
+    at : int or callable
       In case you specify an integer it represents the epoch number the
       function ``fn`` is applied to the parameters, in case ``at`` is
       a function it will receive ``net`` as parameter and the function
       is applied to the parameter once ``at`` returns ``True``.
 
-    schedule : function or None
+    schedule : callable or None
       If specified it determines how ``fn`` and ``at`` are used.
       This function receives ``net``, ``at`` and ``fn`` and returns
       the function to be applied on the matched parameters.
