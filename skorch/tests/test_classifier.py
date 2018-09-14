@@ -165,19 +165,29 @@ class TestNeuralNetBinaryClassifier:
         return net_cls(
             module_cls,
             max_epochs=1,
-            lr=0.1,
+            lr=1,
         )
 
     @pytest.fixture(scope='module')
     def net_fit(self, net, data):
         # Careful, don't call additional fits on this, since that would have
         # side effects on other tests.
+        net.set_params(max_epochs=10)
         X, y = data
-        return net.fit(X, y)
+        net.fit(X, y)
+        net.set_params(max_epochs=1)
+        return net
 
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass
+
+    def test_net_learns(self, net_fit):
+        train_losses = net_fit.history[:, 'train_loss']
+        assert train_losses[0] > 1.3 * train_losses[-1]
+
+        valid_acc = net_fit.history[-1, 'valid_acc']
+        assert valid_acc > 0.65
 
     def test_history_default_keys(self, net_fit):
         expected_keys = {
