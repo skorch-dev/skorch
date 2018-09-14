@@ -315,9 +315,13 @@ class ParamMapper(Callback):
 
     Parameters
     ----------
-    patterns : str or list
+    patterns : str or callable or list
       The pattern(s) to match parameter names against.
-      Example: ``'linear*.weight'`` or ``['linear0.*', 'linear1.bias']``.
+      If patterns is a function the parameter name is passed as an
+      argument and is regarded as a match if the function returns ``True``.
+
+      Example: ``'linear*.weight'`` or ``['linear0.*', 'linear1.bias']``
+            or ``lambda name: name.startswith('linear')``.
 
     fn : function
       The function to apply to each parameter separately.
@@ -352,8 +356,10 @@ class ParamMapper(Callback):
 
     def filter_parameters(self, patterns, params):
         for pattern in patterns:
+            pattern_fn = lambda n: fnmatch(n, pattern)
+            pattern_fn = pattern if callable(pattern) else pattern_fn
             for name, param in params:
-                if fnmatch(name, pattern):
+                if pattern_fn(name):
                     yield name, param
 
     def _default_schedule(self, net, at, fn):

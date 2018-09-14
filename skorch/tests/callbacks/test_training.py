@@ -344,13 +344,40 @@ class TestParamMapper:
         from skorch import NeuralNetClassifier
         return NeuralNetClassifier
 
+    @pytest.mark.parametrize('weight_pattern', [
+        'dense*.weight',
+        lambda name: name.startswith('dense') and name.endswith('.weight'),
+    ])
     def test_initialization_is_effective(self, net_cls, classifier_module,
-                                         classifier_data, initializer):
+                                         classifier_data, initializer,
+                                         weight_pattern):
         from torch.nn.init import constant_
         from skorch.utils import to_numpy
 
         net = net_cls(
             classifier_module,
+            lr=0,
+            max_epochs=1,
+            callbacks=[
+                initializer(weight_pattern, partial(constant_, val=5)),
+                initializer('dense1.bias', partial(constant_, val=10)),
+            ])
+
+        net.fit(*classifier_data)
+
+        assert np.allclose(to_numpy(net.module_.dense0.weight), 5)
+        assert np.allclose(to_numpy(net.module_.dense1.weight), 5)
+        assert np.allclose(to_numpy(net.module_.dense1.bias), 10)
+
+    def test_initialization_is_effective_pre(self, net_cls, classifier_module,
+                                             classifier_data, initializer):
+        from torch.nn.init import constant_
+        from skorch.utils import to_numpy
+
+        mod = classifier_module()
+
+        net = net_cls(
+            mod,
             lr=0,
             max_epochs=1,
             callbacks=[
@@ -371,6 +398,52 @@ class TestParamMapper:
         net = net_cls(
             classifier_module,
             max_epochs=2,
+            callbacks=[
+                freezer('dense*.weight'),
+                freezer('dense1.bias'),
+            ])
+
+        net.initialize()
+
+        assert net.module_.dense0.weight.requires_grad
+        assert net.module_.dense1.weight.requires_grad
+        assert net.module_.dense0.bias.requires_grad
+        assert net.module_.dense1.bias.requires_grad
+
+        dense0_weight_pre = to_numpy(net.module_.dense0.weight).copy()
+        dense1_weight_pre = to_numpy(net.module_.dense1.weight).copy()
+        dense0_bias_pre = to_numpy(net.module_.dense0.bias).copy()
+        dense1_bias_pre = to_numpy(net.module_.dense1.bias).copy()
+
+        # use partial_fit to not re-initialize the module (weights)
+        net.partial_fit(*classifier_data)
+
+        dense0_weight_post = to_numpy(net.module_.dense0.weight).copy()
+        dense1_weight_post = to_numpy(net.module_.dense1.weight).copy()
+        dense0_bias_post = to_numpy(net.module_.dense0.bias).copy()
+        dense1_bias_post = to_numpy(net.module_.dense1.bias).copy()
+
+        assert not net.module_.dense0.weight.requires_grad
+        assert not net.module_.dense1.weight.requires_grad
+        assert net.module_.dense0.bias.requires_grad
+        assert not net.module_.dense1.bias.requires_grad
+
+        assert np.allclose(dense0_weight_pre, dense0_weight_post)
+        assert np.allclose(dense1_weight_pre, dense1_weight_post)
+        assert not np.allclose(dense0_bias_pre, dense0_bias_post)
+        assert np.allclose(dense1_bias_pre, dense1_bias_post)
+
+    def test_freezing_is_effective_pre(self, net_cls, classifier_module,
+                                       classifier_data, freezer):
+        from skorch.utils import to_numpy
+        from torch import tanh
+
+        mod = classifier_module()
+        net = net_cls(
+            mod,
+            max_epochs=2,
+            lr=5,
+            module__nonlin=tanh,
             callbacks=[
                 freezer('dense*.weight'),
                 freezer('dense1.bias'),
