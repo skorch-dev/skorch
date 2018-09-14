@@ -340,7 +340,8 @@ class ParamMapper(Callback):
         self.schedule = schedule or self._default_schedule
         self.patterns = patterns
 
-        if not isinstance(patterns, (list, tuple)):
+    def initialize(self):
+        if not isinstance(self.patterns, (list, tuple)):
             self.patterns = [self.patterns]
 
         if isinstance(self.at, int):
