@@ -275,9 +275,9 @@ class TestWarmRestartLR():
         classifier = classifier_module()
         optimizer = SGD(
             [
-                {'params': classifier.dense0.parameters(), 'lr': 1e-3},
-                {'params': classifier.dense1.parameters(), 'lr': 1e-2},
-                {'params': classifier.output.parameters(), 'lr': 1e-1},
+                {'params': classifier.sequential[0].parameters(), 'lr': 1e-3},
+                {'params': classifier.sequential[1].parameters(), 'lr': 1e-2},
+                {'params': classifier.sequential[2].parameters(), 'lr': 1e-1},
             ]
         )
 
@@ -313,9 +313,9 @@ class TestCyclicLR():
         classifier = classifier_module()
         return SGD(
             [
-                {'params': classifier.dense0.parameters(), 'lr': 1e-3},
-                {'params': classifier.dense1.parameters(), 'lr': 1e-2},
-                {'params': classifier.output.parameters(), 'lr': 1e-1},
+                {'params': classifier.sequential[0].parameters(), 'lr': 1e-3},
+                {'params': classifier.sequential[1].parameters(), 'lr': 1e-2},
+                {'params': classifier.sequential[2].parameters(), 'lr': 1e-1},
             ]
         )
 

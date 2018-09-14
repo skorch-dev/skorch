@@ -222,20 +222,17 @@ class TestProgressBar:
     def net_cls(self):
         """very simple network that trains for 2 epochs"""
         from skorch import NeuralNetRegressor
-        import torch
+        from skorch.toy import make_regressor
 
-        class Module(torch.nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.p = torch.nn.Linear(1, 1)
-            # pylint: disable=arguments-differ
-
-            def forward(self, x):
-                return self.p(x)
+        module_cls = make_regressor(
+            input_units=1,
+            num_hidden=0,
+            output_units=1,
+        )
 
         return partial(
             NeuralNetRegressor,
-            module=Module,
+            module=module_cls,
             train_split=None,
             max_epochs=2,
             batch_size=10)
