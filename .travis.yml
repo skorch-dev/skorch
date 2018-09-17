@@ -8,7 +8,7 @@ cache:
   directories:
     - $HOME/cache
 before_cache:
-  - find ${HOME}/conda/pkgs/ -mindepth 1 -maxdepth 1 -type d -exec rm -r {} \;
+  - find ${HOME}/conda/pkgs/ -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} \;
 install:
   - sudo apt-get update
   - mkdir -p ${HOME}/cache/pkgs
