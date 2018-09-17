@@ -22,7 +22,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.base import clone
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 from skorch.utils import flatten
 from skorch.utils import to_numpy
@@ -30,31 +29,6 @@ from skorch.utils import is_torch_data_type
 
 
 torch.manual_seed(0)
-
-
-class MyClassifier(nn.Module):
-    """Simple classification module.
-
-    We cannot use the module fixtures from conftest because they are
-    not pickleable.
-
-    """
-    def __init__(self, num_units=10, nonlin=F.relu):
-        super(MyClassifier, self).__init__()
-
-        self.dense0 = nn.Linear(20, num_units)
-        self.nonlin = nonlin
-        self.dropout = nn.Dropout(0.5)
-        self.dense1 = nn.Linear(num_units, 10)
-        self.output = nn.Linear(10, 2)
-
-    # pylint: disable=arguments-differ
-    def forward(self, X):
-        X = self.nonlin(self.dense0(X))
-        X = self.dropout(X)
-        X = self.nonlin(self.dense1(X))
-        X = F.softmax(self.output(X), dim=-1)
-        return X
 
 
 # pylint: disable=too-many-public-methods
@@ -73,8 +47,8 @@ class TestNeuralNet:
         return cb
 
     @pytest.fixture(scope='module')
-    def module_cls(self):
-        return MyClassifier
+    def module_cls(self, classifier_module):
+        return classifier_module
 
     @pytest.fixture(scope='module')
     def net_cls(self):
@@ -271,7 +245,7 @@ class TestNeuralNet:
             pytest.skip()
         net = net_cls(module=module_cls, device=torch.device(device))
         net = net.initialize()
-        assert net.module_.dense0.weight.device.type.startswith(device)
+        assert net.module_.sequential[0].weight.device.type.startswith(device)
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_pickle_save_load_cuda_intercompatibility(
@@ -455,21 +429,21 @@ class TestNeuralNet:
         X, y = data
         net.fit(X, y)
 
-        assert net.module_.dense0.out_features == 10
-        assert net.module_.dense1.in_features == 10
-        assert net.module_.nonlin is F.relu
+        assert net.module_.sequential[0].out_features == 10
+        assert isinstance(net.module_.sequential[1], nn.ReLU)
+        assert net.module_.sequential[3].in_features == 10
         assert np.isclose(net.lr, 0.1)
 
         net.set_params(
-            module__num_units=20,
-            module__nonlin=torch.tanh,
+            module__hidden_units=20,
+            module__nonlin=nn.Tanh(),
             lr=0.2,
         )
         net.fit(X, y)
 
-        assert net.module_.dense0.out_features == 20
-        assert net.module_.dense1.in_features == 20
-        assert net.module_.nonlin is torch.tanh
+        assert net.module_.sequential[0].out_features == 20
+        assert isinstance(net.module_.sequential[1], nn.Tanh)
+        assert net.module_.sequential[3].in_features == 20
         assert np.isclose(net.lr, 0.2)
 
     def test_set_params_then_initialize_remembers_param(
@@ -500,7 +474,7 @@ class TestNeuralNet:
         # parameters it needs to be reinitialized.
         X, y = data
 
-        net.set_params(module__nonlin=F.relu)
+        net.set_params(module__nonlin=nn.ReLU())
         net.fit(X, y)
 
         net.set_params(module__nonlin=nn.PReLU())
@@ -527,14 +501,14 @@ class TestNeuralNet:
         net = net_cls(
             module_cls,
             optimizer__param_groups=[
-                ('dense1.*', {'lr': 0.1}),
-                ('dense*.*', {'lr': 0.5}),
+                ('sequential.0.*', {'lr': 0.1}),
+                ('sequential.3.*', {'lr': 0.5}),
             ],
         )
         net.initialize()
 
-        # two custom (dense0, dense1), one default with the rest of the
-        # parameters (output).
+        # two custom (1st linear, 2nd linear), one default with the
+        # rest of the parameters (output).
         assert len(net.optimizer_.param_groups) == 3
         assert net.optimizer_.param_groups[0]['lr'] == 0.1
         assert net.optimizer_.param_groups[1]['lr'] == 0.5
@@ -545,19 +519,19 @@ class TestNeuralNet:
 
         net = net_cls(
             module=module_cls,
-            module__num_units=20,
-            module__nonlin=torch.tanh,
+            module__hidden_units=20,
+            module__nonlin=nn.Tanh(),
         )
         net.fit(X, y)
 
-        assert net.module_.dense0.out_features == 20
-        assert net.module_.dense1.in_features == 20
-        assert net.module_.nonlin is torch.tanh
+        assert net.module_.sequential[0].out_features == 20
+        assert net.module_.sequential[3].in_features == 20
+        assert isinstance(net.module_.sequential[1], nn.Tanh)
 
     def test_module_initialized_with_partial_module(self, net_cls, module_cls):
-        net = net_cls(partial(module_cls, num_units=123))
+        net = net_cls(partial(module_cls, hidden_units=123))
         net.initialize()
-        assert net.module_.dense0.out_features == 123
+        assert net.module_.sequential[0].out_features == 123
 
     def test_criterion_init_with_params(self, net_cls, module_cls):
         mock = Mock()
@@ -671,7 +645,7 @@ class TestNeuralNet:
         pipe.fit(X, y)
         pipe.predict(X)
         pipe.predict_proba(X)
-        pipe.set_params(net__module__num_units=20)
+        pipe.set_params(net__module__hidden_units=20)
 
     def test_grid_search_works(self, net_cls, module_cls, data):
         net = net_cls(module_cls)
@@ -679,7 +653,7 @@ class TestNeuralNet:
         params = {
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
-            'module__num_units': [10, 20],
+            'module__hidden_units': [10, 20],
         }
         gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy')
         gs.fit(X[:100], y[:100])  # for speed
@@ -730,10 +704,10 @@ class TestNeuralNet:
         net_cpu = net_cls(module_cls, device='cpu')
         net_cpu.initialize()
 
-        cpu_tensor = net_cpu.module_.dense0.weight.data
+        cpu_tensor = net_cpu.module_.sequential[0].weight.data
         assert isinstance(cpu_tensor, torch.FloatTensor)
 
-        gpu_tensor = net_cuda.module_.dense0.weight.data
+        gpu_tensor = net_cuda.module_.sequential[0].weight.data
         assert isinstance(gpu_tensor, torch.cuda.FloatTensor)
 
     def test_get_params_works(self, net_cls, module_cls):
@@ -778,9 +752,9 @@ class TestNeuralNet:
     def test_with_initialized_module_other_params(
             self, net_cls, module_cls, data, capsys):
         X, y = data
-        net = net_cls(module_cls(), max_epochs=1, module__num_units=123)
+        net = net_cls(module_cls(), max_epochs=1, module__hidden_units=123)
         net.fit(X, y)
-        weight = net.module_.dense0.weight.data
+        weight = net.module_.sequential[0].weight.data
         assert weight.shape[0] == 123
 
         stdout = capsys.readouterr()[0]
@@ -789,9 +763,9 @@ class TestNeuralNet:
     def test_with_initialized_module_non_default(
             self, net_cls, module_cls, data, capsys):
         X, y = data
-        net = net_cls(module_cls(num_units=123), max_epochs=1)
+        net = net_cls(module_cls(hidden_units=123), max_epochs=1)
         net.fit(X, y)
-        weight = net.module_.dense0.weight.data
+        weight = net.module_.sequential[0].weight.data
         assert weight.shape[0] == 123
 
         stdout = capsys.readouterr()[0]
@@ -800,7 +774,7 @@ class TestNeuralNet:
     def test_with_initialized_module_partial_fit(
             self, net_cls, module_cls, data, capsys):
         X, y = data
-        module = module_cls(num_units=123)
+        module = module_cls(hidden_units=123)
         net = net_cls(module, max_epochs=0)
         net.partial_fit(X, y)
 
@@ -814,7 +788,7 @@ class TestNeuralNet:
     def test_with_initialized_module_warm_start(
             self, net_cls, module_cls, data, capsys):
         X, y = data
-        module = module_cls(num_units=123)
+        module = module_cls(hidden_units=123)
         net = net_cls(module, max_epochs=0, warm_start=True)
         net.partial_fit(X, y)
 
@@ -970,28 +944,36 @@ class TestNeuralNet:
     def test_repr_uninitialized_works(self, net_cls, module_cls):
         net = net_cls(
             module_cls,
-            module__num_units=55,
+            module__hidden_units=55,
         )
         result = net.__repr__()
         expected = """<class 'skorch.classifier.NeuralNetClassifier'>[uninitialized](
-  module=<class 'skorch.tests.test_net.MyClassifier'>,
-  module__num_units=55,
+  module=functools.partial(<class 'skorch.toy.MLPModule'>, output_nonlin=Softmax(), input_units=20, hidden_units=10, num_hidden=2, dropout=0.5),
+  module__hidden_units=55,
 )"""
         assert result == expected
 
     def test_repr_initialized_works(self, net_cls, module_cls):
         net = net_cls(
             module_cls,
-            module__num_units=42,
+            module__hidden_units=42,
         )
         net.initialize()
         result = net.__repr__()
         expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
-  module_=MyClassifier(
-    (dense0): Linear(in_features=20, out_features=42, bias=True)
-    (dropout): Dropout(p=0.5)
-    (dense1): Linear(in_features=42, out_features=10, bias=True)
-    (output): Linear(in_features=10, out_features=2, bias=True)
+  module_=MLPModule(
+    (nonlin): ReLU()
+    (output_nonlin): Softmax()
+    (sequential): Sequential(
+      (0): Linear(in_features=20, out_features=42, bias=True)
+      (1): ReLU()
+      (2): Dropout(p=0.5)
+      (3): Linear(in_features=42, out_features=42, bias=True)
+      (4): ReLU()
+      (5): Dropout(p=0.5)
+      (6): Linear(in_features=42, out_features=2, bias=True)
+      (7): Softmax()
+    )
   ),
 )"""
         assert result == expected
@@ -1000,27 +982,36 @@ class TestNeuralNet:
         X, y = data
         net = net_cls(
             module_cls,
-            module__num_units=11,
+            module__hidden_units=11,
             module__nonlin=nn.PReLU(),
         )
         net.fit(X[:50], y[:50])
         result = net.__repr__()
         expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
-  module_=MyClassifier(
-    (dense0): Linear(in_features=20, out_features=11, bias=True)
+  module_=MLPModule(
     (nonlin): PReLU(num_parameters=1)
-    (dropout): Dropout(p=0.5)
-    (dense1): Linear(in_features=11, out_features=10, bias=True)
-    (output): Linear(in_features=10, out_features=2, bias=True)
+    (output_nonlin): Softmax()
+    (sequential): Sequential(
+      (0): Linear(in_features=20, out_features=11, bias=True)
+      (1): PReLU(num_parameters=1)
+      (2): Dropout(p=0.5)
+      (3): Linear(in_features=11, out_features=11, bias=True)
+      (4): PReLU(num_parameters=1)
+      (5): Dropout(p=0.5)
+      (6): Linear(in_features=11, out_features=2, bias=True)
+      (7): Softmax()
+    )
   ),
 )"""
         assert result == expected
 
     def test_fit_params_passed_to_module(self, net_cls, data):
+        from skorch.toy import MLPModule
+
         X, y = data
         side_effect = []
 
-        class FPModule(MyClassifier):
+        class FPModule(MLPModule):
             # pylint: disable=arguments-differ
             def forward(self, X, **fit_params):
                 side_effect.append(fit_params)
@@ -1040,10 +1031,12 @@ class TestNeuralNet:
         assert side_effect[3] == dict(bar=3, baz=4)
 
     def test_fit_params_passed_to_module_in_pipeline(self, net_cls, data):
+        from skorch.toy import MLPModule
+
         X, y = data
         side_effect = []
 
-        class FPModule(MyClassifier):
+        class FPModule(MLPModule):
             # pylint: disable=arguments-differ
             def forward(self, X, **fit_params):
                 side_effect.append(fit_params)
@@ -1065,6 +1058,8 @@ class TestNeuralNet:
         assert side_effect[3] == dict(bar=3, baz=4)
 
     def test_fit_params_passed_to_train_split(self, net_cls, data):
+        from skorch.toy import MLPModule
+
         X, y = data
         side_effect = []
 
@@ -1073,7 +1068,7 @@ class TestNeuralNet:
             side_effect.append(fit_params)
             return dataset, dataset
 
-        class FPModule(MyClassifier):
+        class FPModule(MLPModule):
             # pylint: disable=unused-argument,arguments-differ
             def forward(self, X, **fit_params):
                 return super().forward(X)
@@ -1094,9 +1089,11 @@ class TestNeuralNet:
         assert side_effect[1] == dict(bar=3, baz=4)
 
     def test_data_dict_and_fit_params(self, net_cls, data):
+        from skorch.toy import MLPModule
+
         X, y = data
 
-        class FPModule(MyClassifier):
+        class FPModule(MLPModule):
             # pylint: disable=unused-argument,arguments-differ
             def forward(self, X0, X1, **fit_params):
                 assert fit_params.get('foo') == 3
@@ -1108,9 +1105,11 @@ class TestNeuralNet:
 
     def test_data_dict_and_fit_params_conflicting_names_raises(
             self, net_cls, data):
+        from skorch.toy import MLPModule
+
         X, y = data
 
-        class FPModule(MyClassifier):
+        class FPModule(MLPModule):
             # pylint: disable=unused-argument,arguments-differ
             def forward(self, X0, X1, **fit_params):
                 return super().forward(X0)

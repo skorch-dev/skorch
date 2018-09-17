@@ -16,31 +16,6 @@ import torch.nn.functional as F
 torch.manual_seed(0)
 
 
-class MyClassifier(nn.Module):
-    """Simple classification module.
-
-    We cannot use the module fixtures from conftest because they are
-    not pickleable.
-
-    """
-    def __init__(self, num_units=10, nonlin=F.relu):
-        super(MyClassifier, self).__init__()
-
-        self.dense0 = nn.Linear(20, num_units)
-        self.nonlin = nonlin
-        self.dropout = nn.Dropout(0.5)
-        self.dense1 = nn.Linear(num_units, 10)
-        self.output = nn.Linear(10, 2)
-
-    # pylint: disable=arguments-differ
-    def forward(self, X):
-        X = self.nonlin(self.dense0(X))
-        X = self.dropout(X)
-        X = self.nonlin(self.dense1(X))
-        X = F.softmax(self.output(X), dim=-1)
-        return X
-
-
 class TestNeuralNet:
     @pytest.fixture(scope='module')
     def data(self, classifier_data):
@@ -61,8 +36,8 @@ class TestNeuralNet:
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
-    def module_cls(self):
-        return MyClassifier
+    def module_cls(self, classifier_module):
+        return classifier_module
 
     @pytest.fixture(scope='module')
     def net(self, net_cls, module_cls, dummy_callback):
@@ -119,32 +94,6 @@ class TestNeuralNet:
             assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
 
 
-class MyBinaryClassifier(nn.Module):
-    """Simple binary classification module.
-
-    We cannot use the module fixtures from conftest because they are
-    not pickleable.
-
-    """
-
-    def __init__(self, num_units=10, nonlin=F.relu):
-        super().__init__()
-
-        self.dense0 = nn.Linear(20, num_units)
-        self.nonlin = nonlin
-        self.dropout = nn.Dropout(0.5)
-        self.dense1 = nn.Linear(num_units, 10)
-        self.output = nn.Linear(10, 1)
-
-    # pylint: disable=arguments-differ
-    def forward(self, X):
-        X = self.nonlin(self.dense0(X))
-        X = self.dropout(X)
-        X = self.nonlin(self.dense1(X))
-        X = self.output(X).squeeze_(-1)
-        return X
-
-
 class TestNeuralNetBinaryClassifier:
     @pytest.fixture(scope='module')
     def data(self, classifier_data):
@@ -152,8 +101,15 @@ class TestNeuralNetBinaryClassifier:
         return X, y.astype('float32')
 
     @pytest.fixture(scope='module')
-    def module_cls(self):
-        return MyBinaryClassifier
+    def module_cls(self, classifier_module):
+        from skorch.toy import make_binary_classifier
+        return make_binary_classifier(
+            input_units=20,
+            hidden_units=10,
+            output_units=1,
+            num_hidden=2,
+            dropout=0.5,
+        )
 
     @pytest.fixture(scope='module')
     def net_cls(self):
@@ -165,19 +121,29 @@ class TestNeuralNetBinaryClassifier:
         return net_cls(
             module_cls,
             max_epochs=1,
-            lr=0.1,
+            lr=1,
         )
 
     @pytest.fixture(scope='module')
     def net_fit(self, net, data):
         # Careful, don't call additional fits on this, since that would have
         # side effects on other tests.
+        net.set_params(max_epochs=10)
         X, y = data
-        return net.fit(X, y)
+        net.fit(X, y)
+        net.set_params(max_epochs=1)
+        return net
 
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass
+
+    def test_net_learns(self, net_fit):
+        train_losses = net_fit.history[:, 'train_loss']
+        assert train_losses[0] > 1.3 * train_losses[-1]
+
+        valid_acc = net_fit.history[-1, 'valid_acc']
+        assert valid_acc > 0.65
 
     def test_history_default_keys(self, net_fit):
         expected_keys = {

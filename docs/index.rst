@@ -42,6 +42,7 @@ User's Guide
    user/callbacks
    user/dataset
    user/history
+   user/toy
    user/helper
    user/REST
    user/parallelism
