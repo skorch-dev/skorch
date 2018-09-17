@@ -316,9 +316,11 @@ class ParamMapper(Callback):
     Parameters
     ----------
     patterns : str or callable or list
-      The pattern(s) to match parameter names against.
-      If patterns is a function the parameter name is passed as an
-      argument and is regarded as a match if the function returns ``True``.
+      The pattern(s) to match parameter names against. Patterns are
+      UNIX globbing patterns as understood by :func:`~fnmatch.fnmatch`.
+      Patterns can also be callables which will get called with the
+      parameter name and are regarded as a match when the callable
+      returns a truthy value.
 
       Example: ``'linear*.weight'`` or ``['linear0.*', 'linear1.bias']``
             or ``lambda name: name.startswith('linear')``.
@@ -385,7 +387,7 @@ class Freezer(ParamMapper):
     specify a specific point in time (either by epoch number or using a callable)
     when the parameters are frozen using the ``at`` parameter.
 
-    See ``ParamMapper`` for details.
+    See :class:`.ParamMapper` for details.
     """
     def __init__(self, *args, **kwargs):
         kwargs['at'] = kwargs.get('at', 1)
@@ -402,7 +404,19 @@ class Unfreezer(ParamMapper):
 
 
 class Initializer(ParamMapper):
-    """Apply any function on matching parameters in the first epoch."""
+    """Apply any function on matching parameters in the first epoch.
+
+    Examples
+    --------
+
+    Use ``Initializer`` to initialize all dense layer weights with
+    values sampled from an uniform distribution on epoch begin of
+    the first epoch:
+
+    >>> init_fn = partial(torch.nn.init.uniform_, a=-1e-3, b=1e-3)
+    >>> cb = Initializer('dense*.weight', fn=init_fn)
+    >>> net = Net(myModule, callbacks=[cb])
+    """
     def __init__(self, *args, **kwargs):
         kwargs['at'] = kwargs.get('at', 1)
         super().__init__(*args, **kwargs)
