@@ -288,6 +288,16 @@ class ParamMapper(Callback):
     execution schemes (e.g. periodic application) are possible using
     ``at`` and ``scheduler``.
 
+    Notes
+    -----
+    When starting the training process after saving and loading a model,
+    ``ParamMapper``s might re-initialize parts of your model when the
+    history is not saved along with the model. To avoid this, in case
+    you use ``ParamMapper`` (or subclasses, e.g. :class:`Initializer`)
+    and want to save your model make sure to either (a) use pickle,
+    (b) save and load the history or (c) remove the parameter mapper
+    callbacks before continuing training.
+
     Examples
     --------
     Initialize a layer on first epoch before the first training step:
