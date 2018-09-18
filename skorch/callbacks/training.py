@@ -358,10 +358,13 @@ class ParamMapper(Callback):
     def __init__(self, patterns, fn=noop, at=1, schedule=None):
         self.at = at
         self.fn = fn
-        self.schedule = schedule or self._default_schedule
+        self.schedule = schedule
         self.patterns = patterns
 
     def initialize(self):
+        if not self.schedule:
+            self.schedule = self._default_schedule
+
         if not isinstance(self.patterns, (list, tuple)):
             self.patterns = [self.patterns]
 
