@@ -375,6 +375,8 @@ class ParamMapper(Callback):
                     'epoch number is 1.'.format(self.at))
             self.at = partial(self._epoch_at, epoch=self.at)
 
+        return self
+
     def named_parameters(self, net):
         return list(net.module_.named_parameters())
 
@@ -405,9 +407,9 @@ class ParamMapper(Callback):
 
 
 class Freezer(ParamMapper):
-    """Freeze matching parameters in the first epoch. You may
-    specify a specific point in time (either by epoch number or using a callable)
-    when the parameters are frozen using the ``at`` parameter.
+    """Freeze matching parameters at the start of the first epoch. You may
+    specify a specific point in time (either by epoch number or using a
+    callable) when the parameters are frozen using the ``at`` parameter.
 
     See :class:`.ParamMapper` for details.
     """
@@ -432,7 +434,7 @@ class Initializer(ParamMapper):
     --------
 
     Use ``Initializer`` to initialize all dense layer weights with
-    values sampled from an uniform distribution on epoch begin of
+    values sampled from an uniform distribution on the beginning of
     the first epoch:
 
     >>> init_fn = partial(torch.nn.init.uniform_, a=-1e-3, b=1e-3)
