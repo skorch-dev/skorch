@@ -314,3 +314,231 @@ class TestEarlyStopping:
 
         expected_msg = "Invalid threshold mode: 'incorrect'"
         assert exc.value.args[0] == expected_msg
+
+
+
+class TestParamMapper:
+
+    @pytest.fixture
+    def initializer(self):
+        from skorch.callbacks import Initializer
+        return Initializer
+
+    @pytest.fixture
+    def freezer(self):
+        from skorch.callbacks import Freezer
+        return Freezer
+
+    @pytest.fixture
+    def unfreezer(self):
+        from skorch.callbacks import Unfreezer
+        return Unfreezer
+
+    @pytest.fixture
+    def param_mapper(self):
+        from skorch.callbacks import ParamMapper
+        return ParamMapper
+
+    @pytest.fixture
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.mark.parametrize('at', [0, -1])
+    def test_subzero_at_fails(self, net_cls, classifier_module,
+                              param_mapper, at):
+        cb = param_mapper(patterns='*', at=at)
+        net = net_cls(classifier_module, callbacks=[cb])
+        with pytest.raises(ValueError):
+            net.initialize()
+
+    @pytest.mark.parametrize('mod_init', [False, True])
+    @pytest.mark.parametrize('weight_pattern', [
+        'sequential.*.weight',
+        lambda name: name.startswith('sequential') and name.endswith('.weight'),
+    ])
+    def test_initialization_is_effective(self, net_cls, classifier_module,
+                                         classifier_data, initializer,
+                                         mod_init, weight_pattern):
+        from torch.nn.init import constant_
+        from skorch.utils import to_numpy
+
+        module = classifier_module() if mod_init else classifier_module
+
+        net = net_cls(
+            module,
+            lr=0,
+            max_epochs=1,
+            callbacks=[
+                initializer(weight_pattern, partial(constant_, val=5)),
+                initializer('sequential.3.bias', partial(constant_, val=10)),
+            ])
+
+        net.fit(*classifier_data)
+
+        assert np.allclose(to_numpy(net.module_.sequential[0].weight), 5)
+        assert np.allclose(to_numpy(net.module_.sequential[3].weight), 5)
+        assert np.allclose(to_numpy(net.module_.sequential[3].bias), 10)
+
+    @pytest.mark.parametrize('mod_init', [False, True])
+    @pytest.mark.parametrize('mod_kwargs', [
+        {},
+        # Supply a module__ parameter so the model is forced
+        # to re-initialize. Even then parameters should be
+        # frozen correctly.
+        {'module__hidden_units': 5},
+    ])
+    def test_freezing_is_effective(self, net_cls, classifier_module,
+                                   classifier_data, freezer, mod_init,
+                                   mod_kwargs):
+        from skorch.utils import to_numpy
+
+        module = classifier_module() if mod_init else classifier_module
+
+        net = net_cls(
+            module,
+            max_epochs=2,
+            callbacks=[
+                freezer('sequential.*.weight'),
+                freezer('sequential.3.bias'),
+            ],
+            **mod_kwargs)
+
+        net.initialize()
+
+        assert net.module_.sequential[0].weight.requires_grad
+        assert net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert net.module_.sequential[3].bias.requires_grad
+
+        dense0_weight_pre = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_pre = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_pre = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_pre = to_numpy(net.module_.sequential[3].bias).copy()
+
+        # use partial_fit to not re-initialize the module (weights)
+        net.partial_fit(*classifier_data)
+
+        dense0_weight_post = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_post = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_post = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_post = to_numpy(net.module_.sequential[3].bias).copy()
+
+        assert not net.module_.sequential[0].weight.requires_grad
+        assert not net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert not net.module_.sequential[3].bias.requires_grad
+
+        assert np.allclose(dense0_weight_pre, dense0_weight_post)
+        assert np.allclose(dense1_weight_pre, dense1_weight_post)
+        assert not np.allclose(dense0_bias_pre, dense0_bias_post)
+        assert np.allclose(dense1_bias_pre, dense1_bias_post)
+
+    def test_unfreezing_is_effective(self, net_cls, classifier_module,
+                                     classifier_data, freezer, unfreezer):
+        from skorch.utils import to_numpy
+
+        net = net_cls(
+            classifier_module,
+            max_epochs=1,
+            callbacks=[
+                freezer('sequential.*.weight'),
+                freezer('sequential.3.bias'),
+                unfreezer('sequential.*.weight', at=2),
+                unfreezer('sequential.3.bias', at=2),
+            ])
+
+        net.initialize()
+
+        # epoch 1, freezing parameters
+        net.partial_fit(*classifier_data)
+
+        assert not net.module_.sequential[0].weight.requires_grad
+        assert not net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert not net.module_.sequential[3].bias.requires_grad
+
+        dense0_weight_pre = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_pre = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_pre = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_pre = to_numpy(net.module_.sequential[3].bias).copy()
+
+        # epoch 2, unfreezing parameters
+        net.partial_fit(*classifier_data)
+
+        assert net.module_.sequential[0].weight.requires_grad
+        assert net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert net.module_.sequential[3].bias.requires_grad
+
+        # epoch 3, modifications should have been made
+        net.partial_fit(*classifier_data)
+
+        dense0_weight_post = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_post = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_post = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_post = to_numpy(net.module_.sequential[3].bias).copy()
+
+        assert not np.allclose(dense0_weight_pre, dense0_weight_post)
+        assert not np.allclose(dense1_weight_pre, dense1_weight_post)
+        assert not np.allclose(dense0_bias_pre, dense0_bias_post)
+        assert not np.allclose(dense1_bias_pre, dense1_bias_post)
+
+
+    def test_schedule_is_effective(self, net_cls, classifier_module,
+                                   classifier_data, param_mapper):
+        from skorch.utils import to_numpy, noop
+        from skorch.utils import freeze_parameter, unfreeze_parameter
+
+        def schedule(net):
+            if len(net.history) == 1:
+                return freeze_parameter
+            elif len(net.history) == 2:
+                return unfreeze_parameter
+            return noop
+
+        net = net_cls(
+            classifier_module,
+            max_epochs=1,
+            callbacks=[
+                param_mapper(
+                    ['sequential.*.weight', 'sequential.3.bias'],
+                    schedule=schedule,
+                ),
+            ])
+
+        net.initialize()
+
+        # epoch 1, freezing parameters
+        net.partial_fit(*classifier_data)
+
+        assert not net.module_.sequential[0].weight.requires_grad
+        assert not net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert not net.module_.sequential[3].bias.requires_grad
+
+        dense0_weight_pre = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_pre = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_pre = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_pre = to_numpy(net.module_.sequential[3].bias).copy()
+
+        # epoch 2, unfreezing parameters
+        net.partial_fit(*classifier_data)
+
+        assert net.module_.sequential[0].weight.requires_grad
+        assert net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert net.module_.sequential[3].bias.requires_grad
+
+        # epoch 3, modifications should have been made
+        net.partial_fit(*classifier_data)
+
+        dense0_weight_post = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_post = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_post = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_post = to_numpy(net.module_.sequential[3].bias).copy()
+
+        assert not np.allclose(dense0_weight_pre, dense0_weight_post)
+        assert not np.allclose(dense1_weight_pre, dense1_weight_post)
+        assert not np.allclose(dense0_bias_pre, dense0_bias_post)
+        assert not np.allclose(dense1_bias_pre, dense1_bias_post)

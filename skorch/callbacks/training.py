@@ -2,15 +2,20 @@
 
 import pickle
 import warnings
+from fnmatch import fnmatch
+from functools import partial
 
 import numpy as np
 from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
 from skorch.utils import noop
 from skorch.utils import open_file_like
+from skorch.utils import freeze_parameter
+from skorch.utils import unfreeze_parameter
 
 
-__all__ = ['Checkpoint', 'EarlyStopping']
+__all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
+           'Unfreezer', 'Initializer']
 
 
 class Checkpoint(Callback):
@@ -273,3 +278,173 @@ class EarlyStopping(Callback):
         #  We do not want to be affected by verbosity if sink is not print
         if (self.sink is not print) or verbose:
             self.sink(text)
+
+
+
+class ParamMapper(Callback):
+    """Map arbitrary functions over module parameters filtered by pattern
+    matching.
+
+    In the simplest case the function is only applied once at
+    the beginning of a given epoch (at ``on_epoch_begin``) but more complex
+    execution schemes (e.g. periodic application) are possible using
+    ``at`` and ``scheduler``.
+
+    Notes
+    -----
+    When starting the training process after saving and loading a model,
+    ``ParamMapper`` might re-initialize parts of your model when the
+    history is not saved along with the model. To avoid this, in case
+    you use ``ParamMapper`` (or subclasses, e.g. :class:`.Initializer`)
+    and want to save your model make sure to either (a) use pickle,
+    (b) save and load the history or (c) remove the parameter mapper
+    callbacks before continuing training.
+
+    Examples
+    --------
+    Initialize a layer on first epoch before the first training step:
+
+    >>> init = partial(torch.nn.init.uniform_, a=0, b=1)
+    >>> cb = ParamMapper('linear*.weight', at=1, fn=init)
+    >>> net = Net(myModule, callbacks=[cb])
+
+    Reset layer initialization if train loss reaches a certain value
+    (e.g. re-initialize on overfit):
+
+    >>> at = lambda net: net.history[-1, 'train_loss'] < 0.1
+    >>> init = partial(torch.nn.init.uniform_, a=0, b=1)
+    >>> cb = ParamMapper('linear0.weight', at=at, fn=init)
+    >>> net = Net(myModule, callbacks=[cb])
+
+    Periodically freeze and unfreeze all embedding layers:
+
+    >>> def my_sched(net):
+    ...    if len(net.history) % 2 == 0:
+    ...        return skorch.utils.freeze_parameter
+    ...    else:
+    ...        return skorch.utils.unfreeze_parameter
+    >>> cb = ParamMapper('embedding*.weight', schedule=my_sched)
+    >>> net = Net(myModule, callbacks=[cb])
+
+    Parameters
+    ----------
+    patterns : str or callable or list
+      The pattern(s) to match parameter names against. Patterns are
+      UNIX globbing patterns as understood by :func:`~fnmatch.fnmatch`.
+      Patterns can also be callables which will get called with the
+      parameter name and are regarded as a match when the callable
+      returns a truthy value.
+
+      This parameter also supports lists of str or callables so that
+      one ``ParamMapper`` can match a group of parameters.
+
+      Example: ``'linear*.weight'`` or ``['linear0.*', 'linear1.bias']``
+      or ``lambda name: name.startswith('linear')``.
+
+    fn : function
+      The function to apply to each parameter separately.
+
+    at : int or callable
+      In case you specify an integer it represents the epoch number the
+      function ``fn`` is applied to the parameters, in case ``at`` is
+      a function it will receive ``net`` as parameter and the function
+      is applied to the parameter once ``at`` returns ``True``.
+
+    schedule : callable or None
+      If specified this callable supersedes the static ``at``/``fn``
+      combination by dynamically returning the function that is applied
+      on the matched parameters. This way you can, for example, create a
+      schedule that periodically freezes and unfreezes layers.
+
+      The callable's signature is ``schedule(net: NeuralNet) -> callable``.
+
+    """
+    def __init__(self, patterns, fn=noop, at=1, schedule=None):
+        self.at = at
+        self.fn = fn
+        self.schedule = schedule
+        self.patterns = patterns
+
+    def initialize(self):
+        if not self.schedule:
+            self.schedule = self._default_schedule
+
+        if not isinstance(self.patterns, (list, tuple)):
+            self.patterns = [self.patterns]
+
+        if isinstance(self.at, int):
+            if self.at <= 0:
+                raise ValueError(
+                    'Invalid value for `at` (at={}). The first possible '
+                    'epoch number is 1.'.format(self.at))
+            self.at = partial(self._epoch_at, epoch=self.at)
+
+        return self
+
+    def named_parameters(self, net):
+        return list(net.module_.named_parameters())
+
+    def filter_parameters(self, patterns, params):
+        for pattern in patterns:
+            pattern_fn = (pattern if callable(pattern) else
+                          partial(fnmatch, pat=pattern))
+            for name, param in params:
+                if pattern_fn(name):
+                    yield name, param
+
+    def _default_schedule(self, net):
+        if self.at(net):
+            return self.fn
+        return noop
+
+    def _epoch_at(self, net, epoch=1):
+        return len(net.history) == epoch
+
+    def on_epoch_begin(self, net, **kwargs):
+        params = self.named_parameters(net)
+        params = self.filter_parameters(self.patterns, params)
+        map_fn = self.schedule(net)
+
+        for _, p in params:
+            map_fn(p)
+
+
+
+class Freezer(ParamMapper):
+    """Freeze matching parameters at the start of the first epoch. You may
+    specify a specific point in time (either by epoch number or using a
+    callable) when the parameters are frozen using the ``at`` parameter.
+
+    See :class:`.ParamMapper` for details.
+    """
+    def __init__(self, *args, **kwargs):
+        kwargs['at'] = kwargs.get('at', 1)
+        kwargs['fn'] = kwargs.get('fn', freeze_parameter)
+        super().__init__(*args, **kwargs)
+
+
+class Unfreezer(ParamMapper):
+    """Inverse operation of :class:`.Freezer`."""
+    def __init__(self, *args, **kwargs):
+        kwargs['at'] = kwargs.get('at', 1)
+        kwargs['fn'] = kwargs.get('fn', unfreeze_parameter)
+        super().__init__(*args, **kwargs)
+
+
+class Initializer(ParamMapper):
+    """Apply any function on matching parameters in the first epoch.
+
+    Examples
+    --------
+
+    Use ``Initializer`` to initialize all dense layer weights with
+    values sampled from an uniform distribution on the beginning of
+    the first epoch:
+
+    >>> init_fn = partial(torch.nn.init.uniform_, a=-1e-3, b=1e-3)
+    >>> cb = Initializer('dense*.weight', fn=init_fn)
+    >>> net = Net(myModule, callbacks=[cb])
+    """
+    def __init__(self, *args, **kwargs):
+        kwargs['at'] = kwargs.get('at', 1)
+        super().__init__(*args, **kwargs)

@@ -432,3 +432,17 @@ def _make_optimizer(pgroups, optimizer, filter_fn, **kwargs):
 def _make_split(X, y, valid_ds, **kwargs):
     """Used by ``predefined_split`` to allow for pickling"""
     return X, valid_ds
+
+
+def freeze_parameter(param):
+    """Convenience function to freeze a passed torch parameter.
+    Used by ``skorch.callbacks.Freezer``
+    """
+    param.requires_grad = False
+
+
+def unfreeze_parameter(param):
+    """Convenience function to unfreeze a passed torch parameter.
+    Used by ``skorch.callbacks.Unfreezer``
+    """
+    param.requires_grad = True
