@@ -345,8 +345,8 @@ class TestParamMapper:
         return NeuralNetClassifier
 
     @pytest.mark.parametrize('weight_pattern', [
-        'dense*.weight',
-        lambda name: name.startswith('dense') and name.endswith('.weight'),
+        'sequential.*.weight',
+        lambda name: name.startswith('sequential') and name.endswith('.weight'),
     ])
     def test_initialization_is_effective(self, net_cls, classifier_module,
                                          classifier_data, initializer,
@@ -360,14 +360,14 @@ class TestParamMapper:
             max_epochs=1,
             callbacks=[
                 initializer(weight_pattern, partial(constant_, val=5)),
-                initializer('dense1.bias', partial(constant_, val=10)),
+                initializer('sequential.3.bias', partial(constant_, val=10)),
             ])
 
         net.fit(*classifier_data)
 
-        assert np.allclose(to_numpy(net.module_.dense0.weight), 5)
-        assert np.allclose(to_numpy(net.module_.dense1.weight), 5)
-        assert np.allclose(to_numpy(net.module_.dense1.bias), 10)
+        assert np.allclose(to_numpy(net.module_.sequential[0].weight), 5)
+        assert np.allclose(to_numpy(net.module_.sequential[3].weight), 5)
+        assert np.allclose(to_numpy(net.module_.sequential[3].bias), 10)
 
     def test_initialization_is_effective_pre(self, net_cls, classifier_module,
                                              classifier_data, initializer):
@@ -381,15 +381,15 @@ class TestParamMapper:
             lr=0,
             max_epochs=1,
             callbacks=[
-                initializer('dense*.weight', partial(constant_, val=5)),
-                initializer('dense1.bias', partial(constant_, val=10)),
+                initializer('sequential.*.weight', partial(constant_, val=5)),
+                initializer('sequential.3.bias', partial(constant_, val=10)),
             ])
 
         net.fit(*classifier_data)
 
-        assert np.allclose(to_numpy(net.module_.dense0.weight), 5)
-        assert np.allclose(to_numpy(net.module_.dense1.weight), 5)
-        assert np.allclose(to_numpy(net.module_.dense1.bias), 10)
+        assert np.allclose(to_numpy(net.module_.sequential[0].weight), 5)
+        assert np.allclose(to_numpy(net.module_.sequential[3].weight), 5)
+        assert np.allclose(to_numpy(net.module_.sequential[3].bias), 10)
 
     def test_freezing_is_effective(self, net_cls, classifier_module,
                                    classifier_data, freezer):
@@ -399,34 +399,34 @@ class TestParamMapper:
             classifier_module,
             max_epochs=2,
             callbacks=[
-                freezer('dense*.weight'),
-                freezer('dense1.bias'),
+                freezer('sequential.*.weight'),
+                freezer('sequential.3.bias'),
             ])
 
         net.initialize()
 
-        assert net.module_.dense0.weight.requires_grad
-        assert net.module_.dense1.weight.requires_grad
-        assert net.module_.dense0.bias.requires_grad
-        assert net.module_.dense1.bias.requires_grad
+        assert net.module_.sequential[0].weight.requires_grad
+        assert net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert net.module_.sequential[3].bias.requires_grad
 
-        dense0_weight_pre = to_numpy(net.module_.dense0.weight).copy()
-        dense1_weight_pre = to_numpy(net.module_.dense1.weight).copy()
-        dense0_bias_pre = to_numpy(net.module_.dense0.bias).copy()
-        dense1_bias_pre = to_numpy(net.module_.dense1.bias).copy()
+        dense0_weight_pre = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_pre = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_pre = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_pre = to_numpy(net.module_.sequential[3].bias).copy()
 
         # use partial_fit to not re-initialize the module (weights)
         net.partial_fit(*classifier_data)
 
-        dense0_weight_post = to_numpy(net.module_.dense0.weight).copy()
-        dense1_weight_post = to_numpy(net.module_.dense1.weight).copy()
-        dense0_bias_post = to_numpy(net.module_.dense0.bias).copy()
-        dense1_bias_post = to_numpy(net.module_.dense1.bias).copy()
+        dense0_weight_post = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_post = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_post = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_post = to_numpy(net.module_.sequential[3].bias).copy()
 
-        assert not net.module_.dense0.weight.requires_grad
-        assert not net.module_.dense1.weight.requires_grad
-        assert net.module_.dense0.bias.requires_grad
-        assert not net.module_.dense1.bias.requires_grad
+        assert not net.module_.sequential[0].weight.requires_grad
+        assert not net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert not net.module_.sequential[3].bias.requires_grad
 
         assert np.allclose(dense0_weight_pre, dense0_weight_post)
         assert np.allclose(dense1_weight_pre, dense1_weight_post)
@@ -436,43 +436,46 @@ class TestParamMapper:
     def test_freezing_is_effective_pre(self, net_cls, classifier_module,
                                        classifier_data, freezer):
         from skorch.utils import to_numpy
-        from torch import tanh
+        from torch.nn import Tanh
 
         mod = classifier_module()
         net = net_cls(
             mod,
             max_epochs=2,
             lr=5,
-            module__nonlin=tanh,
+            # Supply a module__ parameter so the model is forced
+            # to re-initialize. Even then parameters should be
+            # frozen correctly.
+            module__nonlin=Tanh(),
             callbacks=[
-                freezer('dense*.weight'),
-                freezer('dense1.bias'),
+                freezer('sequential.*.weight'),
+                freezer('sequential.3.bias'),
             ])
 
         net.initialize()
 
-        assert net.module_.dense0.weight.requires_grad
-        assert net.module_.dense1.weight.requires_grad
-        assert net.module_.dense0.bias.requires_grad
-        assert net.module_.dense1.bias.requires_grad
+        assert net.module_.sequential[0].weight.requires_grad
+        assert net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert net.module_.sequential[3].bias.requires_grad
 
-        dense0_weight_pre = to_numpy(net.module_.dense0.weight).copy()
-        dense1_weight_pre = to_numpy(net.module_.dense1.weight).copy()
-        dense0_bias_pre = to_numpy(net.module_.dense0.bias).copy()
-        dense1_bias_pre = to_numpy(net.module_.dense1.bias).copy()
+        dense0_weight_pre = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_pre = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_pre = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_pre = to_numpy(net.module_.sequential[3].bias).copy()
 
         # use partial_fit to not re-initialize the module (weights)
         net.partial_fit(*classifier_data)
 
-        dense0_weight_post = to_numpy(net.module_.dense0.weight).copy()
-        dense1_weight_post = to_numpy(net.module_.dense1.weight).copy()
-        dense0_bias_post = to_numpy(net.module_.dense0.bias).copy()
-        dense1_bias_post = to_numpy(net.module_.dense1.bias).copy()
+        dense0_weight_post = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_post = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_post = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_post = to_numpy(net.module_.sequential[3].bias).copy()
 
-        assert not net.module_.dense0.weight.requires_grad
-        assert not net.module_.dense1.weight.requires_grad
-        assert net.module_.dense0.bias.requires_grad
-        assert not net.module_.dense1.bias.requires_grad
+        assert not net.module_.sequential[0].weight.requires_grad
+        assert not net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert not net.module_.sequential[3].bias.requires_grad
 
         assert np.allclose(dense0_weight_pre, dense0_weight_post)
         assert np.allclose(dense1_weight_pre, dense1_weight_post)
@@ -487,10 +490,10 @@ class TestParamMapper:
             classifier_module,
             max_epochs=1,
             callbacks=[
-                freezer('dense*.weight'),
-                freezer('dense1.bias'),
-                unfreezer('dense*.weight', at=2),
-                unfreezer('dense1.bias', at=2),
+                freezer('sequential.*.weight'),
+                freezer('sequential.3.bias'),
+                unfreezer('sequential.*.weight', at=2),
+                unfreezer('sequential.3.bias', at=2),
             ])
 
         net.initialize()
@@ -498,31 +501,31 @@ class TestParamMapper:
         # epoch 1, freezing parameters
         net.partial_fit(*classifier_data)
 
-        assert not net.module_.dense0.weight.requires_grad
-        assert not net.module_.dense1.weight.requires_grad
-        assert net.module_.dense0.bias.requires_grad
-        assert not net.module_.dense1.bias.requires_grad
+        assert not net.module_.sequential[0].weight.requires_grad
+        assert not net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert not net.module_.sequential[3].bias.requires_grad
 
-        dense0_weight_pre = to_numpy(net.module_.dense0.weight).copy()
-        dense1_weight_pre = to_numpy(net.module_.dense1.weight).copy()
-        dense0_bias_pre = to_numpy(net.module_.dense0.bias).copy()
-        dense1_bias_pre = to_numpy(net.module_.dense1.bias).copy()
+        dense0_weight_pre = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_pre = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_pre = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_pre = to_numpy(net.module_.sequential[3].bias).copy()
 
         # epoch 2, unfreezing parameters
         net.partial_fit(*classifier_data)
 
-        assert net.module_.dense0.weight.requires_grad
-        assert net.module_.dense1.weight.requires_grad
-        assert net.module_.dense0.bias.requires_grad
-        assert net.module_.dense1.bias.requires_grad
+        assert net.module_.sequential[0].weight.requires_grad
+        assert net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert net.module_.sequential[3].bias.requires_grad
 
         # epoch 3, modifications should have been made
         net.partial_fit(*classifier_data)
 
-        dense0_weight_post = to_numpy(net.module_.dense0.weight).copy()
-        dense1_weight_post = to_numpy(net.module_.dense1.weight).copy()
-        dense0_bias_post = to_numpy(net.module_.dense0.bias).copy()
-        dense1_bias_post = to_numpy(net.module_.dense1.bias).copy()
+        dense0_weight_post = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_post = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_post = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_post = to_numpy(net.module_.sequential[3].bias).copy()
 
         assert not np.allclose(dense0_weight_pre, dense0_weight_post)
         assert not np.allclose(dense1_weight_pre, dense1_weight_post)
@@ -547,7 +550,7 @@ class TestParamMapper:
             max_epochs=1,
             callbacks=[
                 param_mapper(
-                    ['dense*.weight', 'dense1.bias'],
+                    ['sequential.*.weight', 'sequential.3.bias'],
                     schedule=schedule,
                 ),
             ])
@@ -557,31 +560,31 @@ class TestParamMapper:
         # epoch 1, freezing parameters
         net.partial_fit(*classifier_data)
 
-        assert not net.module_.dense0.weight.requires_grad
-        assert not net.module_.dense1.weight.requires_grad
-        assert net.module_.dense0.bias.requires_grad
-        assert not net.module_.dense1.bias.requires_grad
+        assert not net.module_.sequential[0].weight.requires_grad
+        assert not net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert not net.module_.sequential[3].bias.requires_grad
 
-        dense0_weight_pre = to_numpy(net.module_.dense0.weight).copy()
-        dense1_weight_pre = to_numpy(net.module_.dense1.weight).copy()
-        dense0_bias_pre = to_numpy(net.module_.dense0.bias).copy()
-        dense1_bias_pre = to_numpy(net.module_.dense1.bias).copy()
+        dense0_weight_pre = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_pre = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_pre = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_pre = to_numpy(net.module_.sequential[3].bias).copy()
 
         # epoch 2, unfreezing parameters
         net.partial_fit(*classifier_data)
 
-        assert net.module_.dense0.weight.requires_grad
-        assert net.module_.dense1.weight.requires_grad
-        assert net.module_.dense0.bias.requires_grad
-        assert net.module_.dense1.bias.requires_grad
+        assert net.module_.sequential[0].weight.requires_grad
+        assert net.module_.sequential[3].weight.requires_grad
+        assert net.module_.sequential[0].bias.requires_grad
+        assert net.module_.sequential[3].bias.requires_grad
 
         # epoch 3, modifications should have been made
         net.partial_fit(*classifier_data)
 
-        dense0_weight_post = to_numpy(net.module_.dense0.weight).copy()
-        dense1_weight_post = to_numpy(net.module_.dense1.weight).copy()
-        dense0_bias_post = to_numpy(net.module_.dense0.bias).copy()
-        dense1_bias_post = to_numpy(net.module_.dense1.bias).copy()
+        dense0_weight_post = to_numpy(net.module_.sequential[0].weight).copy()
+        dense1_weight_post = to_numpy(net.module_.sequential[3].weight).copy()
+        dense0_bias_post = to_numpy(net.module_.sequential[0].bias).copy()
+        dense1_bias_post = to_numpy(net.module_.sequential[3].bias).copy()
 
         assert not np.allclose(dense0_weight_pre, dense0_weight_post)
         assert not np.allclose(dense1_weight_pre, dense1_weight_post)
