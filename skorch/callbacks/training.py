@@ -283,7 +283,9 @@ class EarlyStopping(Callback):
 
 class ParamMapper(Callback):
     """Map arbitrary functions over module parameters filtered by pattern
-    matching. In the simplest case the function is only applied once at
+    matching.
+
+    In the simplest case the function is only applied once at
     the beginning of a given epoch (at ``on_epoch_begin``) but more complex
     execution schemes (e.g. periodic application) are possible using
     ``at`` and ``scheduler``.
