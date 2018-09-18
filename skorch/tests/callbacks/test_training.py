@@ -491,7 +491,7 @@ class TestParamMapper:
         from skorch.utils import to_numpy, noop
         from skorch.utils import freeze_parameter, unfreeze_parameter
 
-        def schedule(net, _at, _fn):
+        def schedule(net):
             if len(net.history) == 1:
                 return freeze_parameter
             elif len(net.history) == 2:

@@ -351,9 +351,12 @@ class ParamMapper(Callback):
       is applied to the parameter once ``at`` returns ``True``.
 
     schedule : callable or None
-      If specified it determines how ``fn`` and ``at`` are used.
-      This function receives ``net``, ``at`` and ``fn`` and returns
-      the function to be applied on the matched parameters.
+      If specified this callable supersedes the static ``at``/``fn``
+      combination by dynamically returning the function that is applied
+      on the matched parameters. This way you can, for example, create a
+      schedule that periodically freezes and unfreezes layers.
+
+      The callable's signature is ``schedule(net: NeuralNet) -> callable``.
 
     """
     def __init__(self, patterns, fn=noop, at=1, schedule=None):
@@ -389,9 +392,9 @@ class ParamMapper(Callback):
                 if pattern_fn(name):
                     yield name, param
 
-    def _default_schedule(self, net, at, fn):
-        if at(net):
-            return fn
+    def _default_schedule(self, net):
+        if self.at(net):
+            return self.fn
         return noop
 
     def _epoch_at(self, net, epoch=1):
@@ -400,7 +403,7 @@ class ParamMapper(Callback):
     def on_epoch_begin(self, net, **kwargs):
         params = self.named_parameters(net)
         params = self.filter_parameters(self.patterns, params)
-        map_fn = self.schedule(net, self.at, self.fn)
+        map_fn = self.schedule(net)
 
         for _, p in params:
             map_fn(p)
