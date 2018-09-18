@@ -308,9 +308,10 @@ class ParamMapper(Callback):
     >>> cb = ParamMapper('linear*.weight', at=1, fn=init)
     >>> net = Net(myModule, callbacks=[cb])
 
-    Reset layer initialization if train loss reaches a certain value:
+    Reset layer initialization if train loss reaches a certain value
+    (e.g. re-initialize on overfit):
 
-    >>> at = lambda net: net.history[-1, 'train_loss'] > 1
+    >>> at = lambda net: net.history[-1, 'train_loss'] < 0.1
     >>> init = partial(torch.nn.init.uniform_, a=0, b=1)
     >>> cb = ParamMapper('linear0.weight', at=at, fn=init)
     >>> net = Net(myModule, callbacks=[cb])
