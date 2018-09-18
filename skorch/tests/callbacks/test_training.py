@@ -380,14 +380,13 @@ class TestParamMapper:
         assert np.allclose(to_numpy(net.module_.sequential[3].weight), 5)
         assert np.allclose(to_numpy(net.module_.sequential[3].bias), 10)
 
-    @pytest.mark.parametrize('mod_init, mod_kwargs', [
-        (False, {}),
-        (True, {}),
+    @pytest.mark.parametrize('mod_init', [False, True])
+    @pytest.mark.parametrize('mod_kwargs', [
+        {},
         # Supply a module__ parameter so the model is forced
         # to re-initialize. Even then parameters should be
         # frozen correctly.
-        (False, {'module__hidden_units': 5}),
-        (True, {'module__hidden_units': 5}),
+        {'module__hidden_units': 5},
     ])
     def test_freezing_is_effective(self, net_cls, classifier_module,
                                    classifier_data, freezer, mod_init,
@@ -487,7 +486,7 @@ class TestParamMapper:
 
 
     def test_schedule_is_effective(self, net_cls, classifier_module,
-                                     classifier_data, param_mapper):
+                                   classifier_data, param_mapper):
         from skorch.utils import to_numpy, noop
         from skorch.utils import freeze_parameter, unfreeze_parameter
 

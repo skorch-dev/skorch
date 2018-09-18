@@ -318,7 +318,7 @@ class ParamMapper(Callback):
 
     Periodically freeze and unfreeze all embedding layers:
 
-    >>> def my_sched(net, _at, _fn):
+    >>> def my_sched(net):
     ...    if len(net.history) % 2 == 0:
     ...        return skorch.utils.freeze_parameter
     ...    else:
@@ -386,8 +386,8 @@ class ParamMapper(Callback):
 
     def filter_parameters(self, patterns, params):
         for pattern in patterns:
-            pattern_fn = lambda n: fnmatch(n, pattern)
-            pattern_fn = pattern if callable(pattern) else pattern_fn
+            pattern_fn = (pattern if callable(pattern) else
+                          partial(fnmatch, pat=pattern))
             for name, param in params:
                 if pattern_fn(name):
                     yield name, param

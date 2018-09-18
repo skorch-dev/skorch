@@ -85,7 +85,7 @@ def test_a():
     return rss, net.history[-1, 'valid_loss'], np.mean(net.history[:, 'dur'])
 
 
-def test_b(verbose=False):
+def test_b():
     # -- second by simply freezing them
     np.random.seed(0)
     torch.manual_seed(0)
