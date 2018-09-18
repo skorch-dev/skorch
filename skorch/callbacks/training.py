@@ -332,6 +332,9 @@ class ParamMapper(Callback):
       parameter name and are regarded as a match when the callable
       returns a truthy value.
 
+      This parameter also supports lists of str or callables so that
+      one ``ParamMapper`` can match a group of parameters.
+
       Example: ``'linear*.weight'`` or ``['linear0.*', 'linear1.bias']``
             or ``lambda name: name.startswith('linear')``.
 
