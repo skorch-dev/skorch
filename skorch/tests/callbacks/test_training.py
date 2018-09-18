@@ -344,6 +344,14 @@ class TestParamMapper:
         from skorch import NeuralNetClassifier
         return NeuralNetClassifier
 
+    @pytest.mark.parametrize('at', [0, -1])
+    def test_subzero_at_fails(self, net_cls, classifier_module,
+                              param_mapper, at):
+        cb = param_mapper(patterns='*', at=at)
+        net = net_cls(classifier_module, callbacks=[cb])
+        with pytest.raises(ValueError):
+            net.initialize()
+
     @pytest.mark.parametrize('mod_init', [False, True])
     @pytest.mark.parametrize('weight_pattern', [
         'sequential.*.weight',

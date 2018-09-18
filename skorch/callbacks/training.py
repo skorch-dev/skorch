@@ -369,6 +369,10 @@ class ParamMapper(Callback):
             self.patterns = [self.patterns]
 
         if isinstance(self.at, int):
+            if self.at <= 0:
+                raise ValueError(
+                    'Invalid value for `at` (at={}). The first possible '
+                    'epoch number is 1.'.format(self.at))
             self.at = partial(self._epoch_at, epoch=self.at)
 
     def named_parameters(self, net):
