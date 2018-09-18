@@ -293,7 +293,7 @@ class ParamMapper(Callback):
     Notes
     -----
     When starting the training process after saving and loading a model,
-    ``ParamMapper``s might re-initialize parts of your model when the
+    ``ParamMapper`` might re-initialize parts of your model when the
     history is not saved along with the model. To avoid this, in case
     you use ``ParamMapper`` (or subclasses, e.g. :class:`.Initializer`)
     and want to save your model make sure to either (a) use pickle,
@@ -338,7 +338,7 @@ class ParamMapper(Callback):
       one ``ParamMapper`` can match a group of parameters.
 
       Example: ``'linear*.weight'`` or ``['linear0.*', 'linear1.bias']``
-            or ``lambda name: name.startswith('linear')``.
+      or ``lambda name: name.startswith('linear')``.
 
     fn : function
       The function to apply to each parameter separately.
