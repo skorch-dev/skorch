@@ -4,6 +4,7 @@ import pickle
 import warnings
 from fnmatch import fnmatch
 from functools import partial
+from itertools import product
 
 import numpy as np
 from skorch.callbacks import Callback
@@ -382,15 +383,16 @@ class ParamMapper(Callback):
         return self
 
     def named_parameters(self, net):
-        return list(net.module_.named_parameters())
+        return net.module_.named_parameters()
 
     def filter_parameters(self, patterns, params):
-        for pattern in patterns:
-            pattern_fn = (pattern if callable(pattern) else
-                          partial(fnmatch, pat=pattern))
-            for name, param in params:
-                if pattern_fn(name):
-                    yield name, param
+        pattern_fns = (
+            pattern if callable(pattern) else partial(fnmatch, pat=pattern)
+            for pattern in patterns
+        )
+        for pattern_fn, (name, param) in product(pattern_fns, params):
+            if pattern_fn(name):
+                yield name, param
 
     def _default_schedule(self, net):
         if self.at(net):
