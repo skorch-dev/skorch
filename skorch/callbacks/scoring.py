@@ -324,14 +324,38 @@ class EpochScoring(ScoringBase):
             self.y_trues_.append(y)
         self.y_preds_.append(y_pred)
 
-    # pylint: disable=unused-argument,arguments-differ
-    def on_epoch_end(
-            self,
-            net,
-            dataset_train,
-            dataset_valid,
-            **kwargs):
+    def get_test_data(self, dataset_train, dataset_valid):
+        """Return data needed to perform scoring.
 
+        This is a convenience method that handles picking of
+        train/valid, different types of input data, use of cache,
+        etc. for you.
+
+        Parameters
+        ----------
+        dataset_train
+          Incoming training data or dataset.
+
+        dataset_valid
+          Incoming validation data or dataset.
+
+        Returns
+        -------
+        X_test
+          Input data used for making the prediction.
+
+        y_test
+          Target ground truth. If caching was enabled, return cached
+          y_test.
+
+        y_pred : list
+          The predicted targets. If caching was disabled, the list is
+          empty. If caching was enabled, the list contains the batches
+          of the predictions. It may thus be necessary to concatenate
+          the output before working with it:
+          ``y_pred = np.concatenate(y_pred)``
+
+        """
         dataset = dataset_train if self.on_train else dataset_valid
 
         if self.use_caching:
@@ -341,36 +365,53 @@ class EpochScoring(ScoringBase):
             # In case of y=None we will not have gathered any samples.
             # We expect the scoring function to deal with y_test=None.
             y_test = np.concatenate(y_test) if y_test else None
-        else:
-            if is_skorch_dataset(dataset):
-                X_test, y_test = data_from_dataset(
-                    dataset,
-                    X_indexing=self.X_indexing_,
-                    y_indexing=self.y_indexing_,
-                )
-            else:
-                X_test, y_test = dataset, None
-            y_pred = []
-            if y_test is not None:
-                # We allow y_test to be None but the scoring function has
-                # to be able to deal with it (i.e. called without y_test).
-                y_test = self.target_extractor(y_test)
+            return X_test, y_test, y_pred
 
+        if is_skorch_dataset(dataset):
+            X_test, y_test = data_from_dataset(
+                dataset,
+                X_indexing=self.X_indexing_,
+                y_indexing=self.y_indexing_,
+            )
+        else:
+            X_test, y_test = dataset, None
+
+        if y_test is not None:
+            # We allow y_test to be None but the scoring function has
+            # to be able to deal with it (i.e. called without y_test).
+            y_test = self.target_extractor(y_test)
+        return X_test, y_test, []
+
+    def _record_score(self, history, current_score):
+        """Record the current store and, if applicable, if it's the best score
+        yet.
+
+        """
+        history.record(self.name_, current_score)
+
+        is_best = self._is_best_score(current_score)
+        if is_best is None:
+            return
+
+        history.record(self.name_ + '_best', bool(is_best))
+        if is_best:
+            self.best_score_ = current_score
+
+    # pylint: disable=unused-argument,arguments-differ
+    def on_epoch_end(
+            self,
+            net,
+            dataset_train,
+            dataset_valid,
+            **kwargs):
+        X_test, y_test, y_pred = self.get_test_data(dataset_train, dataset_valid)
         if X_test is None:
             return
 
         with cache_net_infer(net, self.use_caching, y_pred) as cached_net:
             current_score = self._scoring(cached_net, X_test, y_test)
 
-            cached_net.history.record(self.name_, current_score)
-
-            is_best = self._is_best_score(current_score)
-            if is_best is None:
-                return
-
-            cached_net.history.record(self.name_ + '_best', bool(is_best))
-            if is_best:
-                self.best_score_ = current_score
+        self._record_score(net.history, current_score)
 
     def on_train_end(self, *args, **kwargs):
         self._initialize_cache()
