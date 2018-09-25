@@ -2,6 +2,7 @@
 
 import fnmatch
 from itertools import chain
+from collections import OrderedDict
 import json
 import tempfile
 import warnings
@@ -253,7 +254,7 @@ class NeuralNet(object):
                    "Either you made a typo, or you added new arguments "
                    "in a subclass; if that is the case, the subclass "
                    "should deal with the new arguments explicitely.")
-            raise TypeError(msg.format(', '.join(unexpected_kwargs)))
+            raise TypeError(msg.format(', '.join(sorted(unexpected_kwargs))))
         vars(self).update(kwargs)
 
         self.history = history
@@ -363,7 +364,7 @@ class NeuralNet(object):
 
     def _callbacks_grouped_by_name(self):
         """Group callbacks by name and collect names set by the user."""
-        callbacks, names_set_by_user = {}, set()
+        callbacks, names_set_by_user = OrderedDict(), set()
         for name, cb, named_by_user in self._yield_callbacks():
             if named_by_user:
                 names_set_by_user.add(name)
@@ -825,7 +826,7 @@ class NeuralNet(object):
           Result from a forward call on an individual batch.
 
         """
-        dataset = X if is_dataset(X) else self.get_dataset(X)
+        dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
         for Xi, _ in iterator:
             yp = self.evaluation_step(Xi, training=training)
@@ -1307,13 +1308,15 @@ class NeuralNet(object):
 
     def __getstate__(self):
         state = self.__dict__.copy()
+        cuda_attrs = {}
         for key in self.cuda_dependent_attributes_:
             if key in state:
                 val = state.pop(key)
-                with tempfile.SpooledTemporaryFile() as f:
-                    torch.save(val, f)
-                    f.seek(0)
-                    state[key] = f.read()
+                cuda_attrs[key] = val
+        with tempfile.SpooledTemporaryFile() as f:
+            torch.save(cuda_attrs, f)
+            f.seek(0)
+            state['cuda_dependent_attributes_'] = f.read()
 
         return state
 
@@ -1323,24 +1326,29 @@ class NeuralNet(object):
                 device = device.type
             return device.startswith('cuda')
 
-        disable_cuda = False
+        disable_cuda = (uses_cuda(state['device']) and
+                        not torch.cuda.is_available())
+        load_kwargs = {}
+        if disable_cuda:
+            load_kwargs = {'map_location': lambda store, loc: store}
+
+        with tempfile.SpooledTemporaryFile() as f:
+            f.write(state['cuda_dependent_attributes_'])
+            f.seek(0)
+            cuda_attrs = torch.load(f, **load_kwargs)
+
+        set_cuda_attrs = {}
+        state.update(cuda_attrs)
         for key in self.cuda_dependent_attributes_:
-            if key not in state:
+            if key not in cuda_attrs:
                 continue
-            dump = state.pop(key)
-            with tempfile.SpooledTemporaryFile() as f:
-                f.write(dump)
-                f.seek(0)
-                if (
-                        uses_cuda(state['device']) and
-                        not torch.cuda.is_available()
-                ):
-                    disable_cuda = True
-                    val = torch.load(
-                        f, map_location=lambda storage, loc: storage)
-                else:
-                    val = torch.load(f)
-            state[key] = val
+            set_cuda_attrs[key] = state.pop(key)
+        with tempfile.SpooledTemporaryFile() as f:
+            torch.save(cuda_attrs, f)
+            f.seek(0)
+            cuda_attrs = torch.load(f, **load_kwargs)
+
+        state.update(cuda_attrs)
         if disable_cuda:
             warnings.warn(
                 "Model configured to use CUDA but no CUDA devices "

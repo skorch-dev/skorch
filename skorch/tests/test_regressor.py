@@ -14,31 +14,6 @@ import torch.nn.functional as F
 torch.manual_seed(0)
 
 
-class MyRegressor(nn.Module):
-    """Simple regression module.
-
-    We cannot use the module fixtures from conftest because they are
-    not pickleable.
-
-    """
-    def __init__(self, num_units=10, nonlin=F.relu):
-        super(MyRegressor, self).__init__()
-
-        self.dense0 = nn.Linear(20, num_units)
-        self.nonlin = nonlin
-        self.dropout = nn.Dropout(0.5)
-        self.dense1 = nn.Linear(num_units, 10)
-        self.output = nn.Linear(10, 1)
-
-    # pylint: disable=arguments-differ
-    def forward(self, X):
-        X = self.nonlin(self.dense0(X))
-        X = self.dropout(X)
-        X = self.nonlin(self.dense1(X))
-        X = self.output(X)
-        return X
-
-
 class TestNeuralNetRegressor:
     @pytest.fixture(scope='module')
     def data(self, regression_data):
@@ -46,7 +21,8 @@ class TestNeuralNetRegressor:
 
     @pytest.fixture(scope='module')
     def module_cls(self):
-        return MyRegressor
+        from skorch.toy import make_regressor
+        return make_regressor(dropout=0.5)
 
     @pytest.fixture(scope='module')
     def net_cls(self):

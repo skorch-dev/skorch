@@ -5,11 +5,12 @@ skorch
    :maxdepth: 2
 
    callbacks
+   classifier
    dataset
    exceptions
+   helper
    history
    net
-   utils
-   helper
-   classifier
    regressor
+   toy
+   utils

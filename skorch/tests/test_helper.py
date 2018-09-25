@@ -264,18 +264,17 @@ class TestOptimizerParamsRequiresGrad:
     def test_passes_kwargs_to_neuralnet_optimizer(
             self, filtered_optimizer, filter_requires_grad):
         from skorch import NeuralNetClassifier
+        from skorch.toy import make_classifier
 
-        class MyModule(torch.nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.dense0 = torch.nn.Linear(1, 1)
-
-            def forward(self, X):
-                return self.dense0(X)
+        module_cls = make_classifier(
+            input_units=1,
+            num_hidden=0,
+            output_units=1,
+        )
 
         opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
         net = NeuralNetClassifier(
-            MyModule, optimizer=opt, optimizer__momentum=0.9)
+            module_cls, optimizer=opt, optimizer__momentum=0.9)
 
         net.initialize()
         assert isinstance(net.optimizer_, torch.optim.SGD)

@@ -148,27 +148,21 @@ class TestNetWithoutY:
 
     @pytest.fixture
     def net_cls_1d(self):
-        class MyModule(nn.Module):
-            def __init__(self):
-                super(MyModule, self).__init__()
-                self.dense = nn.Linear(1, 1)
-
-            # pylint: disable=arguments-differ
-            def forward(self, X):
-                return self.dense(X.float())
-        return MyModule
+        from skorch.toy import make_regressor
+        return make_regressor(
+            input_units=1,
+            num_hidden=0,
+            output_units=1,
+        )
 
     @pytest.fixture
     def net_cls_2d(self):
-        class MyModule(nn.Module):
-            def __init__(self):
-                super(MyModule, self).__init__()
-                self.dense = nn.Linear(2, 1)
-
-            # pylint: disable=arguments-differ
-            def forward(self, X):
-                return self.dense(X.float())
-        return MyModule
+        from skorch.toy import make_regressor
+        return make_regressor(
+            input_units=2,
+            num_hidden=0,
+            output_units=1,
+        )
 
     @pytest.fixture
     def loader_clf(self):
@@ -290,7 +284,7 @@ class TestNetWithoutY:
             net_2d.fit(X, None)
 
     def test_net_1d_custom_loader(self, net_1d_custom_loader):
-        X = torch.arange(0, 8).view(-1, 1).long()
+        X = torch.arange(0, 8).view(-1, 1).float()
         # throw away all callbacks since those may raise unrelated errors
         net_1d_custom_loader.initialize()
         net_1d_custom_loader.callbacks_ = []
@@ -298,7 +292,7 @@ class TestNetWithoutY:
         net_1d_custom_loader.partial_fit(X, None)
 
     def test_net_2d_custom_loader(self, net_2d_custom_loader):
-        X = torch.arange(0, 8).view(4, 2).long()
+        X = torch.arange(0, 8).view(4, 2).float()
         # throw away all callbacks since those may raise unrelated errors
         net_2d_custom_loader.initialize()
         net_2d_custom_loader.callbacks_ = []
@@ -366,7 +360,7 @@ class TestNetWithDict:
 class TestNetWithList:
     @pytest.fixture(scope='module')
     def module_cls(self):
-        """Return a simple module that concatenates in input."""
+        """Return a simple module that concatenates the input."""
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()

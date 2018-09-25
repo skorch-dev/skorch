@@ -457,6 +457,46 @@ class TestEpochScoring:
         for c1, c2 in zip(cbs['a1'].y_trues_, cbs['a2'].y_trues_):
             assert id(c1) == id(c2)
 
+    def test_subclassing_epoch_scoring(
+            self, classifier_module, classifier_data):
+        # This test's purpose is to check that it is possible to
+        # easily subclass EpochScoring by overriding on_epoch_end to
+        # record 2 scores.
+        from skorch import NeuralNetClassifier
+        from skorch.callbacks import EpochScoring
+
+        class MyScoring(EpochScoring):
+            def on_epoch_end(
+                    self,
+                    net,
+                    dataset_train,
+                    dataset_valid,
+                    **kwargs):
+                _, y_test, y_proba = self.get_test_data(
+                    dataset_train, dataset_valid)
+                y_pred = np.concatenate(y_proba).argmax(1)
+
+                # record 2 valid scores
+                score_0_valid = accuracy_score(y_test, y_pred)
+                net.history.record('score_0', score_0_valid)
+                score_1_valid = accuracy_score(y_test, y_pred) + 1
+                net.history.record('score_1', score_1_valid)
+
+        X, y = classifier_data
+        net = NeuralNetClassifier(
+            classifier_module,
+            callbacks=[MyScoring(scoring=None)],
+            max_epochs=1,
+        )
+        net.fit(X, y)
+
+        row = net.history[-1]
+        keys_history = set(row.keys())
+        keys_expected = {'score_0', 'score_1'}
+
+        assert keys_expected.issubset(keys_history)
+        assert np.isclose(row['score_0'], row['score_1'] - 1)
+
 
 class TestBatchScoring:
     @pytest.fixture(params=[{'use_caching': True}, {'use_caching': False}])

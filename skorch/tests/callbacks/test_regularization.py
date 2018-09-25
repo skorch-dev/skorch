@@ -7,7 +7,7 @@ from skorch.utils import to_numpy
 
 
 class TestGradientNormClipping:
-    @pytest.yield_fixture
+    @pytest.fixture
     def grad_clip_cls_and_mock(self):
         with patch('skorch.callbacks.regularization.clip_grad_norm_') as cgn:
             from skorch.callbacks import GradientNormClipping

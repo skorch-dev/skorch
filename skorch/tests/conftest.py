@@ -17,7 +17,11 @@ F = nn.functional
 
 @pytest.fixture
 def module_cls():
-    """Simple mock module for triggering scoring."""
+    """Simple mock module for triggering scoring.
+
+    This module returns the input without modifying it.
+
+    """
     class MyModule(nn.Module):
         def __init__(self):
             super(MyModule, self).__init__()
@@ -33,26 +37,13 @@ def module_cls():
 @pytest.fixture(scope='module')
 def classifier_module():
     """Return a simple classifier module class."""
-    class MyClassifier(nn.Module):
-        """Simple classification module."""
-        def __init__(self, input_units=20, num_units=10, nonlin=F.relu):
-            super(MyClassifier, self).__init__()
-
-            self.dense0 = nn.Linear(input_units, num_units)
-            self.nonlin = nonlin
-            self.dropout = nn.Dropout(0.5)
-            self.dense1 = nn.Linear(num_units, 10)
-            self.output = nn.Linear(10, 2)
-
-        # pylint: disable=arguments-differ
-        def forward(self, X):
-            X = self.nonlin(self.dense0(X))
-            X = self.dropout(X)
-            X = self.nonlin(self.dense1(X))
-            X = F.softmax(self.output(X), dim=-1)
-            return X
-
-    return MyClassifier
+    from skorch.toy import make_classifier
+    return make_classifier(
+        input_units=20,
+        hidden_units=10,
+        num_hidden=2,
+        dropout=0.5,
+    )
 
 
 @pytest.fixture(scope='module')

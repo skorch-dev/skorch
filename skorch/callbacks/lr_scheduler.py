@@ -81,6 +81,7 @@ class LRScheduler(Callback):
     def initialize(self):
         self.policy_ = self._get_policy_cls()
         self.lr_scheduler_ = None
+        self.batch_idx_ = 0
         return self
 
     def _get_policy_cls(self):
@@ -99,6 +100,8 @@ class LRScheduler(Callback):
         return kwargs
 
     def on_train_begin(self, net, **kwargs):
+        if net.history:
+            self.batch_idx_ = len(net.history[:, 'batches']) - 1
         self.lr_scheduler_ = self._get_scheduler(
             net, self.policy_, **self.kwargs
         )
@@ -119,8 +122,10 @@ class LRScheduler(Callback):
                 hasattr(self.lr_scheduler_, 'batch_step') and
                 callable(self.lr_scheduler_.batch_step)
         ):
-            batch_idx = self._get_batch_idx(net)
-            self.lr_scheduler_.batch_step(batch_idx)
+            self.lr_scheduler_.batch_step(self.batch_idx_)
+
+    def on_batch_end(self, net, **kwargs):
+        self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
         """Return scheduler, based on indicated policy, with appropriate
@@ -133,17 +138,8 @@ class LRScheduler(Callback):
 
         if policy is CyclicLR and \
            'last_batch_idx' not in scheduler_kwargs:
-            last_batch_idx = self._get_batch_idx(net)
-            scheduler_kwargs['last_batch_idx'] = last_batch_idx
+            scheduler_kwargs['last_batch_idx'] = self.batch_idx_ - 1
         return policy(net.optimizer_, **scheduler_kwargs)
-
-    def _get_batch_idx(self, net):
-        if not net.history:
-            return -1
-        epoch = len(net.history) - 1
-        current_batch_idx = len(net.history[-1, 'batches']) - 1
-        batch_cnt = len(net.history[-2, 'batches']) if epoch >= 1 else 0
-        return epoch * batch_cnt + current_batch_idx
 
 
 class WarmRestartLR(_LRScheduler):

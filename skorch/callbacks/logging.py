@@ -204,24 +204,37 @@ class PrintLog(Callback):
 
 
 class ProgressBar(Callback):
-    """Display a progress bar for each epoch including duration, estimated
-    remaining time and user-defined metrics.
+    """Display a progress bar for each epoch.
 
-    For jupyter notebooks a non-ASCII progress bar is printed instead.
-    To use this feature, you need to have `ipywidgets
-    <https://ipywidgets.readthedocs.io/en/stable/user_install.html>`
+    The progress bar includes elapsed and estimated remaining time for
+    the current epoch, the number of batches processed, and other
+    user-defined metrics. The progress bar is erased once the epoch is
+    completed.
+
+    ``ProgressBar`` needs to know the total number of batches per
+    epoch in order to display a meaningful progress bar. By default,
+    this number is determined automatically using the dataset length
+    and the batch size. If this heuristic does not work for some
+    reason, you may either specify the number of batches explicitly
+    or let the ``ProgressBar`` count the actual number of batches in
+    the previous epoch.
+
+    For jupyter notebooks a non-ASCII progress bar can be printed
+    instead. To use this feature, you need to have `ipywidgets
+    <https://ipywidgets.readthedocs.io/en/stable/user_install.html>`_
     installed.
 
     Parameters
     ----------
 
-    batches_per_epoch : int, str (default='count')
-      The progress bar determines the number of batches per epoch
-      by itself in ``'count'`` mode where the number of iterations is
-      determined after one epoch which will leave you without a progress
-      bar at the first epoch. To fix that you can provide this number manually
-      or set ``'auto'`` where the callback attempts to compute the
-      number of batches per epoch beforehand.
+    batches_per_epoch : int, str (default='auto')
+      Either a concrete number or a string specifying the method used
+      to determine the number of batches per epoch automatically.
+      ``'auto'`` means that the number is computed from the length of
+      the dataset and the batch size. ``'count'`` means that the
+      number is determined by counting the batches in the previous
+      epoch. Note that this will leave you without a progress bar at
+      the first epoch.
 
     detect_notebook : bool (default=True)
       If enabled, the progress bar determines if its current environment
@@ -238,7 +251,7 @@ class ProgressBar(Callback):
 
     def __init__(
             self,
-            batches_per_epoch='count',
+            batches_per_epoch='auto',
             detect_notebook=True,
             postfix_keys=None
     ):
@@ -260,15 +273,15 @@ class ProgressBar(Callback):
         net_params = net.get_params()
         return net_params.get(name + '__batch_size', net_params['batch_size'])
 
-    def _get_batches_per_epoch_phase(self, net, X, training):
-        if X is None:
+    def _get_batches_per_epoch_phase(self, net, dataset, training):
+        if dataset is None:
             return 0
         batch_size = self._get_batch_size(net, training)
-        return int(np.ceil(get_len(X) / batch_size))
+        return int(np.ceil(get_len(dataset) / batch_size))
 
-    def _get_batches_per_epoch(self, net, X, X_valid):
-        return (self._get_batches_per_epoch_phase(net, X, True) +
-                self._get_batches_per_epoch_phase(net, X_valid, False))
+    def _get_batches_per_epoch(self, net, dataset_train, dataset_valid):
+        return (self._get_batches_per_epoch_phase(net, dataset_train, True) +
+                self._get_batches_per_epoch_phase(net, dataset_valid, False))
 
     def _get_postfix_dict(self, net):
         postfix = {}
@@ -281,26 +294,29 @@ class ProgressBar(Callback):
 
     # pylint: disable=attribute-defined-outside-init
     def on_batch_end(self, net, **kwargs):
-        self.pbar.set_postfix(self._get_postfix_dict(net))
+        self.pbar.set_postfix(self._get_postfix_dict(net), refresh=False)
         self.pbar.update()
 
     # pylint: disable=attribute-defined-outside-init, arguments-differ
-    def on_epoch_begin(self, net, X=None, X_valid=None, **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         # Assume it is a number until proven otherwise.
         batches_per_epoch = self.batches_per_epoch
 
         if self.batches_per_epoch == 'auto':
-            batches_per_epoch = self._get_batches_per_epoch(net, X, X_valid)
+            batches_per_epoch = self._get_batches_per_epoch(
+                net, dataset_train, dataset_valid
+            )
         elif self.batches_per_epoch == 'count':
-            # No limit is known until the end of the first epoch.
-            batches_per_epoch = None
+            if len(net.history) <= 1:
+                # No limit is known until the end of the first epoch.
+                batches_per_epoch = None
+            else:
+                batches_per_epoch = len(net.history[-2, 'batches'])
 
         if self._use_notebook():
-            self.pbar = tqdm.tqdm_notebook(total=batches_per_epoch)
+            self.pbar = tqdm.tqdm_notebook(total=batches_per_epoch, leave=False)
         else:
-            self.pbar = tqdm.tqdm(total=batches_per_epoch)
+            self.pbar = tqdm.tqdm(total=batches_per_epoch, leave=False)
 
     def on_epoch_end(self, net, **kwargs):
-        if self.batches_per_epoch == 'count':
-            self.batches_per_epoch = self.pbar.n
         self.pbar.close()
