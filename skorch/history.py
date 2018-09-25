@@ -1,5 +1,7 @@
 """Contains history class and helper functions."""
 
+import warnings
+
 
 # pylint: disable=invalid-name
 class _none:
@@ -53,9 +55,14 @@ def _unpack_index(i):
     # history[j, 'batches', :, somekey]
     if i_b is not None and not isinstance(i_b, (int, slice)):
         if k_b is not None:
-            # TODO add test
-            raise KeyError("History was called with invalid argument '{}'."
-                           .format(k_b))
+            raise KeyError("The last argument '{}' is invalid; it must be a "
+                           "string or tuple of strings.".format(k_b))
+        warnings.warn(
+            "Argument 3 to history slicing must be of type int or slice, e.g. "
+            "history[:, 'batches', 'train_loss'] should be "
+            "history[:, 'batches', :, 'train_loss'].",
+            DeprecationWarning,
+        )
         i_b, k_b = slice(None), i_b
 
     return i_e, k_e, i_b, k_b
@@ -162,13 +169,10 @@ class History(list):
         if isinstance(i, (int, slice)):
             i = (i,)
 
-        # i_e: index epoch
-        # k_e: key epoch
-        # i_b: index batch
-        # k_e: key batch
+        # i_e: index epoch, k_e: key epoch
+        # i_b: index batch, k_b: key batch
         i_e, k_e, i_b, k_b = _unpack_index(i)
         keyerror_msg = "Key '{}' was not found in history."
-        batches_unpacked = False
 
         if i_b is not None and k_e != 'batches':
             raise KeyError("History indexing beyond the 2nd level is "
@@ -178,11 +182,12 @@ class History(list):
         items = self.to_list()
 
         # extract indices of batches
+        # handles: history[..., k_e, i_b]
         if i_b is not None:
             items = [row[k_e][i_b] for row in items]
-            batches_unpacked = True
 
         # extract keys of batches
+        # handles: history[..., k_e, i_b][k_b]
         if k_b is not None:
             items = [
                 _filter_none([_getitem(b, k_b) for b in batches])
@@ -196,15 +201,16 @@ class History(list):
                 # all rows contained _none or were empty
                 raise KeyError(keyerror_msg.format(k_b))
 
-        # extract the batches, but only if not already done
-        if k_e is not None:
-            if not batches_unpacked:
-                items = [_getitem(batches, k_e)
-                         for batches in items]
-                if not _filter_none(items):
-                    raise KeyError(keyerror_msg.format(k_e))
+        # extract epoch-level values, but only if not already done
+        # handles: history[..., k_e]
+        if (k_e is not None) and (i_b is None):
+            items = [_getitem(batches, k_e)
+                     for batches in items]
+            if not _filter_none(items):
+                raise KeyError(keyerror_msg.format(k_e))
 
         # extract the epochs
+        # handles: history[i_b, ..., ..., ...]
         if i_e is not None:
             items = items[i_e]
             if isinstance(i_e, slice):
