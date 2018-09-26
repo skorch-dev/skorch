@@ -1,62 +1,71 @@
 """Contains history class and helper functions."""
 
+import warnings
+
 
 # pylint: disable=invalid-name
-class _missingno:
-    def __init__(self, e):
-        self.e = e
-
-    def __repr__(self):
-        return 'missingno'
+class _none:
+    """Special placeholder since ``None`` is a valid value."""
 
 
-def _incomplete_mapper(x):
-    for xs in x:
-        # pylint: disable=unidiomatic-typecheck
-        if type(xs) is _missingno:
-            return xs
-    return x
+def _not_none(items):
+    """Whether the item is a placeholder or contains a placeholder."""
+    if not isinstance(items, (tuple, list)):
+        items = (items,)
+    return all(item is not _none for item in items)
 
 
-# pylint: disable=missing-docstring
-def partial_index(l, idx):
-    needs_unrolling = (
-        isinstance(l, list) and len(l) > 0 and isinstance(l[0], list))
-    types = int, tuple, list, slice
-    needs_indirection = isinstance(l, list) and not isinstance(idx, types)
-
-    if needs_unrolling or needs_indirection:
-        return [partial_index(n, idx) for n in l]
-
-    # join results of multiple indices
-    if isinstance(idx, (tuple, list)):
-        zz = [partial_index(l, n) for n in idx]
-        if isinstance(l, list):
-            total_join = zip(*zz)
-            inner_join = list(map(_incomplete_mapper, total_join))
-        else:
-            total_join = tuple(zz)
-            inner_join = _incomplete_mapper(total_join)
-        return inner_join
-
-    try:
-        return l[idx]
-    except KeyError as e:
-        return _missingno(e)
+def _filter_none(items):
+    """Filter special placeholder value, preserves sequence type."""
+    type_ = list if isinstance(items, list) else tuple
+    return type_(filter(_not_none, items))
 
 
-# pylint: disable=missing-docstring
-def filter_missing(x):
-    if isinstance(x, list):
-        children = [filter_missing(n) for n in x]
-        # pylint: disable=unidiomatic-typecheck
-        filtered = list(filter(lambda x: type(x) != _missingno, children))
+def _getitem(item, i):
+    """Extract value or values from dicts.
 
-        if children and not filtered:
-            # pylint: disable=unidiomatic-typecheck
-            return next(filter(lambda x: type(x) == _missingno, children))
-        return filtered
-    return x
+    Covers the case of a single key or multiple keys. If not found,
+    return placeholders instead.
+
+    """
+    if not isinstance(i, (tuple, list)):
+        return item.get(i, _none)
+    type_ = list if isinstance(item, list) else tuple
+    return type_(item.get(j, _none) for j in i)
+
+
+def _unpack_index(i):
+    """Unpack index and return exactly four elements.
+
+    If index is more shallow than 4, return None for trailing
+    dimensions. If index is deeper than 4, raise a KeyError.
+
+    """
+    if len(i) > 4:
+        raise KeyError(
+            "Tried to index history with {} indices but only "
+            "4 indices are possible.".format(len(i)))
+
+    # fill trailing indices with None
+    i_e, k_e, i_b, k_b = i + tuple([None] * (4 - len(i)))
+
+    # handle special case of
+    # history[j, 'batches', somekey]
+    # which should really be
+    # history[j, 'batches', :, somekey]
+    if i_b is not None and not isinstance(i_b, (int, slice)):
+        if k_b is not None:
+            raise KeyError("The last argument '{}' is invalid; it must be a "
+                           "string or tuple of strings.".format(k_b))
+        warnings.warn(
+            "Argument 3 to history slicing must be of type int or slice, e.g. "
+            "history[:, 'batches', 'train_loss'] should be "
+            "history[:, 'batches', :, 'train_loss'].",
+            DeprecationWarning,
+        )
+        i_b, k_b = slice(None), i_b
+
+    return i_e, k_e, i_b, k_b
 
 
 class History(list):
@@ -128,6 +137,7 @@ class History(list):
 
     def new_batch(self):
         """Register a new batch row for the current epoch."""
+        # pylint: disable=invalid-sequence-index
         self[-1]['batches'].append({})
 
     def record(self, attr, value):
@@ -145,6 +155,7 @@ class History(list):
         batch.
 
         """
+        # pylint: disable=invalid-sequence-index
         self[-1]['batches'][-1][attr] = value
 
     def to_list(self):
@@ -152,17 +163,59 @@ class History(list):
         return list(self)
 
     def __getitem__(self, i):
+        # This implementation resolves indexing backwards,
+        # i.e. starting from the batches, then progressing to the
+        # epochs.
         if isinstance(i, (int, slice)):
-            return super().__getitem__(i)
+            i = (i,)
 
-        x = self
-        if isinstance(i, tuple):
-            for part in i:
-                x_dirty = partial_index(x, part)
-                x = filter_missing(x_dirty)
-                # pylint: disable=unidiomatic-typecheck
-                if type(x) is _missingno:
-                    raise x.e
-            return x
-        raise ValueError("Invalid parameter type passed to index. "
-                         "Pass string, int or tuple.")
+        # i_e: index epoch, k_e: key epoch
+        # i_b: index batch, k_b: key batch
+        i_e, k_e, i_b, k_b = _unpack_index(i)
+        keyerror_msg = "Key '{}' was not found in history."
+
+        if i_b is not None and k_e != 'batches':
+            raise KeyError("History indexing beyond the 2nd level is "
+                           "only possible if key 'batches' is used, "
+                           "found key '{}'.".format(k_e))
+
+        items = self.to_list()
+
+        # extract indices of batches
+        # handles: history[..., k_e, i_b]
+        if i_b is not None:
+            items = [row[k_e][i_b] for row in items]
+
+        # extract keys of batches
+        # handles: history[..., k_e, i_b][k_b]
+        if k_b is not None:
+            items = [
+                _filter_none([_getitem(b, k_b) for b in batches])
+                if isinstance(batches, (list, tuple))
+                else _getitem(batches, k_b)
+                for batches in items
+            ]
+            # get rid of empty batches
+            items = [b for b in items if b not in (_none, [], ())]
+            if not _filter_none(items):
+                # all rows contained _none or were empty
+                raise KeyError(keyerror_msg.format(k_b))
+
+        # extract epoch-level values, but only if not already done
+        # handles: history[..., k_e]
+        if (k_e is not None) and (i_b is None):
+            items = [_getitem(batches, k_e)
+                     for batches in items]
+            if not _filter_none(items):
+                raise KeyError(keyerror_msg.format(k_e))
+
+        # extract the epochs
+        # handles: history[i_b, ..., ..., ...]
+        if i_e is not None:
+            items = items[i_e]
+            if isinstance(i_e, slice):
+                items = _filter_none(items)
+            if items is _none:
+                raise KeyError(keyerror_msg.format(k_e))
+
+        return items
