@@ -655,7 +655,8 @@ class TestNeuralNet:
             'max_epochs': [10, 20],
             'module__hidden_units': [10, 20],
         }
-        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy')
+        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy',
+                          iid=True)
         gs.fit(X[:100], y[:100])  # for speed
         print(gs.best_score_, gs.best_params_)
 
@@ -1457,8 +1458,8 @@ class TestNeuralNet:
                       **net_kwargs)
         net.fit(*data)
 
-        train_batch_size = net.history[:, 'batches', 'train_batch_size'][0][0]
-        valid_batch_size = net.history[:, 'batches', 'valid_batch_size'][0][0]
+        train_batch_size = net.history[:, 'batches', :, 'train_batch_size'][0][0]
+        valid_batch_size = net.history[:, 'batches', :, 'valid_batch_size'][0][0]
 
         assert train_batch_size == expected_train_batch_size
         assert valid_batch_size == expected_valid_batch_size

@@ -131,7 +131,7 @@ class TestHistory:
         assert loss_with_extra[1] == expected_e1
 
     def test_history_partial_batches_batch_key_3rd(self, history, ref):
-        extra_batches = history[:, 'batches', 'extra_batch']
+        extra_batches = history[:, 'batches', :, 'extra_batch']
 
         expected_e0 = [b['extra_batch'] for b in ref[0]['batches']
                        if 'extra_batch' in b]
