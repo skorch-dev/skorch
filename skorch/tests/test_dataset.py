@@ -350,7 +350,7 @@ class TestNetWithDict:
         # `net.batch_size`, even when the input type is a dictionary.
         # Note that we allow for different batch sizes as the total
         # number of samples may not be divisible by the batch size.
-        batch_sizes = lambda n: set(sum(net.history[:, 'batches', n], []))
+        batch_sizes = lambda n: set(sum(net.history[:, 'batches', :, n], []))
         train_batch_sizes = batch_sizes('train_batch_size')
         valid_batch_sizes = batch_sizes('valid_batch_size')
         assert net.batch_size in train_batch_sizes
