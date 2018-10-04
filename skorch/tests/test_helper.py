@@ -165,7 +165,8 @@ class TestSliceDict:
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
         }
-        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy')
+        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy',
+                          iid=True)
         gs.fit(X, y)
         print(gs.best_score_, gs.best_params_)
 
