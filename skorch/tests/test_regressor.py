@@ -9,6 +9,7 @@ import pytest
 import torch
 from torch import nn
 import torch.nn.functional as F
+from flaky import flaky
 
 
 torch.manual_seed(0)
@@ -48,8 +49,16 @@ class TestNeuralNetRegressor:
         # fitting does not raise anything
         pass
 
-    def test_net_learns(self, net_fit):
-        train_losses = net_fit.history[:, 'train_loss']
+    @flaky(max_runs=3)
+    def test_net_learns(self, net, net_cls, data, module_cls):
+        X, y = data
+        net = net_cls(
+            module_cls,
+            max_epochs=10,
+            lr=0.1,
+        )
+        net.fit(X, y)
+        train_losses = net.history[:, 'train_loss']
         assert train_losses[0] > 2 * train_losses[-1]
 
     def test_history_default_keys(self, net_fit):

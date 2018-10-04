@@ -22,6 +22,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.base import clone
 import torch
 from torch import nn
+from flaky import flaky
 
 from skorch.utils import flatten
 from skorch.utils import to_numpy
@@ -173,16 +174,17 @@ class TestNeuralNet:
         # fitting does not raise anything
         pass
 
-    def test_net_learns(self, net_fit, net_cls, module_cls, data):
+    @flaky(max_runs=3)
+    def test_net_learns(self, net_cls, module_cls, data):
         X, y = data
-
-        # train model with one epoch
-        net_one_epoch = net_cls(module_cls, max_epochs=1)
-        net_one_epoch.fit(X, y)
-        acc_score_1 = accuracy_score(y, net_one_epoch.predict(X))
-
-        y_pred = net_fit.predict(X)
-        assert accuracy_score(y, y_pred) > acc_score_1
+        net = net_cls(
+            module_cls,
+            max_epochs=10,
+            lr=0.1,
+        )
+        net.fit(X, y)
+        y_pred = net.predict(X)
+        assert accuracy_score(y, y_pred) > 0.65
 
     def test_forward(self, net_fit, data):
         X = data[0]

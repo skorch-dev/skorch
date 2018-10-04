@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 import torch
 from torch import nn
+from flaky import flaky
 import torch.nn.functional as F
 
 
@@ -138,12 +139,21 @@ class TestNeuralNetBinaryClassifier:
         # fitting does not raise anything
         pass
 
-    def test_net_learns(self, net_fit):
-        train_losses = net_fit.history[:, 'train_loss']
+    @flaky(max_runs=3)
+    def test_net_learns(self, net_cls, module_cls, data):
+        X, y = data
+        net = net_cls(
+            module_cls,
+            max_epochs=11,
+            lr=1,
+        )
+        net.fit(X, y)
+
+        train_losses = net.history[:, 'train_loss']
         assert train_losses[0] > 1.3 * train_losses[-1]
 
-        valid_acc = net_fit.history[:, 'valid_acc']
-        assert valid_acc[-1] > valid_acc[0]
+        valid_acc = net.history[-1, 'valid_acc']
+        assert valid_acc > 0.65
 
     def test_history_default_keys(self, net_fit):
         expected_keys = {
