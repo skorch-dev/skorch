@@ -173,10 +173,16 @@ class TestNeuralNet:
         # fitting does not raise anything
         pass
 
-    def test_net_learns(self, net_fit, data):
+    def test_net_learns(self, net_fit, net_cls, module_cls, data):
         X, y = data
+
+        # train model with one epoch
+        net_one_epoch = net_cls(module_cls, max_epochs=1)
+        net_one_epoch.fit(X, y)
+        acc_score_1 = accuracy_score(y, net_one_epoch.predict(X))
+
         y_pred = net_fit.predict(X)
-        assert accuracy_score(y, y_pred) > 0.65
+        assert accuracy_score(y, y_pred) > acc_score_1
 
     def test_forward(self, net_fit, data):
         X = data[0]

@@ -142,8 +142,8 @@ class TestNeuralNetBinaryClassifier:
         train_losses = net_fit.history[:, 'train_loss']
         assert train_losses[0] > 1.3 * train_losses[-1]
 
-        valid_acc = net_fit.history[-1, 'valid_acc']
-        assert valid_acc > 0.65
+        valid_acc = net_fit.history[:, 'valid_acc']
+        assert valid_acc[-1] > valid_acc[0]
 
     def test_history_default_keys(self, net_fit):
         expected_keys = {
