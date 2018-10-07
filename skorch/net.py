@@ -1408,7 +1408,7 @@ class NeuralNet(object):
                 "or by fitting the model with .fit(...).")
 
         use_cuda = self.device.startswith('cuda')
-        cuda_req_not_met = (use_cuda and not torch.cuda.is_available())
+        cuda_req_not_met = (not torch.cuda.is_available())
         if use_cuda or cuda_req_not_met:
             # Eiher we want to load the model to the CPU in which case
             # we are loading in a way where it doesn't matter if the data
