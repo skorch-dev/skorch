@@ -1407,23 +1407,26 @@ class NeuralNet(object):
                 "Please initialize first by calling .initialize() "
                 "or by fitting the model with .fit(...).")
 
-        use_cuda = self.device.startswith('cuda')
-        cuda_req_not_met = (use_cuda and not torch.cuda.is_available())
-        if use_cuda or cuda_req_not_met:
-            # Eiher we want to load the model to the CPU in which case
-            # we are loading in a way where it doesn't matter if the data
-            # was on the GPU or not or the model was on the GPU but there
-            # is no CUDA device available.
-            if cuda_req_not_met:
-                warnings.warn(
-                    "Model configured to use CUDA but no CUDA devices "
-                    "available. Loading on CPU instead.",
-                    ResourceWarning)
-                self.device = 'cpu'
-            model = torch.load(f, lambda storage, loc: storage)
-        else:
-            model = torch.load(f)
+        # use CPU
+        if not self.device.startswith('cuda'):
+            model = torch.load(f, map_location=lambda storage, loc: storage)
+            self.module_.load_state_dict(model)
+            return
 
+        # use CUDA
+        if torch.cuda.is_available():
+            model = torch.load(f)
+            self.module_.load_state_dict(model)
+            return
+
+        # The user wants to use CUDA but there is no CUDA device
+        # available, thus fall back to CPU.
+        warnings.warn(
+            "Model configured to use CUDA but no CUDA devices "
+            "available. Loading on CPU instead.",
+            ResourceWarning)
+        self.device = 'cpu'
+        model = torch.load(f, lambda storage, loc: storage)
         self.module_.load_state_dict(model)
 
     def save_history(self, f):
