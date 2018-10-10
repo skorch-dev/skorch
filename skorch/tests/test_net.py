@@ -12,6 +12,7 @@ import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
 import sys
+from contextlib import ExitStack
 
 import numpy as np
 import pytest
@@ -327,6 +328,126 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
 
+    def test_save_load_state_dict_file_with_history_optimizer(
+            self, net_cls, module_cls, data, tmpdir):
+        net = net_cls(
+            module_cls, max_epochs=10, lr=0.1,
+            optimizer=torch.optim.Adam)
+        X, y = data
+        net.fit(X, y)
+
+        skorch_tmpdir = tmpdir.mkdir('skorch')
+        p = skorch_tmpdir.join('testmodel.pkl')
+        o = skorch_tmpdir.join('optimizer.pkl')
+        h = skorch_tmpdir.join('history.json')
+
+        with ExitStack() as stack:
+            p_fp = stack.enter_context(open(str(p), 'wb'))
+            o_fp = stack.enter_context(open(str(o), 'wb'))
+            h_fp = stack.enter_context(open(str(h), 'w'))
+            net.save_params(p_fp, f_optimizer=o_fp, f_history=h_fp)
+
+            # 'step' is state from the Adam optimizer
+            orig_steps = [v['step'] for v in
+                          net.optimizer_.state_dict()['state'].values()]
+            orig_loss = np.array(net.history[:, 'train_loss'])
+            del net
+
+        with ExitStack() as stack:
+            p_fp = stack.enter_context(open(str(p), 'rb'))
+            o_fp = stack.enter_context(open(str(o), 'rb'))
+            h_fp = stack.enter_context(open(str(h), 'r'))
+            new_net = net_cls(
+                module_cls, max_epochs=10, lr=0.1,
+                optimizer=torch.optim.Adam).initialize()
+            new_net.load_params(p_fp, f_optimizer=o_fp, f_history=h_fp)
+
+            new_steps = [v['step'] for v in
+                         new_net.optimizer_.state_dict()['state'].values()]
+            new_loss = np.array(new_net.history[:, 'train_loss'])
+
+            assert np.allclose(orig_loss, new_loss)
+            assert orig_steps == new_steps
+
+    def test_save_load_state_dict_str_with_history_optimizer(
+            self, net_cls, module_cls, data, tmpdir):
+        net = net_cls(
+            module_cls, max_epochs=10, lr=0.1,
+            optimizer=torch.optim.Adam)
+        X, y = data
+        net.fit(X, y)
+
+        skorch_tmpdir = tmpdir.mkdir('skorch')
+        p = str(skorch_tmpdir.join('testmodel.pkl'))
+        o = str(skorch_tmpdir.join('optimizer.pkl'))
+        h = str(skorch_tmpdir.join('history.json'))
+
+        net.save_params(p, f_optimizer=o, f_history=h)
+
+        # 'step' is state from the Adam optimizer
+        orig_steps = [v['step'] for v in
+                      net.optimizer_.state_dict()['state'].values()]
+        orig_loss = np.array(net.history[:, 'train_loss'])
+        del net
+
+        new_net = net_cls(
+            module_cls, max_epochs=10, lr=0.1,
+            optimizer=torch.optim.Adam).initialize()
+        new_net.load_params(p, f_optimizer=o, f_history=h)
+
+        new_steps = [v['step'] for v in
+                     new_net.optimizer_.state_dict()['state'].values()]
+        new_loss = np.array(new_net.history[:, 'train_loss'])
+
+        assert np.allclose(orig_loss, new_loss)
+        assert orig_steps == new_steps
+
+    def test_save_params_f_keyword_deprecation(
+            self, net_cls, module_cls, tmpdir):
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
+        net = net_cls(module_cls).initialize()
+
+        # TODO: remove this test when the target argument is removed
+        # after its deprecation grace period is over.
+        with pytest.warns(DeprecationWarning):
+            net.save_params(f=str(p))
+
+        assert p.exists()
+
+    def test_save_params_not_init_optimizer(
+            self, net_cls, module_cls, tmpdir):
+        from skorch.exceptions import NotInitializedError
+
+        net = net_cls(module_cls).initialize_module()
+        skorch_tmpdir = tmpdir.mkdir('skorch')
+        p = skorch_tmpdir.join('testmodel.pkl')
+        o = skorch_tmpdir.join('optimizer.pkl')
+
+        with pytest.raises(NotInitializedError) as exc:
+            net.save_params(str(p), f_optimizer=o)
+        expected = ("Cannot save state of an un-initialized optimizer. "
+                    "Please initialize first by calling .initialize() "
+                    "or by fitting the model with .fit(...).")
+        assert exc.value.args[0] == expected
+
+    def test_load_params_not_init_optimizer(
+            self, net_cls, module_cls, tmpdir):
+        from skorch.exceptions import NotInitializedError
+
+        net = net_cls(module_cls).initialize_module()
+        skorch_tmpdir = tmpdir.mkdir('skorch')
+        p = skorch_tmpdir.join('testmodel.pkl')
+        o = skorch_tmpdir.join('optimizer.pkl')
+
+        net.save_params(str(p))
+
+        with pytest.raises(NotInitializedError) as exc:
+            net.load_params(str(p), f_optimizer=o)
+        expected = ("Cannot load state of an un-initialized optimizer. "
+                    "Please initialize first by calling .initialize() "
+                    "or by fitting the model with .fit(...).")
+        assert exc.value.args[0] == expected
+
     def test_save_state_dict_not_init(
             self, net_cls, module_cls, tmpdir):
         from skorch.exceptions import NotInitializedError
@@ -371,7 +492,7 @@ class TestNeuralNet:
             'Model configured to use CUDA but no CUDA '
             'devices available. Loading on CPU instead.')
 
-    def test_save_load_history_file_obj(
+    def test_save_params_with_history_file_obj(
             self, net_cls, module_cls, net_fit, tmpdir):
         net = net_cls(module_cls).initialize()
 
@@ -379,15 +500,17 @@ class TestNeuralNet:
 
         p = tmpdir.mkdir('skorch').join('history.json')
         with open(str(p), 'w') as f:
-            net_fit.save_history(f)
+            net_fit.save_params(f_history=f)
         del net_fit
         with open(str(p), 'r') as f:
-            net.load_history(f)
+            net.load_params(f_history=f)
 
         assert net.history == history_before
 
+    # TODO: remove this test when the target argument is removed
+    # after its deprecation grace period is over.
     @pytest.mark.parametrize('converter', [str, Path])
-    def test_save_load_history_file_path(
+    def test_save_history_file_path(
             self, net_cls, module_cls, net_fit, tmpdir, converter):
         # Test loading/saving with different kinds of path representations.
 
@@ -400,9 +523,50 @@ class TestNeuralNet:
         history_before = net_fit.history
 
         p = tmpdir.mkdir('skorch').join('history.json')
-        net_fit.save_history(converter(p))
+        with pytest.warns(DeprecationWarning):
+            net_fit.save_history(converter(p))
         del net_fit
-        net.load_history(converter(p))
+        with pytest.warns(DeprecationWarning):
+            net.load_history(converter(p))
+
+        assert net.history == history_before
+
+    # TODO: remove this test when the target argument is removed
+    # after its deprecation grace period is over.
+    def test_load_history_file_obj(
+            self, net_cls, module_cls, net_fit, tmpdir):
+        net = net_cls(module_cls).initialize()
+
+        history_before = net_fit.history
+
+        p = tmpdir.mkdir('skorch').join('history.json')
+        with open(str(p), 'w') as f:
+            with pytest.warns(DeprecationWarning):
+                net_fit.save_history(f)
+        del net_fit
+        with open(str(p), 'r') as f:
+            with pytest.warns(DeprecationWarning):
+                net.load_history(f)
+
+        assert net.history == history_before
+
+    @pytest.mark.parametrize('converter', [str, Path])
+    def test_save_params_with_history_file_path(
+            self, net_cls, module_cls, net_fit, tmpdir, converter):
+        # Test loading/saving with different kinds of path representations.
+
+        if converter is Path and sys.version < '3.6':
+            # `PosixPath` cannot be `open`ed in Python < 3.6
+            pytest.skip()
+
+        net = net_cls(module_cls).initialize()
+
+        history_before = net_fit.history
+
+        p = tmpdir.mkdir('skorch').join('history.json')
+        net_fit.save_params(f_history=converter(p))
+        del net_fit
+        net.load_params(f_history=converter(p))
 
         assert net.history == history_before
 

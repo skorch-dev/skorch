@@ -34,6 +34,7 @@ class Checkpoint(Callback):
     Some or all of the following can be saved:
 
       - model parameters (see ``f_params`` parameter);
+      - optimizer state (see ``f_optimizer`` parameter);
       - training history (see ``f_history`` parameter);
       - entire model object (see ``f_pickle`` parameter).
 
@@ -84,6 +85,18 @@ class Checkpoint(Callback):
 
       >>> cb = Checkpoint(f_params="params_{last_epoch[epoch]}.pt")
 
+    f_optimizer : file-like object, str, None (default=None)
+      File path to the file or file-like object where the optimizer
+      state should be saved. Pass ``None`` to disable saving
+      model parameters.
+
+      If the value is a string you can also use format specifiers
+      to, for example, indicate the current epoch. Accessible format
+      values are ``net``, ``last_epoch`` and ``last_batch``.
+      Example to include last epoch number in file name:
+
+      >>> cb = Checkpoint(f_optimizer="optimizer_{last_epoch[epoch]}.pt")
+
     f_history : file-like object, str, None (default=None)
       File path to the file or file-like object where the model
       training history should be saved. Pass ``None`` to disable
@@ -108,6 +121,7 @@ class Checkpoint(Callback):
             target=None,
             monitor='valid_loss_best',
             f_params='params.pt',
+            f_optimizer=None,
             f_history=None,
             f_pickle=None,
             sink=noop,
@@ -122,6 +136,7 @@ class Checkpoint(Callback):
             f_params = target
         self.monitor = monitor
         self.f_params = f_params
+        self.f_optimizer = f_optimizer
         self.f_history = f_history
         self.f_pickle = f_pickle
         self.sink = sink
@@ -157,10 +172,11 @@ class Checkpoint(Callback):
           - training history;
           - entire model object.
         """
-        if self.f_params:
-            net.save_params(self._format_target(net, self.f_params))
-        if self.f_history:
-            net.save_history(self._format_target(net, self.f_history))
+        if self.f_params or self.f_history:
+            net.save_params(
+                self._format_target(net, self.f_params),
+                f_optimizer=self._format_target(net, self.f_optimizer),
+                f_history=self.f_history)
         if self.f_pickle:
             f_pickle = self._format_target(net, self.f_pickle)
             with open_file_like(f_pickle, 'wb') as f:

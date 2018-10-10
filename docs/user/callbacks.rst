@@ -225,8 +225,10 @@ starting with ``f_``:
 
 - ``f_params``: to save model parameters (uses
   :func:`~skorch.net.NeuralNet.save_params`);
+- ``f_optimizer``: to save optimizer state (uses
+  :func:`~skorch.net.NeuralNet.save_params`);
 - ``f_history``: to save training history (uses
-  :func:`~skorch.net.NeuralNet.save_history`);
+  :func:`~skorch.net.NeuralNet.save_params`);
 - ``f_pickle``: to pickle the entire model object.
 
 Please refer to :ref:`saving and loading` for more information about

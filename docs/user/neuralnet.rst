@@ -419,10 +419,10 @@ initialize a :class:`.NeuralNet` to load the parameters again:
     new_net.initialize()  # This is important!
     new_net.load_params('some-file.pkl')
 
-In addition to saving the model parameters, the history
-can be saved and loaded by calling the
-:func:`~skorch.net.NeuralNet.save_history`
-and :func:`~skorch.net.NeuralNet.load_history` methods on
+In addition to saving the model parameters, the history and optimizer state can
+be saved by including the `f_history` and `f_optimizer` keywords to
+:func:`~skorch.net.NeuralNet.save_params` and
+:func:`~skorch.net.NeuralNet.load_params` on
 :class:`.NeuralNet`. This feature can be used to
 continue training:
 
@@ -435,16 +435,16 @@ continue training:
 
     net.fit(X, y, epochs=2) # Train for 2 epochs
 
-    net.save_params('some-file.pkl')
-    net.save_history('history.json')
+    net.save_params(
+        'model.pkl', f_optimizer='opt.pkl', f_history='history.json')
 
     new_net = NeuralNet(
         module=MyModule
         criterion=torch.nn.NLLLoss,
     )
     new_net.initialize() # This is important!
-    new_net.load_params('some-file.pkl')
-    new_net.load_history('history.json')
+    new_net.load_params(
+        'model.pkl', f_optimizer='opt.pkl', f_history='history.json')
 
     new_net.fit(X, y, epochs=2) # Train for another 2 epochs
 

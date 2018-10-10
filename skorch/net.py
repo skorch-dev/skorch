@@ -1358,73 +1358,124 @@ class NeuralNet(object):
 
         self.__dict__.update(state)
 
-    def save_params(self, f):
-        """Save only the module's parameters, not the whole object.
+    def save_params(
+            self, f_params=None, f_optimizer=None, f_history=None, f=None):
+        """Saves the module's parameters, history, and optimizer,
+        not the whole object.
 
         To save the whole object, use pickle.
 
         Parameters
         ----------
-        f : file-like object or str
+        f_params : file-like object or str
+          Path of module parameters
           See PyTorch :func:`~torch.save` documentation.
+        f_optimizer : file-like object or str
+          Path of optimizer
+          See PyTorch :func:`~torch.save` documentation.
+        f_history : file-like object or str
+          Path to history
 
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
-        >>> before.save_params('path/to/file')
+        >>> before.save_params('model.pkl',
+        >>>                    f_optimizer='optimizer.pkl',
+        >>>                    f_history='history.json')
         >>> after = NeuralNetClassifier(mymodule).initialize()
-        >>> after.load_params('path/to/file')
+        >>> after.load_params('model.pkl',
+        >>>                    f_optimizer='optimizer.pkl',
+        >>>                    f_history='history.json')
 
         """
-        if not hasattr(self, 'module_'):
-            raise NotInitializedError(
-                "Cannot save parameters of an un-initialized model. "
-                "Please initialize first by calling .initialize() "
-                "or by fitting the model with .fit(...).")
-        torch.save(self.module_.state_dict(), f)
 
-    def load_params(self, f):
-        """Load only the module's parameters, not the whole object.
+        # TODO: Remove warning in a future release
+        if f is not None:
+            warnings.warn(
+                "f is deprecated in save_params and will be removed in the "
+                "next release, please use f_params instead",
+                DeprecationWarning)
+            f_params = f
+
+        if f_params is not None:
+            if not hasattr(self, 'module_'):
+                raise NotInitializedError(
+                    "Cannot save parameters of an un-initialized model. "
+                    "Please initialize first by calling .initialize() "
+                    "or by fitting the model with .fit(...).")
+            torch.save(self.module_.state_dict(), f_params)
+
+        if f_optimizer is not None:
+            if not hasattr(self, 'optimizer_'):
+                raise NotInitializedError(
+                    "Cannot save state of an un-initialized optimizer. "
+                    "Please initialize first by calling .initialize() "
+                    "or by fitting the model with .fit(...).")
+            torch.save(self.optimizer_.state_dict(), f_optimizer)
+
+        if f_history is not None:
+            with open_file_like(f_history, 'w') as fp:
+                json.dump(self.history.to_list(), fp)
+
+    def load_params(
+            self, f_params=None, f_optimizer=None, f_history=None, f=None):
+        """Loads the the module's parameters, history, and optimizer,
+        not the whole object.
 
         To save and load the whole object, use pickle.
 
         Parameters
         ----------
-        f : file-like object or str
-          See PyTorch :func:`~torch.load` documentation.
+        f_params : file-like object or str
+          Path of module parameters
+          See PyTorch :func:`~torch.save` documentation.
+        f_optimizer : file-like object or str
+          Path of optimizer
+          See PyTorch :func:`~torch.save` documentation.
+        f_history : file-like object or str
+          Path to history
 
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
-        >>> before.save_params('path/to/file')
+        >>> before.save_params('model.pkl',
+        >>>                    f_optimizer='optimizer.pkl',
+        >>>                    f_history='history.json')
         >>> after = NeuralNetClassifier(mymodule).initialize()
-        >>> after.load_params('path/to/file')
+        >>> after.load_params('model.pkl',
+        >>>                    f_optimizer='optimizer.pkl',
+        >>>                    f_history='history.json')
 
         """
-        if not hasattr(self, 'module_'):
-            raise NotInitializedError(
-                "Cannot load parameters of an un-initialized model. "
-                "Please initialize first by calling .initialize() "
-                "or by fitting the model with .fit(...).")
+        # TODO: Remove warning in a future release
+        if f is not None:
+            warnings.warn(
+                "f is deprecated in save_params and will be removed in the "
+                "next release, please use f_params instead",
+                DeprecationWarning)
+            f_params = f
 
-        use_cuda = self.device.startswith('cuda')
-        cuda_req_not_met = (use_cuda and not torch.cuda.is_available())
-        if use_cuda or cuda_req_not_met:
-            # Eiher we want to load the model to the CPU in which case
-            # we are loading in a way where it doesn't matter if the data
-            # was on the GPU or not or the model was on the GPU but there
-            # is no CUDA device available.
-            if cuda_req_not_met:
-                warnings.warn(
-                    "Model configured to use CUDA but no CUDA devices "
-                    "available. Loading on CPU instead.",
-                    ResourceWarning)
-                self.device = 'cpu'
-            model = torch.load(f, lambda storage, loc: storage)
-        else:
-            model = torch.load(f)
+        if f_params is not None:
+            if not hasattr(self, 'module_'):
+                raise NotInitializedError(
+                    "Cannot load parameters of an un-initialized model. "
+                    "Please initialize first by calling .initialize() "
+                    "or by fitting the model with .fit(...).")
+            state_dict = self._get_state_dict(f_params)
+            self.module_.load_state_dict(state_dict)
 
-        self.module_.load_state_dict(model)
+        if f_optimizer is not None:
+            if not hasattr(self, 'optimizer_'):
+                raise NotInitializedError(
+                    "Cannot load state of an un-initialized optimizer. "
+                    "Please initialize first by calling .initialize() "
+                    "or by fitting the model with .fit(...).")
+            state_dict = self._get_state_dict(f_optimizer)
+            self.optimizer_.load_state_dict(state_dict)
+
+        if f_history is not None:
+            with open_file_like(f_history, 'r') as fp:
+                self.history = History(json.load(fp))
 
     def save_history(self, f):
         """Saves the history of ``NeuralNet`` as a json file. In order
@@ -1449,6 +1500,12 @@ class NeuralNet(object):
         >>> after.fit(X, y, epoch=2) # Train for another 2 epochs
 
         """
+        # TODO: Remove warning in a future release
+        warnings.warn(
+            "save_history is deprecated and will be removed in the next "
+            "release, please use save_params with the f_history keyword",
+            DeprecationWarning)
+
         with open_file_like(f, 'w') as fp:
             json.dump(self.history.to_list(), fp)
 
@@ -1461,8 +1518,33 @@ class NeuralNet(object):
         f : file-like object or str
 
         """
+        # TODO: Remove warning in a future release
+        warnings.warn(
+            "load_history is deprecated and will be removed in the next "
+            "release, please use load_params with the f_history keyword",
+            DeprecationWarning)
+
         with open_file_like(f, 'r') as fp:
             self.history = History(json.load(fp))
+
+    def _get_state_dict(self, f):
+        use_cuda = self.device.startswith('cuda')
+        cuda_req_not_met = (use_cuda and not torch.cuda.is_available())
+        if use_cuda or cuda_req_not_met:
+            # Eiher we want to load the model to the CPU in which case
+            # we are loading in a way where it doesn't matter if the data
+            # was on the GPU or not or the model was on the GPU but there
+            # is no CUDA device available.
+            if cuda_req_not_met:
+                warnings.warn(
+                    "Model configured to use CUDA but no CUDA devices "
+                    "available. Loading on CPU instead.",
+                    ResourceWarning)
+                self.device = 'cpu'
+            state_dict = torch.load(f, lambda storage, loc: storage)
+        else:
+            state_dict = torch.load(f)
+        return state_dict
 
     def __repr__(self):
         params = self.get_params(deep=False)
