@@ -1365,14 +1365,15 @@ class NeuralNet(object):
 
         To save the whole object, use pickle.
 
+        ``f_params`` and ``f_optimizer`` uses PyTorchs'
+        :func:`~torch.save`.
+
         Parameters
         ----------
         f_params : file-like object or str
           Path of module parameters
-          See PyTorch :func:`~torch.save` documentation.
         f_optimizer : file-like object or str
           Path of optimizer
-          See PyTorch :func:`~torch.save` documentation.
         f_history : file-like object or str
           Path to history
 
@@ -1426,14 +1427,15 @@ class NeuralNet(object):
 
         To save and load the whole object, use pickle.
 
+        ``f_params`` and ``f_optimizer`` uses PyTorchs'
+        :func:`~torch.save`.
+
         Parameters
         ----------
         f_params : file-like object or str
           Path of module parameters
-          See PyTorch :func:`~torch.save` documentation.
         f_optimizer : file-like object or str
           Path of optimizer
-          See PyTorch :func:`~torch.save` documentation.
         f_history : file-like object or str
           Path to history
 
