@@ -303,10 +303,10 @@ class TestNeuralNet:
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         with open(str(p), 'wb') as f:
-            net_fit.save_params(f)
+            net_fit.save_params(f_params=f)
         del net_fit
         with open(str(p), 'rb') as f:
-            net.load_params(f)
+            net.load_params(f_params=f)
 
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
@@ -321,9 +321,9 @@ class TestNeuralNet:
         assert not np.isclose(score_before, score_untrained)
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
-        net_fit.save_params(str(p))
+        net_fit.save_params(f_params=str(p))
         del net_fit
-        net.load_params(str(p))
+        net.load_params(f_params=str(p))
 
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
@@ -345,7 +345,7 @@ class TestNeuralNet:
             p_fp = stack.enter_context(open(str(p), 'wb'))
             o_fp = stack.enter_context(open(str(o), 'wb'))
             h_fp = stack.enter_context(open(str(h), 'w'))
-            net.save_params(p_fp, f_optimizer=o_fp, f_history=h_fp)
+            net.save_params(f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
 
             # 'step' is state from the Adam optimizer
             orig_steps = [v['step'] for v in
@@ -360,7 +360,8 @@ class TestNeuralNet:
             new_net = net_cls(
                 module_cls, max_epochs=10, lr=0.1,
                 optimizer=torch.optim.Adam).initialize()
-            new_net.load_params(p_fp, f_optimizer=o_fp, f_history=h_fp)
+            new_net.load_params(
+                f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
 
             new_steps = [v['step'] for v in
                          new_net.optimizer_.state_dict()['state'].values()]
@@ -382,7 +383,7 @@ class TestNeuralNet:
         o = str(skorch_tmpdir.join('optimizer.pkl'))
         h = str(skorch_tmpdir.join('history.json'))
 
-        net.save_params(p, f_optimizer=o, f_history=h)
+        net.save_params(f_params=p, f_optimizer=o, f_history=h)
 
         # 'step' is state from the Adam optimizer
         orig_steps = [v['step'] for v in
@@ -393,7 +394,7 @@ class TestNeuralNet:
         new_net = net_cls(
             module_cls, max_epochs=10, lr=0.1,
             optimizer=torch.optim.Adam).initialize()
-        new_net.load_params(p, f_optimizer=o, f_history=h)
+        new_net.load_params(f_params=p, f_optimizer=o, f_history=h)
 
         new_steps = [v['step'] for v in
                      new_net.optimizer_.state_dict()['state'].values()]
@@ -424,7 +425,7 @@ class TestNeuralNet:
         o = skorch_tmpdir.join('optimizer.pkl')
 
         with pytest.raises(NotInitializedError) as exc:
-            net.save_params(str(p), f_optimizer=o)
+            net.save_params(f_params=str(p), f_optimizer=o)
         expected = ("Cannot save state of an un-initialized optimizer. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
@@ -439,10 +440,10 @@ class TestNeuralNet:
         p = skorch_tmpdir.join('testmodel.pkl')
         o = skorch_tmpdir.join('optimizer.pkl')
 
-        net.save_params(str(p))
+        net.save_params(f_params=str(p))
 
         with pytest.raises(NotInitializedError) as exc:
-            net.load_params(str(p), f_optimizer=o)
+            net.load_params(f_params=str(p), f_optimizer=o)
         expected = ("Cannot load state of an un-initialized optimizer. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
@@ -456,7 +457,7 @@ class TestNeuralNet:
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
 
         with pytest.raises(NotInitializedError) as exc:
-            net.save_params(str(p))
+            net.save_params(f_params=str(p))
         expected = ("Cannot save parameters of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
@@ -470,7 +471,7 @@ class TestNeuralNet:
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
 
         with pytest.raises(NotInitializedError) as exc:
-            net.load_params(str(p))
+            net.load_params(f_params=str(p))
         expected = ("Cannot load parameters of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
@@ -482,11 +483,11 @@ class TestNeuralNet:
         net = net_cls(module_cls, device='cuda').initialize()
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
-        net.save_params(str(p))
+        net.save_params(f_params=str(p))
 
         with patch('torch.cuda.is_available', lambda *_: False):
             with pytest.warns(ResourceWarning) as w:
-                net.load_params(str(p))
+                net.load_params(f_params=str(p))
 
         assert w.list[0].message.args[0] == (
             'Model configured to use CUDA but no CUDA '

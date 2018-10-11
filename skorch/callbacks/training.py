@@ -174,7 +174,7 @@ class Checkpoint(Callback):
         """
         if self.f_params or self.f_history:
             net.save_params(
-                self._format_target(net, self.f_params),
+                f_params=self._format_target(net, self.f_params),
                 f_optimizer=self._format_target(net, self.f_optimizer),
                 f_history=self.f_history)
         if self.f_pickle:

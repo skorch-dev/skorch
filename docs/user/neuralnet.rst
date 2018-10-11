@@ -410,14 +410,14 @@ initialize a :class:`.NeuralNet` to load the parameters again:
     ])
     model.fit(X, y)
 
-    net.save_params('some-file.pkl')
+    net.save_params(f_params='some-file.pkl')
 
     new_net = NeuralNet(
         module=MyModule,
         criterion=torch.nn.NLLLoss,
     )
     new_net.initialize()  # This is important!
-    new_net.load_params('some-file.pkl')
+    new_net.load_params(f_params='some-file.pkl')
 
 In addition to saving the model parameters, the history and optimizer state can
 be saved by including the `f_history` and `f_optimizer` keywords to
@@ -436,7 +436,7 @@ continue training:
     net.fit(X, y, epochs=2) # Train for 2 epochs
 
     net.save_params(
-        'model.pkl', f_optimizer='opt.pkl', f_history='history.json')
+        f_params='model.pkl', f_optimizer='opt.pkl', f_history='history.json')
 
     new_net = NeuralNet(
         module=MyModule
@@ -444,7 +444,7 @@ continue training:
     )
     new_net.initialize() # This is important!
     new_net.load_params(
-        'model.pkl', f_optimizer='opt.pkl', f_history='history.json')
+        f_params='model.pkl', f_optimizer='opt.pkl', f_history='history.json')
 
     new_net.fit(X, y, epochs=2) # Train for another 2 epochs
 

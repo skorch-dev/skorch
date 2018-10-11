@@ -1359,7 +1359,7 @@ class NeuralNet(object):
         self.__dict__.update(state)
 
     def save_params(
-            self, f_params=None, f_optimizer=None, f_history=None, f=None):
+            self, f=None, f_params=None, f_optimizer=None, f_history=None):
         """Saves the module's parameters, history, and optimizer,
         not the whole object.
 
@@ -1379,21 +1379,23 @@ class NeuralNet(object):
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
-        >>> before.save_params('model.pkl',
+        >>> before.save_params(f_params='model.pkl',
         >>>                    f_optimizer='optimizer.pkl',
         >>>                    f_history='history.json')
         >>> after = NeuralNetClassifier(mymodule).initialize()
-        >>> after.load_params('model.pkl',
-        >>>                    f_optimizer='optimizer.pkl',
-        >>>                    f_history='history.json')
+        >>> after.load_params(f_params='model.pkl',
+        >>>                   f_optimizer='optimizer.pkl',
+        >>>                   f_history='history.json')
 
         """
 
         # TODO: Remove warning in a future release
         if f is not None:
             warnings.warn(
-                "f is deprecated in save_params and will be removed in the "
-                "next release, please use f_params instead",
+                "f argument was renamed to f_params and will be removed "
+                "in the next release. To make your code future-proof it is "
+                "recommended to explicitly specify keyword arguments' names "
+                "instead of relying on positional order.",
                 DeprecationWarning)
             f_params = f
 
@@ -1438,13 +1440,13 @@ class NeuralNet(object):
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
-        >>> before.save_params('model.pkl',
+        >>> before.save_params(f_params='model.pkl',
         >>>                    f_optimizer='optimizer.pkl',
         >>>                    f_history='history.json')
         >>> after = NeuralNetClassifier(mymodule).initialize()
-        >>> after.load_params('model.pkl',
-        >>>                    f_optimizer='optimizer.pkl',
-        >>>                    f_history='history.json')
+        >>> after.load_params(f_params='model.pkl',
+        >>>                   f_optimizer='optimizer.pkl',
+        >>>                   f_history='history.json')
 
         """
         # TODO: Remove warning in a future release

@@ -106,5 +106,5 @@ print("Best parameter configuration:", pl.best_params_)
 print("Achieved F1 score:", pl.best_score_)
 
 print("Saving best model to '{}'.".format(args.save))
-pl.best_estimator_.save_params(args.save)
+pl.best_estimator_.save_params(f_params=args.save)
 
