@@ -90,12 +90,7 @@ class Checkpoint(Callback):
       state should be saved. Pass ``None`` to disable saving
       model parameters.
 
-      If the value is a string you can also use format specifiers
-      to, for example, indicate the current epoch. Accessible format
-      values are ``net``, ``last_epoch`` and ``last_batch``.
-      Example to include last epoch number in file name:
-
-      >>> cb = Checkpoint(f_optimizer="optimizer_{last_epoch[epoch]}.pt")
+      Supports the same format specifiers as ``f_params``.
 
     f_history : file-like object, str, None (default=None)
       File path to the file or file-like object where the model
@@ -176,7 +171,7 @@ class Checkpoint(Callback):
             net.save_params(
                 f_params=self._format_target(net, self.f_params),
                 f_optimizer=self._format_target(net, self.f_optimizer),
-                f_history=self.f_history)
+                f_history=self._format_target(net, self.f_history))
         if self.f_pickle:
             f_pickle = self._format_target(net, self.f_pickle)
             with open_file_like(f_pickle, 'wb') as f:
