@@ -102,7 +102,8 @@ class TestCheckpoint:
 
         assert save_params_mock.call_count == 1
         save_params_mock.assert_called_with(
-            f_params='model_3_10.pt', f_optimizer='optimizer_3_10.pt', f_history=None)
+            f_params='model_3_10.pt', f_optimizer='optimizer_3_10.pt',
+            f_history=None)
         assert sink.call_count == 1
         assert all((x is False) for x in net.history[:2, 'event_cp'])
         assert net.history[2, 'event_cp'] is True
@@ -112,7 +113,8 @@ class TestCheckpoint:
             self, save_params_mock, pickle_dump_mock,
             net_cls, checkpoint_cls, data):
         net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None, f_params='params.pt',
+            checkpoint_cls(
+                monitor=None, f_params='params.pt',
                 f_history='history.json', f_pickle='model.pkl',
                 f_optimizer='optimizer.pt'),
         ])
@@ -121,14 +123,15 @@ class TestCheckpoint:
         assert save_params_mock.call_count == len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
         save_params_mock.assert_called_with(
-            f_params='params.pt', f_optimizer='optimizer.pt', f_history='history.json')
+            f_params='params.pt', f_optimizer='optimizer.pt',
+            f_history='history.json')
 
     def test_save_no_targets(
             self, save_params_mock, pickle_dump_mock,
             net_cls, checkpoint_cls, data):
         net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None, f_params=None, f_history=None,
-                f_pickle=None),
+            checkpoint_cls(
+                monitor=None, f_params=None, f_history=None, f_pickle=None),
         ])
         net.fit(*data)
 
