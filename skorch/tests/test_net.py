@@ -443,6 +443,27 @@ class TestNeuralNet:
         # fit ran twice for a total of 10 epochs
         assert len(new_net.history) == 8
 
+    # test for file object and str for dirname
+    @pytest.mark.parametrize('transform', [
+        str, lambda x: x
+    ])
+    def test_checkpoint_with_prefix_and_dirname(
+            self, net_cls, module_cls, data, checkpoint_cls, tmpdir,
+            transform):
+        exp_dir = tmpdir.mkdir('skorch')
+        exp_basedir = exp_dir.join('exp1')
+
+        cp = checkpoint_cls(
+            monitor=None, fn_prefix='unet_', dirname=transform(exp_basedir))
+        net = net_cls(
+            module_cls, max_epochs=4, lr=0.1,
+            optimizer=torch.optim.Adam, callbacks=[cp])
+        net.fit(*data)
+
+        assert exp_basedir.join('unet_params.pt').exists()
+        assert exp_basedir.join('unet_optimizer.pt').exists()
+        assert exp_basedir.join('unet_history.json').exists()
+
     def test_save_and_load_from_checkpoint_formatting(
             self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
 

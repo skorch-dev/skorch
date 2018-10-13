@@ -4,7 +4,7 @@ from functools import partial
 from unittest.mock import Mock
 from unittest.mock import patch
 from unittest.mock import call
-from unittest.mock import ANY
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -159,6 +159,8 @@ class TestCheckpoint:
 
         assert save_params_mock.call_count == 3*len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
+
+        print(save_params_mock.call_args_list)
         save_params_mock.assert_has_calls(
             [call(f_params='params.pt'),
              call(f_optimizer='optimizer.pt'),
@@ -186,6 +188,54 @@ class TestCheckpoint:
             [call(f_params='exp1_params.pt'),
              call(f_optimizer='exp1_optimizer.pt'),
              call(f_history='exp1_history.json')] * len(net.history)
+        )
+
+    def test_save_all_targets_with_prefix_and_str_dirname(
+            self, save_params_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data):
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params='params.pt',
+            f_history='history.json',
+            f_pickle='model.pkl',
+            f_optimizer='optimizer.pt',
+            fn_prefix="unet_",
+            dirname="exp1")
+        net = net_cls(callbacks=[cp])
+        net.fit(*data)
+
+        assert cp.f_history_ == "exp1/unet_history.json"
+        assert save_params_mock.call_count == 3*len(net.history)
+        assert pickle_dump_mock.call_count == len(net.history)
+        save_params_mock.assert_has_calls(
+            [call(f_params='exp1/unet_params.pt'),
+             call(f_optimizer='exp1/unet_optimizer.pt'),
+             call(f_history='exp1/unet_history.json')] * len(net.history)
+        )
+
+    def test_save_all_targets_with_prefix_and_file_obj_dirname(
+            self, save_params_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data):
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params='params.pt',
+            f_history='history.json',
+            f_pickle='model.pkl',
+            f_optimizer='optimizer.pt',
+            fn_prefix="unet_",
+            dirname=Path("exp1"))
+        net = net_cls(callbacks=[cp])
+        net.fit(*data)
+
+        assert cp.f_history_ == "exp1/unet_history.json"
+        assert save_params_mock.call_count == 3*len(net.history)
+        assert pickle_dump_mock.call_count == len(net.history)
+        save_params_mock.assert_has_calls(
+            [call(f_params='exp1/unet_params.pt'),
+             call(f_optimizer='exp1/unet_optimizer.pt'),
+             call(f_history='exp1/unet_history.json')] * len(net.history)
         )
 
     def test_save_no_targets(

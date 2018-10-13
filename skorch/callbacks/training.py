@@ -1,5 +1,6 @@
 """ Callbacks related to training progress. """
 
+import os
 import pickle
 import warnings
 from contextlib import suppress
@@ -106,8 +107,11 @@ class Checkpoint(Callback):
       Supports the same format specifiers as ``f_params``.
 
     fn_prefix: str (default='')
-       Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
-       or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``
+      Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
+      or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
+
+    dirname: file-like object, str (default='')
+      Directory where files are stored.
 
     event_name: str, (default='event_cp')
       Name of event to be placed in history when checkpoint is triggered.
@@ -127,6 +131,7 @@ class Checkpoint(Callback):
             f_history='history.json',
             f_pickle=None,
             fn_prefix='',
+            dirname='',
             event_name='event_cp',
             sink=noop,
     ):
@@ -144,8 +149,14 @@ class Checkpoint(Callback):
         self.f_history = f_history
         self.f_pickle = f_pickle
         self.fn_prefix = fn_prefix
+        self.dirname = dirname
         self.event_name = event_name
         self.sink = sink
+
+    def initialize(self):
+        if self.dirname and not os.path.exists(self.dirname):
+            os.makedirs(self.dirname, exist_ok=True)
+        return self
 
     def on_epoch_end(self, net, **kwargs):
         if self.monitor is None:
@@ -214,7 +225,10 @@ class Checkpoint(Callback):
 
     @property
     def f_history_(self):
-        return self.fn_prefix + self.f_history
+        if self.f_history is None:
+            return None
+        return os.path.join(
+            self.dirname, self.fn_prefix + self.f_history)
 
     def get_formatted_files(self, net):
         """Returns a dictionary of formatted filenames"""
@@ -235,12 +249,14 @@ class Checkpoint(Callback):
     def _format_target(self, net, f, idx):
         """Apply formatting to the target filename template."""
         if isinstance(f, str):
-            return self.fn_prefix + f.format(
+            f = self.fn_prefix + f.format(
                 net=net,
                 last_epoch=net.history[idx],
                 last_batch=net.history[idx, 'batches', -1],
             )
-        return f
+        if f is None:
+            return None
+        return os.path.join(self.dirname, f)
 
     def _sink(self, text, verbose):
         #  We do not want to be affected by verbosity if sink is not print
