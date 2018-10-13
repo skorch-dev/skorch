@@ -1372,10 +1372,14 @@ class NeuralNet(object):
         ----------
         f_params : file-like object or str
           Path of module parameters
+
         f_optimizer : file-like object or str
           Path of optimizer
+
         f_history : file-like object or str
           Path to history
+
+        f : deprecated
 
         Examples
         --------
@@ -1421,7 +1425,7 @@ class NeuralNet(object):
                 json.dump(self.history.to_list(), fp)
 
     def load_params(
-            self, f_params=None, f_optimizer=None, f_history=None, f=None):
+            self, f=None, f_params=None, f_optimizer=None, f_history=None):
         """Loads the the module's parameters, history, and optimizer,
         not the whole object.
 
@@ -1434,10 +1438,14 @@ class NeuralNet(object):
         ----------
         f_params : file-like object or str
           Path of module parameters
+
         f_optimizer : file-like object or str
           Path of optimizer
+
         f_history : file-like object or str
           Path to history
+
+        f : deprecated
 
         Examples
         --------
