@@ -104,6 +104,9 @@ class Checkpoint(Callback):
 
       Supports the same format specifiers as ``f_params``.
 
+    event_name: str, (default='event_cp')
+      Name of event to be placed in history when checkpoint is triggered
+
     sink : callable (default=noop)
       The target that the information about created checkpoints is
       sent to. This can be a logger or ``print`` function (to send to
@@ -117,6 +120,7 @@ class Checkpoint(Callback):
             f_optimizer='optimizer.pt',
             f_history='history.json',
             f_pickle=None,
+            event_name='event_cp',
             sink=noop,
     ):
         if target is not None:
@@ -132,6 +136,7 @@ class Checkpoint(Callback):
         self.f_optimizer = f_optimizer
         self.f_history = f_history
         self.f_pickle = f_pickle
+        self.event_name = event_name
         self.sink = sink
 
     def on_epoch_end(self, net, **kwargs):
@@ -154,7 +159,7 @@ class Checkpoint(Callback):
                 len(net.history) + 1
             ), net.verbose)
 
-        net.history.record('event_cp', bool(do_checkpoint))
+        net.history.record(self.event_name, bool(do_checkpoint))
 
     def save_model(self, net):
         """Save the model.

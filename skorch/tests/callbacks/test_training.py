@@ -54,13 +54,14 @@ class TestCheckpoint:
             self, save_params_mock, net_cls, checkpoint_cls, data):
         sink = Mock()
         net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None, sink=sink),
+            checkpoint_cls(monitor=None, sink=sink,
+                           event_name='event_another'),
         ])
         net.fit(*data)
 
         assert save_params_mock.call_count == 3*len(net.history)
         assert sink.call_count == len(net.history)
-        assert all((x is True) for x in net.history[:, 'event_cp'])
+        assert all((x is True) for x in net.history[:, 'event_another'])
 
     @pytest.mark.parametrize('message,files', [
         ('Unable to save model parameters to params.pt '
