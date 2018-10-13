@@ -2,6 +2,7 @@
 
 import pickle
 import warnings
+from contextlib import suppress
 from fnmatch import fnmatch
 from functools import partial
 from itertools import product
@@ -16,7 +17,7 @@ from skorch.utils import unfreeze_parameter
 
 
 __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
-           'Unfreezer', 'Initializer']
+           'Unfreezer', 'Initializer', 'LoadInitState']
 
 
 class Checkpoint(Callback):
@@ -506,3 +507,39 @@ class Initializer(ParamMapper):
     def __init__(self, *args, **kwargs):
         kwargs['at'] = kwargs.get('at', 1)
         super().__init__(*args, **kwargs)
+
+
+class LoadInitState(Callback):
+    """Loads the model, optimizer, and history from disk into a
+    :class:`.NeuralNet` when training begins.
+
+    Examples
+    --------
+
+    Consider the following example:
+
+    >>> cp = Checkpoint(monitor='valid_loss_best')
+    >>> load_state = LoadInitState(cp)
+    >>> net = NeuralNet(..., callbacks=[cp, load_state])
+    >>> net.fit(X, y)
+
+    On the first run, the :class:`.Checkpoint` saves the model, optimizer, and
+    history when the validation loss is minimized. During the first run,
+    there are no files on disk, thus :class:`.LoadInitState` will
+    not load anything. When running the example a second time,
+    :class:`LoadInitState` will load the best model from the first run and
+    continue training from there.
+
+    Parameters
+    ----------
+    checkpoint: :class:`.Checkpoint`
+      Checkpoint to get filenames from
+
+    """
+    def __init__(self, checkpoint):
+        self.checkpoint = checkpoint
+
+    def on_train_begin(self, net,
+                       X=None, y=None, **kwargs):
+        with suppress(Exception):
+            net.load_params(checkpoint=self.checkpoint)

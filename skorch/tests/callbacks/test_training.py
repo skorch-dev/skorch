@@ -579,3 +579,118 @@ class TestParamMapper:
         assert not np.allclose(dense1_weight_pre, dense1_weight_post)
         assert not np.allclose(dense0_bias_pre, dense0_bias_post)
         assert not np.allclose(dense1_bias_pre, dense1_bias_post)
+
+
+class TestLoadInitState:
+
+    @pytest.fixture
+    def checkpoint_cls(self):
+        from skorch.callbacks import Checkpoint
+        return Checkpoint
+
+    @pytest.fixture
+    def loadinitstate_cls(self):
+        from skorch.callbacks import LoadInitState
+        return LoadInitState
+
+    @pytest.fixture
+    def net_cls(self):
+        """very simple network that trains for 10 epochs"""
+        from skorch import NeuralNetRegressor
+        from skorch.toy import make_regressor
+
+        module_cls = make_regressor(
+            input_units=1,
+            num_hidden=0,
+            output_units=1,
+        )
+
+        return partial(
+            NeuralNetRegressor,
+            module=module_cls,
+            max_epochs=10,
+            batch_size=10)
+
+    @pytest.fixture(scope='module')
+    def data(self):
+        # have 10 examples so we can do a nice CV split
+        X = np.zeros((10, 1), dtype='float32')
+        y = np.zeros((10, 1), dtype='float32')
+        return X, y
+
+    def test_load_initial_state(
+            self, checkpoint_cls, net_cls, loadinitstate_cls,
+            data, tmpdir):
+        skorch_dir = tmpdir.mkdir('skorch')
+        f_params = skorch_dir.join('params.pt')
+        f_optimizer = skorch_dir.join('optimizer.pt')
+        f_history = skorch_dir.join('history.json')
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params=str(f_params),
+            f_optimizer=str(f_optimizer),
+            f_history=str(f_history)
+        )
+        load_init_state = loadinitstate_cls(cp)
+        net = net_cls(callbacks=[cp, load_init_state])
+        net.fit(*data)
+
+        assert f_params.exists()
+        assert f_optimizer.exists()
+        assert f_history.exists()
+
+        assert len(net.history) == 10
+        del net
+
+        new_net = net_cls(callbacks=[cp, load_init_state])
+        new_net.fit(*data)
+
+        assert len(new_net.history) == 20
+
+    def test_load_initial_state_custom_scoring(
+            self, checkpoint_cls, net_cls, loadinitstate_cls,
+            data, tmpdir):
+        def epoch_3_scorer(net, *_):
+            return 1 if net.history[-1, 'epoch'] == 3 else 0
+
+        from skorch.callbacks import EpochScoring
+        scoring = EpochScoring(
+            scoring=epoch_3_scorer, on_train=True)
+
+        skorch_dir = tmpdir.mkdir('skorch')
+        f_params = skorch_dir.join(
+            'model_epoch_{last_epoch[epoch]}.pt')
+        f_optimizer = skorch_dir.join(
+            'optimizer_epoch_{last_epoch[epoch]}.pt')
+        f_history = skorch_dir.join(
+            'history.json')
+
+        cp = checkpoint_cls(
+            monitor='epoch_3_scorer',
+            f_params=str(f_params),
+            f_optimizer=str(f_optimizer),
+            f_history=str(f_history)
+        )
+        load_init_state = loadinitstate_cls(cp)
+        net = net_cls(callbacks=[scoring, cp, load_init_state])
+
+        net.fit(*data)
+
+        assert skorch_dir.join('model_epoch_3.pt').exists()
+        assert skorch_dir.join('optimizer_epoch_3.pt').exists()
+        assert skorch_dir.join('history.json').exists()
+
+        assert len(net.history) == 10
+        del net
+
+        new_net = net_cls(callbacks=[scoring, cp, load_init_state])
+        new_net.fit(*data)
+
+        # new_net starts from the best epoch of the first run
+        # the best epcoh of the previous run was at epoch 3
+        # the second run went through 10 epochs, thus
+        # 3 + 10 = 13
+        assert len(new_net.history) == 13
+        assert new_net.history[:, 'event_cp'] == [
+            False, False, True] + [False] * 10
