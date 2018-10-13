@@ -96,7 +96,6 @@ class TestCheckpoint:
                 monitor='epoch_3_scorer',
                 f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
                 f_optimizer='optimizer_{last_epoch[epoch]}_{net.max_epochs}.pt',
-                f_history='history_{last_epoch[epoch]}_{net.max_epochs}.json',
                 sink=sink),
         ])
         net.fit(*data)
@@ -104,7 +103,7 @@ class TestCheckpoint:
         assert save_params_mock.call_count == 1
         save_params_mock.assert_called_with(
             f_params='model_3_10.pt', f_optimizer='optimizer_3_10.pt',
-            f_history='history_3_10.json')
+            f_history=None)
         assert sink.call_count == 1
         assert all((x is False) for x in net.history[:2, 'event_cp'])
         assert net.history[2, 'event_cp'] is True

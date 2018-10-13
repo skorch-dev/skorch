@@ -97,8 +97,6 @@ class Checkpoint(Callback):
       training history should be saved. Pass ``None`` to disable
       saving history.
 
-      Supports the same format specifiers as ``f_params``.
-
     f_pickle : file-like object, str, None (default=None)
       File path to the file or file-like object where the entire
       model object should be pickled. Pass ``None`` to disable
@@ -171,7 +169,7 @@ class Checkpoint(Callback):
             net.save_params(
                 f_params=self._format_target(net, self.f_params),
                 f_optimizer=self._format_target(net, self.f_optimizer),
-                f_history=self._format_target(net, self.f_history))
+                f_history=self.f_history)
         if self.f_pickle:
             f_pickle = self._format_target(net, self.f_pickle)
             with open_file_like(f_pickle, 'wb') as f:
