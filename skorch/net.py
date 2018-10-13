@@ -1421,8 +1421,7 @@ class NeuralNet(object):
             torch.save(self.optimizer_.state_dict(), f_optimizer)
 
         if f_history is not None:
-            with open_file_like(f_history, 'w') as fp:
-                json.dump(self.history.to_list(), fp)
+            self.history.to_file(f_history)
 
     def load_params(
             self, f=None, f_params=None, f_optimizer=None, f_history=None):
@@ -1486,8 +1485,7 @@ class NeuralNet(object):
             self.optimizer_.load_state_dict(state_dict)
 
         if f_history is not None:
-            with open_file_like(f_history, 'r') as fp:
-                self.history = History(json.load(fp))
+            self.history = History.from_file(f_history)
 
     def save_history(self, f):
         """Saves the history of ``NeuralNet`` as a json file. In order
@@ -1518,8 +1516,7 @@ class NeuralNet(object):
             "release, please use save_params with the f_history keyword",
             DeprecationWarning)
 
-        with open_file_like(f, 'w') as fp:
-            json.dump(self.history.to_list(), fp)
+        self.history.to_file(f)
 
     def load_history(self, f):
         """Load the history of a ``NeuralNet`` from a json file. See
@@ -1536,8 +1533,7 @@ class NeuralNet(object):
             "release, please use load_params with the f_history keyword",
             DeprecationWarning)
 
-        with open_file_like(f, 'r') as fp:
-            self.history = History(json.load(fp))
+        self.history = History.from_file(f)
 
     def _get_state_dict(self, f):
         use_cuda = self.device.startswith('cuda')

@@ -225,3 +225,22 @@ class TestHistory:
         expected = ("Tried to index history with 5 indices but only "
                     "4 indices are possible.")
         assert msg == expected
+
+    def test_history_save_load_cycle_file_obj(self, history, tmpdir):
+        history_f = tmpdir.mkdir('skorch').join('history.json')
+
+        with open(str(history_f), 'w') as f:
+            history.to_file(f)
+
+        with open(str(history_f), 'r') as f:
+            new_history = History.from_file(f)
+
+        assert history == new_history
+
+    def test_history_save_load_cycle_file_path(self, history, tmpdir):
+        history_f = tmpdir.mkdir('skorch').join('history.json')
+
+        history.to_file(str(history_f))
+        new_history = History.from_file(str(history_f))
+
+        assert history == new_history

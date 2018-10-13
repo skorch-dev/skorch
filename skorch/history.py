@@ -1,6 +1,9 @@
 """Contains history class and helper functions."""
 
+import json
 import warnings
+
+from skorch.utils import open_file_like
 
 
 # pylint: disable=invalid-name
@@ -161,6 +164,33 @@ class History(list):
     def to_list(self):
         """Return history object as a list."""
         return list(self)
+
+    @classmethod
+    def from_file(cls, f):
+        """Load the history of a ``NeuralNet`` from a json file.
+
+        Parameters
+        ----------
+        f : file-like object or str
+
+        """
+
+        with open_file_like(f, 'r') as fp:
+            return cls(json.load(fp))
+
+    def to_file(self, f):
+        """Saves the history as a json file. In order
+        to use this feature, the history must only contain JSON encodable
+        Python data structures. Numpy and PyTorch types should not
+        be in the history.
+
+        Parameters
+        ----------
+        f : file-like object or str
+
+        """
+        with open_file_like(f, 'w') as fp:
+            json.dump(self.to_list(), fp)
 
     def __getitem__(self, i):
         # This implementation resolves indexing backwards,
