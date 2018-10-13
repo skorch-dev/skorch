@@ -539,7 +539,13 @@ class LoadInitState(Callback):
     def __init__(self, checkpoint):
         self.checkpoint = checkpoint
 
+    def initialize(self):
+        self.did_load_ = False
+        return self
+
     def on_train_begin(self, net,
                        X=None, y=None, **kwargs):
-        with suppress(Exception):
-            net.load_params(checkpoint=self.checkpoint)
+        if not self.did_load_:
+            self.did_load_ = True
+            with suppress(Exception):
+                net.load_params(checkpoint=self.checkpoint)
