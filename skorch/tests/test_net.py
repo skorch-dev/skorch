@@ -443,6 +443,35 @@ class TestNeuralNet:
         # fit ran twice for a total of 10 epochs
         assert len(new_net.history) == 8
 
+    def test_save_and_load_from_checkpoint_with_prefix(
+            self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
+        exp_dir = tmpdir.mkdir('skorch').mkdir('exp1')
+        skorch_dir_str = str(exp_dir) + '/'
+
+        cp = checkpoint_cls(
+            monitor=None, fn_prefix=skorch_dir_str)
+        net = net_cls(
+            module_cls, max_epochs=4, lr=0.1,
+            optimizer=torch.optim.Adam, callbacks=[cp])
+        net.fit(*data)
+        del net
+
+        assert exp_dir.join('params.pt').exists()
+        assert exp_dir.join('optimizer.pt').exists()
+        assert exp_dir.join('history.json').exists()
+
+        new_net = net_cls(
+            module_cls, max_epochs=4, lr=0.1,
+            optimizer=torch.optim.Adam, callbacks=[cp]).initialize()
+        new_net.load_params(checkpoint=cp)
+
+        assert len(new_net.history) == 4
+
+        new_net.partial_fit(*data)
+
+        # fit ran twice for a total of 10 epochs
+        assert len(new_net.history) == 8
+
     def test_save_and_load_from_checkpoint_formatting(
             self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
 

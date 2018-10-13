@@ -105,6 +105,10 @@ class Checkpoint(Callback):
 
       Supports the same format specifiers as ``f_params``.
 
+    fn_prefix: str (default='')
+       Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
+       or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``
+
     event_name: str, (default='event_cp')
       Name of event to be placed in history when checkpoint is triggered.
       Pass ``None`` to disable placing events in history.
@@ -122,6 +126,7 @@ class Checkpoint(Callback):
             f_optimizer='optimizer.pt',
             f_history='history.json',
             f_pickle=None,
+            fn_prefix='',
             event_name='event_cp',
             sink=noop,
     ):
@@ -138,6 +143,7 @@ class Checkpoint(Callback):
         self.f_optimizer = f_optimizer
         self.f_history = f_history
         self.f_pickle = f_pickle
+        self.fn_prefix = fn_prefix
         self.event_name = event_name
         self.sink = sink
 
@@ -193,7 +199,7 @@ class Checkpoint(Callback):
                      f, type(e).__name__, e), net.verbose)
 
         if self.f_history is not None:
-            f = self.f_history
+            f = self.f_history_
             try:
                 net.save_params(f_history=f)
             except Exception as e:
@@ -206,6 +212,10 @@ class Checkpoint(Callback):
             with open_file_like(f_pickle, 'wb') as f:
                 pickle.dump(net, f)
 
+    @property
+    def f_history_(self):
+        return self.fn_prefix + self.f_history
+
     def get_formatted_files(self, net):
         """Returns a dictionary of formatted filenames"""
         idx = -1
@@ -215,18 +225,17 @@ class Checkpoint(Callback):
             for i, v in enumerate(net.history[:, self.event_name]):
                 if v:
                     idx = i
-
         return {
             "f_params": self._format_target(net, self.f_params, idx),
             "f_optimizer": self._format_target(net, self.f_optimizer, idx),
-            "f_history": self.f_history,
+            "f_history": self.f_history_,
             "f_pickle": self._format_target(net, self.f_pickle, idx)
         }
 
     def _format_target(self, net, f, idx):
         """Apply formatting to the target filename template."""
         if isinstance(f, str):
-            return f.format(
+            return self.fn_prefix + f.format(
                 net=net,
                 last_epoch=net.history[idx],
                 last_batch=net.history[idx, 'batches', -1],

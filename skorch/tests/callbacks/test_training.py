@@ -4,6 +4,7 @@ from functools import partial
 from unittest.mock import Mock
 from unittest.mock import patch
 from unittest.mock import call
+from unittest.mock import ANY
 
 import numpy as np
 import pytest
@@ -161,7 +162,30 @@ class TestCheckpoint:
         save_params_mock.assert_has_calls(
             [call(f_params='params.pt'),
              call(f_optimizer='optimizer.pt'),
-             call(f_history='history.json')]
+             call(f_history='history.json')] * len(net.history)
+        )
+
+    def test_save_all_targets_with_prefix(
+            self, save_params_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data):
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params='params.pt',
+            f_history='history.json',
+            f_pickle='model.pkl',
+            f_optimizer='optimizer.pt',
+            fn_prefix="exp1_")
+        net = net_cls(callbacks=[cp])
+        net.fit(*data)
+
+        assert cp.f_history_ == "exp1_history.json"
+        assert save_params_mock.call_count == 3*len(net.history)
+        assert pickle_dump_mock.call_count == len(net.history)
+        save_params_mock.assert_has_calls(
+            [call(f_params='exp1_params.pt'),
+             call(f_optimizer='exp1_optimizer.pt'),
+             call(f_history='exp1_history.json')] * len(net.history)
         )
 
     def test_save_no_targets(

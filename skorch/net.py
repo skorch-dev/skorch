@@ -1475,7 +1475,7 @@ class NeuralNet(object):
 
         if checkpoint is not None:
             if f_history is None and checkpoint.f_history is not None:
-                self.history = History.from_file(checkpoint.f_history)
+                self.history = History.from_file(checkpoint.f_history_)
             formatted_files = checkpoint.get_formatted_files(self)
             f_params = f_params or formatted_files['f_params']
             f_optimizer = f_optimizer or formatted_files['f_optimizer']
