@@ -118,17 +118,23 @@ class TestCheckpoint:
             scoring=epoch_3_scorer, on_train=True)
 
         sink = Mock()
+        cb = checkpoint_cls(
+            monitor='epoch_3_scorer',
+            f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
+            f_optimizer='optimizer_{last_epoch[epoch]}_{net.max_epochs}.pt',
+            sink=sink)
         net = net_cls(callbacks=[
-            ('my_score', scoring),
-            checkpoint_cls(
-                monitor='epoch_3_scorer',
-                f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
-                f_optimizer='optimizer_{last_epoch[epoch]}_{net.max_epochs}.pt',
-                sink=sink),
+            ('my_score', scoring), cb
         ])
         net.fit(*data)
 
         assert save_params_mock.call_count == 3
+        assert cb.get_formatted_files(net) == {
+            'f_params': 'model_3_10.pt',
+            'f_optimizer': 'optimizer_3_10.pt',
+            'f_history': 'history.json',
+            'f_pickle': None
+        }
         save_params_mock.assert_has_calls(
             [call(f_params='model_3_10.pt'),
              call(f_optimizer='optimizer_3_10.pt'),

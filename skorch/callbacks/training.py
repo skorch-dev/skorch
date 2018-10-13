@@ -154,14 +154,14 @@ class Checkpoint(Callback):
                     "Make sure you have validation data if you use "
                     "validation scores for checkpointing.".format(e.args[0]))
 
+        if self.event_name is not None:
+            net.history.record(self.event_name, bool(do_checkpoint))
+
         if do_checkpoint:
             self.save_model(net)
             self._sink("A checkpoint was triggered in epoch {}.".format(
                 len(net.history) + 1
             ), net.verbose)
-
-        if self.event_name is not None:
-            net.history.record(self.event_name, bool(do_checkpoint))
 
     def save_model(self, net):
         """Save the model.
@@ -174,7 +174,7 @@ class Checkpoint(Callback):
           - entire model object.
         """
         if self.f_params is not None:
-            f = self._format_target(net, self.f_params)
+            f = self._format_target(net, self.f_params, -1)
             try:
                 net.save_params(f_params=f)
             except Exception as e:
@@ -183,7 +183,7 @@ class Checkpoint(Callback):
                      f, type(e).__name__, e), net.verbose)
 
         if self.f_optimizer is not None:
-            f = self._format_target(net, self.f_optimizer)
+            f = self._format_target(net, self.f_optimizer, -1)
             try:
                 net.save_params(f_optimizer=f)
             except Exception as e:
@@ -201,17 +201,34 @@ class Checkpoint(Callback):
                      f, type(e).__name__, e), net.verbose)
 
         if self.f_pickle:
-            f_pickle = self._format_target(net, self.f_pickle)
+            f_pickle = self._format_target(net, self.f_pickle, -1)
             with open_file_like(f_pickle, 'wb') as f:
                 pickle.dump(net, f)
 
-    def _format_target(self, net, f):
+    def get_formatted_files(self, net):
+        """Returns a dictionary of formatted filenames"""
+        idx = -1
+        if (self.event_name is not None and
+           net.history is not None and
+           len(net.history) > 0):
+            for i, v in enumerate(net.history[:, self.event_name]):
+                if v:
+                    idx = i
+
+        return {
+            "f_params": self._format_target(net, self.f_params, idx),
+            "f_optimizer": self._format_target(net, self.f_optimizer, idx),
+            "f_history": self.f_history,
+            "f_pickle": self._format_target(net, self.f_pickle, idx)
+        }
+
+    def _format_target(self, net, f, idx):
         """Apply formatting to the target filename template."""
         if isinstance(f, str):
             return f.format(
                 net=net,
-                last_epoch=net.history[-1],
-                last_batch=net.history[-1, 'batches', -1],
+                last_epoch=net.history[idx],
+                last_batch=net.history[idx, 'batches', -1],
             )
         return f
 

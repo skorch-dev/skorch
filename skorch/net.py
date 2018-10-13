@@ -1424,7 +1424,8 @@ class NeuralNet(object):
             self.history.to_file(f_history)
 
     def load_params(
-            self, f=None, f_params=None, f_optimizer=None, f_history=None):
+            self, f=None, f_params=None, f_optimizer=None, f_history=None,
+            checkpoint=None):
         """Loads the the module's parameters, history, and optimizer,
         not the whole object.
 
@@ -1436,13 +1437,16 @@ class NeuralNet(object):
         Parameters
         ----------
         f_params : file-like object or str
-          Path of module parameters
+          Path of module parameters.
 
         f_optimizer : file-like object or str
           Path of optimizer
 
         f_history : file-like object or str
           Path to history
+
+        checkpoint : :class:`.Checkpoint`
+          Checkpoint to load params from
 
         f : deprecated
 
@@ -1466,6 +1470,16 @@ class NeuralNet(object):
                 DeprecationWarning)
             f_params = f
 
+        if f_history is not None:
+            self.history = History.from_file(f_history)
+
+        if checkpoint is not None:
+            if f_history is None and checkpoint.f_history is not None:
+                self.history = History.from_file(checkpoint.f_history)
+            formatted_files = checkpoint.get_formatted_files(self)
+            f_params = f_params or formatted_files['f_params']
+            f_optimizer = f_optimizer or formatted_files['f_optimizer']
+
         if f_params is not None:
             if not hasattr(self, 'module_'):
                 raise NotInitializedError(
@@ -1483,9 +1497,6 @@ class NeuralNet(object):
                     "or by fitting the model with .fit(...).")
             state_dict = self._get_state_dict(f_optimizer)
             self.optimizer_.load_state_dict(state_dict)
-
-        if f_history is not None:
-            self.history = History.from_file(f_history)
 
     def save_history(self, f):
         """Saves the history of ``NeuralNet`` as a json file. In order

@@ -62,6 +62,11 @@ class TestNeuralNet:
         from skorch.dataset import Dataset
         return Dataset
 
+    @pytest.fixture
+    def checkpoint_cls(self):
+        from skorch.callbacks import Checkpoint
+        return Checkpoint
+
     @pytest.fixture(scope='module')
     def net(self, net_cls, module_cls, dummy_callback):
         return net_cls(
@@ -402,6 +407,100 @@ class TestNeuralNet:
 
         assert np.allclose(orig_loss, new_loss)
         assert orig_steps == new_steps
+
+    def test_save_and_load_from_checkpoint(
+            self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
+
+        skorch_dir = tmpdir.mkdir('skorch')
+        f_params = skorch_dir.join('params.pt')
+        f_optimizer = skorch_dir.join('optimizer.pt')
+        f_history = skorch_dir.join('history.json')
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params=str(f_params),
+            f_optimizer=str(f_optimizer),
+            f_history=str(f_history))
+        net = net_cls(
+            module_cls, max_epochs=4, lr=0.1,
+            optimizer=torch.optim.Adam, callbacks=[cp])
+        net.fit(*data)
+        del net
+
+        assert f_params.exists()
+        assert f_optimizer.exists()
+        assert f_history.exists()
+
+        new_net = net_cls(
+            module_cls, max_epochs=4, lr=0.1,
+            optimizer=torch.optim.Adam, callbacks=[cp]).initialize()
+        new_net.load_params(checkpoint=cp)
+
+        assert len(new_net.history) == 4
+
+        new_net.partial_fit(*data)
+
+        # fit ran twice for a total of 10 epochs
+        assert len(new_net.history) == 8
+
+    def test_save_and_load_from_checkpoint_formatting(
+            self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
+
+        def epoch_3_scorer(net, *_):
+            return 1 if net.history[-1, 'epoch'] == 3 else 0
+
+        from skorch.callbacks import EpochScoring
+        scoring = EpochScoring(
+            scoring=epoch_3_scorer, on_train=True)
+
+        skorch_dir = tmpdir.mkdir('skorch')
+        f_params = skorch_dir.join(
+            'model_epoch_{last_epoch[epoch]}.pt')
+        f_optimizer = skorch_dir.join(
+            'optimizer_epoch_{last_epoch[epoch]}.pt')
+        f_history = skorch_dir.join(
+            'history.json')
+
+        cp = checkpoint_cls(
+            monitor='epoch_3_scorer',
+            f_params=str(f_params),
+            f_optimizer=str(f_optimizer),
+            f_history=str(f_history))
+
+        net = net_cls(
+            module_cls, max_epochs=5, lr=0.1,
+            optimizer=torch.optim.Adam, callbacks=[
+                ('my_score', scoring), cp
+            ])
+        net.fit(*data)
+        del net
+
+        assert skorch_dir.join('model_epoch_3.pt').exists()
+        assert skorch_dir.join('optimizer_epoch_3.pt').exists()
+        assert skorch_dir.join('history.json').exists()
+
+        new_net = net_cls(
+            module_cls, max_epochs=5, lr=0.1,
+            optimizer=torch.optim.Adam, callbacks=[
+                ('my_score', scoring), cp
+            ]).initialize()
+        new_net.load_params(checkpoint=cp)
+
+        print(new_net.history)
+        print(new_net.history[:, 'event_cp'])
+        # original run saved checkpoint at epoch 3
+        assert len(new_net.history) == 3
+
+        new_net.partial_fit(*data)
+        print(new_net.history[:, 'event_cp'])
+
+        # training continued from the best epoch of the first run,
+        # the best epoch in the first run happened at epoch 3,
+        # the second ran for 4 epochs, so the final history of the new
+        # net is 3+5 = 7
+        assert len(new_net.history) == 8
+        assert new_net.history[:, 'event_cp'] == [
+            False, False, True, False, False, False, False, False]
 
     def test_save_params_f_keyword_deprecation(
             self, net_cls, module_cls, tmpdir):
