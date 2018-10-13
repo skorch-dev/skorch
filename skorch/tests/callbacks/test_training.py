@@ -64,13 +64,13 @@ class TestCheckpoint:
         assert all((x is True) for x in net.history[:, 'event_another'])
 
     @pytest.mark.parametrize('message,files', [
-        ('Unable to save model parameters to params.pt '
+        ('Unable to save model parameters to params.pt, '
          'Exception: encoding error',
          {'f_params': 'params.pt', 'f_optimizer': None, 'f_history': None}),
-        ('Unable to save optimizer state to optimizer.pt '
+        ('Unable to save optimizer state to optimizer.pt, '
          'Exception: encoding error',
          {'f_params': None, 'f_optimizer': 'optimizer.pt', 'f_history': None}),
-        ('Unable to save history to history.json '
+        ('Unable to save history to history.json, '
          'Exception: encoding error',
          {'f_params': None, 'f_optimizer': None, 'f_history': 'history.json'})
     ])

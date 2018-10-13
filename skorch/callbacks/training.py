@@ -179,7 +179,7 @@ class Checkpoint(Callback):
                 net.save_params(f_params=f)
             except Exception as e:
                 self._sink(
-                    "Unable to save model parameters to {} {}: {}".format(
+                    "Unable to save model parameters to {}, {}: {}".format(
                      f, type(e).__name__, e), net.verbose)
 
         if self.f_optimizer is not None:
@@ -188,7 +188,7 @@ class Checkpoint(Callback):
                 net.save_params(f_optimizer=f)
             except Exception as e:
                 self._sink(
-                    "Unable to save optimizer state to {} {}: {}".format(
+                    "Unable to save optimizer state to {}, {}: {}".format(
                      f, type(e).__name__, e), net.verbose)
 
         if self.f_history is not None:
@@ -197,7 +197,7 @@ class Checkpoint(Callback):
                 net.save_params(f_history=f)
             except Exception as e:
                 self._sink(
-                    "Unable to save history to {} {}: {}".format(
+                    "Unable to save history to {}, {}: {}".format(
                      f, type(e).__name__, e), net.verbose)
 
         if self.f_pickle:
