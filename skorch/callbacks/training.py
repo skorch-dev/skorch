@@ -105,7 +105,8 @@ class Checkpoint(Callback):
       Supports the same format specifiers as ``f_params``.
 
     event_name: str, (default='event_cp')
-      Name of event to be placed in history when checkpoint is triggered
+      Name of event to be placed in history when checkpoint is triggered.
+      Pass ``None`` to disable placing events in history.
 
     sink : callable (default=noop)
       The target that the information about created checkpoints is
@@ -159,7 +160,8 @@ class Checkpoint(Callback):
                 len(net.history) + 1
             ), net.verbose)
 
-        net.history.record(self.event_name, bool(do_checkpoint))
+        if self.event_name is not None:
+            net.history.record(self.event_name, bool(do_checkpoint))
 
     def save_model(self, net):
         """Save the model.
