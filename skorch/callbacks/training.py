@@ -85,14 +85,14 @@ class Checkpoint(Callback):
 
       >>> cb = Checkpoint(f_params="params_{last_epoch[epoch]}.pt")
 
-    f_optimizer : file-like object, str, None (default=None)
+    f_optimizer : file-like object, str, None (default='optimizer.pt')
       File path to the file or file-like object where the optimizer
       state should be saved. Pass ``None`` to disable saving
       model parameters.
 
       Supports the same format specifiers as ``f_params``.
 
-    f_history : file-like object, str, None (default=None)
+    f_history : file-like object, str, None (default='history.json')
       File path to the file or file-like object where the model
       training history should be saved. Pass ``None`` to disable
       saving history.
@@ -114,8 +114,8 @@ class Checkpoint(Callback):
             target=None,
             monitor='valid_loss_best',
             f_params='params.pt',
-            f_optimizer=None,
-            f_history=None,
+            f_optimizer='optimizer.pt',
+            f_history='history.json',
             f_pickle=None,
             sink=noop,
     ):
@@ -162,14 +162,37 @@ class Checkpoint(Callback):
         This function saves some or all of the following:
 
           - model parameters;
+          - optimizer state;
           - training history;
           - entire model object.
         """
-        if self.f_params or self.f_history:
-            net.save_params(
-                f_params=self._format_target(net, self.f_params),
-                f_optimizer=self._format_target(net, self.f_optimizer),
-                f_history=self.f_history)
+        if self.f_params is not None:
+            f = self._format_target(net, self.f_params)
+            try:
+                net.save_params(f_params=f)
+            except Exception as e:
+                self._sink(
+                    "Unable to save model parameters to {} {}: {}".format(
+                     f, type(e).__name__, e), net.verbose)
+
+        if self.f_optimizer is not None:
+            f = self._format_target(net, self.f_optimizer)
+            try:
+                net.save_params(f_optimizer=f)
+            except Exception as e:
+                self._sink(
+                    "Unable to save optimizer state to {} {}: {}".format(
+                     f, type(e).__name__, e), net.verbose)
+
+        if self.f_history is not None:
+            f = self.f_history
+            try:
+                net.save_params(f_history=f)
+            except Exception as e:
+                self._sink(
+                    "Unable to save history to {} {}: {}".format(
+                     f, type(e).__name__, e), net.verbose)
+
         if self.f_pickle:
             f_pickle = self._format_target(net, self.f_pickle)
             with open_file_like(f_pickle, 'wb') as f:

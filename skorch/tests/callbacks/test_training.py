@@ -3,6 +3,7 @@
 from functools import partial
 from unittest.mock import Mock
 from unittest.mock import patch
+from unittest.mock import call
 
 import numpy as np
 import pytest
@@ -57,9 +58,35 @@ class TestCheckpoint:
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == len(net.history)
+        assert save_params_mock.call_count == 3*len(net.history)
         assert sink.call_count == len(net.history)
         assert all((x is True) for x in net.history[:, 'event_cp'])
+
+    @pytest.mark.parametrize('message,files', [
+        ('Unable to save model parameters to params.pt '
+         'Exception: encoding error',
+         {'f_params': 'params.pt', 'f_optimizer': None, 'f_history': None}),
+        ('Unable to save optimizer state to optimizer.pt '
+         'Exception: encoding error',
+         {'f_params': None, 'f_optimizer': 'optimizer.pt', 'f_history': None}),
+        ('Unable to save history to history.json '
+         'Exception: encoding error',
+         {'f_params': None, 'f_optimizer': None, 'f_history': 'history.json'})
+    ])
+    def test_outputs_to_sink_when_save_params_errors(
+            self, save_params_mock, net_cls, checkpoint_cls, data,
+            message, files):
+        sink = Mock()
+        save_params_mock.side_effect = Exception('encoding error')
+        net = net_cls(callbacks=[
+            checkpoint_cls(monitor=None, sink=sink, **files)
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == len(net.history)
+        assert sink.call_count == 2*len(net.history)
+        save_error_messages = [call(message)] * len(net.history)
+        sink.assert_has_calls(save_error_messages, any_order=True)
 
     def test_default_without_validation_raises_meaningful_error(
             self, net_cls, checkpoint_cls, data):
@@ -100,10 +127,12 @@ class TestCheckpoint:
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 1
-        save_params_mock.assert_called_with(
-            f_params='model_3_10.pt', f_optimizer='optimizer_3_10.pt',
-            f_history=None)
+        assert save_params_mock.call_count == 3
+        save_params_mock.assert_has_calls(
+            [call(f_params='model_3_10.pt'),
+             call(f_optimizer='optimizer_3_10.pt'),
+             call(f_history='history.json')]
+        )
         assert sink.call_count == 1
         assert all((x is False) for x in net.history[:2, 'event_cp'])
         assert net.history[2, 'event_cp'] is True
@@ -120,18 +149,21 @@ class TestCheckpoint:
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == len(net.history)
+        assert save_params_mock.call_count == 3*len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
-        save_params_mock.assert_called_with(
-            f_params='params.pt', f_optimizer='optimizer.pt',
-            f_history='history.json')
+        save_params_mock.assert_has_calls(
+            [call(f_params='params.pt'),
+             call(f_optimizer='optimizer.pt'),
+             call(f_history='history.json')]
+        )
 
     def test_save_no_targets(
             self, save_params_mock, pickle_dump_mock,
             net_cls, checkpoint_cls, data):
         net = net_cls(callbacks=[
             checkpoint_cls(
-                monitor=None, f_params=None, f_history=None, f_pickle=None),
+                monitor=None, f_params=None, f_optimizer=None,
+                f_history=None, f_pickle=None),
         ])
         net.fit(*data)
 
