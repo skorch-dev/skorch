@@ -1370,14 +1370,14 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        f_params : file-like object or str
-          Path of module parameters
+        f_params : file-like object, str, None (default=None)
+          Path of module parameters. Pass ``None`` to not save
 
-        f_optimizer : file-like object or str
-          Path of optimizer
+        f_optimizer : file-like object, str, None (default=None)
+          Path of optimizer. Pass ``None`` to not save
 
-        f_history : file-like object or str
-          Path to history
+        f_history : file-like object, str, None (default=None)
+          Path to history. Pass ``None`` to not save
 
         f : deprecated
 
@@ -1436,14 +1436,14 @@ class NeuralNet(object):
 
         Parameters
         ----------
-        f_params : file-like object or str
-          Path of module parameters.
+        f_params : file-like object, str, None (default=None)
+          Path of module parameters. Pass ``None`` to not load
 
-        f_optimizer : file-like object or str
-          Path of optimizer
+        f_optimizer : file-like object, str, None (default=None)
+          Path of optimizer. Pass ``None`` to not load
 
-        f_history : file-like object or str
-          Path to history
+        f_history : file-like object, str, None (default=None)
+          Path to history. Pass ``None`` to not load
 
         checkpoint : :class:`.Checkpoint`
           Checkpoint to load params from
