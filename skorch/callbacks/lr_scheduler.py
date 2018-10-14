@@ -112,7 +112,13 @@ class LRScheduler(Callback):
             if callable(self.monitor):
                 score = self.monitor(net)
             else:
-                score = net.history[-2, self.monitor] if epoch else np.inf
+                if epoch:
+                    score = net.history[-2, self.monitor]
+                else:
+                    if self.lr_scheduler_.mode == 'max':
+                        score = -np.inf
+                    else:
+                        score = np.inf
             self.lr_scheduler_.step(score, epoch)
         else:
             self.lr_scheduler_.step(epoch)
