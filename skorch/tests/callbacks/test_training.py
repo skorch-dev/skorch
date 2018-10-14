@@ -4,7 +4,6 @@ from functools import partial
 from unittest.mock import Mock
 from unittest.mock import patch
 from unittest.mock import call
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -190,9 +189,15 @@ class TestCheckpoint:
              call(f_history='exp1_history.json')] * len(net.history)
         )
 
-    def test_save_all_targets_with_prefix_and_str_dirname(
+    # test for dirname as a str and file object
+    @pytest.mark.parametrize('transform', [
+        str, lambda x: x
+    ])
+    def test_save_all_targets_with_prefix_and_dirname(
             self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data):
+            net_cls, checkpoint_cls, data, tmpdir, transform):
+
+        skorch_dir = tmpdir.mkdir('skorch').join('exp1')
 
         cp = checkpoint_cls(
             monitor=None,
@@ -201,42 +206,23 @@ class TestCheckpoint:
             f_pickle='model.pkl',
             f_optimizer='optimizer.pt',
             fn_prefix="unet_",
-            dirname="exp1")
+            dirname=transform(skorch_dir))
         net = net_cls(callbacks=[cp])
         net.fit(*data)
 
-        assert cp.f_history_ == "exp1/unet_history.json"
+        f_params = skorch_dir.join('unet_params.pt')
+        f_optimizer = skorch_dir.join('unet_optimizer.pt')
+        f_history = skorch_dir.join('unet_history.json')
+
+        assert cp.f_history_ == str(f_history)
         assert save_params_mock.call_count == 3*len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
         save_params_mock.assert_has_calls(
-            [call(f_params='exp1/unet_params.pt'),
-             call(f_optimizer='exp1/unet_optimizer.pt'),
-             call(f_history='exp1/unet_history.json')] * len(net.history)
+            [call(f_params=str(f_params)),
+             call(f_optimizer=str(f_optimizer)),
+             call(f_history=str(f_history))] * len(net.history)
         )
-
-    def test_save_all_targets_with_prefix_and_file_obj_dirname(
-            self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data):
-
-        cp = checkpoint_cls(
-            monitor=None,
-            f_params='params.pt',
-            f_history='history.json',
-            f_pickle='model.pkl',
-            f_optimizer='optimizer.pt',
-            fn_prefix="unet_",
-            dirname=Path("exp1"))
-        net = net_cls(callbacks=[cp])
-        net.fit(*data)
-
-        assert cp.f_history_ == "exp1/unet_history.json"
-        assert save_params_mock.call_count == 3*len(net.history)
-        assert pickle_dump_mock.call_count == len(net.history)
-        save_params_mock.assert_has_calls(
-            [call(f_params='exp1/unet_params.pt'),
-             call(f_optimizer='exp1/unet_optimizer.pt'),
-             call(f_history='exp1/unet_history.json')] * len(net.history)
-        )
+        assert skorch_dir.exists()
 
     def test_save_no_targets(
             self, save_params_mock, pickle_dump_mock,
