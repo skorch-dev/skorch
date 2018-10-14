@@ -815,14 +815,34 @@ class TestFinalCheckpoint:
             self, save_params_mock, net_cls, finalcheckpoint_cls, data):
         sink = Mock()
         net = net_cls(callbacks=[
-            finalcheckpoint_cls(sink=sink, dirname='exp1', fn_prefix='unet_')
+            finalcheckpoint_cls(sink=sink, dirname='exp1')
         ])
         net.fit(*data)
 
         assert save_params_mock.call_count == 3
         assert sink.call_args == call("Final checkpoint triggered")
         save_params_mock.assert_has_calls([
-            call(f_params='exp1/unet_params.pt'),
-            call(f_optimizer='exp1/unet_optimizer.pt'),
-            call(f_history='exp1/unet_history.json')
+            call(f_params='exp1/final_params.pt'),
+            call(f_optimizer='exp1/final_optimizer.pt'),
+            call(f_history='exp1/final_history.json')
+        ])
+
+    def test_saves_at_end_with_custom_formatting(
+            self, save_params_mock, net_cls, finalcheckpoint_cls, data):
+        sink = Mock()
+        net = net_cls(callbacks=[
+            finalcheckpoint_cls(
+                sink=sink, dirname='exp1',
+                f_params='model_{last_epoch[epoch]}.pt',
+                f_optimizer='optimizer_{last_epoch[epoch]}.pt'
+            )
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 3
+        assert sink.call_args == call("Final checkpoint triggered")
+        save_params_mock.assert_has_calls([
+            call(f_params='exp1/final_model_10.pt'),
+            call(f_optimizer='exp1/final_optimizer_10.pt'),
+            call(f_history='exp1/final_history.json')
         ])

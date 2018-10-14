@@ -578,7 +578,7 @@ class LoadInitState(Callback):
 
 class FinalCheckpoint(Checkpoint):
     """Saves the model parameters, optimizer state, and history at the end of
-    training.
+    training. The default ``fn_prefix`` is 'final_'.
 
     Examples
     --------
@@ -628,7 +628,7 @@ class FinalCheckpoint(Checkpoint):
 
       Supports the same format specifiers as ``f_params``.
 
-    fn_prefix: str (default='')
+    fn_prefix: str (default='final_')
       Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
       or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
 
@@ -650,7 +650,7 @@ class FinalCheckpoint(Checkpoint):
             f_optimizer='optimizer.pt',
             f_history='history.json',
             f_pickle=None,
-            fn_prefix='',
+            fn_prefix='final_',
             dirname='',
             sink=noop,
     ):
