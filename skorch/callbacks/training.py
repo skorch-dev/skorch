@@ -635,10 +635,6 @@ class FinalCheckpoint(Checkpoint):
     dirname: file-like object, str (default='')
       Directory where files are stored.
 
-    event_name: str, (default='event_cp')
-      Name of event to be placed in history when checkpoint is triggered.
-      Pass ``None`` to disable placing events in history.
-
     sink : callable (default=noop)
       The target that the information about created checkpoints is
       sent to. This can be a logger or ``print`` function (to send to
