@@ -768,3 +768,61 @@ class TestLoadInitState:
         assert len(new_net.history) == 13
         assert new_net.history[:, 'event_cp'] == [
             False, False, True] + [False] * 10
+
+
+class TestFinalCheckpoint:
+    @pytest.fixture
+    def finalcheckpoint_cls(self):
+        from skorch.callbacks import FinalCheckpoint
+        return FinalCheckpoint
+
+    @pytest.fixture
+    def save_params_mock(self):
+        with patch('skorch.NeuralNet.save_params') as mock:
+            yield mock
+
+    @pytest.fixture
+    def pickle_dump_mock(self):
+        with patch('pickle.dump') as mock:
+            yield mock
+
+    @pytest.fixture
+    def net_cls(self):
+        """very simple network that trains for 10 epochs"""
+        from skorch import NeuralNetRegressor
+        from skorch.toy import make_regressor
+
+        module_cls = make_regressor(
+            input_units=1,
+            num_hidden=0,
+            output_units=1,
+        )
+
+        return partial(
+            NeuralNetRegressor,
+            module=module_cls,
+            max_epochs=10,
+            batch_size=10)
+
+    @pytest.fixture(scope='module')
+    def data(self):
+        # have 10 examples so we can do a nice CV split
+        X = np.zeros((10, 1), dtype='float32')
+        y = np.zeros((10, 1), dtype='float32')
+        return X, y
+
+    def test_saves_at_end(
+            self, save_params_mock, net_cls, finalcheckpoint_cls, data):
+        sink = Mock()
+        net = net_cls(callbacks=[
+            finalcheckpoint_cls(sink=sink, dirname='exp1', fn_prefix='unet_')
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 3
+        assert sink.call_args == call("Final checkpoint triggered")
+        save_params_mock.assert_has_calls([
+            call(f_params='exp1/unet_params.pt'),
+            call(f_optimizer='exp1/unet_optimizer.pt'),
+            call(f_history='exp1/unet_history.json')
+        ])

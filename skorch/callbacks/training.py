@@ -18,7 +18,7 @@ from skorch.utils import unfreeze_parameter
 
 
 __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
-           'Unfreezer', 'Initializer', 'LoadInitState']
+           'Unfreezer', 'Initializer', 'LoadInitState', 'FinalCheckpoint']
 
 
 class Checkpoint(Callback):
@@ -541,7 +541,7 @@ class LoadInitState(Callback):
     Examples
     --------
 
-    Consider the following example:
+    Consider running the following example multiple times:
 
     >>> cp = Checkpoint(monitor='valid_loss_best')
     >>> load_state = LoadInitState(cp)
@@ -574,3 +574,97 @@ class LoadInitState(Callback):
             self.did_load_ = True
             with suppress(Exception):
                 net.load_params(checkpoint=self.checkpoint)
+
+
+class FinalCheckpoint(Checkpoint):
+    """Saves the model parameters, optimizer state, and history at the end of
+    training.
+
+    Examples
+    --------
+
+    Consider running the following example multiple times:
+
+    >>> final_cp = FinalCheckpoint(dirname='exp1')
+    >>> load_state = LoadInitState(final_cp)
+    >>> net = NeuralNet(..., callbacks=[final_cp, load_state])
+    >>> net.fit(X, y)
+
+    After the first run, model parameters, optimizer state, and history are
+    saved into a directory named `exp1`. On the next run, `LoadInitState` will
+    load the state from the first run and continue training.
+
+    Parameters
+    ----------
+
+    f_params : file-like object, str, None (default='params.pt')
+      File path to the file or file-like object where the model
+      parameters should be saved. Pass ``None`` to disable saving
+      model parameters.
+
+      If the value is a string you can also use format specifiers
+      to, for example, indicate the current epoch. Accessible format
+      values are ``net``, ``last_epoch`` and ``last_batch``.
+      Example to include last epoch number in file name:
+
+      >>> cb = Checkpoint(f_params="params_{last_epoch[epoch]}.pt")
+
+    f_optimizer : file-like object, str, None (default='optimizer.pt')
+      File path to the file or file-like object where the optimizer
+      state should be saved. Pass ``None`` to disable saving
+      model parameters.
+
+      Supports the same format specifiers as ``f_params``.
+
+    f_history : file-like object, str, None (default='history.json')
+      File path to the file or file-like object where the model
+      training history should be saved. Pass ``None`` to disable
+      saving history.
+
+    f_pickle : file-like object, str, None (default=None)
+      File path to the file or file-like object where the entire
+      model object should be pickled. Pass ``None`` to disable
+      pickling.
+
+      Supports the same format specifiers as ``f_params``.
+
+    fn_prefix: str (default='')
+      Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
+      or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
+
+    dirname: file-like object, str (default='')
+      Directory where files are stored.
+
+    event_name: str, (default='event_cp')
+      Name of event to be placed in history when checkpoint is triggered.
+      Pass ``None`` to disable placing events in history.
+
+    sink : callable (default=noop)
+      The target that the information about created checkpoints is
+      sent to. This can be a logger or ``print`` function (to send to
+      stdout). By default the output is discarded.
+    """
+    def __init__(
+            self,
+            f_params='params.pt',
+            f_optimizer='optimizer.pt',
+            f_history='history.json',
+            f_pickle=None,
+            fn_prefix='',
+            dirname='',
+            sink=noop,
+    ):
+        self.f_params = f_params
+        self.f_optimizer = f_optimizer
+        self.f_history = f_history
+        self.f_pickle = f_pickle
+        self.fn_prefix = fn_prefix
+        self.dirname = dirname
+        self.sink = sink
+
+    def on_epoch_end(self, net, **kwargs):
+        pass
+
+    def on_train_end(self, net, **kwargs):
+        self.save_model(net)
+        self._sink("Final checkpoint triggered", net.verbose)
