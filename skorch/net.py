@@ -3,7 +3,6 @@
 import fnmatch
 from itertools import chain
 from collections import OrderedDict
-import json
 import tempfile
 import warnings
 
@@ -27,7 +26,6 @@ from skorch.utils import FirstStepAccumulator
 from skorch.utils import duplicate_items
 from skorch.utils import is_dataset
 from skorch.utils import noop
-from skorch.utils import open_file_like
 from skorch.utils import params_for
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
