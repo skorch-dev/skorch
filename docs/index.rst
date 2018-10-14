@@ -41,6 +41,7 @@ User's Guide
    user/neuralnet
    user/callbacks
    user/dataset
+   user/save_load
    user/history
    user/toy
    user/helper
