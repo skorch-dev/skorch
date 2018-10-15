@@ -179,10 +179,9 @@ class History(list):
             return cls(json.load(fp))
 
     def to_file(self, f):
-        """Saves the history as a json file. In order
-        to use this feature, the history must only contain JSON encodable
-        Python data structures. Numpy and PyTorch types should not
-        be in the history.
+        """Saves the history as a json file. In order to use this feature,
+        the history must only contain JSON encodable Python data structures.
+        Numpy and PyTorch types should not be in the history.
 
         Parameters
         ----------

@@ -1444,7 +1444,9 @@ class NeuralNet(object):
           Path to history. Pass ``None`` to not load.
 
         checkpoint : :class:`.Checkpoint`, None (default=None)
-          Checkpoint to load params from, Pass ``None`` to not load.
+          Checkpoint to load params from. If a checkpoint and a ``f_*``
+          path is passed in, the ``f_*`` will be loaded. Pass
+          ``None`` to not load.
 
         f : deprecated
 
