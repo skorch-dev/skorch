@@ -544,7 +544,7 @@ class Initializer(ParamMapper):
 
 
 class LoadInitState(Callback):
-    """Loads the model, optimizer, and history from disk into a
+    """Loads the model, optimizer, and history from a checkpoint into a
     :class:`.NeuralNet` when training begins.
 
     Examples
