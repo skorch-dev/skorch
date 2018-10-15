@@ -189,13 +189,9 @@ class TestCheckpoint:
              call(f_history='exp1_history.json')] * len(net.history)
         )
 
-    # test for dirname as a str and file object
-    @pytest.mark.parametrize('transform', [
-        str, lambda x: x
-    ])
     def test_save_all_targets_with_prefix_and_dirname(
             self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data, tmpdir, transform):
+            net_cls, checkpoint_cls, data, tmpdir):
 
         skorch_dir = tmpdir.mkdir('skorch').join('exp1')
 
@@ -206,7 +202,7 @@ class TestCheckpoint:
             f_pickle='model.pkl',
             f_optimizer='optimizer.pt',
             fn_prefix="unet_",
-            dirname=transform(skorch_dir))
+            dirname=str(skorch_dir))
         net = net_cls(callbacks=[cp])
         net.fit(*data)
 

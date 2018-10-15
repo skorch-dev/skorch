@@ -333,13 +333,16 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
 
-    def test_save_load_state_dict_file_with_history_optimizer(
-            self, net_cls, module_cls, data, tmpdir):
+    @pytest.fixture(scope='module')
+    def net_fit_adam(self, net_cls, module_cls, data):
         net = net_cls(
-            module_cls, max_epochs=10, lr=0.1,
+            module_cls, max_epochs=2, lr=0.1,
             optimizer=torch.optim.Adam)
-        X, y = data
-        net.fit(X, y)
+        net.fit(*data)
+        return net
+
+    def test_save_load_state_dict_file_with_history_optimizer(
+            self, net_cls, module_cls, net_fit_adam, data, tmpdir):
 
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = skorch_tmpdir.join('testmodel.pkl')
@@ -350,21 +353,20 @@ class TestNeuralNet:
             p_fp = stack.enter_context(open(str(p), 'wb'))
             o_fp = stack.enter_context(open(str(o), 'wb'))
             h_fp = stack.enter_context(open(str(h), 'w'))
-            net.save_params(f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
+            net_fit_adam.save_params(f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
 
             # 'step' is state from the Adam optimizer
             orig_steps = [v['step'] for v in
-                          net.optimizer_.state_dict()['state'].values()]
-            orig_loss = np.array(net.history[:, 'train_loss'])
-            del net
+                          net_fit_adam.optimizer_.state_dict()['state'].values()]
+            orig_loss = np.array(net_fit_adam.history[:, 'train_loss'])
+            del net_fit_adam
 
         with ExitStack() as stack:
             p_fp = stack.enter_context(open(str(p), 'rb'))
             o_fp = stack.enter_context(open(str(o), 'rb'))
             h_fp = stack.enter_context(open(str(h), 'r'))
             new_net = net_cls(
-                module_cls, max_epochs=10, lr=0.1,
-                optimizer=torch.optim.Adam).initialize()
+                module_cls, optimizer=torch.optim.Adam).initialize()
             new_net.load_params(
                 f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
 
@@ -376,29 +378,23 @@ class TestNeuralNet:
             assert orig_steps == new_steps
 
     def test_save_load_state_dict_str_with_history_optimizer(
-            self, net_cls, module_cls, data, tmpdir):
-        net = net_cls(
-            module_cls, max_epochs=10, lr=0.1,
-            optimizer=torch.optim.Adam)
-        X, y = data
-        net.fit(X, y)
+            self, net_cls, module_cls, data, tmpdir, net_fit_adam):
 
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = str(skorch_tmpdir.join('testmodel.pkl'))
         o = str(skorch_tmpdir.join('optimizer.pkl'))
         h = str(skorch_tmpdir.join('history.json'))
 
-        net.save_params(f_params=p, f_optimizer=o, f_history=h)
+        net_fit_adam.save_params(f_params=p, f_optimizer=o, f_history=h)
 
         # 'step' is state from the Adam optimizer
         orig_steps = [v['step'] for v in
-                      net.optimizer_.state_dict()['state'].values()]
-        orig_loss = np.array(net.history[:, 'train_loss'])
-        del net
+                      net_fit_adam.optimizer_.state_dict()['state'].values()]
+        orig_loss = np.array(net_fit_adam.history[:, 'train_loss'])
+        del net_fit_adam
 
         new_net = net_cls(
-            module_cls, max_epochs=10, lr=0.1,
-            optimizer=torch.optim.Adam).initialize()
+            module_cls, optimizer=torch.optim.Adam).initialize()
         new_net.load_params(f_params=p, f_optimizer=o, f_history=h)
 
         new_steps = [v['step'] for v in
@@ -440,21 +436,16 @@ class TestNeuralNet:
 
         new_net.partial_fit(*data)
 
-        # fit ran twice for a total of 10 epochs
+        # fit ran twice for a total of 8 epochs
         assert len(new_net.history) == 8
 
-    # test for file object and str for dirname
-    @pytest.mark.parametrize('transform', [
-        str, lambda x: x
-    ])
     def test_checkpoint_with_prefix_and_dirname(
-            self, net_cls, module_cls, data, checkpoint_cls, tmpdir,
-            transform):
+            self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
         exp_dir = tmpdir.mkdir('skorch')
         exp_basedir = exp_dir.join('exp1')
 
         cp = checkpoint_cls(
-            monitor=None, fn_prefix='unet_', dirname=transform(exp_basedir))
+            monitor=None, fn_prefix='unet_', dirname=str(exp_basedir))
         net = net_cls(
             module_cls, max_epochs=4, lr=0.1,
             optimizer=torch.optim.Adam, callbacks=[cp])
@@ -507,17 +498,14 @@ class TestNeuralNet:
             ]).initialize()
         new_net.load_params(checkpoint=cp)
 
-        print(new_net.history)
-        print(new_net.history[:, 'event_cp'])
         # original run saved checkpoint at epoch 3
         assert len(new_net.history) == 3
 
         new_net.partial_fit(*data)
-        print(new_net.history[:, 'event_cp'])
 
         # training continued from the best epoch of the first run,
         # the best epoch in the first run happened at epoch 3,
-        # the second ran for 4 epochs, so the final history of the new
+        # the second ran for 5 epochs, so the final history of the new
         # net is 3+5 = 7
         assert len(new_net.history) == 8
         assert new_net.history[:, 'event_cp'] == [

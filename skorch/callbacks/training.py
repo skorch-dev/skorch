@@ -110,7 +110,7 @@ class Checkpoint(Callback):
       Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
       or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
 
-    dirname: file-like object, str (default='')
+    dirname: str (default='')
       Directory where files are stored.
 
     event_name: str, (default='event_cp')
@@ -193,30 +193,15 @@ class Checkpoint(Callback):
         """
         if self.f_params is not None:
             f = self._format_target(net, self.f_params, -1)
-            try:
-                net.save_params(f_params=f)
-            except Exception as e:
-                self._sink(
-                    "Unable to save model parameters to {}, {}: {}".format(
-                     f, type(e).__name__, e), net.verbose)
+            self._save_params(f, net, "f_params", "model parameters")
 
         if self.f_optimizer is not None:
             f = self._format_target(net, self.f_optimizer, -1)
-            try:
-                net.save_params(f_optimizer=f)
-            except Exception as e:
-                self._sink(
-                    "Unable to save optimizer state to {}, {}: {}".format(
-                     f, type(e).__name__, e), net.verbose)
+            self._save_params(f, net, "f_optimizer", "optimizer state")
 
         if self.f_history is not None:
             f = self.f_history_
-            try:
-                net.save_params(f_history=f)
-            except Exception as e:
-                self._sink(
-                    "Unable to save history to {}, {}: {}".format(
-                     f, type(e).__name__, e), net.verbose)
+            self._save_params(f, net, "f_history", "history")
 
         if self.f_pickle:
             f_pickle = self._format_target(net, self.f_pickle, -1)
@@ -225,6 +210,9 @@ class Checkpoint(Callback):
 
     @property
     def f_history_(self):
+        # This is a property and not in initialize to allow ``NeuralNet``
+        # to call ``load_params`` without needing the checkpoint to
+        # by initialized.
         if self.f_history is None:
             return None
         return os.path.join(
@@ -246,16 +234,24 @@ class Checkpoint(Callback):
             "f_pickle": self._format_target(net, self.f_pickle, idx)
         }
 
+    def _save_params(self, f, net, f_name, log_name):
+        try:
+            net.save_params(**{f_name: f})
+        except Exception as e:
+            self._sink(
+                "Unable to save {} to {}, {}: {}".format(
+                    log_name, f, type(e).__name__, e), net.verbose)
+
     def _format_target(self, net, f, idx):
         """Apply formatting to the target filename template."""
+        if f is None:
+            return None
         if isinstance(f, str):
             f = self.fn_prefix + f.format(
                 net=net,
                 last_epoch=net.history[idx],
                 last_batch=net.history[idx, 'batches', -1],
             )
-        if f is None:
-            return None
         return os.path.join(self.dirname, f)
 
     def _sink(self, text, verbose):
