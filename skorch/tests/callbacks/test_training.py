@@ -89,6 +89,48 @@ class TestCheckpoint:
         save_error_messages = [call(message)] * len(net.history)
         sink.assert_has_calls(save_error_messages, any_order=True)
 
+    @pytest.mark.parametrize('f_name, mode', [
+        ('f_params', 'w'),
+        ('f_optimizer', 'w'),
+        ('f_history', 'w'),
+        ('f_pickle', 'wb')
+    ])
+    def test_init_with_dirname_and_file_like_object_error(
+            self, checkpoint_cls, tmpdir, f_name, mode):
+        from skorch.exceptions import SkorchException
+
+        skorch_dir = tmpdir.mkdir("skorch")
+        exp_dir = skorch_dir.join("exp1")
+        f = skorch_dir.join(f_name + ".pt")
+
+        with f.open(mode) as fp:
+            with pytest.raises(SkorchException) as e:
+                checkpoint_cls(**{f_name: fp}, dirname=str(exp_dir))
+        expected = "dirname can only be used when f_* are strings"
+        assert str(e.value) == expected
+
+    @pytest.mark.parametrize('f_name, mode', [
+        ('f_params', 'w'),
+        ('f_optimizer', 'w'),
+        ('f_history', 'w'),
+        ('f_pickle', 'wb')
+    ])
+    def test_initialize_with_dirname_and_file_like_object_error(
+            self, checkpoint_cls, tmpdir, f_name, mode):
+        from skorch.exceptions import SkorchException
+
+        skorch_dir = tmpdir.mkdir("skorch")
+        exp_dir = skorch_dir.join("exp1")
+        f = skorch_dir.join(f_name + ".pt")
+
+        with f.open(mode) as fp:
+            with pytest.raises(SkorchException) as e:
+                cp = checkpoint_cls(dirname=str(exp_dir))
+                setattr(cp, f_name, fp)
+                cp.initialize()
+        expected = "dirname can only be used when f_* are strings"
+        assert str(e.value) == expected
+
     def test_default_without_validation_raises_meaningful_error(
             self, net_cls, checkpoint_cls, data):
         net = net_cls(

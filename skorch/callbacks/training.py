@@ -152,8 +152,10 @@ class Checkpoint(Callback):
         self.dirname = dirname
         self.event_name = event_name
         self.sink = sink
+        self._validate_filenames()
 
     def initialize(self):
+        self._validate_filenames()
         if self.dirname and not os.path.exists(self.dirname):
             os.makedirs(self.dirname, exist_ok=True)
         return self
@@ -252,7 +254,18 @@ class Checkpoint(Callback):
                 last_epoch=net.history[idx],
                 last_batch=net.history[idx, 'batches', -1],
             )
-        return os.path.join(self.dirname, f)
+            return os.path.join(self.dirname, f)
+        return f
+
+    def _validate_filenames(self):
+        if not self.dirname:
+            return
+        if (self.f_optimizer and not isinstance(self.f_optimizer, str) or
+           self.f_params and not isinstance(self.f_params, str) or
+           self.f_history and not isinstance(self.f_history, str) or
+           self.f_pickle and not isinstance(self.f_pickle, str)):
+            raise SkorchException(
+                'dirname can only be used when f_* are strings')
 
     def _sink(self, text, verbose):
         #  We do not want to be affected by verbosity if sink is not print
@@ -646,13 +659,17 @@ class FinalCheckpoint(Checkpoint):
             dirname='',
             sink=noop,
     ):
-        self.f_params = f_params
-        self.f_optimizer = f_optimizer
-        self.f_history = f_history
-        self.f_pickle = f_pickle
-        self.fn_prefix = fn_prefix
-        self.dirname = dirname
-        self.sink = sink
+        super().__init__(
+            monitor=None,
+            f_params=f_params,
+            f_optimizer=f_optimizer,
+            f_history=f_history,
+            f_pickle=f_pickle,
+            fn_prefix=fn_prefix,
+            dirname=dirname,
+            event_name=None,
+            sink=sink,
+        )
 
     def on_epoch_end(self, net, **kwargs):
         pass
