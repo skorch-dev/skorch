@@ -95,7 +95,7 @@ learning rate by using :class:`.LoadInitState`:
          16        0.1516       0.9453        0.1864     +  0.0192
          17        0.1576       0.9453        0.1804     +  0.0184
 
-Since we started from the previous checkpoint ended at epoch 7,
+Since we started from the previous checkpoint which ended at epoch 7,
 the second run starts at epoch 8, continuing from the first checkpoint.
 With a lower learning rate, the validation loss was able to improve!
 
