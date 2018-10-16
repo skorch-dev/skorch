@@ -342,7 +342,7 @@ class TestNeuralNet:
         return net
 
     def test_save_load_state_dict_file_with_history_optimizer(
-            self, net_cls, module_cls, net_fit_adam, data, tmpdir):
+            self, net_cls, module_cls, net_fit_adam, tmpdir):
 
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = skorch_tmpdir.join('testmodel.pkl')
@@ -353,7 +353,8 @@ class TestNeuralNet:
             p_fp = stack.enter_context(open(str(p), 'wb'))
             o_fp = stack.enter_context(open(str(o), 'wb'))
             h_fp = stack.enter_context(open(str(h), 'w'))
-            net_fit_adam.save_params(f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
+            net_fit_adam.save_params(
+                f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
 
             # 'step' is state from the Adam optimizer
             orig_steps = [v['step'] for v in
@@ -378,7 +379,7 @@ class TestNeuralNet:
             assert orig_steps == new_steps
 
     def test_save_load_state_dict_str_with_history_optimizer(
-            self, net_cls, module_cls, data, tmpdir, net_fit_adam):
+            self, net_cls, module_cls, net_fit_adam, tmpdir):
 
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = str(skorch_tmpdir.join('testmodel.pkl'))
