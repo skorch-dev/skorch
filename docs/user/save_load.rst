@@ -62,9 +62,9 @@ and history into a directory named ``'exp1'``.
 
 By default, the checkpoint observes ``valid_loss`` and will save
 the model when the `valid_loss` is lowest. This can be seen by
-the ``+`` mark on the ``cp`` column in the logs.
+the ``+`` mark in the ``cp`` column of the logs.
 
-On our first run, the valiation loss does not improve after the 6th
+On our first run, the valiation loss does not improve after the 7th
 epoch. We can continue training from this checkpoint with a lower
 learning rate by using :class:`.LoadInitState`:
 
@@ -113,11 +113,11 @@ checkpoint can be passed to :class:`.LoadInitState` continue training:
 
     _ = net.fit(X, y)
 
-In this run, training started at epoch 11, continue from the
-end of the first run. We created a new checkpoint with ``fn_prefix``
-set to ``'from_final'`` to prefix the saved filenames with ``'from_final'``
-to make sure this checkpoint does not override the checkpoint from
-the previous run.
+In this run, training started at epoch 11, continuing from the
+end of the first run which ended at epoch 10. We created a new checkpoint
+with ``fn_prefix`` set to ``'from_final'`` to prefix the saved filenames
+with ``'from_final'`` to make sure this checkpoint does not override the
+validation checkpoint.
 
 Since our ``MyModule`` class allows ``num_units`` to be adjusted,
 we can start a new experiment by changing the ``dirname``:
