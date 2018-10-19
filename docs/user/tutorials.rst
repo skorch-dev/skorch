@@ -21,4 +21,4 @@ The following are examples and notebooks on how to use skorch.
 
 * `Seq2Seq Translation using skorch <https://github.com/dnouri/skorch/tree/master/examples/translation>`_ - Translation with a seqeuence to sequence network.
 
-* `Advanced Usage <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb>`_ - Dives deep into the inner works of skorch.
+* `Advanced Usage <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb>`_ - Dives deep into the inner works of skorch. `Run in Google Colab 💻 <https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb>`_
