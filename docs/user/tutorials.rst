@@ -7,7 +7,7 @@ The following are examples and notebooks on how to use skorch.
 
 * `Basic Usage <https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb>`_ - Explores the basics of the skorch API.
 
-* `MNIST with scikit-learn and skorch <https://github.com/dnouri/skorch/blob/master/notebooks/MNIST.ipynb>`_ - Define and train a simple neural network with PyTorch and use it with skorch.
+* `MNIST with scikit-learn and skorch <https://github.com/dnouri/skorch/blob/master/notebooks/MNIST.ipynb>`_ - Define and train a simple neural network with PyTorch and use it with skorch. `Run in Google Colab 💻 <https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/MNIST.ipynb>`_
 
 * `Benchmarks skorch vs pure PyTorch <https://github.com/dnouri/skorch/blob/master/examples/benchmarks/mnist.py>`_ - Compares the performance of skorch and using pure PyTorch on MNIST.
 
