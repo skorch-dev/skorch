@@ -567,7 +567,7 @@ class LoadInitState(Callback):
     Parameters
     ----------
     checkpoint: :class:`.Checkpoint`
-      Checkpoint to get filenames from
+      Checkpoint to get filenames from.
 
     """
     def __init__(self, checkpoint):
@@ -641,7 +641,7 @@ class FinalCheckpoint(Checkpoint):
       Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
       or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
 
-    dirname: file-like object, str (default='')
+    dirname: str (default='')
       Directory where files are stored.
 
     sink : callable (default=noop)

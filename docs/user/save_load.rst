@@ -61,10 +61,10 @@ and history into a directory named ``'exp1'``.
          10        0.2024       0.9353        0.2333        0.0221
 
 By default, the checkpoint observes ``valid_loss`` and will save
-the model when the `valid_loss` is lowest. This can be seen by
+the model when the ``valid_loss`` is lowest. This can be seen by
 the ``+`` mark in the ``cp`` column of the logs.
 
-On our first run, the valiation loss does not improve after the 7th
+On our first run, the validation loss did not improve after the 7th
 epoch. We can continue training from this checkpoint with a lower
 learning rate by using :class:`.LoadInitState`:
 
@@ -101,7 +101,7 @@ With a lower learning rate, the validation loss was able to improve!
 
 Notice in the first run, we included a :class:`.FinalCheckpoint` in the
 callbacks. This checkpoint saves the model at the end of training. This
-checkpoint can be passed to :class:`.LoadInitState` continue training:
+checkpoint can be passed to :class:`.LoadInitState` to continue training:
 
 .. code:: python
 
@@ -154,8 +154,8 @@ the :class:`.LoadInitState` callback does not do anything. If we were to run the
 script again, the :class:`.LoadInitState` callback will load the model from the
 checkpoint.
 
-In the run above, the best checkpoint was at epoch 6, we can load this checkpoint
-to predict with it:
+In the run above, the last checkpoint was created at epoch 6, we can load this
+checkpoint to predict with it:
 
 .. code:: python
 
@@ -168,4 +168,4 @@ to predict with it:
     y_pred = net.predict(X)
 
 In this case, it is important to initialize the neutral net before running
-:meth:`.NeutralNet.load_params`
+:meth:`.NeutralNet.load_params`.
