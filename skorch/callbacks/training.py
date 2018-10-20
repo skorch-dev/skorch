@@ -18,7 +18,7 @@ from skorch.utils import unfreeze_parameter
 
 
 __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
-           'Unfreezer', 'Initializer', 'LoadInitState', 'FinalCheckpoint']
+           'Unfreezer', 'Initializer', 'LoadInitState', 'TrainEndCheckpoint']
 
 
 class Checkpoint(Callback):
@@ -585,7 +585,7 @@ class LoadInitState(Callback):
                 net.load_params(checkpoint=self.checkpoint)
 
 
-class FinalCheckpoint(Checkpoint):
+class TrainEndCheckpoint(Checkpoint):
     """Saves the model parameters, optimizer state, and history at the end of
     training. The default ``fn_prefix`` is 'final_'.
 
@@ -594,7 +594,7 @@ class FinalCheckpoint(Checkpoint):
 
     Consider running the following example multiple times:
 
-    >>> final_cp = FinalCheckpoint(dirname='exp1')
+    >>> final_cp = TrainEndCheckpoint(dirname='exp1')
     >>> load_state = LoadInitState(final_cp)
     >>> net = NeuralNet(..., callbacks=[final_cp, load_state])
     >>> net.fit(X, y)

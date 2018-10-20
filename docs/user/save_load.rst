@@ -2,7 +2,7 @@
 Saving and Loading
 ==================
 
-Skorch provides callbacks: :class:`.Checkpoint`, :class:`.FinalCheckpoint`,
+Skorch provides callbacks: :class:`.Checkpoint`, :class:`.TrainEndCheckpoint`,
 and :class:`.LoadInitState` to handle saving and loading models during
 training. To demonstrate these features, we generate a dataset and create
 a simple module:
@@ -36,10 +36,10 @@ and history into a directory named ``'exp1'``.
 
 .. code:: python
 
-    from skorch.callbacks import Checkpoint, FinalCheckpoint
+    from skorch.callbacks import Checkpoint, TrainEndCheckpoint
 
     cp = Checkpoint(dirname='exp1')
-    final_cp = FinalCheckpoint(dirname='exp1')
+    final_cp = TrainEndCheckpoint(dirname='exp1')
     net = NeuralNetClassifier(
         MyModule, lr=0.5, callbacks=[cp, final_cp]
     )
@@ -99,7 +99,7 @@ Since we started from the previous checkpoint which ended at epoch 7,
 the second run starts at epoch 8, continuing from the first checkpoint.
 With a lower learning rate, the validation loss was able to improve!
 
-Notice in the first run, we included a :class:`.FinalCheckpoint` in the
+Notice in the first run, we included a :class:`.TrainEndCheckpoint` in the
 callbacks. This checkpoint saves the model at the end of training. This
 checkpoint can be passed to :class:`.LoadInitState` to continue training:
 

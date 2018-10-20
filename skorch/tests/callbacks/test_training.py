@@ -794,11 +794,11 @@ class TestLoadInitState:
             False, False, True] + [False] * 10
 
 
-class TestFinalCheckpoint:
+class TestTrainEndCheckpoint:
     @pytest.fixture
     def finalcheckpoint_cls(self):
-        from skorch.callbacks import FinalCheckpoint
-        return FinalCheckpoint
+        from skorch.callbacks import TrainEndCheckpoint
+        return TrainEndCheckpoint
 
     @pytest.fixture
     def save_params_mock(self):
