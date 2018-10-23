@@ -611,10 +611,10 @@ class TestNeuralNet:
         X, y = data
         net = net_cls(module_cls, device='cuda', max_epochs=1).fit(X, y)
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
-        net.save_params(str(p))
+        net.save_params(f_params=str(p))
 
         net2 = net_cls(module_cls, device='cpu').initialize()
-        net2.load_params(str(p))
+        net2.load_params(f_params=str(p))
         net2.predict(X)  # does not raise
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
