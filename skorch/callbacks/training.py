@@ -1,7 +1,9 @@
 """ Callbacks related to training progress. """
 
+import os
 import pickle
 import warnings
+from contextlib import suppress
 from fnmatch import fnmatch
 from functools import partial
 from itertools import product
@@ -16,7 +18,7 @@ from skorch.utils import unfreeze_parameter
 
 
 __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
-           'Unfreezer', 'Initializer']
+           'Unfreezer', 'Initializer', 'LoadInitState', 'TrainEndCheckpoint']
 
 
 class Checkpoint(Callback):
@@ -34,6 +36,7 @@ class Checkpoint(Callback):
     Some or all of the following can be saved:
 
       - model parameters (see ``f_params`` parameter);
+      - optimizer state (see ``f_optimizer`` parameter);
       - training history (see ``f_history`` parameter);
       - entire model object (see ``f_pickle`` parameter).
 
@@ -84,12 +87,17 @@ class Checkpoint(Callback):
 
       >>> cb = Checkpoint(f_params="params_{last_epoch[epoch]}.pt")
 
-    f_history : file-like object, str, None (default=None)
+    f_optimizer : file-like object, str, None (default='optimizer.pt')
+      File path to the file or file-like object where the optimizer
+      state should be saved. Pass ``None`` to disable saving
+      model parameters.
+
+      Supports the same format specifiers as ``f_params``.
+
+    f_history : file-like object, str, None (default='history.json')
       File path to the file or file-like object where the model
       training history should be saved. Pass ``None`` to disable
       saving history.
-
-      Supports the same format specifiers as ``f_params``.
 
     f_pickle : file-like object, str, None (default=None)
       File path to the file or file-like object where the entire
@@ -97,6 +105,17 @@ class Checkpoint(Callback):
       pickling.
 
       Supports the same format specifiers as ``f_params``.
+
+    fn_prefix: str (default='')
+      Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
+      or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
+
+    dirname: str (default='')
+      Directory where files are stored.
+
+    event_name: str, (default='event_cp')
+      Name of event to be placed in history when checkpoint is triggered.
+      Pass ``None`` to disable placing events in history.
 
     sink : callable (default=noop)
       The target that the information about created checkpoints is
@@ -108,8 +127,12 @@ class Checkpoint(Callback):
             target=None,
             monitor='valid_loss_best',
             f_params='params.pt',
-            f_history=None,
+            f_optimizer='optimizer.pt',
+            f_history='history.json',
             f_pickle=None,
+            fn_prefix='',
+            dirname='',
+            event_name='event_cp',
             sink=noop,
     ):
         if target is not None:
@@ -122,9 +145,20 @@ class Checkpoint(Callback):
             f_params = target
         self.monitor = monitor
         self.f_params = f_params
+        self.f_optimizer = f_optimizer
         self.f_history = f_history
         self.f_pickle = f_pickle
+        self.fn_prefix = fn_prefix
+        self.dirname = dirname
+        self.event_name = event_name
         self.sink = sink
+        self._validate_filenames()
+
+    def initialize(self):
+        self._validate_filenames()
+        if self.dirname and not os.path.exists(self.dirname):
+            os.makedirs(self.dirname, exist_ok=True)
+        return self
 
     def on_epoch_end(self, net, **kwargs):
         if self.monitor is None:
@@ -140,13 +174,14 @@ class Checkpoint(Callback):
                     "Make sure you have validation data if you use "
                     "validation scores for checkpointing.".format(e.args[0]))
 
+        if self.event_name is not None:
+            net.history.record(self.event_name, bool(do_checkpoint))
+
         if do_checkpoint:
             self.save_model(net)
             self._sink("A checkpoint was triggered in epoch {}.".format(
                 len(net.history) + 1
             ), net.verbose)
-
-        net.history.record('event_cp', bool(do_checkpoint))
 
     def save_model(self, net):
         """Save the model.
@@ -154,27 +189,83 @@ class Checkpoint(Callback):
         This function saves some or all of the following:
 
           - model parameters;
+          - optimizer state;
           - training history;
           - entire model object.
         """
-        if self.f_params:
-            net.save_params(self._format_target(net, self.f_params))
-        if self.f_history:
-            net.save_history(self._format_target(net, self.f_history))
+        if self.f_params is not None:
+            f = self._format_target(net, self.f_params, -1)
+            self._save_params(f, net, "f_params", "model parameters")
+
+        if self.f_optimizer is not None:
+            f = self._format_target(net, self.f_optimizer, -1)
+            self._save_params(f, net, "f_optimizer", "optimizer state")
+
+        if self.f_history is not None:
+            f = self.f_history_
+            self._save_params(f, net, "f_history", "history")
+
         if self.f_pickle:
-            f_pickle = self._format_target(net, self.f_pickle)
+            f_pickle = self._format_target(net, self.f_pickle, -1)
             with open_file_like(f_pickle, 'wb') as f:
                 pickle.dump(net, f)
 
-    def _format_target(self, net, f):
+    @property
+    def f_history_(self):
+        # This is a property and not in initialize to allow ``NeuralNet``
+        # to call ``load_params`` without needing the checkpoint to
+        # by initialized.
+        if self.f_history is None:
+            return None
+        return os.path.join(
+            self.dirname, self.fn_prefix + self.f_history)
+
+    def get_formatted_files(self, net):
+        """Returns a dictionary of formatted filenames"""
+        idx = -1
+        if (self.event_name is not None and
+           net.history is not None and
+           len(net.history) > 0):
+            for i, v in enumerate(net.history[:, self.event_name]):
+                if v:
+                    idx = i
+        return {
+            "f_params": self._format_target(net, self.f_params, idx),
+            "f_optimizer": self._format_target(net, self.f_optimizer, idx),
+            "f_history": self.f_history_,
+            "f_pickle": self._format_target(net, self.f_pickle, idx)
+        }
+
+    def _save_params(self, f, net, f_name, log_name):
+        try:
+            net.save_params(**{f_name: f})
+        except Exception as e:
+            self._sink(
+                "Unable to save {} to {}, {}: {}".format(
+                    log_name, f, type(e).__name__, e), net.verbose)
+
+    def _format_target(self, net, f, idx):
         """Apply formatting to the target filename template."""
+        if f is None:
+            return None
         if isinstance(f, str):
-            return f.format(
+            f = self.fn_prefix + f.format(
                 net=net,
-                last_epoch=net.history[-1],
-                last_batch=net.history[-1, 'batches', -1],
+                last_epoch=net.history[idx],
+                last_batch=net.history[idx, 'batches', -1],
             )
+            return os.path.join(self.dirname, f)
         return f
+
+    def _validate_filenames(self):
+        if not self.dirname:
+            return
+        if (self.f_optimizer and not isinstance(self.f_optimizer, str) or
+           self.f_params and not isinstance(self.f_params, str) or
+           self.f_history and not isinstance(self.f_history, str) or
+           self.f_pickle and not isinstance(self.f_pickle, str)):
+            raise SkorchException(
+                'dirname can only be used when f_* are strings')
 
     def _sink(self, text, verbose):
         #  We do not want to be affected by verbosity if sink is not print
@@ -450,3 +541,139 @@ class Initializer(ParamMapper):
     def __init__(self, *args, **kwargs):
         kwargs['at'] = kwargs.get('at', 1)
         super().__init__(*args, **kwargs)
+
+
+class LoadInitState(Callback):
+    """Loads the model, optimizer, and history from a checkpoint into a
+    :class:`.NeuralNet` when training begins.
+
+    Examples
+    --------
+
+    Consider running the following example multiple times:
+
+    >>> cp = Checkpoint(monitor='valid_loss_best')
+    >>> load_state = LoadInitState(cp)
+    >>> net = NeuralNet(..., callbacks=[cp, load_state])
+    >>> net.fit(X, y)
+
+    On the first run, the :class:`.Checkpoint` saves the model, optimizer, and
+    history when the validation loss is minimized. During the first run,
+    there are no files on disk, thus :class:`.LoadInitState` will
+    not load anything. When running the example a second time,
+    :class:`LoadInitState` will load the best model from the first run and
+    continue training from there.
+
+    Parameters
+    ----------
+    checkpoint: :class:`.Checkpoint`
+      Checkpoint to get filenames from.
+
+    """
+    def __init__(self, checkpoint):
+        self.checkpoint = checkpoint
+
+    def initialize(self):
+        self.did_load_ = False
+        return self
+
+    def on_train_begin(self, net,
+                       X=None, y=None, **kwargs):
+        if not self.did_load_:
+            self.did_load_ = True
+            with suppress(Exception):
+                net.load_params(checkpoint=self.checkpoint)
+
+
+class TrainEndCheckpoint(Checkpoint):
+    """Saves the model parameters, optimizer state, and history at the end of
+    training. The default ``fn_prefix`` is 'final_'.
+
+    Examples
+    --------
+
+    Consider running the following example multiple times:
+
+    >>> final_cp = TrainEndCheckpoint(dirname='exp1')
+    >>> load_state = LoadInitState(final_cp)
+    >>> net = NeuralNet(..., callbacks=[final_cp, load_state])
+    >>> net.fit(X, y)
+
+    After the first run, model parameters, optimizer state, and history are
+    saved into a directory named `exp1`. On the next run, `LoadInitState` will
+    load the state from the first run and continue training.
+
+    Parameters
+    ----------
+
+    f_params : file-like object, str, None (default='params.pt')
+      File path to the file or file-like object where the model
+      parameters should be saved. Pass ``None`` to disable saving
+      model parameters.
+
+      If the value is a string you can also use format specifiers
+      to, for example, indicate the current epoch. Accessible format
+      values are ``net``, ``last_epoch`` and ``last_batch``.
+      Example to include last epoch number in file name:
+
+      >>> cb = Checkpoint(f_params="params_{last_epoch[epoch]}.pt")
+
+    f_optimizer : file-like object, str, None (default='optimizer.pt')
+      File path to the file or file-like object where the optimizer
+      state should be saved. Pass ``None`` to disable saving
+      model parameters.
+
+      Supports the same format specifiers as ``f_params``.
+
+    f_history : file-like object, str, None (default='history.json')
+      File path to the file or file-like object where the model
+      training history should be saved. Pass ``None`` to disable
+      saving history.
+
+    f_pickle : file-like object, str, None (default=None)
+      File path to the file or file-like object where the entire
+      model object should be pickled. Pass ``None`` to disable
+      pickling.
+
+      Supports the same format specifiers as ``f_params``.
+
+    fn_prefix: str (default='final_')
+      Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
+      or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
+
+    dirname: str (default='')
+      Directory where files are stored.
+
+    sink : callable (default=noop)
+      The target that the information about created checkpoints is
+      sent to. This can be a logger or ``print`` function (to send to
+      stdout). By default the output is discarded.
+    """
+    def __init__(
+            self,
+            f_params='params.pt',
+            f_optimizer='optimizer.pt',
+            f_history='history.json',
+            f_pickle=None,
+            fn_prefix='final_',
+            dirname='',
+            sink=noop,
+    ):
+        super().__init__(
+            monitor=None,
+            f_params=f_params,
+            f_optimizer=f_optimizer,
+            f_history=f_history,
+            f_pickle=f_pickle,
+            fn_prefix=fn_prefix,
+            dirname=dirname,
+            event_name=None,
+            sink=sink,
+        )
+
+    def on_epoch_end(self, net, **kwargs):
+        pass
+
+    def on_train_end(self, net, **kwargs):
+        self.save_model(net)
+        self._sink("Final checkpoint triggered", net.verbose)
