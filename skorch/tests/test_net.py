@@ -618,18 +618,30 @@ class TestNeuralNet:
         net2.predict(X)  # does not raise
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
-    def test_load_cuda_params_to_cuda(self, net_cls, module_cls, data):
+    @pytest.mark.parametrize('parameter,name', [
+        ('f_params', 'net_cuda.pt'),
+        ('f_optimizer', 'optimizer_cuda.pt'),
+    ])
+    def test_load_cuda_params_to_cuda(
+            self, parameter, name, net_cls, module_cls, data):
         net = net_cls(module_cls, device='cuda').initialize()
-        # net_cuda.pt is a net trained on CUDA
-        net.load_params(os.path.join('skorch', 'tests', 'net_cuda.pt'))
+        # object was trained with CUDA
+        kwargs = {parameter: os.path.join('skorch', 'tests', name)}
+        net.load_params(**kwargs)
         net.predict(data[0])  # does not raise
 
-    def test_load_cuda_params_to_cpu(self, net_cls, module_cls, data):
+    @pytest.mark.parametrize('parameter,name', [
+        ('f_params', 'net_cuda.pt'),
+        ('f_optimizer', 'optimizer_cuda.pt'),
+    ])
+    def test_load_cuda_params_to_cpu(
+            self, parameter, name, net_cls, module_cls, data):
         # Note: This test will pass trivially when CUDA is available
         # but triggered a bug when CUDA is not available.
         net = net_cls(module_cls).initialize()
-        # net_cuda.pt is a net trained on CUDA
-        net.load_params(os.path.join('skorch', 'tests', 'net_cuda.pt'))
+        # object was trained with CUDA
+        kwargs = {parameter: os.path.join('skorch', 'tests', name)}
+        net.load_params(**kwargs)
         net.predict(data[0])  # does not raise
 
     def test_save_params_with_history_file_obj(
