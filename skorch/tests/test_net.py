@@ -263,30 +263,51 @@ class TestNeuralNet:
         assert net.module_.sequential[0].weight.device.type.startswith(device)
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
-    def test_pickle_save_load_cuda_intercompatibility(
-            self, net_cls, module_cls, tmpdir):
+    @pytest.mark.parametrize(
+        'save_dev, cuda_available, load_dev, expect_warning',
+        [
+            ('cuda', False, 'cpu', True),
+            ('cuda', True, 'cuda', False),
+            ('cpu', True, 'cpu', False),
+            ('cpu', False, 'cpu', False),
+        ])
+    def test_pickle_save_and_load_mixed_devices(
+            self,
+            net_cls,
+            module_cls,
+            tmpdir,
+            save_dev,
+            cuda_available,
+            load_dev,
+            expect_warning,
+    ):
         from skorch.exceptions import DeviceWarning
-
-        net = net_cls(module=module_cls, device='cuda').initialize()
+        net = net_cls(module=module_cls, device=save_dev).initialize()
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         with open(str(p), 'wb') as f:
             pickle.dump(net, f)
         del net
 
-        with patch('torch.cuda.is_available', lambda *_: False):
-            with pytest.warns(DeviceWarning) as w:
-                with open(str(p), 'rb') as f:
+        with patch('torch.cuda.is_available', lambda *_: cuda_available):
+            with open(str(p), 'rb') as f:
+                expected_warning = DeviceWarning if expect_warning else None
+                with pytest.warns(expected_warning) as w:
                     m = pickle.load(f)
 
-        # The loaded model should not use CUDA anymore as it
-        # already knows CUDA is not available.
-        assert m.device == 'cpu'
+        assert torch.device(m.device) == torch.device(load_dev)
 
-        assert len(w.list) == 1  # only 1 warning
-        assert w.list[0].message.args[0] == (
-            'Model configured to use CUDA but no CUDA '
-            'devices available. Loading on CPU instead.')
+        if expect_warning:
+            # We should have captured two warnings:
+            # 1. one for the failed load
+            # 2. for switching devices on the net instance
+            assert len(w.list) == 2
+            assert w.list[0].message.args[0] == (
+                'Requested to load data to CUDA but no CUDA devices '
+                'are available. Loading on CPU instead.')
+            assert w.list[1].message.args[0] == (
+                'Setting self.device = {} since the requested device ({}) '
+                'is not available.'.format(load_dev, save_dev))
 
     def test_pickle_save_and_load_uninitialized(
             self, net_cls, module_cls, tmpdir):
@@ -590,18 +611,19 @@ class TestNeuralNet:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_save_load_state_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
+        from skorch.exceptions import DeviceWarning
         net = net_cls(module_cls, device='cuda').initialize()
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         net.save_params(f_params=str(p))
 
         with patch('torch.cuda.is_available', lambda *_: False):
-            with pytest.warns(ResourceWarning) as w:
+            with pytest.warns(DeviceWarning) as w:
                 net.load_params(f_params=str(p))
 
         assert w.list[0].message.args[0] == (
-            'Model configured to use CUDA but no CUDA '
-            'devices available. Loading on CPU instead.')
+            'Requested to load data to CUDA but no CUDA devices '
+            'are available. Loading on CPU instead.')
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_save_params_cuda_load_params_cpu_when_cuda_available(
