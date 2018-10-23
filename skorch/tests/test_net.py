@@ -7,6 +7,7 @@ that is general to NeuralNet class.
 
 import copy
 from functools import partial
+import os
 from pathlib import Path
 import pickle
 from unittest.mock import Mock
@@ -601,6 +602,47 @@ class TestNeuralNet:
         assert w.list[0].message.args[0] == (
             'Model configured to use CUDA but no CUDA '
             'devices available. Loading on CPU instead.')
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    def test_save_params_cuda_load_params_cpu_when_cuda_available(
+            self, net_cls, module_cls, data, tmpdir):
+        # Test that if we have a cuda device, we can save cuda
+        # parameters and then load them to cpu
+        X, y = data
+        net = net_cls(module_cls, device='cuda', max_epochs=1).fit(X, y)
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
+        net.save_params(f_params=str(p))
+
+        net2 = net_cls(module_cls, device='cpu').initialize()
+        net2.load_params(f_params=str(p))
+        net2.predict(X)  # does not raise
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    @pytest.mark.parametrize('parameter,name', [
+        ('f_params', 'net_cuda.pt'),
+        ('f_optimizer', 'optimizer_cuda.pt'),
+    ])
+    def test_load_cuda_params_to_cuda(
+            self, parameter, name, net_cls, module_cls, data):
+        net = net_cls(module_cls, device='cuda').initialize()
+        # object was trained with CUDA
+        kwargs = {parameter: os.path.join('skorch', 'tests', name)}
+        net.load_params(**kwargs)
+        net.predict(data[0])  # does not raise
+
+    @pytest.mark.parametrize('parameter,name', [
+        ('f_params', 'net_cuda.pt'),
+        ('f_optimizer', 'optimizer_cuda.pt'),
+    ])
+    def test_load_cuda_params_to_cpu(
+            self, parameter, name, net_cls, module_cls, data):
+        # Note: This test will pass trivially when CUDA is available
+        # but triggered a bug when CUDA is not available.
+        net = net_cls(module_cls).initialize()
+        # object was trained with CUDA
+        kwargs = {parameter: os.path.join('skorch', 'tests', name)}
+        net.load_params(**kwargs)
+        net.predict(data[0])  # does not raise
 
     def test_save_params_with_history_file_obj(
             self, net_cls, module_cls, net_fit, tmpdir):

@@ -1421,6 +1421,22 @@ class NeuralNet(object):
         if f_history is not None:
             self.history.to_file(f_history)
 
+    def _get_state_dict(self, f):
+        """Load torch object (module, optimizer) using desired device."""
+        map_location = torch.device(self.device)
+
+        # The user wants to use CUDA but there is no CUDA device
+        # available, thus fall back to CPU.
+        if self.device.startswith('cuda') and not torch.cuda.is_available():
+            warnings.warn(
+                "Model configured to use CUDA but no CUDA devices "
+                "available. Loading on CPU instead.",
+                ResourceWarning)
+            self.device = 'cpu'
+            map_location = torch.device('cpu')
+
+        return torch.load(f, map_location=map_location)
+
     def load_params(
             self, f=None, f_params=None, f_optimizer=None, f_history=None,
             checkpoint=None):
@@ -1545,25 +1561,6 @@ class NeuralNet(object):
             DeprecationWarning)
 
         self.history = History.from_file(f)
-
-    def _get_state_dict(self, f):
-        use_cuda = self.device.startswith('cuda')
-        cuda_req_not_met = (use_cuda and not torch.cuda.is_available())
-        if use_cuda or cuda_req_not_met:
-            # Eiher we want to load the model to the CPU in which case
-            # we are loading in a way where it doesn't matter if the data
-            # was on the GPU or not or the model was on the GPU but there
-            # is no CUDA device available.
-            if cuda_req_not_met:
-                warnings.warn(
-                    "Model configured to use CUDA but no CUDA devices "
-                    "available. Loading on CPU instead.",
-                    ResourceWarning)
-                self.device = 'cpu'
-            state_dict = torch.load(f, lambda storage, loc: storage)
-        else:
-            state_dict = torch.load(f)
-        return state_dict
 
     def __repr__(self):
         params = self.get_params(deep=False)
