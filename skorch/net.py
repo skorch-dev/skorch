@@ -34,20 +34,6 @@ from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
 
 
-# TODO: remove next release
-@deprecated("Please import like this: 'from skorch import NeuralNetClassifier'.")
-def NeuralNetClassifier(*args, **kwargs):
-    from skorch.classifier import NeuralNetClassifier as nnc
-    return nnc(*args, **kwargs)
-
-
-# TODO: remove next release
-@deprecated("Please import like this: 'from skorch import NeuralNetRegressor'.")
-def NeuralNetRegressor(*args, **kwargs):
-    from skorch.regressor import NeuralNetRegressor as nnr
-    return nnr(*args, **kwargs)
-
-
 # pylint: disable=too-many-instance-attributes
 class NeuralNet(object):
     # pylint: disable=anomalous-backslash-in-string
