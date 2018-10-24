@@ -9,9 +9,11 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 import pathlib
+import warnings
 
 import numpy as np
 from sklearn.utils import safe_indexing
+from skorch.exceptions import DeviceWarning
 import torch
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
@@ -446,3 +448,20 @@ def unfreeze_parameter(param):
     Used by ``skorch.callbacks.Unfreezer``
     """
     param.requires_grad = True
+
+
+def get_map_location(target_device, fallback_device='cpu'):
+    """Determine the location to map loaded data (e.g., weights)
+    for a given target device (e.g. 'cuda').
+    """
+    map_location = torch.device(target_device)
+
+    # The user wants to use CUDA but there is no CUDA device
+    # available, thus fall back to CPU.
+    if map_location.type == 'cuda' and not torch.cuda.is_available():
+        warnings.warn(
+            'Requested to load data to CUDA but no CUDA devices '
+            'are available. Loading on CPU instead.',
+            DeviceWarning)
+        map_location = torch.device(fallback_device)
+    return map_location
