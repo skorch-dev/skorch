@@ -304,7 +304,7 @@ class TestNeuralNet:
             assert len(w.list) == 2
             assert w.list[0].message.args[0] == (
                 'Requested to load data to CUDA but no CUDA devices '
-                'are available. Loading on CPU instead.')
+                'are available. Loading on device "cpu" instead.')
             assert w.list[1].message.args[0] == (
                 'Setting self.device = {} since the requested device ({}) '
                 'is not available.'.format(load_dev, save_dev))
@@ -623,7 +623,7 @@ class TestNeuralNet:
 
         assert w.list[0].message.args[0] == (
             'Requested to load data to CUDA but no CUDA devices '
-            'are available. Loading on CPU instead.')
+            'are available. Loading on device "cpu" instead.')
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_save_params_cuda_load_params_cpu_when_cuda_available(

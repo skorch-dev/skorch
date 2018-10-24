@@ -1423,6 +1423,8 @@ class NeuralNet(object):
                 'is not available.'.format(map_device, requested_device),
                 DeviceWarning)
             return map_device
+        # return requested_device instead of map_device even though we
+        # checked for *type* equality as we might have 'cuda:0' vs. 'cuda:1'.
         return requested_device
 
     def load_params(

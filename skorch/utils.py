@@ -461,7 +461,8 @@ def get_map_location(target_device, fallback_device='cpu'):
     if map_location.type == 'cuda' and not torch.cuda.is_available():
         warnings.warn(
             'Requested to load data to CUDA but no CUDA devices '
-            'are available. Loading on CPU instead.',
-            DeviceWarning)
+            'are available. Loading on device "{}" instead.'.format(
+                fallback_device,
+            ), DeviceWarning)
         map_location = torch.device(fallback_device)
     return map_location
