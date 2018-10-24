@@ -24,6 +24,7 @@ from skorch.exceptions import NotInitializedError
 from skorch.history import History
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import duplicate_items
+from skorch.utils import get_map_location
 from skorch.utils import is_dataset
 from skorch.utils import noop
 from skorch.utils import params_for
@@ -1319,16 +1320,11 @@ class NeuralNet(object):
         return state
 
     def __setstate__(self, state):
-        def uses_cuda(device):
-            if isinstance(device, torch.device):
-                device = device.type
-            return device.startswith('cuda')
-
-        disable_cuda = (uses_cuda(state['device']) and
-                        not torch.cuda.is_available())
-        load_kwargs = {}
-        if disable_cuda:
-            load_kwargs = {'map_location': lambda store, loc: store}
+        # get_map_location will automatically choose the
+        # right device in cases where CUDA is not available.
+        map_location = get_map_location(state['device'])
+        load_kwargs = {'map_location': map_location}
+        state['device'] = self._check_device(state['device'], map_location)
 
         with tempfile.SpooledTemporaryFile() as f:
             f.write(state['cuda_dependent_attributes_'])
@@ -1347,13 +1343,6 @@ class NeuralNet(object):
             cuda_attrs = torch.load(f, **load_kwargs)
 
         state.update(cuda_attrs)
-        if disable_cuda:
-            warnings.warn(
-                "Model configured to use CUDA but no CUDA devices "
-                "available. Loading on CPU instead.",
-                DeviceWarning)
-            state['device'] = 'cpu'
-
         self.__dict__.update(state)
 
     def save_params(
@@ -1421,21 +1410,22 @@ class NeuralNet(object):
         if f_history is not None:
             self.history.to_file(f_history)
 
-    def _get_state_dict(self, f):
-        """Load torch object (module, optimizer) using desired device."""
-        map_location = torch.device(self.device)
-
-        # The user wants to use CUDA but there is no CUDA device
-        # available, thus fall back to CPU.
-        if self.device.startswith('cuda') and not torch.cuda.is_available():
+    def _check_device(self, requested_device, map_device):
+        """Compare the requested device with the map device and
+        return the map device if it differs from the requested device
+        along with a warning.
+        """
+        type_1 = torch.device(requested_device)
+        type_2 = torch.device(map_device)
+        if type_1 != type_2:
             warnings.warn(
-                "Model configured to use CUDA but no CUDA devices "
-                "available. Loading on CPU instead.",
-                ResourceWarning)
-            self.device = 'cpu'
-            map_location = torch.device('cpu')
-
-        return torch.load(f, map_location=map_location)
+                'Setting self.device = {} since the requested device ({}) '
+                'is not available.'.format(map_device, requested_device),
+                DeviceWarning)
+            return map_device
+        # return requested_device instead of map_device even though we
+        # checked for *type* equality as we might have 'cuda:0' vs. 'cuda:1'.
+        return requested_device
 
     def load_params(
             self, f=None, f_params=None, f_optimizer=None, f_history=None,
@@ -1478,6 +1468,11 @@ class NeuralNet(object):
         >>>                   f_history='history.json')
 
         """
+        def _get_state_dict(f):
+            map_location = get_map_location(self.device)
+            self.device = self._check_device(self.device, map_location)
+            return torch.load(f, map_location=map_location)
+
         # TODO: Remove warning in a future release
         if f is not None:
             warnings.warn(
@@ -1502,7 +1497,7 @@ class NeuralNet(object):
                     "Cannot load parameters of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
-            state_dict = self._get_state_dict(f_params)
+            state_dict = _get_state_dict(f_params)
             self.module_.load_state_dict(state_dict)
 
         if f_optimizer is not None:
@@ -1511,7 +1506,7 @@ class NeuralNet(object):
                     "Cannot load state of an un-initialized optimizer. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
-            state_dict = self._get_state_dict(f_optimizer)
+            state_dict = _get_state_dict(f_optimizer)
             self.optimizer_.load_state_dict(state_dict)
 
     def save_history(self, f):
