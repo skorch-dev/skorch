@@ -3,6 +3,7 @@
 from functools import partial
 from unittest.mock import Mock
 from unittest.mock import patch
+from unittest.mock import call
 
 import numpy as np
 import pytest
@@ -17,12 +18,6 @@ class TestCheckpoint:
     @pytest.fixture
     def save_params_mock(self):
         with patch('skorch.NeuralNet.save_params') as mock:
-            mock.side_effect = lambda x: x
-            yield mock
-
-    @pytest.fixture
-    def save_history_mock(self):
-        with patch('skorch.NeuralNet.save_history') as mock:
             yield mock
 
     @pytest.fixture
@@ -59,13 +54,82 @@ class TestCheckpoint:
             self, save_params_mock, net_cls, checkpoint_cls, data):
         sink = Mock()
         net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None, sink=sink),
+            checkpoint_cls(monitor=None, sink=sink,
+                           event_name='event_another'),
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 3*len(net.history)
+        assert sink.call_count == len(net.history)
+        assert all((x is True) for x in net.history[:, 'event_another'])
+
+    @pytest.mark.parametrize('message,files', [
+        ('Unable to save model parameters to params.pt, '
+         'Exception: encoding error',
+         {'f_params': 'params.pt', 'f_optimizer': None, 'f_history': None}),
+        ('Unable to save optimizer state to optimizer.pt, '
+         'Exception: encoding error',
+         {'f_params': None, 'f_optimizer': 'optimizer.pt', 'f_history': None}),
+        ('Unable to save history to history.json, '
+         'Exception: encoding error',
+         {'f_params': None, 'f_optimizer': None, 'f_history': 'history.json'})
+    ])
+    def test_outputs_to_sink_when_save_params_errors(
+            self, save_params_mock, net_cls, checkpoint_cls, data,
+            message, files):
+        sink = Mock()
+        save_params_mock.side_effect = Exception('encoding error')
+        net = net_cls(callbacks=[
+            checkpoint_cls(monitor=None, sink=sink, **files)
         ])
         net.fit(*data)
 
         assert save_params_mock.call_count == len(net.history)
-        assert sink.call_count == len(net.history)
-        assert all((x is True) for x in net.history[:, 'event_cp'])
+        assert sink.call_count == 2*len(net.history)
+        save_error_messages = [call(message)] * len(net.history)
+        sink.assert_has_calls(save_error_messages, any_order=True)
+
+    @pytest.mark.parametrize('f_name, mode', [
+        ('f_params', 'w'),
+        ('f_optimizer', 'w'),
+        ('f_history', 'w'),
+        ('f_pickle', 'wb')
+    ])
+    def test_init_with_dirname_and_file_like_object_error(
+            self, checkpoint_cls, tmpdir, f_name, mode):
+        from skorch.exceptions import SkorchException
+
+        skorch_dir = tmpdir.mkdir("skorch")
+        exp_dir = skorch_dir.join("exp1")
+        f = skorch_dir.join(f_name + ".pt")
+
+        with f.open(mode) as fp:
+            with pytest.raises(SkorchException) as e:
+                checkpoint_cls(**{f_name: fp}, dirname=str(exp_dir))
+        expected = "dirname can only be used when f_* are strings"
+        assert str(e.value) == expected
+
+    @pytest.mark.parametrize('f_name, mode', [
+        ('f_params', 'w'),
+        ('f_optimizer', 'w'),
+        ('f_history', 'w'),
+        ('f_pickle', 'wb')
+    ])
+    def test_initialize_with_dirname_and_file_like_object_error(
+            self, checkpoint_cls, tmpdir, f_name, mode):
+        from skorch.exceptions import SkorchException
+
+        skorch_dir = tmpdir.mkdir("skorch")
+        exp_dir = skorch_dir.join("exp1")
+        f = skorch_dir.join(f_name + ".pt")
+
+        with f.open(mode) as fp:
+            with pytest.raises(SkorchException) as e:
+                cp = checkpoint_cls(dirname=str(exp_dir))
+                setattr(cp, f_name, fp)
+                cp.initialize()
+        expected = "dirname can only be used when f_* are strings"
+        assert str(e.value) == expected
 
     def test_default_without_validation_raises_meaningful_error(
             self, net_cls, checkpoint_cls, data):
@@ -96,48 +160,119 @@ class TestCheckpoint:
             scoring=epoch_3_scorer, on_train=True)
 
         sink = Mock()
+        cb = checkpoint_cls(
+            monitor='epoch_3_scorer',
+            f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
+            f_optimizer='optimizer_{last_epoch[epoch]}_{net.max_epochs}.pt',
+            sink=sink)
         net = net_cls(callbacks=[
-            ('my_score', scoring),
-            checkpoint_cls(
-                monitor='epoch_3_scorer',
-                f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
-                sink=sink),
+            ('my_score', scoring), cb
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 1
-        save_params_mock.assert_called_with('model_3_10.pt')
+        assert save_params_mock.call_count == 3
+        assert cb.get_formatted_files(net) == {
+            'f_params': 'model_3_10.pt',
+            'f_optimizer': 'optimizer_3_10.pt',
+            'f_history': 'history.json',
+            'f_pickle': None
+        }
+        save_params_mock.assert_has_calls(
+            [call(f_params='model_3_10.pt'),
+             call(f_optimizer='optimizer_3_10.pt'),
+             call(f_history='history.json')]
+        )
         assert sink.call_count == 1
         assert all((x is False) for x in net.history[:2, 'event_cp'])
         assert net.history[2, 'event_cp'] is True
         assert all((x is False) for x in net.history[3:, 'event_cp'])
 
     def test_save_all_targets(
-            self, save_params_mock, save_history_mock, pickle_dump_mock,
+            self, save_params_mock, pickle_dump_mock,
             net_cls, checkpoint_cls, data):
         net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None, f_params='params.pt',
-                f_history='history.json', f_pickle='model.pkl'),
+            checkpoint_cls(
+                monitor=None, f_params='params.pt',
+                f_history='history.json', f_pickle='model.pkl',
+                f_optimizer='optimizer.pt'),
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == len(net.history)
-        assert save_history_mock.call_count == len(net.history)
+        assert save_params_mock.call_count == 3*len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
-        save_params_mock.assert_called_with('params.pt')
-        save_history_mock.assert_called_with('history.json')
+
+        print(save_params_mock.call_args_list)
+        save_params_mock.assert_has_calls(
+            [call(f_params='params.pt'),
+             call(f_optimizer='optimizer.pt'),
+             call(f_history='history.json')] * len(net.history)
+        )
+
+    def test_save_all_targets_with_prefix(
+            self, save_params_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data):
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params='params.pt',
+            f_history='history.json',
+            f_pickle='model.pkl',
+            f_optimizer='optimizer.pt',
+            fn_prefix="exp1_")
+        net = net_cls(callbacks=[cp])
+        net.fit(*data)
+
+        assert cp.f_history_ == "exp1_history.json"
+        assert save_params_mock.call_count == 3*len(net.history)
+        assert pickle_dump_mock.call_count == len(net.history)
+        save_params_mock.assert_has_calls(
+            [call(f_params='exp1_params.pt'),
+             call(f_optimizer='exp1_optimizer.pt'),
+             call(f_history='exp1_history.json')] * len(net.history)
+        )
+
+    def test_save_all_targets_with_prefix_and_dirname(
+            self, save_params_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data, tmpdir):
+
+        skorch_dir = tmpdir.mkdir('skorch').join('exp1')
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params='params.pt',
+            f_history='history.json',
+            f_pickle='model.pkl',
+            f_optimizer='optimizer.pt',
+            fn_prefix="unet_",
+            dirname=str(skorch_dir))
+        net = net_cls(callbacks=[cp])
+        net.fit(*data)
+
+        f_params = skorch_dir.join('unet_params.pt')
+        f_optimizer = skorch_dir.join('unet_optimizer.pt')
+        f_history = skorch_dir.join('unet_history.json')
+
+        assert cp.f_history_ == str(f_history)
+        assert save_params_mock.call_count == 3*len(net.history)
+        assert pickle_dump_mock.call_count == len(net.history)
+        save_params_mock.assert_has_calls(
+            [call(f_params=str(f_params)),
+             call(f_optimizer=str(f_optimizer)),
+             call(f_history=str(f_history))] * len(net.history)
+        )
+        assert skorch_dir.exists()
 
     def test_save_no_targets(
-            self, save_params_mock, save_history_mock, pickle_dump_mock,
+            self, save_params_mock, pickle_dump_mock,
             net_cls, checkpoint_cls, data):
         net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None, f_params=None, f_history=None,
-                f_pickle=None),
+            checkpoint_cls(
+                monitor=None, f_params=None, f_optimizer=None,
+                f_history=None, f_pickle=None),
         ])
         net.fit(*data)
 
         assert save_params_mock.call_count == 0
-        assert save_history_mock.call_count == 0
         assert pickle_dump_mock.call_count == 0
 
     def test_target_argument(self, net_cls, checkpoint_cls):
@@ -542,3 +677,196 @@ class TestParamMapper:
         assert not np.allclose(dense1_weight_pre, dense1_weight_post)
         assert not np.allclose(dense0_bias_pre, dense0_bias_post)
         assert not np.allclose(dense1_bias_pre, dense1_bias_post)
+
+
+class TestLoadInitState:
+
+    @pytest.fixture
+    def checkpoint_cls(self):
+        from skorch.callbacks import Checkpoint
+        return Checkpoint
+
+    @pytest.fixture
+    def loadinitstate_cls(self):
+        from skorch.callbacks import LoadInitState
+        return LoadInitState
+
+    @pytest.fixture
+    def net_cls(self):
+        """very simple network that trains for 10 epochs"""
+        from skorch import NeuralNetRegressor
+        from skorch.toy import make_regressor
+
+        module_cls = make_regressor(
+            input_units=1,
+            num_hidden=0,
+            output_units=1,
+        )
+
+        return partial(
+            NeuralNetRegressor,
+            module=module_cls,
+            max_epochs=10,
+            batch_size=10)
+
+    @pytest.fixture(scope='module')
+    def data(self):
+        # have 10 examples so we can do a nice CV split
+        X = np.zeros((10, 1), dtype='float32')
+        y = np.zeros((10, 1), dtype='float32')
+        return X, y
+
+    def test_load_initial_state(
+            self, checkpoint_cls, net_cls, loadinitstate_cls,
+            data, tmpdir):
+        skorch_dir = tmpdir.mkdir('skorch')
+        f_params = skorch_dir.join('params.pt')
+        f_optimizer = skorch_dir.join('optimizer.pt')
+        f_history = skorch_dir.join('history.json')
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params=str(f_params),
+            f_optimizer=str(f_optimizer),
+            f_history=str(f_history)
+        )
+        load_init_state = loadinitstate_cls(cp)
+        net = net_cls(callbacks=[cp, load_init_state])
+        net.fit(*data)
+
+        assert f_params.exists()
+        assert f_optimizer.exists()
+        assert f_history.exists()
+
+        assert len(net.history) == 10
+        del net
+
+        new_net = net_cls(callbacks=[cp, load_init_state])
+        new_net.fit(*data)
+
+        assert len(new_net.history) == 20
+
+    def test_load_initial_state_custom_scoring(
+            self, checkpoint_cls, net_cls, loadinitstate_cls,
+            data, tmpdir):
+        def epoch_3_scorer(net, *_):
+            return 1 if net.history[-1, 'epoch'] == 3 else 0
+
+        from skorch.callbacks import EpochScoring
+        scoring = EpochScoring(
+            scoring=epoch_3_scorer, on_train=True)
+
+        skorch_dir = tmpdir.mkdir('skorch')
+        f_params = skorch_dir.join(
+            'model_epoch_{last_epoch[epoch]}.pt')
+        f_optimizer = skorch_dir.join(
+            'optimizer_epoch_{last_epoch[epoch]}.pt')
+        f_history = skorch_dir.join(
+            'history.json')
+
+        cp = checkpoint_cls(
+            monitor='epoch_3_scorer',
+            f_params=str(f_params),
+            f_optimizer=str(f_optimizer),
+            f_history=str(f_history)
+        )
+        load_init_state = loadinitstate_cls(cp)
+        net = net_cls(callbacks=[scoring, cp, load_init_state])
+
+        net.fit(*data)
+
+        assert skorch_dir.join('model_epoch_3.pt').exists()
+        assert skorch_dir.join('optimizer_epoch_3.pt').exists()
+        assert skorch_dir.join('history.json').exists()
+
+        assert len(net.history) == 10
+        del net
+
+        new_net = net_cls(callbacks=[scoring, cp, load_init_state])
+        new_net.fit(*data)
+
+        # new_net starts from the best epoch of the first run
+        # the best epcoh of the previous run was at epoch 3
+        # the second run went through 10 epochs, thus
+        # 3 + 10 = 13
+        assert len(new_net.history) == 13
+        assert new_net.history[:, 'event_cp'] == [
+            False, False, True] + [False] * 10
+
+
+class TestTrainEndCheckpoint:
+    @pytest.fixture
+    def finalcheckpoint_cls(self):
+        from skorch.callbacks import TrainEndCheckpoint
+        return TrainEndCheckpoint
+
+    @pytest.fixture
+    def save_params_mock(self):
+        with patch('skorch.NeuralNet.save_params') as mock:
+            yield mock
+
+    @pytest.fixture
+    def pickle_dump_mock(self):
+        with patch('pickle.dump') as mock:
+            yield mock
+
+    @pytest.fixture
+    def net_cls(self):
+        """very simple network that trains for 10 epochs"""
+        from skorch import NeuralNetRegressor
+        from skorch.toy import make_regressor
+
+        module_cls = make_regressor(
+            input_units=1,
+            num_hidden=0,
+            output_units=1,
+        )
+
+        return partial(
+            NeuralNetRegressor,
+            module=module_cls,
+            max_epochs=10,
+            batch_size=10)
+
+    @pytest.fixture(scope='module')
+    def data(self):
+        # have 10 examples so we can do a nice CV split
+        X = np.zeros((10, 1), dtype='float32')
+        y = np.zeros((10, 1), dtype='float32')
+        return X, y
+
+    def test_saves_at_end(
+            self, save_params_mock, net_cls, finalcheckpoint_cls, data):
+        sink = Mock()
+        net = net_cls(callbacks=[
+            finalcheckpoint_cls(sink=sink, dirname='exp1')
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 3
+        assert sink.call_args == call("Final checkpoint triggered")
+        save_params_mock.assert_has_calls([
+            call(f_params='exp1/final_params.pt'),
+            call(f_optimizer='exp1/final_optimizer.pt'),
+            call(f_history='exp1/final_history.json')
+        ])
+
+    def test_saves_at_end_with_custom_formatting(
+            self, save_params_mock, net_cls, finalcheckpoint_cls, data):
+        sink = Mock()
+        net = net_cls(callbacks=[
+            finalcheckpoint_cls(
+                sink=sink, dirname='exp1',
+                f_params='model_{last_epoch[epoch]}.pt',
+                f_optimizer='optimizer_{last_epoch[epoch]}.pt'
+            )
+        ])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 3
+        assert sink.call_args == call("Final checkpoint triggered")
+        save_params_mock.assert_has_calls([
+            call(f_params='exp1/final_model_10.pt'),
+            call(f_optimizer='exp1/final_optimizer_10.pt'),
+            call(f_history='exp1/final_history.json')
+        ])

@@ -71,7 +71,7 @@ on_batch_begin(net, Xi, yi, training)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Called once before each batch of data is processed, i.e. possibly
-several times per epoch. Gets batch data as additional input.  
+several times per epoch. Gets batch data as additional input.
 Also includes a bool indicating if this is a training batch or not.
 
 
@@ -223,10 +223,9 @@ arguments:
 To specify where and how your model is saved, change the arguments
 starting with ``f_``:
 
-- ``f_params``: to save model parameters (uses
-  :func:`~skorch.net.NeuralNet.save_params`);
-- ``f_history``: to save training history (uses
-  :func:`~skorch.net.NeuralNet.save_history`);
+- ``f_params``: to save model parameters
+- ``f_optimizer``: to save optimizer state
+- ``f_history``: to save training history
 - ``f_pickle``: to pickle the entire model object.
 
 Please refer to :ref:`saving and loading` for more information about
