@@ -56,3 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix disconnected weights between net and optimizer after copying the net with `copy.deepcopy` (#318)
 - Fix a bug that intefered with loading CUDA models when the model was a CUDA tensor but
   the net was configured to use the CPU (#354, #358)
+
+
+[Unreleased]: https://github.com/dnouri/skorch/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/dnouri/skorch/compare/v0.3.0...v0.4.0
