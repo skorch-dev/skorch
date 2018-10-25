@@ -1898,3 +1898,8 @@ class TestNeuralNet:
 
         assert train_loader_ds == train_ds
         assert valid_loader_ds == valid_ds
+
+    def test_set_lr_at_runtime_doesnt_reinitialize(self, net_fit, data):
+        with patch('skorch.NeuralNet.initialize_optimizer') as f:
+            net_fit.set_params(lr=0.9)
+        assert not f.called
