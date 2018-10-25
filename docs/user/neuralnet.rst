@@ -354,103 +354,30 @@ Obviously, this only makes sense if
 probabilities. If this is not true, you should just use
 :func:`~skorch.net.NeuralNetClassifier.predict_proba`.
 
-saving and loading
-^^^^^^^^^^^^^^^^^^
+model persistence
+^^^^^^^^^^^^^^^^^
 
-skorch provides two ways to persist your model. First it is possible
-to store the model using Python's ``pickle`` function. This saves the
-whole model, including hyperparameters. This is useful when you don't
-want to initialize your model before loading its parameters, or when
-your :class:`.NeuralNet` is part of an sklearn
-:class:`~sklearn.pipeline.Pipeline`:
+In general there are different ways of saving and loading models, each
+with their own advantages and disadvantages. More details and usage
+examples can be found here: :ref:`save_load`.
 
-.. code:: python
+If you would like to use pickle (the default way when using
+scikit-learn models), this is possible with skorch nets. This saves
+the whole net including hyperparameters etc. The advantage is that you
+can restore everything to exactly the state it was before. The
+disadvantage is it's easier for code changes to break your old saves.
 
-    net = NeuralNet(
-        module=MyModule,
-        criterion=torch.nn.NLLLoss,
-    )
+Additionally, it is possible to save and load specific attributes of
+the net, such as the ``module``, ``optimizer``, or ``history``, by
+calling :func:`~skorch.net.NeuralNet.save_params` and
+:func:`~skorch.net.NeuralNet.load_params`. This is useful if you're
+only interested in saving a particular part of your model, and is more
+robust to code changes.
 
-    model = Pipeline([
-        ('my-features', get_features()),
-        ('net', net),
-    ])
-    model.fit(X, y)
-
-    # saving
-    with open('some-file.pkl', 'wb') as f:
-        pickle.dump(model, f)
-
-    # loading
-    with open('some-file.pkl', 'rb') as f:
-        model = pickle.load(f)
-
-The disadvantage of pickling is that if your underlying code changes,
-unpickling might raise errors. Also, some Python code (e.g. lambda
-functions) cannot be pickled.
-
-For this reason, we provide a second method for persisting your model.
-To use it, call the :func:`~skorch.net.NeuralNet.save_params` and
-:func:`~skorch.net.NeuralNet.load_params` method on
-:class:`.NeuralNet`. Under the hood, this saves the ``module``\'s
-``state_dict``, i.e. only the weights and biases of the ``module``.
-This is more robust to changes in the code but requires you to
-initialize a :class:`.NeuralNet` to load the parameters again:
-
-.. code:: python
-
-    net = NeuralNet(
-        module=MyModule,
-        criterion=torch.nn.NLLLoss,
-    )
-
-    model = Pipeline([
-        ('my-features', get_features()),
-        ('net', net),
-    ])
-    model.fit(X, y)
-
-    net.save_params(f_params='some-file.pkl')
-
-    new_net = NeuralNet(
-        module=MyModule,
-        criterion=torch.nn.NLLLoss,
-    )
-    new_net.initialize()  # This is important!
-    new_net.load_params(f_params='some-file.pkl')
-
-In addition to saving the model parameters, the history and optimizer state can
-be saved by including the `f_history` and `f_optimizer` keywords to
-:func:`~skorch.net.NeuralNet.save_params` and
-:func:`~skorch.net.NeuralNet.load_params` on
-:class:`.NeuralNet`. This feature can be used to
-continue training:
-
-.. code:: python
-
-    net = NeuralNet(
-        module=MyModule
-        criterion=torch.nn.NLLLoss,
-    )
-
-    net.fit(X, y, epochs=2) # Train for 2 epochs
-
-    net.save_params(
-        f_params='model.pkl', f_optimizer='opt.pkl', f_history='history.json')
-
-    new_net = NeuralNet(
-        module=MyModule
-        criterion=torch.nn.NLLLoss,
-    )
-    new_net.initialize() # This is important!
-    new_net.load_params(
-        f_params='model.pkl', f_optimizer='opt.pkl', f_history='history.json')
-
-    new_net.fit(X, y, epochs=2) # Train for another 2 epochs
-
-.. note:: In order to use this feature, the history
-    must only contain JSON encodable Python data structures.
-    Numpy and PyTorch types should not be in the history.
+Finally, it is also possible to use callbacks to save and load models,
+e.g. :class:`.Checkpoint`. Those should be used if you need to have
+your model saved or loaded at specific times, e.g. at the start or end
+of the training process.
 
 Special arguments
 -----------------
