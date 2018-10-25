@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `ProgressBar` callback now determines the batches per epoch automatically by default (`batches_per_epoch=auto`)
 - The `on_grad_computed` event now has access to the current training data batch
 
-### Deprecatd
+### Deprecated
 
 - Deprecated `filtered_optimizer` in favor of `Freezer` callback (#346)
 - `NeuralNet.load_params` and `NeuralNet.save_params` deprecate `f` parameter for the sake
