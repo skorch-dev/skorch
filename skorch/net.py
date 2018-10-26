@@ -1227,7 +1227,10 @@ class NeuralNet(object):
 
         for key, val in special_params.items():
             if key.endswith('_'):
-                raise ValueError("Not sure: Should this ever happen?")
+                raise ValueError(
+                    "Something went wrong here. Please open an issue on "
+                    "https://github.com/dnouri/skorch/issues detailing what "
+                    "caused this error.")
             else:
                 setattr(self, key, val)
 
