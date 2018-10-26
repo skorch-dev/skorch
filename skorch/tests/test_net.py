@@ -843,6 +843,19 @@ class TestNeuralNet:
         # should not break
         net.set_params(optimizer=torch.optim.SGD)
 
+    def test_setting_lr_after_init_reflected_in_optimizer(
+            self, net_cls, module_cls):
+        # Fixes a bug that occurred when using set_params(lr=new_lr)
+        # after initialization: The new lr was not reflected in the
+        # optimizer.
+        net = net_cls(module_cls).initialize()
+        net.set_params(lr=10)
+        assert net.lr == 10
+
+        pg_lrs = [pg['lr'] for pg in net.optimizer_.param_groups]
+        for pg_lr in pg_lrs:
+            assert pg_lr == 10
+
     def test_optimizer_param_groups(self, net_cls, module_cls):
         net = net_cls(
             module_cls,
