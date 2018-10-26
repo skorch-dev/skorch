@@ -8,7 +8,6 @@ import warnings
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from sklearn.utils import deprecated
 import torch
 from torch.utils.data import DataLoader
 
