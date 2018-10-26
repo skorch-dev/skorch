@@ -448,16 +448,31 @@ class NeuralNet(object):
 
             if is_initialized or self.initialized_:
                 if self.verbose:
-                    print("Re-initializing module!")
+                    msg = ("Re-initializing module because the following "
+                           "parameters were re-set: {}."
+                           .format(', '.join(sorted(kwargs))))
+                    print(msg)
 
             module = module(**kwargs)
 
         self.module_ = module.to(self.device)
         return self
 
-    def initialize_optimizer(self):
+    def initialize_optimizer(self, triggered_directly=True):
         """Initialize the model optimizer. If ``self.optimizer__lr``
         is not set, use ``self.lr`` instead.
+
+        Parameters
+        ----------
+        triggered_directly : bool (default=True)
+
+          Only relevant when optimizer is re-initialized.
+          Initialization of the optimizer can be triggered directly
+          (e.g. when lr was changed) or indirectly (e.g. when the
+          module was re-initialized). If the former happens, the user
+          should receive a message alterting them to the parameters
+          that caused the re-initialization. If the latter happens,
+          this needs not happen.
 
         """
         args, kwargs = self._get_params_for_optimizer(
@@ -465,6 +480,15 @@ class NeuralNet(object):
 
         if 'lr' not in kwargs:
             kwargs['lr'] = self.lr
+
+        if self.initialized_ and self.verbose:
+            msg = "Re-initializing optimizer"
+            if triggered_directly:
+                msg += (" because the following parameters were re-set: {}."
+                        .format(', '.join(sorted(kwargs))))
+            else:
+                msg += "."
+            print(msg)
 
         self.optimizer_ = self.optimizer(*args, **kwargs)
 
@@ -1233,27 +1257,37 @@ class NeuralNet(object):
             else:
                 setattr(self, key, val)
 
+        # Below: Re-initialize parts of the net if necessary.
+
         if cb_params:
             # callbacks need special treatmeant since they are list of tuples
             self.initialize_callbacks()
             self._set_params_callback(**cb_params)
+
         if any(key.startswith('criterion') for key in special_params):
             self.initialize_criterion()
+
+        module_triggers_optimizer_reinit = False
         if any(key.startswith('module') for key in special_params):
             self.initialize_module()
-            self.initialize_optimizer()
+            module_triggers_optimizer_reinit = True
+
         optimizer_changed = (
             any(key.startswith('optimizer') for key in special_params) or
             'lr' in normal_params
         )
-        if optimizer_changed:
+        if module_triggers_optimizer_reinit or optimizer_changed:
             # Model selectors such as GridSearchCV will set the
             # parameters before .initialize() is called, therefore we
             # need to make sure that we have an initialized model here
             # as the optimizer depends on it.
             if not hasattr(self, 'module_'):
                 self.initialize_module()
-            self.initialize_optimizer()
+
+            # If we reached this point but the optimizer was not
+            # changed, it means that optimizer initialization was
+            # triggered indirectly.
+            self.initialize_optimizer(triggered_directly=optimizer_changed)
 
         vars(self).update(kwargs)
 

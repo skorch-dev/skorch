@@ -856,6 +856,57 @@ class TestNeuralNet:
         for pg_lr in pg_lrs:
             assert pg_lr == 10
 
+    @pytest.mark.parametrize('kwargs,expected', [
+        ({}, ""),
+        (
+            {'module__input_units': 12, 'module__hidden_units': 34},
+            ("Re-initializing module because the following "
+             "parameters were re-set: hidden_units, input_units.\n"
+             "Re-initializing optimizer.")
+        ),
+        (
+            {'optimizer__lr': 0.12, 'optimizer__momentum': 0.34},
+            ("Re-initializing optimizer because the following "
+             "parameters were re-set: lr, momentum.")
+        ),
+        (
+            {'module__input_units': 12, 'module__hidden_units': 34, 'lr': 0.56},
+            ("Re-initializing module because the following "
+             "parameters were re-set: hidden_units, input_units.\n"
+             "Re-initializing optimizer because the following "
+             "parameters were re-set: lr.")
+        ),
+    ])
+    def test_reinitializing_module_optimizer_message(
+            self, net_cls, module_cls, kwargs, expected, capsys):
+        # When net is initialized, if module or optimizer need to be
+        # re-initialized, alert the user to the fact what parameters
+        # were responsible for re-initialization. Note that when the
+        # module parameters but not optimizer parameters were changed,
+        # the optimizer is re-initialized but not because the
+        # optimizer parameters changed.
+        net = net_cls(module_cls).initialize()
+        net.set_params(**kwargs)
+        msg = capsys.readouterr()[0].strip()
+        assert msg == expected
+
+
+    @pytest.mark.parametrize('kwargs', [
+        {},
+        {'module__input_units': 12, 'module__hidden_units': 34},
+        {'lr': 0.12},
+        {'optimizer__lr': 0.12},
+        {'module__input_units': 12, 'lr': 0.56},
+    ])
+    def test_reinitializing_module_optimizer_no_message(
+            self, net_cls, module_cls, kwargs, capsys):
+        # When net is *not* initialized, set_params on module or
+        # optimizer should not trigger a message.
+        net = net_cls(module_cls)
+        net.set_params(**kwargs)
+        msg = capsys.readouterr()[0].strip()
+        assert msg == ""
+
     def test_optimizer_param_groups(self, net_cls, module_cls):
         net = net_cls(
             module_cls,
@@ -1109,16 +1160,12 @@ class TestNeuralNet:
         net = net_cls(module_cls(), max_epochs=1)
         net.fit(X, y)
 
-    def test_with_initialized_module_other_params(
-            self, net_cls, module_cls, data, capsys):
+    def test_with_initialized_module_other_params(self, net_cls, module_cls, data):
         X, y = data
         net = net_cls(module_cls(), max_epochs=1, module__hidden_units=123)
         net.fit(X, y)
         weight = net.module_.sequential[0].weight.data
         assert weight.shape[0] == 123
-
-        stdout = capsys.readouterr()[0]
-        assert "Re-initializing module!" in stdout
 
     def test_with_initialized_module_non_default(
             self, net_cls, module_cls, data, capsys):
