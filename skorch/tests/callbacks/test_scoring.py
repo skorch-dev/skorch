@@ -107,10 +107,10 @@ class TestEpochScoring:
         net.fit(*data)
 
         history_fn = tmpdir.mkdir('skorch').join('history.json')
-        net.save_history(str(history_fn))
+        net.save_params(f_history=str(history_fn))
 
         net.initialize()
-        net.load_history(str(history_fn))
+        net.load_params(f_history=str(history_fn))
         net.max_epochs = 5 - initial_epochs
         net.partial_fit(*data)
 
@@ -622,11 +622,11 @@ class TestBatchScoring:
         net.fit(*data)
 
         history_fn = tmpdir.mkdir('skorch').join('history.json')
-        net.save_history(str(history_fn))
+        net.save_params(f_history=str(history_fn))
 
         net.max_epochs = 5 - initial_epochs
         net.initialize()
-        net.load_history(str(history_fn))
+        net.load_params(f_history=str(history_fn))
         net.partial_fit(*data)
 
         is_best = net.history[:, 'score_best']

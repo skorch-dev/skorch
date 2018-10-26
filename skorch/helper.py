@@ -4,6 +4,8 @@ They should not be used in skorch directly.
 
 """
 from functools import partial
+import warnings
+
 from skorch.utils import _make_split
 from skorch.utils import _make_optimizer
 
@@ -83,6 +85,7 @@ class SliceDict(dict):
         return (self._len,)
 
 
+# TODO: remove in 0.5.0
 def filter_requires_grad(pgroups):
     """Returns parameter groups where parameters
     that don't require a gradient are filtered out.
@@ -93,12 +96,17 @@ def filter_requires_grad(pgroups):
       Parameter groups to be filtered
 
     """
+    warnings.warn(
+        "For filtering gradients, please use skorch.callbacks.Freezer.",
+        DeprecationWarning)
+
     for pgroup in pgroups:
         output = {k: v for k, v in pgroup.items() if k != 'params'}
         output['params'] = (p for p in pgroup['params'] if p.requires_grad)
         yield output
 
 
+# TODO: remove in 0.5.0
 def filtered_optimizer(optimizer, filter_fn):
     """Wraps an optimizer that filters out parameters where
     ``filter_fn`` over ``pgroups`` returns ``False``.
@@ -119,6 +127,10 @@ def filtered_optimizer(optimizer, filter_fn):
       it to ``optimizer``.
 
     """
+    warnings.warn(
+        "For filtering gradients, please use skorch.callbacks.Freezer.",
+        DeprecationWarning)
+
     return partial(_make_optimizer, optimizer=optimizer, filter_fn=filter_fn)
 
 
