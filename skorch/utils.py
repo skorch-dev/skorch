@@ -466,3 +466,16 @@ def get_map_location(target_device, fallback_device='cpu'):
             ), DeviceWarning)
         map_location = torch.device(fallback_device)
     return map_location
+
+
+class LazyGenerator:
+    """Stores a generator and calls list on the generator on the first
+    iteration. All future iteration calls will iterate over the list.
+    """
+    def __init__(self, gen):
+        self.gen = gen
+
+    def __iter__(self):
+        if not hasattr(self, "gen_"):
+            self.gen_ = list(self.gen())
+        yield from self.gen_

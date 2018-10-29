@@ -1,4 +1,5 @@
 """Test for utils.py"""
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -485,3 +486,29 @@ class TestIsSkorchDataset:
         type_truth_table())
     def test_data_types(self, is_skorch_dataset, input_data, expected):
         assert is_skorch_dataset(input_data) == expected
+
+
+class TestLazyGenerator:
+
+    @pytest.fixture
+    def lazy_generator_cls(self):
+        from skorch.utils import LazyGenerator
+        return LazyGenerator
+
+    def test_calls_generator_once(self, lazy_generator_cls):
+        expected_list = [1, 2, 3]
+
+        def list_gen():
+            yield from expected_list
+        mock = Mock(return_value=list_gen())
+        lazy_gen = lazy_generator_cls(mock)
+
+        assert mock.call_count == 0
+
+        first_return = list(lazy_gen)
+        second_return = [item for item in lazy_gen]
+
+        assert first_return == expected_list
+        assert second_return == expected_list
+        assert mock.call_count == 1
+        assert lazy_gen.gen_ == expected_list

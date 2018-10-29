@@ -22,6 +22,7 @@ from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
 from skorch.utils import FirstStepAccumulator
+from skorch.utils import LazyGenerator
 from skorch.utils import duplicate_items
 from skorch.utils import get_map_location
 from skorch.utils import is_dataset
@@ -578,7 +579,7 @@ class NeuralNet(object):
 
         self.notify(
             'on_grad_computed',
-            named_parameters=list(self.module_.named_parameters()),
+            named_parameters=LazyGenerator(self.module_.named_parameters),
             X=Xi,
             y=yi
         )
