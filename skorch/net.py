@@ -1240,7 +1240,11 @@ class NeuralNet(object):
         if any(key.startswith('module') for key in special_params):
             self.initialize_module()
             self.initialize_optimizer()
-        if any(key.startswith('optimizer') for key in special_params):
+        optimizer_changed = (
+            any(key.startswith('optimizer') for key in special_params) or
+            'lr' in normal_params
+        )
+        if optimizer_changed:
             # Model selectors such as GridSearchCV will set the
             # parameters before .initialize() is called, therefore we
             # need to make sure that we have an initialized model here
