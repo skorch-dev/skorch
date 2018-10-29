@@ -890,7 +890,6 @@ class TestNeuralNet:
         msg = capsys.readouterr()[0].strip()
         assert msg == expected
 
-
     @pytest.mark.parametrize('kwargs', [
         {},
         {'module__input_units': 12, 'module__hidden_units': 34},

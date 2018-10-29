@@ -10,8 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - [Basic usage notebook][1810251445] now runs on Google Colab
+- [Advanced usage notebook][1810261633] now runs on Google Colab
+
 
 [1810251445]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb
+[1810261633]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb
+
+### Fixed
+
+- Re-initialize optimizer when `set_params` is called with `lr` argument (#372)
 
 ## [0.4.0] - 2018-10-24
 
