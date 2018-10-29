@@ -431,6 +431,24 @@ class NeuralNet(object):
         self.criterion_ = self.criterion(**criterion_params)
         return self
 
+    def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
+        """Returns a message that informs about re-initializing a compoment.
+
+        Sometimes, the module or optimizer need to be
+        re-initialized. Not only should the user receive a message
+        about this but also should they be informed about what
+        parameters, if any, caused it.
+
+        """
+        msg = "Re-initializing {}".format(name)
+        if triggered_directly:
+            kwargs = kwargs or {}
+            msg += (" because the following parameters were re-set: {}."
+                    .format(', '.join(sorted(kwargs))))
+        else:
+            msg += "."
+        return msg
+
     def initialize_module(self):
         """Initializes the module.
 
@@ -446,12 +464,9 @@ class NeuralNet(object):
             if is_initialized:
                 module = type(module)
 
-            if is_initialized or self.initialized_:
-                if self.verbose:
-                    msg = ("Re-initializing module because the following "
-                           "parameters were re-set: {}."
-                           .format(', '.join(sorted(kwargs))))
-                    print(msg)
+            if (is_initialized or self.initialized_) and self.verbose:
+                msg = self._format_reinit_msg("module", kwargs)
+                print(msg)
 
             module = module(**kwargs)
 
@@ -465,14 +480,12 @@ class NeuralNet(object):
         Parameters
         ----------
         triggered_directly : bool (default=True)
-
           Only relevant when optimizer is re-initialized.
           Initialization of the optimizer can be triggered directly
           (e.g. when lr was changed) or indirectly (e.g. when the
-          module was re-initialized). If the former happens, the user
-          should receive a message alterting them to the parameters
-          that caused the re-initialization. If the latter happens,
-          this needs not happen.
+          module was re-initialized). If and only if the former
+          happens, the user should receive a message informing them
+          about the parameters that caused the re-initialization.
 
         """
         args, kwargs = self._get_params_for_optimizer(
@@ -482,12 +495,8 @@ class NeuralNet(object):
             kwargs['lr'] = self.lr
 
         if self.initialized_ and self.verbose:
-            msg = "Re-initializing optimizer"
-            if triggered_directly:
-                msg += (" because the following parameters were re-set: {}."
-                        .format(', '.join(sorted(kwargs))))
-            else:
-                msg += "."
+            msg = self._format_reinit_msg(
+                "optimizer", kwargs, triggered_directly=triggered_directly)
             print(msg)
 
         self.optimizer_ = self.optimizer(*args, **kwargs)
