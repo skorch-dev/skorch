@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Basic usage notebook][1810251445] now runs on Google Colab
 - [Advanced usage notebook][1810261633] now runs on Google Colab
+- Better user-facing messages when module or optimizer are re-initialized
 
 
 [1810251445]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb
