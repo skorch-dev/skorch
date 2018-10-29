@@ -34,7 +34,7 @@ from skorch.utils import valid_loss_score
 
 
 # pylint: disable=too-many-instance-attributes
-class NeuralNet(object):
+class NeuralNet:
     # pylint: disable=anomalous-backslash-in-string
     """NeuralNet base class.
 

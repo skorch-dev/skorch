@@ -13,10 +13,11 @@ import warnings
 
 import numpy as np
 from sklearn.utils import safe_indexing
-from skorch.exceptions import DeviceWarning
 import torch
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
+
+from skorch.exceptions import DeviceWarning
 
 
 class Ansi(Enum):
@@ -65,18 +66,17 @@ def to_tensor(X, device):
 
     if is_torch_data_type(X):
         return X.to(device)
-    elif isinstance(X, dict):
+    if isinstance(X, dict):
         return {key: to_tensor_(val) for key, val in X.items()}
-    elif isinstance(X, (list, tuple)):
+    if isinstance(X, (list, tuple)):
         return [to_tensor_(x) for x in X]
-    elif np.isscalar(X):
+    if np.isscalar(X):
         return torch.as_tensor(X, device=device)
-    elif isinstance(X, Sequence):
+    if isinstance(X, Sequence):
         return torch.as_tensor(np.array(X), device=device)
-    elif isinstance(X, np.ndarray):
+    if isinstance(X, np.ndarray):
         return torch.as_tensor(X, device=device)
-    else:
-        raise TypeError("Cannot convert this data type to a torch tensor.")
+    raise TypeError("Cannot convert this data type to a torch tensor.")
 
 
 def to_numpy(X):

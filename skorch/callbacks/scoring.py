@@ -46,10 +46,10 @@ def convert_sklearn_metric_function(scoring):
     if callable(scoring):
         module = getattr(scoring, '__module__', None)
         if (
-            hasattr(module, 'startswith') and
-            module.startswith('sklearn.metrics.') and
-            not module.startswith('sklearn.metrics.scorer') and
-            not module.startswith('sklearn.metrics.tests.')
+                hasattr(module, 'startswith') and
+                module.startswith('sklearn.metrics.') and
+                not module.startswith('sklearn.metrics.scorer') and
+                not module.startswith('sklearn.metrics.tests.')
         ):
             return make_scorer(scoring)
     return scoring

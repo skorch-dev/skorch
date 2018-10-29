@@ -6,12 +6,11 @@ Only contains tests that are specific for classifier subclasses.
 
 from unittest.mock import Mock
 
+from flaky import flaky
 import numpy as np
 import pytest
 import torch
 from torch import nn
-from flaky import flaky
-import torch.nn.functional as F
 
 
 torch.manual_seed(0)
@@ -102,7 +101,7 @@ class TestNeuralNetBinaryClassifier:
         return X, y.astype('float32')
 
     @pytest.fixture(scope='module')
-    def module_cls(self, classifier_module):
+    def module_cls(self):
         from skorch.toy import make_binary_classifier
         return make_binary_classifier(
             input_units=20,

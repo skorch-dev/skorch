@@ -223,9 +223,11 @@ class Checkpoint(Callback):
     def get_formatted_files(self, net):
         """Returns a dictionary of formatted filenames"""
         idx = -1
-        if (self.event_name is not None and
-           net.history is not None and
-           len(net.history) > 0):
+        if (
+                self.event_name is not None and
+                net.history is not None and
+                net.history
+        ):
             for i, v in enumerate(net.history[:, self.event_name]):
                 if v:
                     idx = i
@@ -239,7 +241,7 @@ class Checkpoint(Callback):
     def _save_params(self, f, net, f_name, log_name):
         try:
             net.save_params(**{f_name: f})
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             self._sink(
                 "Unable to save {} to {}, {}: {}".format(
                     log_name, f, type(e).__name__, e), net.verbose)
@@ -258,12 +260,24 @@ class Checkpoint(Callback):
         return f
 
     def _validate_filenames(self):
+        """Checks if passed filenames are valid.
+
+        Specifically, f_* parameter should not be passed in
+        conjunction with dirname.
+
+        """
         if not self.dirname:
             return
-        if (self.f_optimizer and not isinstance(self.f_optimizer, str) or
-           self.f_params and not isinstance(self.f_params, str) or
-           self.f_history and not isinstance(self.f_history, str) or
-           self.f_pickle and not isinstance(self.f_pickle, str)):
+
+        def _is_truthy_and_not_str(f):
+            return f and not isinstance(f, str)
+
+        if (
+                _is_truthy_and_not_str(self.f_optimizer) or
+                _is_truthy_and_not_str(self.f_params) or
+                _is_truthy_and_not_str(self.f_history) or
+                _is_truthy_and_not_str(self.f_pickle)
+        ):
             raise SkorchException(
                 'dirname can only be used when f_* are strings')
 

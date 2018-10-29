@@ -207,7 +207,7 @@ class TestFilterParameterGroupsRequiresGrad():
         filter_pgroups = list(filter_requires_grad(pgroups))
         assert len(filter_pgroups) == 2
         assert len(list(filter_pgroups[0]['params'])) == 1
-        assert len(list(filter_pgroups[1]['params'])) == 0
+        assert not list(filter_pgroups[1]['params'])
 
         assert filter_pgroups[0]['lr'] == 0.1
 
@@ -224,8 +224,8 @@ class TestFilterParameterGroupsRequiresGrad():
 
         filter_pgroups = list(filter_requires_grad(pgroups))
         assert len(filter_pgroups) == 2
-        assert len(list(filter_pgroups[0]['params'])) == 0
-        assert len(list(filter_pgroups[1]['params'])) == 0
+        assert not list(filter_pgroups[0]['params'])
+        assert not list(filter_pgroups[1]['params'])
 
         assert filter_pgroups[0]['lr'] == 0.1
 
