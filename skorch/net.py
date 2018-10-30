@@ -226,6 +226,7 @@ class NeuralNet(object):
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
         initialized = kwargs.pop('initialized_', False)
+        virtual_params = kwargs.pop('virtual_params_', dict())
 
         # catch arguments that seem to not belong anywhere
         unexpected_kwargs = []
@@ -245,6 +246,7 @@ class NeuralNet(object):
 
         self.history = history
         self.initialized_ = initialized
+        self.virtual_params_ = virtual_params
 
     @property
     def _default_callbacks(self):
@@ -475,29 +477,44 @@ class NeuralNet(object):
         self.module_ = module.to(self.device)
         return self
 
-    def register_runtime_param(self, param_patterns, fn):
-        self.runtime_params_ = getattr(self, 'runtime_params_', {})
+    def _is_virtual_param(self, key):
+        return any(fnmatch.fnmatch(key, pat) for pat in self.virtual_params_)
+
+    def _virtual_setattr(self, param, val):
+        setattr(self, param, val)
+
+    def _register_virtual_param(self, param_patterns, fn=_virtual_setattr):
         if not isinstance(param_patterns, list):
             param_patterns = [param_patterns]
-        for param_name in param_patterns:
-            self.runtime_params_[param_name] = fn
+        for pattern in param_patterns:
+            self.virtual_params_[pattern] = fn
 
-    def apply_runtime_params(self, runtime_kwargs):
-        if not self.initialized_:
-            return []
-
-        for pattern, fn in self.runtime_params_.items():
-            pattern = re.compile(pattern)
-            for key, val in runtime_kwargs.items():
-                match = pattern.fullmatch(key)
-                if not match:
+    def _apply_virtual_params(self, virtual_kwargs):
+        for pattern, fn in self.virtual_params_.items():
+            for key, val in virtual_kwargs.items():
+                if not fnmatch.fnmatch(key, pattern):
                     continue
-                fn(val, **match.groupdict())
-                yield key
+                fn(key, val)
 
-    def _set_lr(self, lr, optimizer_attr, param_group=0):
-        pgroup = getattr(self, optimizer_attr).param_groups[int(param_group)]
-        pgroup['lr'] = lr
+    def initialize_params(self):
+        self.virtual_params_ = {}
+
+    def _set_lr_param(self, param, lr, optimizer_attr='optimizer_', optimizer_name='optimizer'):
+        # Extract param group from explicit param group parameter name (if needed)
+        pat = optimizer_name + '__param_groups__(?P<param_group>[0-9])__lr'
+        mat = re.compile(pat).fullmatch(param)
+        param_group = int(mat.groupdict().get('param_group')) if mat else 'all'
+
+        if param_group == 'all':
+            groups = getattr(self, optimizer_attr).param_groups
+        else:
+            groups = [getattr(self, optimizer_attr).param_groups[param_group]]
+
+        for group in groups:
+            group['lr'] = lr
+
+        if param == 'lr':
+            self.lr = lr
 
     def initialize_optimizer(self, triggered_directly=True):
         """Initialize the model optimizer. If ``self.optimizer__lr``
@@ -517,24 +534,19 @@ class NeuralNet(object):
         args, kwargs = self._get_params_for_optimizer(
             'optimizer', self.module_.named_parameters())
 
-        if 'lr' not in kwargs:
-            kwargs['lr'] = self.lr
-
         if self.initialized_ and self.verbose:
             msg = self._format_reinit_msg(
                 "optimizer", kwargs, triggered_directly=triggered_directly)
             print(msg)
 
+        if 'lr' not in kwargs:
+            kwargs['lr'] = self.lr
+
         self.optimizer_ = self.optimizer(*args, **kwargs)
 
-        self.register_runtime_param(
-            ['optimizer__lr', 'lr'],
-            partial(self._set_lr, optimizer_attr='optimizer_', param_group=0)
-        )
-
-        self.register_runtime_param(
-            'optimizer__param_groups__(?P<param_group>[0-9]*)__lr',
-            partial(self._set_lr, optimizer_attr='optimizer_')
+        self._register_virtual_param(
+            ['optimizer__param_groups__*__lr', 'optimizer__lr', 'lr'],
+            self._set_lr_param
         )
 
     def initialize_history(self):
@@ -546,7 +558,7 @@ class NeuralNet(object):
         returns self.
 
         """
-        self.runtime_params_ = {}
+        self.initialize_params()
         self.initialize_callbacks()
         self.initialize_criterion()
         self.initialize_module()
@@ -1284,22 +1296,20 @@ class NeuralNet(object):
         """
         self._check_deprecated_params(**kwargs)
         normal_params, cb_params, special_params = {}, {}, {}
+        virtual_params = {}
 
         for key, val in kwargs.items():
-            if key.startswith('callbacks'):
+            if self._is_virtual_param(key):
+                virtual_params[key] = val
+            elif key.startswith('callbacks'):
                 cb_params[key] = val
             elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
             else:
                 normal_params[key] = val
 
+        self._apply_virtual_params(virtual_params)
         BaseEstimator.set_params(self, **normal_params)
-
-        # Keys that were applied as runtime params should not trigger
-        # re-initialization by definition, so remove them.
-        used_keys = self.apply_runtime_params(kwargs)
-        for key in list(used_keys):
-            del kwargs[key]
 
         for key, val in special_params.items():
             if key.endswith('_'):
