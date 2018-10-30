@@ -1978,6 +1978,7 @@ class TestNeuralNet:
         net_fit.set_params(optimizer__param_groups__0__lr=new_lr)
 
         # note that setting group does not set global lr
+        assert net_fit.lr != new_lr
         assert net_fit.optimizer_.param_groups[0]['lr'] == new_lr
 
     def test_set_lr_at_runtime_sets_lr_pgroups(self, net_cls, module_cls, data):
