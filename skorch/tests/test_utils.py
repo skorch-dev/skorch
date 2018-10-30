@@ -488,12 +488,12 @@ class TestIsSkorchDataset:
         assert is_skorch_dataset(input_data) == expected
 
 
-class TestLazyGenerator:
+class TestTeeGenerator:
 
     @pytest.fixture
     def lazy_generator_cls(self):
-        from skorch.utils import LazyGenerator
-        return LazyGenerator
+        from skorch.utils import TeeGenerator
+        return TeeGenerator
 
     def test_calls_generator_once(self, lazy_generator_cls):
         expected_list = [1, 2, 3]
@@ -511,4 +511,3 @@ class TestLazyGenerator:
         assert first_return == expected_list
         assert second_return == expected_list
         assert mock.call_count == 1
-        assert lazy_gen.gen_ == expected_list
