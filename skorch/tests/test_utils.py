@@ -509,5 +509,6 @@ class TestTeeGenerator:
         second_return = [item for item in lazy_gen]
 
         assert first_return == expected_list
+        assert mock.call_count == 1
         assert second_return == expected_list
         assert mock.call_count == 1
