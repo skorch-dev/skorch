@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Advanced usage notebook][1810261633] now runs on Google Colab
 - [MNIST with scikit-learn and skorch][1811011230] now runs on Google Colab
 - Better user-facing messages when module or optimizer are re-initialized
+- Early exits `BatchScoring` when using `train_loss_score` or
+  `valid_loss_score`
 
 
 [1810251445]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb
