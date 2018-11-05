@@ -495,7 +495,7 @@ class NeuralNet(object):
                     continue
                 fn(key, val)
 
-    def initialize_params(self):
+    def initialize_virtual_params(self):
         self.virtual_params_ = {}
 
     def _set_lr_param(self, param, lr, optimizer_attr='optimizer_', optimizer_name='optimizer'):
@@ -557,7 +557,7 @@ class NeuralNet(object):
         returns self.
 
         """
-        self.initialize_params()
+        self.initialize_virtual_params()
         self.initialize_callbacks()
         self.initialize_criterion()
         self.initialize_module()
