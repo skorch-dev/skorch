@@ -225,7 +225,6 @@ class Checkpoint(Callback):
         idx = -1
         if (
                 self.event_name is not None and
-                net.history is not None and
                 net.history
         ):
             for i, v in enumerate(net.history[:, self.event_name]):
