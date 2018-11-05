@@ -48,7 +48,7 @@ class TestToTensor:
 
     # pylint: disable=no-method-argument
     def parameters():
-        """Yeilds data, expected value, and device for tensor conversion
+        """Yields data, expected value, and device for tensor conversion
         test.
 
         Stops earlier when no cuda device is available.
