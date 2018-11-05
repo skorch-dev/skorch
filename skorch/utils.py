@@ -470,19 +470,13 @@ def get_map_location(target_device, fallback_device='cpu'):
 
 
 class TeeGenerator:
-    """Stores a function that produces a generator and calls it when
-    ``TeeGenerator`` is iterated over.
-
-    The stored function is only called during the first iteration. Afterwards,
-    ``tee`` is used to copy the generator.
+    """Stores a generator and calls ``tee`` on it to create new generators
+    when ``TeeGenerator`` is iterated over.
 
     """
     def __init__(self, gen):
         self.gen = gen
-        self.gen_ = None
 
     def __iter__(self):
-        if self.gen_ is None:
-            self.gen_ = self.gen()
-        self.gen_, it = tee(self.gen_)
+        self.gen, it = tee(self.gen)
         yield from it

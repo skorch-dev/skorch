@@ -500,15 +500,10 @@ class TestTeeGenerator:
 
         def list_gen():
             yield from expected_list
-        mock = Mock(return_value=list_gen())
-        lazy_gen = lazy_generator_cls(mock)
-
-        assert mock.call_count == 0
+        lazy_gen = lazy_generator_cls(list_gen())
 
         first_return = list(lazy_gen)
         second_return = [item for item in lazy_gen]
 
         assert first_return == expected_list
-        assert mock.call_count == 1
         assert second_return == expected_list
-        assert mock.call_count == 1
