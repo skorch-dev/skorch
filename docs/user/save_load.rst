@@ -1,6 +1,109 @@
+.. _save_load:
+
 ==================
 Saving and Loading
 ==================
+
+General approach
+----------------
+
+skorch provides several ways to persist your model. First it is
+possible to store the model using Python's ``pickle`` function. This
+saves the whole model, including hyperparameters. This is useful when
+you don't want to initialize your model before loading its parameters,
+or when your :class:`.NeuralNet` is part of an sklearn
+:class:`~sklearn.pipeline.Pipeline`:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule,
+        criterion=torch.nn.NLLLoss,
+    )
+
+    model = Pipeline([
+        ('my-features', get_features()),
+        ('net', net),
+    ])
+    model.fit(X, y)
+
+    # saving
+    with open('some-file.pkl', 'wb') as f:
+        pickle.dump(model, f)
+
+    # loading
+    with open('some-file.pkl', 'rb') as f:
+        model = pickle.load(f)
+
+The disadvantage of pickling is that if your underlying code changes,
+unpickling might raise errors. Also, some Python code (e.g. lambda
+functions) cannot be pickled.
+
+For this reason, we provide a second method for persisting your model.
+To use it, call the :func:`~skorch.net.NeuralNet.save_params` and
+:func:`~skorch.net.NeuralNet.load_params` method on
+:class:`.NeuralNet`. Under the hood, this saves the ``module``\'s
+``state_dict``, i.e. only the weights and biases of the ``module``.
+This is more robust to changes in the code but requires you to
+initialize a :class:`.NeuralNet` to load the parameters again:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule,
+        criterion=torch.nn.NLLLoss,
+    )
+
+    model = Pipeline([
+        ('my-features', get_features()),
+        ('net', net),
+    ])
+    model.fit(X, y)
+
+    net.save_params(f_params='some-file.pkl')
+
+    new_net = NeuralNet(
+        module=MyModule,
+        criterion=torch.nn.NLLLoss,
+    )
+    new_net.initialize()  # This is important!
+    new_net.load_params(f_params='some-file.pkl')
+
+In addition to saving the model parameters, the history and optimizer state can
+be saved by including the `f_history` and `f_optimizer` keywords to
+:func:`~skorch.net.NeuralNet.save_params` and
+:func:`~skorch.net.NeuralNet.load_params` on
+:class:`.NeuralNet`. This feature can be used to
+continue training:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule
+        criterion=torch.nn.NLLLoss,
+    )
+
+    net.fit(X, y, epochs=2) # Train for 2 epochs
+
+    net.save_params(
+        f_params='model.pkl', f_optimizer='opt.pkl', f_history='history.json')
+
+    new_net = NeuralNet(
+        module=MyModule
+        criterion=torch.nn.NLLLoss,
+    )
+    new_net.initialize() # This is important!
+    new_net.load_params(
+        f_params='model.pkl', f_optimizer='opt.pkl', f_history='history.json')
+
+    new_net.fit(X, y, epochs=2) # Train for another 2 epochs
+
+.. note:: In order to use this feature, the history
+    must only contain JSON encodable Python data structures.
+    Numpy and PyTorch types should not be in the history.
+
+Using callbacks
+---------------
 
 Skorch provides callbacks: :class:`.Checkpoint`, :class:`.TrainEndCheckpoint`,
 and :class:`.LoadInitState` to handle saving and loading models during
