@@ -3,6 +3,7 @@ set -e
 
 PYTORCH_VERSION="0.4.1"
 PYTHON_VERSION="3.6"
+TWINE_VERSION="1.12.1"
 CONDA_ENV="skorch-deploy"
 CONDA_ENV_YML="environment.yml"
 DEPLOY_REQ="scripts/requirements-deploy.txt"
@@ -37,7 +38,7 @@ trap remove_env EXIT
 
 source activate $CONDA_ENV
 conda install -q -y "--file=${DEV_REQ}"
-conda install -q -y "--file=${DEPLOY_REQ}"
+conda install -q -y "twine==${TWINE_VERSION}"
 conda install -c pytorch -y "pytorch==${PYTORCH_VERSION}"
 python setup.py install
 
