@@ -6,7 +6,6 @@ PYTHON_VERSION="3.6"
 TWINE_VERSION="1.12.1"
 CONDA_ENV="skorch-deploy"
 CONDA_ENV_YML="environment.yml"
-DEPLOY_REQ="scripts/requirements-deploy.txt"
 DEV_REQ="requirements-dev.txt"
 
 if [[ $# -gt 1 ]] || [[ $1 != "live" && $1 != "stage" ]]; then
@@ -42,8 +41,6 @@ conda install -q -y "twine==${TWINE_VERSION}"
 conda install -c pytorch -y "pytorch==${PYTORCH_VERSION}"
 python setup.py install
 
-# Makes sure CONDA_ENV's pytest and twine sourced
-source activate $CONDA_ENV
 pytest -x
 
 python setup.py sdist bdist_wheel
