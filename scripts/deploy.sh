@@ -13,7 +13,7 @@ if [[ $# -gt 1 ]] || [[ $1 != "live" && $1 != "stage" ]]; then
 	exit 1
 fi
 
-conda update -q conda
+conda update -q -y conda
 
 # Remove previous deploy environment
 set +e
