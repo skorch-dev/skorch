@@ -4,7 +4,7 @@ import torch
 from torch.autograd import Variable
 
 
-class Dictionary(object):
+class Dictionary:
     def __init__(self):
         self.word2idx = {}
         self.idx2word = []
@@ -19,7 +19,7 @@ class Dictionary(object):
         return len(self.idx2word)
 
 
-class Corpus(object):
+class Corpus:
     def __init__(self, path):
         self.dictionary = Dictionary()
         self.train = self.tokenize(os.path.join(path, 'train.txt'))
