@@ -1829,6 +1829,19 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=1, callbacks=[mock_cb])
         net.fit(*data)
 
+    def test_callback_on_grad_computed(self, net_cls, module_cls, data):
+
+        module = module_cls()
+        expected_names = set(name for name, _ in module.named_parameters())
+
+        def on_grad_computed(*args, named_parameters, **kwargs):
+            names = set(name for name, _ in named_parameters)
+            assert expected_names == names
+
+        mock_cb = Mock(on_grad_computed=on_grad_computed)
+        net = net_cls(module, max_epochs=1, callbacks=[mock_cb])
+        net.fit(*data)
+
     @pytest.mark.parametrize('training', [True, False])
     def test_no_grad_during_evaluation_unless_training(
             self, net_cls, module_cls, data, training):
