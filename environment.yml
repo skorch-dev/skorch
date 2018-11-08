@@ -6,7 +6,7 @@ dependencies:
 - mkl
 - numpy=1.13.1=py36_0
 - openssl=1.0.2l=0
-- pip=9.0.1=py36_1
+- pip=10.0.1
 - python=3.6.2=0
 - readline=6.2=2
 - scikit-learn>=0.19.0
@@ -14,7 +14,7 @@ dependencies:
 - setuptools=27.2.0=py36_0
 - sqlite=3.13.0=0
 - tk=8.5.18=0
-- wheel=0.29.0=py36_0
+- wheel=0.32.2
 - xz=5.2.2=1
 - zlib=1.2.8=3
 - tqdm=4.14.0
