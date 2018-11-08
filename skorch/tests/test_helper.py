@@ -171,6 +171,7 @@ class TestSliceDict:
         print(gs.best_score_, gs.best_params_)
 
 
+# TODO: remove in 0.5.0
 class TestFilterParameterGroupsRequiresGrad():
 
     @pytest.fixture
@@ -187,7 +188,8 @@ class TestFilterParameterGroupsRequiresGrad():
             'params': [torch.zeros(1, requires_grad=True)]
         }]
 
-        filter_pgroups = list(filter_requires_grad(pgroups))
+        with pytest.warns(DeprecationWarning):
+            filter_pgroups = list(filter_requires_grad(pgroups))
         assert len(filter_pgroups) == 2
         assert len(list(filter_pgroups[0]['params'])) == 2
         assert len(list((filter_pgroups[1]['params']))) == 1
@@ -204,7 +206,8 @@ class TestFilterParameterGroupsRequiresGrad():
             'params': [torch.zeros(1, requires_grad=False)]
         }]
 
-        filter_pgroups = list(filter_requires_grad(pgroups))
+        with pytest.warns(DeprecationWarning):
+            filter_pgroups = list(filter_requires_grad(pgroups))
         assert len(filter_pgroups) == 2
         assert len(list(filter_pgroups[0]['params'])) == 1
         assert len(list(filter_pgroups[1]['params'])) == 0
@@ -222,7 +225,8 @@ class TestFilterParameterGroupsRequiresGrad():
             'params': [torch.zeros(1, requires_grad=False)]
         }]
 
-        filter_pgroups = list(filter_requires_grad(pgroups))
+        with pytest.warns(DeprecationWarning):
+            filter_pgroups = list(filter_requires_grad(pgroups))
         assert len(filter_pgroups) == 2
         assert len(list(filter_pgroups[0]['params'])) == 0
         assert len(list(filter_pgroups[1]['params'])) == 0
@@ -230,6 +234,7 @@ class TestFilterParameterGroupsRequiresGrad():
         assert filter_pgroups[0]['lr'] == 0.1
 
 
+# TODO: remove in 0.5.0
 class TestOptimizerParamsRequiresGrad:
 
     @pytest.fixture
@@ -252,8 +257,9 @@ class TestOptimizerParamsRequiresGrad:
             'params': [torch.zeros(1, requires_grad=True)]
         }]
 
-        opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
-        filtered_opt = opt(pgroups, lr=0.2)
+        with pytest.warns(DeprecationWarning):
+            opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
+            filtered_opt = opt(pgroups, lr=0.2)
 
         assert isinstance(filtered_opt, torch.optim.SGD)
         assert len(list(filtered_opt.param_groups[0]['params'])) == 1
@@ -273,17 +279,19 @@ class TestOptimizerParamsRequiresGrad:
             output_units=1,
         )
 
-        opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
-        net = NeuralNetClassifier(
-            module_cls, optimizer=opt, optimizer__momentum=0.9)
+        with pytest.warns(DeprecationWarning):
+            opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
+            net = NeuralNetClassifier(
+                module_cls, optimizer=opt, optimizer__momentum=0.9)
+            net.initialize()
 
-        net.initialize()
         assert isinstance(net.optimizer_, torch.optim.SGD)
         assert len(net.optimizer_.param_groups) == 1
         assert net.optimizer_.param_groups[0]['momentum'] == 0.9
 
     def test_pickle(self, filtered_optimizer, filter_requires_grad):
-        opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
+        with pytest.warns(DeprecationWarning):
+            opt = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
         # Does not raise
         pickle.dumps(opt)
 
