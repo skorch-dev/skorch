@@ -495,7 +495,7 @@ class TestTeeGenerator:
         from skorch.utils import TeeGenerator
         return TeeGenerator
 
-    def test_calls_generator_once(self, lazy_generator_cls):
+    def test_returns_copies_of_generator(self, lazy_generator_cls):
         expected_list = [1, 2, 3]
 
         def list_gen():
