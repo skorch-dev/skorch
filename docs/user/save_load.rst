@@ -139,6 +139,8 @@ and history into a directory named ``'exp1'``.
 
 .. code:: python
 
+    # First run
+
     from skorch.callbacks import Checkpoint, TrainEndCheckpoint
 
     cp = Checkpoint(dirname='exp1')
@@ -216,11 +218,26 @@ checkpoint can be passed to :class:`.LoadInitState` to continue training:
 
     _ = net.fit(X, y)
 
+    # prints
+
+      epoch    train_loss    valid_acc    valid_loss    cp     dur
+    -------  ------------  -----------  ------------  ----  ------
+         11        0.1663       0.9453        0.2166     +  0.0282
+         12        0.1880       0.9403        0.2237        0.0178
+         13        0.1813       0.9353        0.1993     +  0.0161
+         14        0.1744       0.9353        0.1955     +  0.0150
+         15        0.1538       0.9303        0.2053        0.0077
+         16        0.1473       0.9403        0.1947     +  0.0078
+         17        0.1563       0.9254        0.1989        0.0074
+         18        0.1558       0.9403        0.1877     +  0.0075
+         19        0.1534       0.9254        0.2318        0.0074
+         20        0.1779       0.9453        0.1814     +  0.0074
+
 In this run, training started at epoch 11, continuing from the
 end of the first run which ended at epoch 10. We created a new checkpoint
 with ``fn_prefix`` set to ``'from_final'`` to prefix the saved filenames
 with ``'from_final'`` to make sure this checkpoint does not override the
-validation checkpoint.
+checkpoint from the previous run.
 
 Since our ``MyModule`` class allows ``num_units`` to be adjusted,
 we can start a new experiment by changing the ``dirname``:
@@ -237,7 +254,7 @@ we can start a new experiment by changing the ``dirname``:
 
     _ = net.fit(X, y)
 
-    # print
+    # prints
 
       epoch    train_loss    valid_acc    valid_loss    cp     dur
     -------  ------------  -----------  ------------  ----  ------
