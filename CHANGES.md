@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
 ## [Unreleased]
 
 ### Added
@@ -13,17 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Advanced usage notebook][1810261633] now runs on Google Colab
 - [MNIST with scikit-learn and skorch][1811011230] now runs on Google Colab
 - Better user-facing messages when module or optimizer are re-initialized
-- Reduce overhead of `BatchScoring` when using `train_loss_score` or `valid_loss_score` by skipping superfluous inference step (#381)
-- The `on_grad_computed` callback function will yield an iterable for `named_parameters` only when it is used to reduce the run-time overhead of the call (#379)
-
 
 [1810251445]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb
 [1810261633]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb
 [1811011230]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/MNIST.ipynb
 
+### Changed
+
+- Reduce overhead of `BatchScoring` when using `train_loss_score` or `valid_loss_score` by skipping superfluous inference step (#381)
+- The `on_grad_computed` callback function will yield an iterable for `named_parameters` only when it is used to reduce the run-time overhead of the call (#379)
+
 ### Fixed
 
 - Re-initialize optimizer when `set_params` is called with `lr` argument (#372)
+
 
 ## [0.4.0] - 2018-10-24
 
