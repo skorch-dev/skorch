@@ -4,12 +4,10 @@ Only contains tests that are specific for regressor subclasses.
 
 """
 
+from flaky import flaky
 import numpy as np
 import pytest
 import torch
-from torch import nn
-import torch.nn.functional as F
-from flaky import flaky
 
 
 torch.manual_seed(0)

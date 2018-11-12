@@ -25,16 +25,19 @@ def _apply_to_data(data, func, unpack_dict=False):
 
     """
     apply_ = partial(_apply_to_data, func=func, unpack_dict=unpack_dict)
+
     if isinstance(data, dict):
         if unpack_dict:
             return [apply_(v) for v in data.values()]
         return {k: apply_(v) for k, v in data.items()}
-    elif isinstance(data, (list, tuple)):
+
+    if isinstance(data, (list, tuple)):
         try:
             # e.g.list/tuple of arrays
             return [apply_(x) for x in data]
         except TypeError:
             return func(data)
+
     return func(data)
 
 
@@ -160,7 +163,7 @@ class Dataset(torch.utils.data.Dataset):
         return self.transform(Xi, yi)
 
 
-class CVSplit(object):
+class CVSplit:
     """Class that performs the internal train/valid split on a dataset.
 
     The ``cv`` argument here works similarly to the regular sklearn ``cv``

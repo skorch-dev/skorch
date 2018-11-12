@@ -47,7 +47,14 @@ class TestToTensor:
 
         return (x == y).all()
 
+    # pylint: disable=no-method-argument
     def parameters():
+        """Yields data, expected value, and device for tensor conversion
+        test.
+
+        Stops earlier when no cuda device is available.
+
+        """
         device = 'cpu'
         x = torch.zeros((5, 3)).float()
         y = torch.as_tensor([2, 2, 1])

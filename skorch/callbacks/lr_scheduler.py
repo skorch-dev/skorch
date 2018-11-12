@@ -20,6 +20,19 @@ from skorch.callbacks import Callback
 __all__ = ['LRScheduler', 'WarmRestartLR', 'CyclicLR']
 
 
+
+def _check_lr(name, optimizer, lr):
+    """Return one learning rate for each param group."""
+    n = len(optimizer.param_groups)
+    if not isinstance(lr, (list, tuple)):
+        return lr * np.ones(n)
+
+    if len(lr) != n:
+        raise ValueError("{} lr values were passed for {} but there are "
+                         "{} param groups.".format(n, name, len(lr)))
+    return np.array(lr)
+
+
 class LRScheduler(Callback):
     """Callback that sets the learning rate of each
     parameter group according to some policy.
@@ -69,11 +82,13 @@ class LRScheduler(Callback):
         policy_cls = self._get_policy_cls()
         sch = policy_cls(opt, **self.kwargs)
 
+        if hasattr(sch, 'batch_step') and callable(sch.batch_step):
+            step = sch.batch_step
+        else:
+            step = sch.step
         lrs = []
-        has_batch_step = (hasattr(sch, 'batch_step')
-                          and callable(sch.batch_step))
         for _ in range(steps):
-            sch.batch_step() if has_batch_step else sch.step()
+            step()
             lrs.append(sch.get_lr()[0])
 
         return np.array(lrs)
@@ -195,21 +210,11 @@ class WarmRestartLR(_LRScheduler):
             period_mult=2,
             last_epoch=-1
         ):
-        self.min_lr = self._format_lr('min_lr', optimizer, min_lr)
-        self.max_lr = self._format_lr('max_lr', optimizer, max_lr)
+        self.min_lr = _check_lr('min_lr', optimizer, min_lr)
+        self.max_lr = _check_lr('max_lr', optimizer, max_lr)
         self.base_period = base_period
         self.period_mult = period_mult
         super(WarmRestartLR, self).__init__(optimizer, last_epoch)
-
-    def _format_lr(self, name, optimizer, lr):
-        """Return correctly formatted lr for each param group."""
-        if isinstance(lr, (list, tuple)):
-            if len(lr) != len(optimizer.param_groups):
-                raise ValueError("expected {} values for {}, got {}".format(
-                    len(optimizer.param_groups), name, len(lr)))
-            return np.array(lr)
-        else:
-            return lr * np.ones(len(optimizer.param_groups))
 
     def _get_current_lr(self, min_lr, max_lr, period, epoch):
         return min_lr + 0.5*(max_lr-min_lr)*(1+ np.cos(epoch * np.pi/period))
@@ -230,7 +235,7 @@ class WarmRestartLR(_LRScheduler):
         return current_lrs.tolist()
 
 
-class CyclicLR(object):
+class CyclicLR:
     """Sets the learning rate of each parameter group according to
     cyclical learning rate policy (CLR). The policy cycles the learning
     rate between two boundaries with a constant frequency, as detailed in
@@ -331,8 +336,8 @@ class CyclicLR(object):
             raise TypeError('{} is not an Optimizer'.format(
                 type(optimizer).__name__))
         self.optimizer = optimizer
-        self.base_lrs = self._format_lr('base_lr', optimizer, base_lr)
-        self.max_lrs = self._format_lr('max_lr', optimizer, max_lr)
+        self.base_lrs = _check_lr('base_lr', optimizer, base_lr)
+        self.max_lrs = _check_lr('max_lr', optimizer, max_lr)
 
         # TODO: Remove warning in a future release
         if step_size is not None:
@@ -370,16 +375,6 @@ class CyclicLR(object):
 
         self.batch_step(last_batch_idx + 1)
         self.last_batch_idx = last_batch_idx
-
-    def _format_lr(self, name, optimizer, lr):
-        """Return correctly formatted lr for each param group."""
-        if isinstance(lr, (list, tuple)):
-            if len(lr) != len(optimizer.param_groups):
-                raise ValueError("expected {} values for {}, got {}".format(
-                    len(optimizer.param_groups), name, len(lr)))
-            return np.array(lr)
-        else:
-            return lr * np.ones(len(optimizer.param_groups))
 
     def step(self, epoch=None):
         """Not used by ``CyclicLR``, use batch_step instead."""

@@ -72,6 +72,7 @@ class TestUsesPlaceholderY:
     def custom_dataset_cls(self):
         from skorch.dataset import Dataset
         class CustomDataset(Dataset):
+            # pylint: disable=super-init-not-called
             def __init__(self):
                 pass
         return CustomDataset

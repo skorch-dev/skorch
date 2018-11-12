@@ -1030,8 +1030,9 @@ class TestNeuralNet:
                     "Use unique names to correct this.")
         assert str(exc.value) == expected
 
-    def test_callback_unique_naming_avoids_conflicts(self, net_cls,
-            module_cls):
+    def test_callback_unique_naming_avoids_conflicts(
+            self, net_cls, module_cls):
+        # pylint: disable=invalid-name
         from skorch.callbacks import Callback
 
         class cb0(Callback):

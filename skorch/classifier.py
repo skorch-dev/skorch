@@ -217,8 +217,8 @@ def get_neural_net_binary_clf_doc(doc):
     return doc
 
 
-# pylint: disable=missing-docstring
 class NeuralNetBinaryClassifier(NeuralNet):
+    # pylint: disable=missing-docstring
     __doc__ = get_neural_net_binary_clf_doc(NeuralNet.__doc__)
 
     def __init__(

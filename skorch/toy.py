@@ -84,7 +84,7 @@ class MLPModule(nn.Module):
 
         self.sequential = nn.Sequential(*sequence)
 
-    def forward(self, X):
+    def forward(self, X):  # pylint: disable=arguments-differ
         X = self.sequential(X)
         if self.squeeze_output:
             X = X.squeeze(-1)
