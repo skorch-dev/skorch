@@ -32,6 +32,7 @@ from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
+from skorch.setter import optimizer_setter
 
 
 # pylint: disable=too-many-instance-attributes
@@ -493,27 +494,10 @@ class NeuralNet(object):
             for key, val in virtual_kwargs.items():
                 if not fnmatch.fnmatch(key, pattern):
                     continue
-                fn(key, val)
+                fn(self, key, val)
 
     def initialize_virtual_params(self):
         self.virtual_params_ = {}
-
-    def _set_lr_param(self, param, lr, optimizer_attr='optimizer_', optimizer_name='optimizer'):
-        # Extract param group from explicit param group parameter name (if needed)
-        pat = optimizer_name + '__param_groups__(?P<param_group>[0-9])__lr'
-        mat = re.compile(pat).fullmatch(param)
-        param_group = int(mat.groupdict().get('param_group')) if mat else 'all'
-
-        if param_group == 'all':
-            groups = getattr(self, optimizer_attr).param_groups
-        else:
-            groups = [getattr(self, optimizer_attr).param_groups[param_group]]
-
-        for group in groups:
-            group['lr'] = lr
-
-        if param == 'lr':
-            self.lr = lr
 
     def initialize_optimizer(self, triggered_directly=True):
         """Initialize the model optimizer. If ``self.optimizer__lr``
@@ -544,8 +528,8 @@ class NeuralNet(object):
         self.optimizer_ = self.optimizer(*args, **kwargs)
 
         self._register_virtual_param(
-            ['optimizer__param_groups__*__lr', 'optimizer__lr', 'lr'],
-            self._set_lr_param
+            ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
+            optimizer_setter,
         )
 
     def initialize_history(self):

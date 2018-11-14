@@ -859,23 +859,22 @@ class TestNeuralNet:
     @pytest.mark.parametrize('kwargs,expected', [
         ({}, ""),
         (
+            # virtual params should prevent re-initialization
+            {'optimizer__lr': 0.12, 'optimizer__momentum': 0.34},
+            ("")
+        ),
+        (
             {'module__input_units': 12, 'module__hidden_units': 34},
             ("Re-initializing module because the following "
              "parameters were re-set: hidden_units, input_units.\n"
              "Re-initializing optimizer.")
         ),
         (
-            {'optimizer__lr': 0.12, 'optimizer__momentum': 0.34},
-            ("Re-initializing optimizer because the following "
-             "parameters were re-set: momentum.")
-        ),
-        (
             {'module__input_units': 12, 'module__hidden_units': 34,
              'optimizer__momentum': 0.56},
             ("Re-initializing module because the following "
              "parameters were re-set: hidden_units, input_units.\n"
-             "Re-initializing optimizer because the following "
-             "parameters were re-set: momentum.")
+             "Re-initializing optimizer.")
         ),
     ])
     def test_reinitializing_module_optimizer_message(
