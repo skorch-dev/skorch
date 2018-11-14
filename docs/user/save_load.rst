@@ -1,6 +1,109 @@
+.. _save_load:
+
 ==================
 Saving and Loading
 ==================
+
+General approach
+----------------
+
+skorch provides several ways to persist your model. First it is
+possible to store the model using Python's ``pickle`` function. This
+saves the whole model, including hyperparameters. This is useful when
+you don't want to initialize your model before loading its parameters,
+or when your :class:`.NeuralNet` is part of an sklearn
+:class:`~sklearn.pipeline.Pipeline`:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule,
+        criterion=torch.nn.NLLLoss,
+    )
+
+    model = Pipeline([
+        ('my-features', get_features()),
+        ('net', net),
+    ])
+    model.fit(X, y)
+
+    # saving
+    with open('some-file.pkl', 'wb') as f:
+        pickle.dump(model, f)
+
+    # loading
+    with open('some-file.pkl', 'rb') as f:
+        model = pickle.load(f)
+
+The disadvantage of pickling is that if your underlying code changes,
+unpickling might raise errors. Also, some Python code (e.g. lambda
+functions) cannot be pickled.
+
+For this reason, we provide a second method for persisting your model.
+To use it, call the :func:`~skorch.net.NeuralNet.save_params` and
+:func:`~skorch.net.NeuralNet.load_params` method on
+:class:`.NeuralNet`. Under the hood, this saves the ``module``\'s
+``state_dict``, i.e. only the weights and biases of the ``module``.
+This is more robust to changes in the code but requires you to
+initialize a :class:`.NeuralNet` to load the parameters again:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule,
+        criterion=torch.nn.NLLLoss,
+    )
+
+    model = Pipeline([
+        ('my-features', get_features()),
+        ('net', net),
+    ])
+    model.fit(X, y)
+
+    net.save_params(f_params='some-file.pkl')
+
+    new_net = NeuralNet(
+        module=MyModule,
+        criterion=torch.nn.NLLLoss,
+    )
+    new_net.initialize()  # This is important!
+    new_net.load_params(f_params='some-file.pkl')
+
+In addition to saving the model parameters, the history and optimizer state can
+be saved by including the `f_history` and `f_optimizer` keywords to
+:func:`~skorch.net.NeuralNet.save_params` and
+:func:`~skorch.net.NeuralNet.load_params` on
+:class:`.NeuralNet`. This feature can be used to
+continue training:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule
+        criterion=torch.nn.NLLLoss,
+    )
+
+    net.fit(X, y, epochs=2) # Train for 2 epochs
+
+    net.save_params(
+        f_params='model.pkl', f_optimizer='opt.pkl', f_history='history.json')
+
+    new_net = NeuralNet(
+        module=MyModule
+        criterion=torch.nn.NLLLoss,
+    )
+    new_net.initialize() # This is important!
+    new_net.load_params(
+        f_params='model.pkl', f_optimizer='opt.pkl', f_history='history.json')
+
+    new_net.fit(X, y, epochs=2) # Train for another 2 epochs
+
+.. note:: In order to use this feature, the history
+    must only contain JSON encodable Python data structures.
+    Numpy and PyTorch types should not be in the history.
+
+Using callbacks
+---------------
 
 Skorch provides callbacks: :class:`.Checkpoint`, :class:`.TrainEndCheckpoint`,
 and :class:`.LoadInitState` to handle saving and loading models during
@@ -35,6 +138,8 @@ configure the checkpoint to save the model parameters, optimizer,
 and history into a directory named ``'exp1'``.
 
 .. code:: python
+
+    # First run
 
     from skorch.callbacks import Checkpoint, TrainEndCheckpoint
 
@@ -113,11 +218,26 @@ checkpoint can be passed to :class:`.LoadInitState` to continue training:
 
     _ = net.fit(X, y)
 
+    # prints
+
+      epoch    train_loss    valid_acc    valid_loss    cp     dur
+    -------  ------------  -----------  ------------  ----  ------
+         11        0.1663       0.9453        0.2166     +  0.0282
+         12        0.1880       0.9403        0.2237        0.0178
+         13        0.1813       0.9353        0.1993     +  0.0161
+         14        0.1744       0.9353        0.1955     +  0.0150
+         15        0.1538       0.9303        0.2053        0.0077
+         16        0.1473       0.9403        0.1947     +  0.0078
+         17        0.1563       0.9254        0.1989        0.0074
+         18        0.1558       0.9403        0.1877     +  0.0075
+         19        0.1534       0.9254        0.2318        0.0074
+         20        0.1779       0.9453        0.1814     +  0.0074
+
 In this run, training started at epoch 11, continuing from the
 end of the first run which ended at epoch 10. We created a new checkpoint
 with ``fn_prefix`` set to ``'from_final'`` to prefix the saved filenames
 with ``'from_final'`` to make sure this checkpoint does not override the
-validation checkpoint.
+checkpoint from the previous run.
 
 Since our ``MyModule`` class allows ``num_units`` to be adjusted,
 we can start a new experiment by changing the ``dirname``:
@@ -134,7 +254,7 @@ we can start a new experiment by changing the ``dirname``:
 
     _ = net.fit(X, y)
 
-    # print
+    # prints
 
       epoch    train_loss    valid_acc    valid_loss    cp     dur
     -------  ------------  -----------  ------------  ----  ------

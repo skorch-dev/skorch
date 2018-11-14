@@ -8,15 +8,17 @@ from collections.abc import Sequence
 from contextlib import contextmanager
 from enum import Enum
 from functools import partial
+from itertools import tee
 import pathlib
 import warnings
 
 import numpy as np
 from sklearn.utils import safe_indexing
-from skorch.exceptions import DeviceWarning
 import torch
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
+
+from skorch.exceptions import DeviceWarning
 
 
 class Ansi(Enum):
@@ -65,18 +67,17 @@ def to_tensor(X, device):
 
     if is_torch_data_type(X):
         return X.to(device)
-    elif isinstance(X, dict):
+    if isinstance(X, dict):
         return {key: to_tensor_(val) for key, val in X.items()}
-    elif isinstance(X, (list, tuple)):
+    if isinstance(X, (list, tuple)):
         return [to_tensor_(x) for x in X]
-    elif np.isscalar(X):
+    if np.isscalar(X):
         return torch.as_tensor(X, device=device)
-    elif isinstance(X, Sequence):
+    if isinstance(X, Sequence):
         return torch.as_tensor(np.array(X), device=device)
-    elif isinstance(X, np.ndarray):
+    if isinstance(X, np.ndarray):
         return torch.as_tensor(X, device=device)
-    else:
-        raise TypeError("Cannot convert this data type to a torch tensor.")
+    raise TypeError("Cannot convert this data type to a torch tensor.")
 
 
 def to_numpy(X):
@@ -479,3 +480,17 @@ def set_optimizer_param(optimizer, param_group, param_name, value):
 
     for group in groups:
         group[param_name] = value
+
+
+class TeeGenerator:
+    """Stores a generator and calls ``tee`` on it to create new generators
+    when ``TeeGenerator`` is iterated over to let you iterate over the given
+    generator more than once.
+
+    """
+    def __init__(self, gen):
+        self.gen = gen
+
+    def __iter__(self):
+        self.gen, it = tee(self.gen)
+        yield from it

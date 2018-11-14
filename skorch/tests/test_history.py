@@ -170,6 +170,7 @@ class TestHistory:
 
     def test_history_slice_beyond_batches_but_key_not_batches(self, history):
         with pytest.raises(KeyError) as exc:
+            # pylint: disable=pointless-statement
             history[:, 'not-batches', 0]
 
         msg = exc.value.args[0]
@@ -185,6 +186,7 @@ class TestHistory:
         # will be invalid in the future.
         key = slice(None), 'batches', 'loss', slice(None)
         with pytest.raises(KeyError) as exc:
+            # pylint: disable=pointless-statement
             history[key]
 
         msg = exc.value.args[0]
@@ -198,6 +200,7 @@ class TestHistory:
         # will be invalid in the future.
         key = slice(None), 'batches', 'loss'
         with pytest.warns(DeprecationWarning) as warning:
+            # pylint: disable=pointless-statement
             history[key]
 
         msg = warning[0].message.args[0]
@@ -210,6 +213,7 @@ class TestHistory:
     def test_history_with_invalid_epoch_key(self, history):
         key = slice(None), 'not-batches'
         with pytest.raises(KeyError) as exc:
+            # pylint: disable=pointless-statement
             history[key]
 
         msg = exc.value.args[0]
@@ -219,6 +223,7 @@ class TestHistory:
 
     def test_history_too_many_indices(self, history):
         with pytest.raises(KeyError) as exc:
+            # pylint: disable=pointless-statement
             history[:, 'batches', :, 'train_loss', :]
 
         msg = exc.value.args[0]

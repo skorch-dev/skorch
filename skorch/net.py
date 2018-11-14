@@ -22,6 +22,7 @@ from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
 from skorch.utils import FirstStepAccumulator
+from skorch.utils import TeeGenerator
 from skorch.utils import duplicate_items
 from skorch.utils import get_map_location
 from skorch.utils import is_dataset
@@ -35,7 +36,7 @@ from skorch.setter import optimizer_setter
 
 
 # pylint: disable=too-many-instance-attributes
-class NeuralNet(object):
+class NeuralNet:
     # pylint: disable=anomalous-backslash-in-string
     """NeuralNet base class.
 
@@ -609,7 +610,7 @@ class NeuralNet(object):
 
         self.notify(
             'on_grad_computed',
-            named_parameters=list(self.module_.named_parameters()),
+            named_parameters=TeeGenerator(self.module_.named_parameters()),
             X=Xi,
             y=yi
         )

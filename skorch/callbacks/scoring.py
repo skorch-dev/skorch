@@ -14,6 +14,8 @@ from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 from skorch.utils import check_indexing
+from skorch.utils import train_loss_score
+from skorch.utils import valid_loss_score
 
 
 __all__ = ['BatchScoring', 'EpochScoring']
@@ -46,10 +48,10 @@ def convert_sklearn_metric_function(scoring):
     if callable(scoring):
         module = getattr(scoring, '__module__', None)
         if (
-            hasattr(module, 'startswith') and
-            module.startswith('sklearn.metrics.') and
-            not module.startswith('sklearn.metrics.scorer') and
-            not module.startswith('sklearn.metrics.tests.')
+                hasattr(module, 'startswith') and
+                module.startswith('sklearn.metrics.') and
+                not module.startswith('sklearn.metrics.scorer') and
+                not module.startswith('sklearn.metrics.tests.')
         ):
             return make_scorer(scoring)
     return scoring
@@ -183,6 +185,9 @@ class BatchScoring(ScoringBase):
 
     def on_batch_end(self, net, X, y, training, **kwargs):
         if training != self.on_train:
+            return
+
+        if self.scoring in [train_loss_score, valid_loss_score]:
             return
 
         y_preds = [kwargs['y_pred']]
