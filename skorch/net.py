@@ -3,7 +3,6 @@
 import fnmatch
 from itertools import chain
 from collections import OrderedDict
-import re
 import tempfile
 import warnings
 
