@@ -8,6 +8,7 @@ import warnings
 
 from skorch.utils import _make_split
 from skorch.utils import _make_optimizer
+from skorch.cli import parse_args
 
 
 class SliceDict(dict):
