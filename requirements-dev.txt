@@ -4,7 +4,7 @@ numpydoc
 openpyxl
 pandas
 pylint
-pytest
+pytest>=3.4
 pytest-cov
 sphinx
 sphinx_rtd_theme
