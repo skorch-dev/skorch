@@ -15,6 +15,14 @@ from torch import nn
 from torch.nn import RReLU
 
 
+fire_installed = True
+try:
+    import fire
+except ImportError:
+    fire_installed = False
+
+
+@pytest.mark.skipif(not fire_installed, reason='fire libarary not installed')
 class TestCli:
     @pytest.fixture
     def resolve_dotted_name(self):

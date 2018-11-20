@@ -24,6 +24,7 @@ install:
   - conda env create -q -n skorch-env -f environment.yml python=${TRAVIS_PYTHON_VERSION}
   - source activate skorch-env
   - conda install --file=requirements-dev.txt
+  - pip install fire
   - python setup.py install
   - conda install -c pytorch 'pytorch-cpu>=0.4.1'
 script:
