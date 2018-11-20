@@ -32,6 +32,62 @@ the numpydoc_ specification are available, there is also an
 comprehensive help for the user. Overall, this allows you to make your
 work reproducible without the usual hassle.
 
+There is an example_ in the skorch repository that shows how to use
+the CLI tools. Below is a snippet that shows the output created by the
+help function without writing a single line of argument parsing:
+
+.. code:: bash
+
+    $ python examples/cli/train.py pipeline --help
+
+    <SelectKBest> options:
+       --select__score_func : callable
+         Function taking two arrays X and y, and returning a pair of arrays
+         (scores, pvalues) or a single array with scores.
+         Default is f_classif (see below "See also"). The default function only
+         works with classification tasks.
+       --select__k : int or "all", optional, default=10
+         Number of top features to select.
+         The "all" option bypasses selection, for use in a parameter search.
+
+    ...
+
+    <NeuralNetClassifier> options:
+       --net__module : torch module (class or instance)
+         A PyTorch :class:`~torch.nn.Module`. In general, the
+         uninstantiated class should be passed, although instantiated
+         modules will also work.
+       --net__criterion : torch criterion (class, default=torch.nn.NLLLoss)
+         Negative log likelihood loss. Note that the module should return
+         probabilities, the log is applied during ``get_loss``.
+       --net__optimizer : torch optim (class, default=torch.optim.SGD)
+         The uninitialized optimizer (update rule) used to optimize the
+         module
+       --net__lr : float (default=0.01)
+         Learning rate passed to the optimizer. You may use ``lr`` instead
+         of using ``optimizer__lr``, which would result in the same outcome.
+       --net__max_epochs : int (default=10)
+         The number of epochs to train for each ``fit`` call. Note that you
+         may keyboard-interrupt training at any time.
+       --net__batch_size : int (default=128)
+         ...
+       --net__verbose : int (default=1)
+         Control the verbosity level.
+       --net__device : str, torch.device (default='cpu')
+         The compute device to be used. If set to 'cuda', data in torch
+         tensors will be pushed to cuda tensors before being sent to the
+         module.
+
+    <MLPClassifier> options:
+       --net__module__hidden_units : int (default=10)
+         Number of units in hidden layers.
+       --net__module__num_hidden : int (default=1)
+         Number of hidden layers.
+       --net__module__nonlin : torch.nn.Module instance (default=torch.nn.ReLU())
+         Non-linearity to apply after hidden layers.
+       --net__module__dropout : float (default=0)
+         Dropout rate. Dropout is applied between layers.
+
 Installation
 ^^^^^^^^^^^^
 
@@ -97,3 +153,4 @@ as usual).
 
 .. _fire: https://github.com/google/python-fire
 .. _numpydoc: https://github.com/numpy/numpydoc
+.. _example: https://github.com/dnouri/skorch/tree/master/examples/cli

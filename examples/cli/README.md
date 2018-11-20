@@ -112,11 +112,11 @@ with the defaults.
 Example with just the net and some non-defaults:
 
 ```bash
-python train.py net --n_samples=1000 --output_file 'model.pkl' --lr 0.1 --max_epochs 5 --device 'cuda' --module__hidden_units 50 --module__nonlin 'torch.nn.RReLU(0.1, upper=0.4)' --net__callbacks__valid_acc__on_train True
+python train.py net --n_samples 1000 --output_file 'model.pkl' --lr 0.1 --max_epochs 5 --device 'cuda' --module__hidden_units 50 --module__nonlin 'torch.nn.RReLU(0.1, upper=0.4)' --callbacks__valid_acc__on_train --callbacks__valid_acc__name train_acc
 ```
 
 Example with an sklearn pipeline:
 
 ```bash
-python train.py pipeline --n_samples=1000 --net__lr 0.1 --net__module__nonlin 'torch.nn.LeakyReLU()' --scale__minmax__feature_range '(-1, 1)' --scale__normalize__norm l1
+python train.py pipeline --n_samples 1000 --net__lr 0.1 --net__module__nonlin 'torch.nn.LeakyReLU()' --scale__minmax__feature_range '(-1, 1)' --scale__normalize__norm l1
 ```
