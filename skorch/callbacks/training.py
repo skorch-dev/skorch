@@ -650,9 +650,12 @@ class TrainEndCheckpoint(Checkpoint):
 
       Supports the same format specifiers as ``f_params``.
 
-    fn_prefix: str (default='train_end_')
+    fn_prefix: str (default='final_')
       Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
       or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
+
+        ``fn_prefix`` default value will change from 'final_'
+        to 'train_end_' in 0.5.0.
 
     dirname: str (default='')
       Directory where files are stored.
@@ -668,10 +671,18 @@ class TrainEndCheckpoint(Checkpoint):
             f_optimizer='optimizer.pt',
             f_history='history.json',
             f_pickle=None,
-            fn_prefix='train_end_',
+            fn_prefix=None,
             dirname='',
             sink=noop,
     ):
+
+        # TODO: Remove warning in release 0.5.0
+        if fn_prefix is None:
+            warnings.warn(
+                "'fn_prefix' default value will change from 'final_' "
+                "to 'train_end_' in 0.5.0")
+            fn_prefix = 'final_'
+
         super().__init__(
             monitor=None,
             f_params=f_params,

@@ -839,7 +839,8 @@ class TestTrainEndCheckpoint:
             self, save_params_mock, net_cls, finalcheckpoint_cls, data):
         sink = Mock()
         net = net_cls(callbacks=[
-            finalcheckpoint_cls(sink=sink, dirname='exp1')
+            finalcheckpoint_cls(
+                sink=sink, dirname='exp1', fn_prefix='train_end_')
         ])
         net.fit(*data)
 
@@ -858,7 +859,8 @@ class TestTrainEndCheckpoint:
             finalcheckpoint_cls(
                 sink=sink, dirname='exp1',
                 f_params='model_{last_epoch[epoch]}.pt',
-                f_optimizer='optimizer_{last_epoch[epoch]}.pt'
+                f_optimizer='optimizer_{last_epoch[epoch]}.pt',
+                fn_prefix='train_end_'
             )
         ])
         net.fit(*data)

@@ -144,7 +144,7 @@ and history into a directory named ``'exp1'``.
     from skorch.callbacks import Checkpoint, TrainEndCheckpoint
 
     cp = Checkpoint(dirname='exp1')
-    train_end_cp = TrainEndCheckpoint(dirname='exp1')
+    train_end_cp = TrainEndCheckpoint(dirname='exp1', fn_prefix='train_end_')
     net = NeuralNetClassifier(
         MyModule, lr=0.5, callbacks=[cp, train_end_cp]
     )
