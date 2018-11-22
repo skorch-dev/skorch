@@ -680,7 +680,7 @@ class TrainEndCheckpoint(Checkpoint):
         if fn_prefix is None:
             warnings.warn(
                 "'fn_prefix' default value will change from 'final_' "
-                "to 'train_end_' in 0.5.0")
+                "to 'train_end_' in 0.5.0", FutureWarning)
             fn_prefix = 'final_'
 
         super().__init__(
