@@ -1,8 +1,6 @@
 """Setter functions for virtual params such as ``optimizer__lr``."""
 import re
 
-from skorch.utils import set_optimizer_param
-
 
 def _extract_param_name_and_group(optimizer_name, param):
     """Extract param group and param name from the given parameter name.
@@ -34,6 +32,19 @@ def _extract_param_name_and_group(optimizer_name, param):
     return param_group, param_name
 
 
+def _set_optimizer_param(optimizer, param_group, param_name, value):
+    """Set a parameter on an all or a specific parameter group of an
+    optimizer instance. To select all param groups, use ``param_group='all'``.
+    """
+    if param_group == 'all':
+        groups = optimizer.param_groups
+    else:
+        groups = [optimizer.param_groups[int(param_group)]]
+
+    for group in groups:
+        group[param_name] = value
+
+
 def optimizer_setter(
         net, param, value, optimizer_attr='optimizer_', optimizer_name='optimizer'
     ):
@@ -48,7 +59,7 @@ def optimizer_setter(
         param_group, param_name = _extract_param_name_and_group(
             optimizer_name, param)
 
-    set_optimizer_param(
+    _set_optimizer_param(
         optimizer=getattr(net, optimizer_attr),
         param_group=param_group,
         param_name=param_name,

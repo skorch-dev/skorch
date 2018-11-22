@@ -469,19 +469,6 @@ def get_map_location(target_device, fallback_device='cpu'):
     return map_location
 
 
-def set_optimizer_param(optimizer, param_group, param_name, value):
-    """Set a parameter on an all or a specific parameter group of an
-    optimizer instance. To select all param groups, use ``param_group='all'``.
-    """
-    if param_group == 'all':
-        groups = optimizer.param_groups
-    else:
-        groups = [optimizer.param_groups[int(param_group)]]
-
-    for group in groups:
-        group[param_name] = value
-
-
 class TeeGenerator:
     """Stores a generator and calls ``tee`` on it to create new generators
     when ``TeeGenerator`` is iterated over to let you iterate over the given
