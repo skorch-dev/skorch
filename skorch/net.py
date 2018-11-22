@@ -21,6 +21,7 @@ from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
+from skorch.setter import optimizer_setter
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import TeeGenerator
 from skorch.utils import duplicate_items
@@ -32,7 +33,6 @@ from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
-from skorch.setter import optimizer_setter
 
 
 # pylint: disable=too-many-instance-attributes

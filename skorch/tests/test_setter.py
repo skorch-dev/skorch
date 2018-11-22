@@ -53,7 +53,7 @@ class TestOptimizerSetter:
         ('lr', 0.3),
     ])
     def test_only_specific_param_group_updated(self, setter, net_optim_dummy,
-            group, sub_param, value):
+                                               group, sub_param, value):
         pgroups = net_optim_dummy.optimizer_.param_groups
         param = 'optimizer__param_groups__{}__{}'.format(group, sub_param)
 
