@@ -50,6 +50,9 @@ def optimizer_setter(
     ):
     """Handle setting of optimizer parameters such as learning rate and
     parameter group specific parameters such as momentum.
+
+    The parameters ``optimizer_attr`` and ``optimizer_name`` can be specified
+    if there exists more than one optimizer (e.g., in seq2seq models).
     """
     if param == 'lr':
         param_group = 'all'
