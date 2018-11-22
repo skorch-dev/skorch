@@ -21,7 +21,7 @@ def _extract_param_name_and_group(optimizer_name, param):
     match = match_1 or match_2
 
     if not match:
-        raise AttributeError('Invalid parameter "{}" for optimizer {}'.format(
+        raise AttributeError('Invalid parameter "{}" for optimizer "{}"'.format(
             param,
             optimizer_name,
         ))

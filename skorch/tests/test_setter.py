@@ -44,8 +44,13 @@ class TestOptimizerSetter:
         # should be 'param_groups' instead
         param = 'optimizer__param_group__0__lr'
         value = 0.1
-        with pytest.raises(AttributeError):
+        with pytest.raises(AttributeError) as e:
             setter(net_optim_dummy, param, value)
+
+        assert e.value.args[0] == (
+            'Invalid parameter "{param}" for optimizer "optimizer"'
+            .format(param=param)
+        )
 
     @pytest.mark.parametrize('group', [0, 1])
     @pytest.mark.parametrize('sub_param, value', [
