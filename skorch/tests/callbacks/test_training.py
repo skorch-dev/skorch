@@ -846,9 +846,9 @@ class TestTrainEndCheckpoint:
         assert save_params_mock.call_count == 3
         assert sink.call_args == call("Final checkpoint triggered")
         save_params_mock.assert_has_calls([
-            call(f_params='exp1/final_params.pt'),
-            call(f_optimizer='exp1/final_optimizer.pt'),
-            call(f_history='exp1/final_history.json')
+            call(f_params='exp1/train_end_params.pt'),
+            call(f_optimizer='exp1/train_end_optimizer.pt'),
+            call(f_history='exp1/train_end_history.json')
         ])
 
     def test_saves_at_end_with_custom_formatting(
@@ -866,7 +866,7 @@ class TestTrainEndCheckpoint:
         assert save_params_mock.call_count == 3
         assert sink.call_args == call("Final checkpoint triggered")
         save_params_mock.assert_has_calls([
-            call(f_params='exp1/final_model_10.pt'),
-            call(f_optimizer='exp1/final_optimizer_10.pt'),
-            call(f_history='exp1/final_history.json')
+            call(f_params='exp1/train_end_model_10.pt'),
+            call(f_optimizer='exp1/train_end_optimizer_10.pt'),
+            call(f_history='exp1/train_end_history.json')
         ])

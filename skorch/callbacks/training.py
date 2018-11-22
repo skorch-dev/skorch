@@ -600,16 +600,16 @@ class LoadInitState(Callback):
 
 class TrainEndCheckpoint(Checkpoint):
     """Saves the model parameters, optimizer state, and history at the end of
-    training. The default ``fn_prefix`` is 'final_'.
+    training. The default ``fn_prefix`` is 'train_end_'.
 
     Examples
     --------
 
     Consider running the following example multiple times:
 
-    >>> final_cp = TrainEndCheckpoint(dirname='exp1')
-    >>> load_state = LoadInitState(final_cp)
-    >>> net = NeuralNet(..., callbacks=[final_cp, load_state])
+    >>> train_end_cp = TrainEndCheckpoint(dirname='exp1')
+    >>> load_state = LoadInitState(train_end_cp)
+    >>> net = NeuralNet(..., callbacks=[train_end_cp, load_state])
     >>> net.fit(X, y)
 
     After the first run, model parameters, optimizer state, and history are
@@ -650,7 +650,7 @@ class TrainEndCheckpoint(Checkpoint):
 
       Supports the same format specifiers as ``f_params``.
 
-    fn_prefix: str (default='final_')
+    fn_prefix: str (default='train_end_')
       Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
       or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
 
@@ -668,7 +668,7 @@ class TrainEndCheckpoint(Checkpoint):
             f_optimizer='optimizer.pt',
             f_history='history.json',
             f_pickle=None,
-            fn_prefix='final_',
+            fn_prefix='train_end_',
             dirname='',
             sink=noop,
     ):
