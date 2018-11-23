@@ -65,7 +65,7 @@ link](https://github.com/google/python-fire).
 
 Almost all arguments should work out of the box. Therefore, you get
 command line arguments for the number of epochs, learning rate, batch
-size, etc. for free. Morevoer, you can access the module paremeters
+size, etc. for free. Moreover, you can access the module parameters
 with the double-underscore notation as usual with skorch
 (e.g. `--module__num_units 100`). This should cover almost all common
 cases.
