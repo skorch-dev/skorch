@@ -33,11 +33,11 @@ Resources
 - `Documentation <https://skorch.readthedocs.io/en/latest/?badge=latest>`_
 - `Source Code <https://github.com/dnouri/skorch/>`_
 
-=======
-Example
-=======
+========
+Examples
+========
 
-To see a more elaborate example, look `here
+To see more elaborate examples, look `here
 <https://github.com/dnouri/skorch/tree/master/notebooks/README.md>`__.
 
 .. code:: python
@@ -117,6 +117,8 @@ With grid search
 ============
 Installation
 ============
+
+skorch requires Python 3.5 or higher.
 
 pip installation
 ================
