@@ -26,8 +26,24 @@ torch.manual_seed(0)
 torch.cuda.manual_seed(0)
 
 
-N_FEATURES = 20  # number of input features
-N_CLASSES = 2  # number of classes
+# number of input features
+N_FEATURES = 20
+
+# number of classes
+N_CLASSES = 2
+
+# custom defaults for net
+DEFAULTS_NET = {
+    'batch_size': 256,
+    'module__hidden_units': 30,
+}
+
+# custom defaults for pipeline
+DEFAULTS_PIPE = {
+    'scale__minmax__feature_range': (-1, 1),
+    'net__batch_size': 256,
+    'net__module__hidden_units': 30,
+}
 
 
 class MLPClassifier(nn.Module):
@@ -137,11 +153,14 @@ def net(n_samples=100, output_file=None, **kwargs):
     output_file : str (default=None)
       If not None, file name used to save the model.
 
+    kwargs : dict
+      Additional model parameters.
+
     """
 
     model = get_model(with_pipeline=False)
     # important: wrap the model with the parsed arguments
-    parsed = parse_args(kwargs)
+    parsed = parse_args(kwargs, defaults=DEFAULTS_NET)
     model = parsed(model)
 
     X, y = get_data(n_samples=n_samples)
@@ -166,11 +185,14 @@ def pipeline(n_samples=100, output_file=None, **kwargs):
     output_file : str (default=None)
       If not None, file name used to save the model.
 
+    kwargs : dict
+      Additional model parameters.
+
     """
 
     model = get_model(with_pipeline=True)
     # important: wrap the model with the parsed arguments
-    parsed = parse_args(kwargs)
+    parsed = parse_args(kwargs, defaults=DEFAULTS_PIPE)
     model = parsed(model)
 
     X, y = get_data(n_samples=n_samples)

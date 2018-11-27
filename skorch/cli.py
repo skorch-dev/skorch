@@ -30,11 +30,70 @@ except ImportError:
 __all__ = ['parse_args']
 
 
+# matches: bar(), foo.bar(), foo.bar(baz)
 P_PARAMS = re.compile(r"(?P<name>^[a-zA-Z][a-zA-Z0-9_\.]*)(?P<params>\(.*\)$)")
+
+P_DEFAULTS = re.compile(
+    # standard, matches: int (default=123)
+    r"(.+\s\(default\s?\=\s?(?P<default>.+)\)$)|"
+    # no parens, matches: int, default=123
+    r"(.+\sdefault\s?\=\s?(?P<default_np>.+)$)|"
+    # no equal, matches: int, default 123
+    r"(.+default\s(?P<default_ne>.+))|"
+    # 'by-default', matches: str (l2 by default)
+    r"[^\(]+\((?P<default_bd>[^\"\']+)(\sby\sdefault\)?)|"
+    # 'by-default-double-tick', matches: "l1" or "l2" ("l2" by default)
+    r"[^\(]+\(\"(?P<default_bd_dt>.+)\"\sby\sdefault\)?|"
+    # 'by-default-single-tick', matches: 'l1' or 'l2' ('l2' by default)
+    r"[^\(]+\(\'(?P<default_bd_st>.+)\'\sby\sdefault\)?"
+)
 
 
 def _param_split(params):
     return (p.strip(' ,') for p in shlex.split(params))
+
+
+def _get_span(m):
+    # raises IndexError if no span
+    i = 0
+    span_init = m.span(0)
+    span = span_init
+    while (span == span_init) or (span == (-1, -1)):
+        i += 1
+        span = m.span(i)
+    return span
+
+
+def _substitute_default(s, new_value):
+    """Replaces the default value in a parameter docstring by a new value.
+
+    The docstring must conform to the numpydoc style and have the form
+    "something (keyname=<value-to-replace>)"
+
+    If ``new_value`` is None, return the input untouched.
+
+    Examples
+    --------
+    >>> _replace_default('int (default=128)', 256)
+    'int (default=256)'
+    >>> _replace_default('nonlin (default = ReLU())', nn.Hardtanh(1, 2))
+    'nonlin (default = Hardtanh(min_val=1, max_val=2))'
+
+    """
+    if new_value is None:
+        return s
+
+    match = P_DEFAULTS.match(s)
+    if not match:
+        return s
+
+    # ideally, we would like to replace the 'default' group directly
+    # but I haven't found a way to do this
+    try:
+        i, j = _get_span(match)
+    except IndexError:
+        pass
+    return '{}{}{}'.format(s[:i], new_value, s[j:])
 
 
 def _parse_args_kwargs(params):
@@ -155,52 +214,69 @@ def _extract_estimator_cls(estimator):
     return estimator
 
 
-def _yield_printable_params(param, prefix):
+def _yield_printable_params(param, prefix, defaults):
     name, default, descr = param
-    printable = prefix + name
-    printable += ' : ' + default
+    name = name if not prefix else '__'.join((prefix, name))
+    default = _substitute_default(default, defaults.get(name))
+
+    printable = '--{} : {}'.format(name, default)
     yield printable
 
     for line in descr:
         yield line
 
 
-def _get_help_for_params(params, prefix='--', indent=2):
+def _get_help_for_params(params, prefix='--', defaults=None, indent=2):
+    defaults = defaults or {}
     for param in params:
-        first, *rest = tuple(_yield_printable_params(param, prefix=prefix))
+        first, *rest = tuple(_yield_printable_params(
+            param, prefix=prefix, defaults=defaults))
         yield " " * indent + first
         for line in rest:
             yield " " * 2 * indent + line
 
 
-def _get_help_for_estimator(prefix, estimator):
+def _get_help_for_estimator(prefix, estimator, defaults=None):
     """Yield help lines for the given estimator and prefix."""
+    defaults = defaults or {}
     estimator = _extract_estimator_cls(estimator)
     yield "<{}> options:".format(estimator.__name__)
 
     doc = ClassDoc(estimator)
-    if prefix:
-        prefix = '--' + prefix + '__'
-    else:
-        prefix = '--'
-
-    yield from _get_help_for_params(doc['Parameters'], prefix=prefix)
+    yield from _get_help_for_params(
+        doc['Parameters'],
+        prefix=prefix,
+        defaults=defaults,
+    )
     yield ''  # add a newline line between estimators
 
 
-def print_help(model):
-    """Print help for the command line arguments of the given model."""
+def print_help(model, defaults=None):
+    """Print help for the command line arguments of the given model.
+
+    Parameters
+    ----------
+    model : sklearn.base.BaseEstimator
+      The basic model, e.g. a ``NeuralNet`` or sklearn ``Pipeline``.
+
+    defautls : dict or None (default=None)
+      Optionally, change the default values to use custom
+      defaults. Commandline arguments have precedence over defaults.
+
+    """
+    defaults = defaults or {}
+
     print("This is the help for the model-specific parameters.")
     print("To invoke help for the remaining options, run:")
     print("python {} -- --help".format(sys.argv[0]))
     print()
 
-    lines = (_get_help_for_estimator(prefix, estimator) for
+    lines = (_get_help_for_estimator(prefix, estimator, defaults=defaults) for
              prefix, estimator in _yield_estimators(model))
     print('\n'.join(chain(*lines)))
 
 
-def parse_args(kwargs):
+def parse_args(kwargs, defaults=None):
     """Apply command line arguments or show help.
 
     Use this in conjunction with the fire library to quickly build
@@ -230,6 +306,10 @@ def parse_args(kwargs):
     kwargs : dict
       The arguments as parsed by fire.
 
+    defautls : dict or None (default=None)
+      Optionally, change the default values to use custom
+      defaults. Commandline arguments have precedence over defaults.
+
     Returns
     -------
     print_help_and_exit : callable
@@ -240,11 +320,14 @@ def parse_args(kwargs):
       the estimator and return it.
 
     """
+    defaults = defaults or {}
+
     def print_help_and_exit(estimator):
-        print_help(estimator)
+        print_help(estimator, defaults=defaults)
         sys.exit()
 
     def set_params(estimator):
+        estimator.set_params(**defaults)
         return estimator.set_params(**parse_net_kwargs(kwargs))
 
     if kwargs.get('help'):

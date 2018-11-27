@@ -132,6 +132,27 @@ added:
 This even works if your neural net is part of an sklearn pipeline, in
 which case the help extends to all other estimators of your pipeline.
 
+In case you would like to change some defaults for the net (e.g. using
+a ``batch_size`` of 256 instead of 128), this is also possible. You
+should have a dictionary containing your new defaults and pass it as
+an additional argument to ``parse_args``:
+
+.. code:: python
+
+    my_defaults = {'batch_size': 128, 'module__hidden_units': 30}
+
+    def main(**kwargs):
+        ...
+        parsed = parse_args(kwargs, defaults=my_defaults)
+        my_model = parsed(my_model)
+
+
+This will update the displayed help to your new defaults, as well as
+set the parameters on the net or pipeline for you. However, the
+arguments passed via the commandline have precedence. Thus, if you
+additionally pass ``--batch_size 512`` to the script, batch size will
+be 512.
+
 Restrictions
 ^^^^^^^^^^^^
 

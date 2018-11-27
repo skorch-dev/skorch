@@ -58,6 +58,28 @@ if __name__ == '__main__':
 This even works if your neural net is part of an sklearn pipeline, in
 which case the help extends to all other estimators of your pipeline.
 
+In case you would like to change some defaults for the net (e.g. using
+a `batch_size` of 256 instead of 128), this is also possible. You
+should have a dictionary containing your new defaults and pass it as
+an additional argument to `parse_args`:
+
+```python
+
+my_defaults = {'batch_size': 128, 'module__hidden_units': 30}
+
+def main(**kwargs):
+    ...
+    parsed = parse_args(kwargs, defaults=my_defaults)
+    my_model = parsed(my_model)
+
+```
+
+This will update the displayed help to your new defaults, as well as
+set the parameters on the net or pipeline for you. However, the
+arguments passed via the commandline have precedence. Thus, if you
+additionally pass ``--batch_size 512`` to the script, batch size will
+be 512.
+
 For more information on how to use fire, follow [this
 link](https://github.com/google/python-fire).
 
@@ -118,5 +140,5 @@ python train.py net --n_samples 1000 --output_file 'model.pkl' --lr 0.1 --max_ep
 Example with an sklearn pipeline:
 
 ```bash
-python train.py pipeline --n_samples 1000 --net__lr 0.1 --net__module__nonlin 'torch.nn.LeakyReLU()' --scale__minmax__feature_range '(-1, 1)' --scale__normalize__norm l1
+python train.py pipeline --n_samples 1000 --net__lr 0.1 --net__module__nonlin 'torch.nn.LeakyReLU()' --scale__minmax__feature_range '(-2, 2)' --scale__normalize__norm l1
 ```
