@@ -839,16 +839,17 @@ class TestTrainEndCheckpoint:
             self, save_params_mock, net_cls, finalcheckpoint_cls, data):
         sink = Mock()
         net = net_cls(callbacks=[
-            finalcheckpoint_cls(sink=sink, dirname='exp1')
+            finalcheckpoint_cls(
+                sink=sink, dirname='exp1', fn_prefix='train_end_')
         ])
         net.fit(*data)
 
         assert save_params_mock.call_count == 3
         assert sink.call_args == call("Final checkpoint triggered")
         save_params_mock.assert_has_calls([
-            call(f_params='exp1/final_params.pt'),
-            call(f_optimizer='exp1/final_optimizer.pt'),
-            call(f_history='exp1/final_history.json')
+            call(f_params='exp1/train_end_params.pt'),
+            call(f_optimizer='exp1/train_end_optimizer.pt'),
+            call(f_history='exp1/train_end_history.json')
         ])
 
     def test_saves_at_end_with_custom_formatting(
@@ -858,7 +859,8 @@ class TestTrainEndCheckpoint:
             finalcheckpoint_cls(
                 sink=sink, dirname='exp1',
                 f_params='model_{last_epoch[epoch]}.pt',
-                f_optimizer='optimizer_{last_epoch[epoch]}.pt'
+                f_optimizer='optimizer_{last_epoch[epoch]}.pt',
+                fn_prefix='train_end_'
             )
         ])
         net.fit(*data)
@@ -866,7 +868,7 @@ class TestTrainEndCheckpoint:
         assert save_params_mock.call_count == 3
         assert sink.call_args == call("Final checkpoint triggered")
         save_params_mock.assert_has_calls([
-            call(f_params='exp1/final_model_10.pt'),
-            call(f_optimizer='exp1/final_optimizer_10.pt'),
-            call(f_history='exp1/final_history.json')
+            call(f_params='exp1/train_end_model_10.pt'),
+            call(f_optimizer='exp1/train_end_optimizer_10.pt'),
+            call(f_history='exp1/train_end_history.json')
         ])

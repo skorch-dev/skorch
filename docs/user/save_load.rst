@@ -144,9 +144,9 @@ and history into a directory named ``'exp1'``.
     from skorch.callbacks import Checkpoint, TrainEndCheckpoint
 
     cp = Checkpoint(dirname='exp1')
-    final_cp = TrainEndCheckpoint(dirname='exp1')
+    train_end_cp = TrainEndCheckpoint(dirname='exp1', fn_prefix='train_end_')
     net = NeuralNetClassifier(
-        MyModule, lr=0.5, callbacks=[cp, final_cp]
+        MyModule, lr=0.5, callbacks=[cp, train_end_cp]
     )
 
     _ = net.fit(X, y)
@@ -210,8 +210,8 @@ checkpoint can be passed to :class:`.LoadInitState` to continue training:
 
 .. code:: python
 
-    cp_from_final = Checkpoint(dirname='exp1', fn_prefix='from_final_')
-    load_state = LoadInitState(final_cp)
+    cp_from_final = Checkpoint(dirname='exp1', fn_prefix='from_train_end_')
+    load_state = LoadInitState(train_end_cp)
     net = NeuralNetClassifier(
         MyModule, lr=0.1, callbacks=[cp_from_final, load_state]
     )
