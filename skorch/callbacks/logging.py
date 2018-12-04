@@ -145,7 +145,7 @@ class PrintLog(Callback):
 
         for key in sorted(keys):
             if not (
-                    (key in ('epoch', 'dur')) or
+                    (key in ('epoch', 'dur', 'epoch_completed')) or
                     (key in self.keys_ignored_) or
                     key.endswith('_best') or
                     key.startswith('event_')

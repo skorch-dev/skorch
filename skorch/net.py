@@ -5,6 +5,7 @@ from itertools import chain
 from collections import OrderedDict
 import tempfile
 import warnings
+from contextlib import suppress
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -296,13 +297,19 @@ class NeuralNet:
     # pylint: disable=unused-argument
     def on_epoch_begin(self, net,
                        dataset_train=None, dataset_valid=None, **kwargs):
-        self.history.new_epoch()
-        self.history.record('epoch', len(self.history))
+        epoch_completed = True
+        with suppress(KeyError):
+            epoch_completed = self.history[-1, 'epoch_completed']
+
+        if epoch_completed:
+            self.history.new_epoch()
+            self.history.record('epoch', len(self.history))
+            self.history.record('epoch_completed', False)
 
     # pylint: disable=unused-argument
     def on_epoch_end(self, net,
                      dataset_train=None, dataset_valid=None, **kwargs):
-        pass
+        self.history.record('epoch_completed', True)
 
     # pylint: disable=unused-argument
     def on_batch_begin(self, net,

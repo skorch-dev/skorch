@@ -1971,3 +1971,41 @@ class TestNeuralNet:
 
         assert train_loader_ds == train_ds
         assert valid_loader_ds == valid_ds
+
+    def test_on_epoch_end_adds_epoch_completed_event(
+            self, net_fit):
+        assert (net_fit.history[:, 'epoch_completed']
+                == [True] * net_fit.max_epochs)
+
+    def test_on_epoch_begin_does_not_add_new_epoch_when_not_completed(
+            self, net_cls, module_cls, data):
+        from skorch.callbacks import Callback
+
+        class EarlyExit(Callback):
+            def on_batch_end(self, net, **kwargs):
+                raise KeyboardInterrupt
+
+        net = net_cls(module_cls, max_epochs=1, callbacks=[EarlyExit()])
+        net.fit(*data)
+
+        assert net.history[-1, 'batches']
+        assert not net.history[-1, 'epoch_completed']
+
+        net = net_cls(module_cls, max_epochs=1, history=net.history)
+        net.fit(*data)
+        assert len(net.history) == 1
+        assert net.history[-1, 'epoch_completed']
+
+    def test_on_epoch_begin_adds_new_epoch_when_completed_event_does_not_exist(
+           self, net_cls, module_cls, data):
+
+        # Creates history without 'epoch_completed' key
+        net = net_cls(module_cls, max_epochs=1).fit(*data)
+        del net.history[-1]['epoch_completed']
+
+        new_net = net_cls(module_cls, max_epochs=1).initialize()
+        new_net.set_params(history=net.history)
+        new_net.partial_fit(*data)
+        assert len(new_net.history) == 2
+        assert new_net.history[-1, 'epoch_completed']
+

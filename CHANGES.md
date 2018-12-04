@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce overhead of `BatchScoring` when using `train_loss_score` or `valid_loss_score` by skipping superfluous inference step (#381)
 - The `on_grad_computed` callback function will yield an iterable for `named_parameters` only when it is used to reduce the run-time overhead of the call (#379)
 - Default `fn_prefix` in `TrainEndCheckpoint` is now `train_end_` (#391)
+- Adds `epoch_completed` to history to signal when an epoch has completed without interruption. (#387)
 
 ### Fixed
 
