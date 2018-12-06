@@ -5,6 +5,7 @@ They should not be used in skorch directly.
 """
 from functools import partial
 import warnings
+import copy
 
 from skorch.utils import _make_split
 from skorch.utils import _make_optimizer
@@ -83,6 +84,9 @@ class SliceDict(dict):
     @property
     def shape(self):
         return (self._len,)
+
+    def copy(self):
+        return copy.copy(self)
 
 
 # TODO: remove in 0.5.0

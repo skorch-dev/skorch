@@ -36,6 +36,11 @@ class TestSliceDict:
         assert str(exc.value) == (
             "Initialized with items of different lengths: 10, 11")
 
+    def test_copy(self, sldict, sldict_cls):
+        sldict_copy = sldict.copy()
+        assert isinstance(sldict_copy, sldict_cls)
+        assert sldict_copy == sldict
+
     @pytest.mark.parametrize('item', [
         np.ones(4),
         np.ones((4, 1)),
