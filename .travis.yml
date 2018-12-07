@@ -21,10 +21,11 @@ install:
   - conda update -q conda
   - conda info -a
 
-  - conda env create -q -n skorch-env -f environment.yml python=${TRAVIS_PYTHON_VERSION}
+  - conda create -y -n skorch-env python=${TRAVIS_PYTHON_VERSION} scikit-learn
   - source activate skorch-env
+  - pip install tabulate
   - conda install --file=requirements-dev.txt
   - python setup.py install
-  - conda install -c pytorch 'pytorch-cpu>=0.4.1'
+  - conda install -c pytorch 'pytorch>=1.0.0'
 script:
   - pytest
