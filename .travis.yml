@@ -2,6 +2,8 @@ language: python
 python:
   - "3.6"
   - "3.5"
+env:
+  - PYTORCH_DEP=pytorch-cpu==0.4.1
 cache:
   apt: true
   timeout: 1000
@@ -26,6 +28,6 @@ install:
   - pip install tabulate
   - conda install --file=requirements-dev.txt
   - python setup.py install
-  - conda install -c pytorch 'pytorch>=1.0.0'
+  - conda install -c pytorch '${PYTORCH_DEP}'
 script:
   - pytest
