@@ -787,7 +787,7 @@ class TestLoadInitState:
             f_history=str(f_history)
         )
         load_init_state = loadinitstate_cls(cp)
-        net = net_cls(callbacks=[scoring, cp, load_init_state])
+        net = net_cls(callbacks=[load_init_state, scoring, cp])
 
         net.fit(*data)
 
@@ -798,7 +798,7 @@ class TestLoadInitState:
         assert len(net.history) == 10
         del net
 
-        new_net = net_cls(callbacks=[scoring, cp, load_init_state])
+        new_net = net_cls(callbacks=[load_init_state, scoring, cp])
         new_net.fit(*data)
 
         # new_net starts from the best epoch of the first run
@@ -807,7 +807,7 @@ class TestLoadInitState:
         # 3 + 10 = 13
         assert len(new_net.history) == 13
         assert new_net.history[:, 'event_cp'] == [
-            False, False, True] + [False] * 10
+            True, False, True] + [False] * 10
 
 
 class TestTrainEndCheckpoint:
