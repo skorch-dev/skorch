@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Re-initialize optimizer when `set_params` is called with `lr` argument (#372)
+- Copying a `SliceDict` now returns a `SliceDict` instead of a `dict` (#388)
+- Calling `==` on `SliceDict`s now works as expected when values are numpy arrays and torch tensors
 
 
 ## [0.4.0] - 2018-10-24

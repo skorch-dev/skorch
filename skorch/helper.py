@@ -6,8 +6,11 @@ They should not be used in skorch directly.
 from functools import partial
 import warnings
 
+import numpy as np
+
 from skorch.utils import _make_split
 from skorch.utils import _make_optimizer
+from skorch.utils import is_torch_data_type
 
 
 class SliceDict(dict):
@@ -17,8 +20,10 @@ class SliceDict(dict):
     with sklearn not being able to slice it. Wrap your dict with
     SliceDict and it should usually work.
 
-    Note: SliceDict cannot be indexed by integers, if you want one
-    row, say row 3, use `[3:4]`.
+    Note:
+    * SliceDict cannot be indexed by integers, if you want one row,
+      say row 3, use `[3:4]`.
+    * SliceDict accepts numpy arrays and torch tensors as values.
 
     Examples
     --------
@@ -83,6 +88,46 @@ class SliceDict(dict):
     @property
     def shape(self):
         return (self._len,)
+
+    def copy(self):
+        return type(self)(**self)
+
+    def fromkeys(self, *args, **kwargs):
+        """fromkeys method makes no sense with SliceDict and is thus not
+        supported."""
+        raise TypeError("SliceDict does not support fromkeys.")
+
+    def __eq__(self, other):
+        if self.keys() != other.keys():
+            return False
+
+        for key, val in self.items():
+            val_other = other[key]
+
+            # torch tensors
+            if is_torch_data_type(val):
+                if not is_torch_data_type(val_other):
+                    return False
+                if not (val == val_other).all():
+                    return False
+                continue
+
+            # numpy arrays
+            if isinstance(val, np.ndarray):
+                if not isinstance(val_other, np.ndarray):
+                    return False
+                if not (val == val_other).all():
+                    return False
+                continue
+
+            # rest
+            if val != val_other:
+                return False
+
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 # TODO: remove in 0.5.0
