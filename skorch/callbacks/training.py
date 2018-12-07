@@ -163,8 +163,8 @@ class Checkpoint(Callback):
     def on_epoch_end(self, net, **kwargs):
         if "{}_best".format(self.monitor) in net.history[-1]:
             warnings.warn(
-                "Checkpoint monitor parameter is set to '{0}' and '{0}_best' "
-                "is in history. Perhaps you meant to set the parameter "
+                "Checkpoint monitor parameter is set to '{0}' and the history "
+                "contains '{0}_best'. Perhaps you meant to set the parameter "
                 "to '{0}_best'".format(self.monitor), UserWarning)
 
         if self.monitor is None:

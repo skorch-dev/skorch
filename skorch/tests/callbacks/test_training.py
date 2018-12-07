@@ -290,8 +290,8 @@ class TestCheckpoint:
             max_epochs=1)
 
         exp_warn = (
-            "Checkpoint monitor parameter is set to 'valid_loss' and "
-            "'valid_loss_best' is in history. Perhaps you meant to set the "
+            "Checkpoint monitor parameter is set to 'valid_loss' and the "
+            "history contains 'valid_loss_best'. Perhaps you meant to set the "
             "parameter to 'valid_loss_best'")
 
         with pytest.warns(UserWarning, match=exp_warn):
