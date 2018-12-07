@@ -157,11 +157,11 @@ class TestCheckpoint:
 
         from skorch.callbacks import EpochScoring
         scoring = EpochScoring(
-            scoring=epoch_3_scorer, on_train=True)
+            scoring=epoch_3_scorer, on_train=True, lower_is_better=False)
 
         sink = Mock()
         cb = checkpoint_cls(
-            monitor='epoch_3_scorer',
+            monitor='epoch_3_scorer_best',
             f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
             f_optimizer='optimizer_{last_epoch[epoch]}_{net.max_epochs}.pt',
             sink=sink)
@@ -170,7 +170,7 @@ class TestCheckpoint:
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 3
+        assert save_params_mock.call_count == 6
         assert cb.get_formatted_files(net) == {
             'f_params': 'model_3_10.pt',
             'f_optimizer': 'optimizer_3_10.pt',
@@ -178,14 +178,15 @@ class TestCheckpoint:
             'f_pickle': None
         }
         save_params_mock.assert_has_calls(
-            [call(f_params='model_3_10.pt'),
+            [call(f_params='model_1_10.pt'),
+             call(f_optimizer='optimizer_1_10.pt'),
+             call(f_history='history.json'),
+             call(f_params='model_3_10.pt'),
              call(f_optimizer='optimizer_3_10.pt'),
              call(f_history='history.json')]
         )
-        assert sink.call_count == 1
-        assert all((x is False) for x in net.history[:2, 'event_cp'])
-        assert net.history[2, 'event_cp'] is True
-        assert all((x is False) for x in net.history[3:, 'event_cp'])
+        assert sink.call_count == 2
+        assert [True, False, True] + [False] * 7 == net.history[:, 'event_cp']
 
     def test_save_all_targets(
             self, save_params_mock, pickle_dump_mock,
@@ -281,6 +282,21 @@ class TestCheckpoint:
         with pytest.warns(DeprecationWarning):
             checkpoint = checkpoint_cls(target='foobar.pt')
         assert checkpoint.f_params == 'foobar.pt'
+
+    def test_warnings_when_monitor_appears_in_history(
+            self, net_cls, checkpoint_cls, save_params_mock, data):
+        net = net_cls(callbacks=[
+            checkpoint_cls(monitor="valid_loss")],
+            max_epochs=1)
+
+        exp_warn = (
+            "Checkpoint monitor parameter is set to 'valid_loss' and "
+            "'valid_loss_best' is in history. Perhaps you meant to set the "
+            "parameter to 'valid_loss_best'")
+
+        with pytest.warns(UserWarning, match=exp_warn):
+            net.fit(*data)
+        assert save_params_mock.call_count == 3
 
 
 class TestEarlyStopping:
@@ -754,7 +770,7 @@ class TestLoadInitState:
 
         from skorch.callbacks import EpochScoring
         scoring = EpochScoring(
-            scoring=epoch_3_scorer, on_train=True)
+            scoring=epoch_3_scorer, on_train=True, lower_is_better=False)
 
         skorch_dir = tmpdir.mkdir('skorch')
         f_params = skorch_dir.join(
@@ -765,7 +781,7 @@ class TestLoadInitState:
             'history.json')
 
         cp = checkpoint_cls(
-            monitor='epoch_3_scorer',
+            monitor='epoch_3_scorer_best',
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
             f_history=str(f_history)
