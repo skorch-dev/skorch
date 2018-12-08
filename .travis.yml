@@ -5,8 +5,7 @@ python:
   - "3.6"
   - "3.5"
 env:
-  matrix:
-    - PYTORCH_VERSION="1.0.0"
+  - PYTORCH_VERSION="1.0.0"
 
 cache:
   apt: true
