@@ -1355,9 +1355,9 @@ class TestNeuralNet:
         )
         result = net.__repr__()
         expected = """<class 'skorch.classifier.NeuralNetClassifier'>[uninitialized](
-  module=functools.partial(<class 'skorch.toy.MLPModule'>, output_nonlin=Softmax(), input_units=20, hidden_units=10, num_hidden=2, dropout=0.5),
+  module={},
   module__hidden_units=55,
-)"""
+)""".format(module_cls)
         assert result == expected
 
     def test_repr_initialized_works(self, net_cls, module_cls):

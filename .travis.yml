@@ -1,11 +1,10 @@
 env:
+  global:
+    - PYTORCH_VERSION="1.0.0"
   matrix:
-    - PYTHON_VERSION="3.5" \
-      PYTORCH_WHL="http://download.pytorch.org/whl/cpu/torch-1.0.0-cp35-cp35m-linux_x86_64.whl"
-    - PYTHON_VERSION="3.6" \
-      PYTORCH_WHL="http://download.pytorch.org/whl/cpu/torch-1.0.0-cp36-cp36m-linux_x86_64.whl"
-    - PYTHON_VERSION="3.7" \
-      PYTORCH_WHL="http://download.pytorch.org/whl/cpu/torch-1.0.0-cp37-cp37m-linux_x86_64.whl"
+    - PYTHON_VERSION="3.5"
+    - PYTHON_VERSION="3.6"
+    - PYTHON_VERSION="3.7"
 cache:
   apt: true
   timeout: 1000
@@ -25,11 +24,12 @@ install:
   - conda update -q conda
   - conda info -a
 
-  - conda create -y -n skorch-env python=${PYTHON_VERSION} scikit-learn
+  - conda create -y -n skorch-env python=${PYTHON_VERSION} scikit-learn tqdm
   - source activate skorch-env
   - pip install tabulate
   - conda install --file=requirements-dev.txt
   - python setup.py install
+  - conda install -c pytorch pytorch-cpu==${PYTORCH_VERSION}
   - pip install ${PYTORCH_WHL}
 script:
   - pytest
