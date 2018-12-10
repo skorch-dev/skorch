@@ -186,6 +186,9 @@ class TestCheckpoint:
              call(f_history='history.json')]
         )
         assert sink.call_count == 2
+        # The first epoch will always be saved. `epoch_3_scorer` returns 1 at
+        # epoch 3, which will trigger another checkpoint. For all other epochs
+        # `epoch_3_scorer` returns 0, which does not trigger a checkpoint.
         assert [True, False, True] + [False] * 7 == net.history[:, 'event_cp']
 
     def test_save_all_targets(
