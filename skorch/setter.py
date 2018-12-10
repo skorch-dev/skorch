@@ -2,7 +2,7 @@
 import re
 
 
-def _extract_param_name_and_group(optimizer_name, param):
+def _extract_optimizer_param_name_and_group(optimizer_name, param):
     """Extract param group and param name from the given parameter name.
     Raises an error if the param name doesn't match one of
     - ``optimizer__param_groups__<group>__<name>``
@@ -59,7 +59,7 @@ def optimizer_setter(
         param_name = 'lr'
         net.lr = value
     else:
-        param_group, param_name = _extract_param_name_and_group(
+        param_group, param_name = _extract_optimizer_param_name_and_group(
             optimizer_name, param)
 
     _set_optimizer_param(
