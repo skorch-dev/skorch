@@ -2003,6 +2003,7 @@ class TestNeuralNet:
         net = net_cls(
             module_cls,
             lr=lr_pgroup_1,
+            max_epochs=1,
             optimizer__param_groups=[
                 ('sequential.0.*', {'lr': lr_pgroup_0}),
             ])
