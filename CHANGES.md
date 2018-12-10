@@ -14,10 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Advanced usage notebook][1810261633] now runs on Google Colab
 - [MNIST with scikit-learn and skorch][1811011230] now runs on Google Colab
 - Better user-facing messages when module or optimizer are re-initialized
-- Added the ability to register "virtual" parameters on the network to mark
-  them safe for setting without re-initialization. This is useful for specific
-  module, criterion or optimizer parameters such as the learning rate. As of now
-  you can do `net.set_params(lr=0.03)` or
+- Added an experimental API (`net._register_virtual_param`) to register "virtual"
+  parameters on the network with custom setter functions. (#369)
+- Setting parameters `lr`, `momentum`, `optimizer__lr`, etc. no longer resets 
+  the optmizer. As of now you can do `net.set_params(lr=0.03)` or
   `net.set_params(optimizer__param_group__0__momentum=0.86)` without triggering
   a re-initialization of the optimizer (#369)
 
