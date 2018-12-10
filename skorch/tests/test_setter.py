@@ -4,30 +4,29 @@ from unittest.mock import Mock
 import pytest
 
 
-def net_dummy():
-    from skorch import NeuralNet
-    net = Mock(spec=NeuralNet)
-    net.lr = 0.01
-    return net
-
-
-def optimizer_dummy():
-    from torch.optim import Optimizer
-    optim = Mock(spec=Optimizer)
-    optim.param_groups = [
-        {'lr': 0.01, 'momentum': 0.9},
-        {'lr': 0.02, 'momentum': 0.9}
-    ]
-    return optim
-
-
 class TestOptimizerSetter:
 
-    @pytest.fixture(scope='function')
-    def net_optim_dummy(self):
-        net = net_dummy()
-        net.optimizer_ = optimizer_dummy()
+    @pytest.fixture
+    def net_dummy(self):
+        from skorch import NeuralNet
+        net = Mock(spec=NeuralNet)
+        net.lr = 0.01
         return net
+
+    @pytest.fixture
+    def optimizer_dummy(self):
+        from torch.optim import Optimizer
+        optim = Mock(spec=Optimizer)
+        optim.param_groups = [
+            {'lr': 0.01, 'momentum': 0.9},
+            {'lr': 0.02, 'momentum': 0.9}
+        ]
+        return optim
+
+    @pytest.fixture(scope='function')
+    def net_optim_dummy(self, net_dummy, optimizer_dummy):
+        net_dummy.optimizer_ = optimizer_dummy
+        return net_dummy
 
     @pytest.fixture
     def setter(self):
