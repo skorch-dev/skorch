@@ -61,7 +61,9 @@ def to_tensor(X, device, accept_sparse=False):
       module.
 
     accept_sparse : bool (default=False)
-      Whether to accept sparse matrices as input.
+      Whether to accept scipy sparse matrices as input. If False,
+      passing a sparse matrix raises an error. If True, it is
+      converted to a torch COO tensor.
 
     Returns
     -------
