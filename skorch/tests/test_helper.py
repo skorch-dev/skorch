@@ -170,6 +170,89 @@ class TestSliceDict:
         gs.fit(X, y)
         print(gs.best_score_, gs.best_params_)
 
+    def test_copy(self, sldict, sldict_cls):
+        copied = sldict.copy()
+        assert copied.shape == sldict.shape
+        assert isinstance(copied, sldict_cls)
+
+    def test_fromkeys_raises(self, sldict_cls):
+        with pytest.raises(TypeError) as exc:
+            sldict_cls.fromkeys(['f0', 'f1'])
+
+        msg = "SliceDict does not support fromkeys."
+        assert exc.value.args[0] == msg
+
+    def test_update(self, sldict, sldict_cls):
+        copied = sldict.copy()
+        copied['f0'] = -copied['f0']
+
+        sldict.update(copied)
+        assert (sldict['f0'] == copied['f0']).all()
+        assert isinstance(sldict, sldict_cls)
+
+    def test_equals_arrays(self, sldict):
+        copied = sldict.copy()
+        copied['f0'] = -copied['f0']
+
+        assert copied == copied
+        assert not copied == sldict
+        assert copied != sldict
+
+    def test_equals_arrays_deep(self, sldict):
+        copied = sldict.copy()
+        copied['f0'] = np.array(copied['f0'].copy())
+
+        assert copied == copied
+        assert copied == sldict
+
+    def test_equals_tensors(self, sldict_cls):
+        sldict = sldict_cls(
+            f0=torch.arange(4),
+            f1=torch.arange(12).reshape(4, 3),
+        )
+        copied = sldict.copy()
+        copied['f0'] = -copied['f0']
+
+        assert copied == copied
+        assert not copied == sldict
+        assert copied != sldict
+
+    def test_equals_tensors_deep(self, sldict_cls):
+        sldict = sldict_cls(
+            f0=torch.arange(4),
+            f1=torch.arange(12).reshape(4, 3),
+        )
+        copied = sldict.copy()
+        copied['f0'] = copied['f0'].clone()
+
+        assert copied == copied
+        assert copied == sldict
+
+    def test_equals_arrays_tensors_mixed(self, sldict_cls):
+        sldict0 = sldict_cls(
+            f0=np.arange(4),
+            f1=torch.arange(12).reshape(4, 3),
+        )
+        sldict1 = sldict_cls(
+            f0=np.arange(4),
+            f1=torch.arange(12).reshape(4, 3),
+        )
+
+        assert sldict0 == sldict1
+
+        sldict1['f0'] = torch.arange(4)
+        assert sldict0 != sldict1
+
+    def test_equals_different_keys(self, sldict_cls):
+        sldict0 = sldict_cls(
+            a=np.arange(3),
+        )
+        sldict1 = sldict_cls(
+            a=np.arange(3),
+            b=np.arange(3, 6),
+        )
+        assert sldict0 != sldict1
+
 
 # TODO: remove in 0.5.0
 class TestFilterParameterGroupsRequiresGrad():

@@ -26,10 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reduce overhead of `BatchScoring` when using `train_loss_score` or `valid_loss_score` by skipping superfluous inference step (#381)
 - The `on_grad_computed` callback function will yield an iterable for `named_parameters` only when it is used to reduce the run-time overhead of the call (#379)
+- Default `fn_prefix` in `TrainEndCheckpoint` is now `train_end_` (#391)
+- Issues a warning when `Checkpoints`'s `monitor` parameter is set to `monitor` and the history contains `<monitor>_best`. (#399)
 
 ### Fixed
 
 - Re-initialize optimizer when `set_params` is called with `lr` argument (#372)
+- Copying a `SliceDict` now returns a `SliceDict` instead of a `dict` (#388)
+- Calling `==` on `SliceDict`s now works as expected when values are numpy arrays and torch tensors
 
 
 ## [0.4.0] - 2018-10-24
