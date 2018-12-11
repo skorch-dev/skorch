@@ -70,7 +70,8 @@ def _substitute_default(s, new_value):
     The docstring must conform to the numpydoc style and have the form
     "something (keyname=<value-to-replace>)"
 
-    If ``new_value`` is None, return the input untouched.
+    If no matching pattern is found or ``new_value`` is None, return
+    the input untouched.
 
     Examples
     --------
@@ -89,10 +90,7 @@ def _substitute_default(s, new_value):
 
     # ideally, we would like to replace the 'default' group directly
     # but I haven't found a way to do this
-    try:
-        i, j = _get_span(match)
-    except IndexError:
-        pass
+    i, j = _get_span(match)
     return '{}{}{}'.format(s[:i], new_value, s[j:])
 
 
