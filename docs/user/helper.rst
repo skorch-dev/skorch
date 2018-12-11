@@ -91,7 +91,7 @@ help function without writing a single line of argument parsing:
 Installation
 ^^^^^^^^^^^^
 
-To use this functionaliy, you need some further libraries that are not
+To use this functionality, you need some further libraries that are not
 part of skorch, namely fire_ and numpydoc_. You can install them
 thusly:
 
