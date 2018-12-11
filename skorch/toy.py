@@ -28,11 +28,11 @@ class MLPModule(nn.Module):
     num_hidden : int (default=1)
       Number of hidden layers.
 
-    nonlin : torch.nn.Module
+    nonlin : torch.nn.Module instance (default=torch.nn.ReLU())
       Non-linearity to apply after hidden layers.
 
-    output_nonlin : torch.nn.Module
-      Non-linearity to apply after last layer.
+    output_nonlin : torch.nn.Module instance or None (default=None)
+      Non-linearity to apply after last layer, if any.
 
     dropout : float (default=0)
       Dropout rate. Dropout is applied between layers.
@@ -95,6 +95,26 @@ def make_classifier(output_nonlin=nn.Softmax(dim=-1), **kwargs):
     """Return a multi-layer perceptron to be used with
     NeuralNetClassifier.
 
+    Parameters
+    ----------
+    input_units : int (default=20)
+      Number of input units.
+
+    output_units : int (default=2)
+      Number of output units.
+
+    hidden_units : int (default=10)
+      Number of units in hidden layers.
+
+    num_hidden : int (default=1)
+      Number of hidden layers.
+
+    nonlin : torch.nn.Module instance (default=torch.nn.ReLU())
+      Non-linearity to apply after hidden layers.
+
+    dropout : float (default=0)
+      Dropout rate. Dropout is applied between layers.
+
     """
     return partial(MLPModule, output_nonlin=output_nonlin, **kwargs)
 
@@ -103,6 +123,26 @@ def make_binary_classifier(squeeze_output=True, **kwargs):
     """Return a multi-layer perceptron to be used with
     NeuralNetBinaryClassifier.
 
+    Parameters
+    ----------
+    input_units : int (default=20)
+      Number of input units.
+
+    output_units : int (default=2)
+      Number of output units.
+
+    hidden_units : int (default=10)
+      Number of units in hidden layers.
+
+    num_hidden : int (default=1)
+      Number of hidden layers.
+
+    nonlin : torch.nn.Module instance (default=torch.nn.ReLU())
+      Non-linearity to apply after hidden layers.
+
+    dropout : float (default=0)
+      Dropout rate. Dropout is applied between layers.
+
     """
     return partial(MLPModule, squeeze_output=squeeze_output, **kwargs)
 
@@ -110,6 +150,26 @@ def make_binary_classifier(squeeze_output=True, **kwargs):
 def make_regressor(output_units=1, **kwargs):
     """Return a multi-layer perceptron to be used with
     NeuralNetRegressor.
+
+    Parameters
+    ----------
+    input_units : int (default=20)
+      Number of input units.
+
+    output_units : int (default=2)
+      Number of output units.
+
+    hidden_units : int (default=10)
+      Number of units in hidden layers.
+
+    num_hidden : int (default=1)
+      Number of hidden layers.
+
+    nonlin : torch.nn.Module instance (default=torch.nn.ReLU())
+      Non-linearity to apply after hidden layers.
+
+    dropout : float (default=0)
+      Dropout rate. Dropout is applied between layers.
 
     """
     return partial(MLPModule, output_units=output_units, **kwargs)
