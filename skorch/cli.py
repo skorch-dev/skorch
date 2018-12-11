@@ -53,15 +53,20 @@ def _param_split(params):
     return (p.strip(' ,') for p in shlex.split(params))
 
 
-def _get_span(m):
-    # raises IndexError if no span
-    i = 0
-    span_init = m.span(0)
-    span = span_init
-    while (span == span_init) or (span == (-1, -1)):
-        i += 1
-        span = m.span(i)
-    return span
+def _get_span(s, pattern):
+    """Return the span of the first group that matches the pattern."""
+    i, j = -1, -1
+
+    match = pattern.match(s)
+    if not match:
+        return i, j
+
+    for group_name in pattern.groupindex:
+        i, j = match.span(group_name)
+        if (i, j) != (-1, -1):
+            return i, j
+
+    return i, j
 
 
 def _substitute_default(s, new_value):
@@ -84,13 +89,11 @@ def _substitute_default(s, new_value):
     if new_value is None:
         return s
 
-    match = P_DEFAULTS.match(s)
-    if not match:
+    # BB: ideally, I would like to replace the 'default*' group
+    # directly but I haven't found a way to do this
+    i, j = _get_span(s, pattern=P_DEFAULTS)
+    if (i, j) == (-1, -1):
         return s
-
-    # ideally, we would like to replace the 'default' group directly
-    # but I haven't found a way to do this
-    i, j = _get_span(match)
     return '{}{}{}'.format(s[:i], new_value, s[j:])
 
 
