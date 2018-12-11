@@ -9,8 +9,11 @@ import torch
 import torch.utils.data
 from torch import nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
+from scipy import sparse
 from skorch.utils import data_from_dataset
+from skorch.utils import is_torch_data_type
 from skorch.utils import to_tensor
 from skorch.tests.conftest import pandas_installed
 
@@ -31,11 +34,18 @@ class TestGetLen:
         (torch.zeros((3, 4, 5)), 3),
         ([torch.zeros(5), torch.zeros((5, 4))], 5),
         ((torch.zeros((5, 4)), torch.zeros(5)), 5),
+        (sparse.csr_matrix(np.zeros((5, 3))), 5),
         ({'0': torch.zeros(3), '1': torch.zeros((3, 4))}, 3),
         ([0, 1, 2], 3),
         ([[0, 1, 2], [3, 4, 5]], 3),
         ({'0': [0, 1, 2], '1': (3, 4, 5)}, 3),
-        (([0, 1, 2], np.zeros(3), torch.zeros(3), {'0': (1, 2, 3)}), 3),
+        ((
+            [0, 1, 2],
+            np.zeros(3),
+            torch.zeros(3),
+            sparse.csr_matrix(np.zeros((3, 5))),
+            {'0': (1, 2, 3)}),
+         3),
     ])
     def test_valid_lengths(self, get_len, data, expected):
         length = get_len(data)
@@ -492,6 +502,17 @@ class TestDataset:
 
     def test_with_list_of_numpy_arrays(self, dataset_cls):
         pass
+
+    @pytest.fixture
+    def dataset_sparse_csr(self, dataset_cls):
+        Xs = sparse.csr_matrix(np.zeros((10, 5)))
+        return dataset_cls(Xs)
+
+    @pytest.mark.parametrize('batch_size', [1, 3, 10, 17])
+    def test_dataloader_with_sparse_csr(self, dataset_sparse_csr, batch_size):
+        loader = DataLoader(dataset_sparse_csr, batch_size=batch_size)
+        for Xb, _ in loader:
+            assert is_torch_data_type(Xb)
 
 
 class TestTrainSplitIsUsed:

@@ -138,6 +138,7 @@ class NeuralNetClassifier(NeuralNet):
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -171,6 +172,7 @@ class NeuralNetClassifier(NeuralNet):
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -300,6 +302,7 @@ class NeuralNetBinaryClassifier(NeuralNet):
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -333,6 +336,7 @@ class NeuralNetBinaryClassifier(NeuralNet):
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset

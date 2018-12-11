@@ -76,12 +76,19 @@ are not sufficient for our usecase; for instance, they don't work with
 
 - :class:`numpy.ndarray`\s
 - PyTorch :class:`~torch.Tensor`\s
+- scipy sparse CSR matrices
 - pandas DataFrames or Series
 
-In addition, you can pass dictionaries or lists of one of those data
-types, e.g. a dictionary of :class:`numpy.ndarray`\s. When you pass
-dictionaries, the keys of the dictionaries are used as the argument
-name for the :func:`~torch.nn.Module.forward` method of the net's
+Note that currently, sparse matrices are cast to dense arrays during
+batching, given that PyTorch support for sparse matrices is still very
+incomplete. If you would like to prevent that, you need to override
+the ``transform`` method of :class:`~torch.utils.data.Dataset`.
+
+In addition to the types above, you can pass dictionaries or lists of
+one of those data types, e.g. a dictionary of
+:class:`numpy.ndarray`\s. When you pass dictionaries, the keys of the
+dictionaries are used as the argument name for the
+:func:`~torch.nn.Module.forward` method of the net's
 ``module``. Similarly, the column names of pandas ``DataFrame``\s are
 used as argument names. The example below should illustrate how to use
 this feature:

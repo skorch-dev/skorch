@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the optmizer. As of now you can do `net.set_params(lr=0.03)` or
   `net.set_params(optimizer__param_group__0__momentum=0.86)` without triggering
   a re-initialization of the optimizer (#369)
+- Support for scipy sparse CSR matrices as input (as, e.g., returned by sklearn's
+  `CountVectorizer`); note that they are cast to dense matrices during batching
 
 [1810251445]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb
 [1810261633]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb
