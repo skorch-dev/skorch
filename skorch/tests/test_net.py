@@ -859,22 +859,22 @@ class TestNeuralNet:
     @pytest.mark.parametrize('kwargs,expected', [
         ({}, ""),
         (
+            # virtual params should prevent re-initialization
+            {'optimizer__lr': 0.12, 'optimizer__momentum': 0.34},
+            ("")
+        ),
+        (
             {'module__input_units': 12, 'module__hidden_units': 34},
             ("Re-initializing module because the following "
              "parameters were re-set: hidden_units, input_units.\n"
              "Re-initializing optimizer.")
         ),
         (
-            {'optimizer__lr': 0.12, 'optimizer__momentum': 0.34},
-            ("Re-initializing optimizer because the following "
-             "parameters were re-set: lr, momentum.")
-        ),
-        (
-            {'module__input_units': 12, 'module__hidden_units': 34, 'lr': 0.56},
+            {'module__input_units': 12, 'module__hidden_units': 34,
+             'optimizer__momentum': 0.56},
             ("Re-initializing module because the following "
              "parameters were re-set: hidden_units, input_units.\n"
-             "Re-initializing optimizer because the following "
-             "parameters were re-set: lr.")
+             "Re-initializing optimizer.")
         ),
     ])
     def test_reinitializing_module_optimizer_message(
@@ -1888,10 +1888,12 @@ class TestNeuralNet:
         assert train_kwargs['batch_size'] == expected_train_batch_size
         assert valid_kwargs['batch_size'] == expected_valid_batch_size
 
-    def test_fit_lbfgs_optimizer(self, net, data):
+    def test_fit_lbfgs_optimizer(self, net_cls, module_cls, data):
         X, y = data
-        net.set_params(optimizer=torch.optim.LBFGS)
-        net.set_params(batch_size=len(X))
+        net = net_cls(
+            module_cls,
+            optimizer=torch.optim.LBFGS,
+            batch_size=len(X))
         net.fit(X, y)
 
     def test_accumulator_that_returns_last_value(
@@ -1971,3 +1973,50 @@ class TestNeuralNet:
 
         assert train_loader_ds == train_ds
         assert valid_loader_ds == valid_ds
+
+    def test_set_lr_at_runtime_doesnt_reinitialize(self, net_fit):
+        with patch('skorch.NeuralNet.initialize_optimizer') as f:
+            net_fit.set_params(lr=0.9)
+        assert not f.called
+
+    def test_set_lr_at_runtime_sets_lr(self, net_fit):
+        new_lr = net_fit.lr + 1
+        net_fit.set_params(lr=new_lr)
+
+        assert net_fit.lr == new_lr
+        assert net_fit.optimizer_.param_groups[0]['lr'] == new_lr
+
+    def test_set_lr_at_runtime_sets_lr_via_pgroup_0(self, net_fit):
+        new_lr = net_fit.lr + 1
+        net_fit.set_params(optimizer__param_groups__0__lr=new_lr)
+
+        # note that setting group does not set global lr
+        assert net_fit.lr != new_lr
+        assert net_fit.optimizer_.param_groups[0]['lr'] == new_lr
+
+    def test_set_lr_at_runtime_sets_lr_pgroups(self, net_cls, module_cls, data):
+        lr_pgroup_0 = 0.1
+        lr_pgroup_1 = 0.2
+        lr_pgroup_0_new = 0.3
+        lr_pgroup_1_new = 0.4
+
+        net = net_cls(
+            module_cls,
+            lr=lr_pgroup_1,
+            max_epochs=1,
+            optimizer__param_groups=[
+                ('sequential.0.*', {'lr': lr_pgroup_0}),
+            ])
+        net.fit(*data)
+
+        # optimizer__param_groups=[g1] will create
+        # - param group 0 matching the definition of g1
+        # - param group 1 matching all other parameters
+        assert net.optimizer_.param_groups[0]['lr'] == lr_pgroup_0
+        assert net.optimizer_.param_groups[1]['lr'] == lr_pgroup_1
+
+        net.set_params(optimizer__param_groups__0__lr=lr_pgroup_0_new)
+        net.set_params(optimizer__param_groups__1__lr=lr_pgroup_1_new)
+
+        assert net.optimizer_.param_groups[0]['lr'] == lr_pgroup_0_new
+        assert net.optimizer_.param_groups[1]['lr'] == lr_pgroup_1_new
