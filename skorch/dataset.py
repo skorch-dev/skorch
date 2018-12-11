@@ -5,6 +5,7 @@ from numbers import Number
 import warnings
 
 import numpy as np
+from scipy import sparse
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -41,8 +42,21 @@ def _apply_to_data(data, func, unpack_dict=False):
     return func(data)
 
 
+def _is_sparse(x):
+    try:
+        return sparse.issparse(x) or x.is_sparse
+    except AttributeError:
+        return False
+
+
+def _len(x):
+    if _is_sparse(x):
+        return x.shape[0]
+    return len(x)
+
+
 def get_len(data):
-    lens = [_apply_to_data(data, len, unpack_dict=True)]
+    lens = [_apply_to_data(data, _len, unpack_dict=True)]
     lens = list(flatten(lens))
     len_set = set(lens)
     if len(len_set) != 1:
@@ -77,6 +91,7 @@ class Dataset(torch.utils.data.Dataset):
 
     * numpy ``array``\s
     * PyTorch :class:`~torch.Tensor`\s
+    * scipy sparse CSR matrices
     * pandas NDFrame
     * a dictionary of the former three
     * a list/tuple of the former three
@@ -151,6 +166,10 @@ class Dataset(torch.utils.data.Dataset):
         # the batch.
         y = torch.Tensor([0]) if y is None else y
 
+        # pytorch cannot convert sparse matrices, for now just make it
+        # dense; squeeze because X[i].shape is (1, n) for csr matrices
+        if sparse.issparse(X):
+            X = X.toarray().squeeze(0)
         return X, y
 
     def __getitem__(self, i):

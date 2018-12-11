@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+from scipy import sparse
 import torch
 from torch.nn.utils.rnn import PackedSequence
 from torch.nn.utils.rnn import pack_padded_sequence
@@ -44,6 +45,12 @@ class TestToTensor:
 
         if isinstance(x, (list, tuple)):
             return all(self.tensors_equal(xi, yi) for xi, yi in zip(x, y))
+
+        if x.is_sparse is not y.is_sparse:
+            return False
+
+        if x.is_sparse:
+            x, y = x.to_dense(), y.to_dense()
 
         return (x == y).all()
 
@@ -103,6 +110,30 @@ class TestToTensor:
         result = to_tensor(X, device)
         assert self.tensors_equal(result, expected)
         assert self.tensors_equal(expected, result)
+
+    @pytest.mark.parametrize('device', ['cpu', 'cuda'])
+    def test_sparse_tensor(self, to_tensor, device):
+        if device == 'cuda' and not torch.cuda.is_available():
+            pytest.skip()
+
+        inp = sparse.csr_matrix(np.zeros((5, 3)).astype(np.float32))
+        expected = torch.sparse_coo_tensor(size=(5, 3)).to(device)
+
+        result = to_tensor(inp, device=device, accept_sparse=True)
+        assert self.tensors_equal(result, expected)
+
+    @pytest.mark.parametrize('device', ['cpu', 'cuda'])
+    def test_sparse_tensor_not_accepted_raises(self, to_tensor, device):
+        if device == 'cuda' and not torch.cuda.is_available():
+            pytest.skip()
+
+        inp = sparse.csr_matrix(np.zeros((5, 3)).astype(np.float32))
+        with pytest.raises(TypeError) as exc:
+            to_tensor(inp, device=device)
+
+        msg = ("Sparse matrices are not supported. Set "
+               "accept_sparse=True to allow sparse matrices.")
+        assert exc.value.args[0] == msg
 
 
 class TestDuplicateItems:
@@ -455,6 +486,28 @@ class TestMultiIndexing:
         res = multi_indexing(X, i)
         expected = torch.LongTensor([0, 4, 8])
         assert all(res == expected)
+
+    @pytest.mark.parametrize('data, i, expected', [
+        (
+            np.arange(12).reshape(4, 3),
+            slice(None),
+            np.arange(12).reshape(4, 3),
+        ),
+        (
+            np.arange(12).reshape(4, 3),
+            np.s_[2],
+            np.array([6, 7, 8]),
+        ),
+        (
+            np.arange(12).reshape(4, 3),
+            np.s_[-2:],
+            np.array([[6, 7, 8], [9, 10, 11]]),
+        ),
+    ])
+    def test_sparse_csr_matrix(self, multi_indexing, data, i, expected):
+        data = sparse.csr_matrix(data)
+        result = multi_indexing(data, i).toarray()
+        assert np.allclose(result, expected)
 
 
 class TestIsSkorchDataset:

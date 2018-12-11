@@ -17,6 +17,7 @@ from contextlib import ExitStack
 
 import numpy as np
 import pytest
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
@@ -859,22 +860,22 @@ class TestNeuralNet:
     @pytest.mark.parametrize('kwargs,expected', [
         ({}, ""),
         (
+            # virtual params should prevent re-initialization
+            {'optimizer__lr': 0.12, 'optimizer__momentum': 0.34},
+            ("")
+        ),
+        (
             {'module__input_units': 12, 'module__hidden_units': 34},
             ("Re-initializing module because the following "
              "parameters were re-set: hidden_units, input_units.\n"
              "Re-initializing optimizer.")
         ),
         (
-            {'optimizer__lr': 0.12, 'optimizer__momentum': 0.34},
-            ("Re-initializing optimizer because the following "
-             "parameters were re-set: lr, momentum.")
-        ),
-        (
-            {'module__input_units': 12, 'module__hidden_units': 34, 'lr': 0.56},
+            {'module__input_units': 12, 'module__hidden_units': 34,
+             'optimizer__momentum': 0.56},
             ("Re-initializing module because the following "
              "parameters were re-set: hidden_units, input_units.\n"
-             "Re-initializing optimizer because the following "
-             "parameters were re-set: lr.")
+             "Re-initializing optimizer.")
         ),
     ])
     def test_reinitializing_module_optimizer_message(
@@ -1888,10 +1889,12 @@ class TestNeuralNet:
         assert train_kwargs['batch_size'] == expected_train_batch_size
         assert valid_kwargs['batch_size'] == expected_valid_batch_size
 
-    def test_fit_lbfgs_optimizer(self, net, data):
+    def test_fit_lbfgs_optimizer(self, net_cls, module_cls, data):
         X, y = data
-        net.set_params(optimizer=torch.optim.LBFGS)
-        net.set_params(batch_size=len(X))
+        net = net_cls(
+            module_cls,
+            optimizer=torch.optim.LBFGS,
+            batch_size=len(X))
         net.fit(X, y)
 
     def test_accumulator_that_returns_last_value(
@@ -1971,3 +1974,104 @@ class TestNeuralNet:
 
         assert train_loader_ds == train_ds
         assert valid_loader_ds == valid_ds
+
+    def test_set_lr_at_runtime_doesnt_reinitialize(self, net_fit):
+        with patch('skorch.NeuralNet.initialize_optimizer') as f:
+            net_fit.set_params(lr=0.9)
+        assert not f.called
+
+    def test_set_lr_at_runtime_sets_lr(self, net_fit):
+        new_lr = net_fit.lr + 1
+        net_fit.set_params(lr=new_lr)
+
+        assert net_fit.lr == new_lr
+        assert net_fit.optimizer_.param_groups[0]['lr'] == new_lr
+
+    def test_set_lr_at_runtime_sets_lr_via_pgroup_0(self, net_fit):
+        new_lr = net_fit.lr + 1
+        net_fit.set_params(optimizer__param_groups__0__lr=new_lr)
+
+        # note that setting group does not set global lr
+        assert net_fit.lr != new_lr
+        assert net_fit.optimizer_.param_groups[0]['lr'] == new_lr
+
+    def test_set_lr_at_runtime_sets_lr_pgroups(self, net_cls, module_cls, data):
+        lr_pgroup_0 = 0.1
+        lr_pgroup_1 = 0.2
+        lr_pgroup_0_new = 0.3
+        lr_pgroup_1_new = 0.4
+
+        net = net_cls(
+            module_cls,
+            lr=lr_pgroup_1,
+            max_epochs=1,
+            optimizer__param_groups=[
+                ('sequential.0.*', {'lr': lr_pgroup_0}),
+            ])
+        net.fit(*data)
+
+        # optimizer__param_groups=[g1] will create
+        # - param group 0 matching the definition of g1
+        # - param group 1 matching all other parameters
+        assert net.optimizer_.param_groups[0]['lr'] == lr_pgroup_0
+        assert net.optimizer_.param_groups[1]['lr'] == lr_pgroup_1
+
+        net.set_params(optimizer__param_groups__0__lr=lr_pgroup_0_new)
+        net.set_params(optimizer__param_groups__1__lr=lr_pgroup_1_new)
+
+        assert net.optimizer_.param_groups[0]['lr'] == lr_pgroup_0_new
+        assert net.optimizer_.param_groups[1]['lr'] == lr_pgroup_1_new
+
+
+class TestNetSparseInput:
+    @pytest.fixture(scope='module')
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture(scope='module')
+    def module_cls(self, classifier_module):
+        return classifier_module
+
+    @pytest.fixture
+    def net(self, net_cls, module_cls):
+        return net_cls(module_cls, lr=0.02, max_epochs=20)
+
+    @pytest.fixture
+    def model(self, net):
+        return Pipeline([
+            # TfidfVectorizer returns a scipy sparse CSR matrix
+            ('tfidf', TfidfVectorizer(max_features=20, dtype=np.float32)),
+            ('net', net),
+        ])
+
+    @pytest.fixture(scope='module')
+    def X(self):
+        with open(__file__, 'r') as f:
+            lines = f.readlines()
+        return np.asarray(lines)
+
+    @pytest.fixture(scope='module')
+    def y(self, X):
+        return np.array(
+            [1 if (' def ' in x) or (' assert ' in x) else 0 for x in X])
+
+    @flaky(max_runs=3)
+    def test_fit_sparse_csr_learns(self, model, X, y):
+        model.fit(X, y)
+        net = model.steps[-1][1]
+        score_start = net.history[0]['train_loss']
+        score_end = net.history[-1]['train_loss']
+
+        assert score_start > 1.25 * score_end
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    @flaky(max_runs=3)
+    def test_fit_sparse_csr_learns(self, model, X, y):
+        model.set_params(net__device='cuda')
+        model.fit(X, y)
+        net = model.steps[-1][1]
+        score_start = net.history[0]['train_loss']
+        score_end = net.history[-1]['train_loss']
+
+        assert score_start > 1.25 * score_end
