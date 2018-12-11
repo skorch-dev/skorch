@@ -13,6 +13,7 @@ import pathlib
 import warnings
 
 import numpy as np
+from scipy import sparse
 from sklearn.utils import safe_indexing
 import torch
 from torch.nn.utils.rnn import PackedSequence
@@ -40,7 +41,7 @@ def is_dataset(x):
 
 
 # pylint: disable=not-callable
-def to_tensor(X, device):
+def to_tensor(X, device, accept_sparse=False):
     """Turn input data to torch tensor.
 
     Parameters
@@ -50,6 +51,7 @@ def to_tensor(X, device):
         * PackedSequence
         * numpy array
         * torch Tensor
+        * scipy sparse CSR matrix
         * list or tuple of one of the former
         * dict with values of one of the former
 
@@ -57,6 +59,9 @@ def to_tensor(X, device):
       The compute device to be used. If set to 'cuda', data in torch
       tensors will be pushed to cuda tensors before being sent to the
       module.
+
+    accept_sparse : bool (default=False)
+      Whether to accept sparse matrices as input.
 
     Returns
     -------
@@ -77,6 +82,13 @@ def to_tensor(X, device):
         return torch.as_tensor(np.array(X), device=device)
     if isinstance(X, np.ndarray):
         return torch.as_tensor(X, device=device)
+    if sparse.issparse(X):
+        if accept_sparse:
+            return torch.sparse_coo_tensor(
+                X.nonzero(), X.data, size=X.shape).to(device)
+        raise TypeError("Sparse matrices are not supported. Set "
+                        "accept_sparse=True to allow sparse matrices.")
+
     raise TypeError("Cannot convert this data type to a torch tensor.")
 
 

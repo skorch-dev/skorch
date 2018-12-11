@@ -17,6 +17,7 @@ from contextlib import ExitStack
 
 import numpy as np
 import pytest
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
@@ -1971,3 +1972,57 @@ class TestNeuralNet:
 
         assert train_loader_ds == train_ds
         assert valid_loader_ds == valid_ds
+
+
+class TestNetSparseInput:
+    @pytest.fixture(scope='module')
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture(scope='module')
+    def module_cls(self, classifier_module):
+        return classifier_module
+
+    @pytest.fixture
+    def net(self, net_cls, module_cls):
+        return net_cls(module_cls, lr=0.02, max_epochs=20)
+
+    @pytest.fixture
+    def model(self, net):
+        return Pipeline([
+            # TfidfVectorizer returns a scipy sparse CSR matrix
+            ('tfidf', TfidfVectorizer(max_features=20, dtype=np.float32)),
+            ('net', net),
+        ])
+
+    @pytest.fixture(scope='module')
+    def X(self):
+        with open(__file__, 'r') as f:
+            lines = f.readlines()
+        return np.asarray(lines)
+
+    @pytest.fixture(scope='module')
+    def y(self, X):
+        return np.array(
+            [1 if (' def ' in x) or (' assert ' in x) else 0 for x in X])
+
+    @flaky(max_runs=3)
+    def test_fit_sparse_csr_learns(self, model, X, y):
+        model.fit(X, y)
+        net = model.steps[-1][1]
+        score_start = net.history[0]['train_loss']
+        score_end = net.history[-1]['train_loss']
+
+        assert score_start > 1.25 * score_end
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    @flaky(max_runs=3)
+    def test_fit_sparse_csr_learns(self, model, X, y):
+        model.set_params(net__device='cuda')
+        model.fit(X, y)
+        net = model.steps[-1][1]
+        score_start = net.history[0]['train_loss']
+        score_end = net.history[-1]['train_loss']
+
+        assert score_start > 1.25 * score_end
