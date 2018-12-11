@@ -114,6 +114,16 @@ With grid search
     gs.fit(X, y)
     print(gs.best_score_, gs.best_params_)
 
+skorch also provides lots of convenience features, among others:
+
+- `Learning rate schedulers <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.LRScheduler>`_ (Warm restarts, cyclic LR and many more)
+- `Scoring using sklearn (and custom) scoring functions <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.EpochScoring>`_
+- `Early stopping <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.EarlyStopping>`_
+- `Checkpointing <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.Checkpoint>`_
+- `Parameter freezing/unfreezing <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.Freezer>`_
+- `Progress bar <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.ProgressBar>`_ (for CLI as well as jupyter)
+- Automatic inference of CLI parameters
+
 ============
 Installation
 ============
@@ -211,7 +221,7 @@ In general, this should work (assuming CUDA 9):
 .. code:: bash
 
     # using conda:
-    conda install pytorch cuda90 -c pytorch
+    conda install pytorch -c pytorch
     # using pip
     pip install torch
 
