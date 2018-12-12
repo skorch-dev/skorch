@@ -21,6 +21,7 @@ from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 from skorch.history import History
+from skorch.setter import optimizer_setter
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import TeeGenerator
 from skorch.utils import duplicate_items
@@ -225,6 +226,7 @@ class NeuralNet:
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
         initialized = kwargs.pop('initialized_', False)
+        virtual_params = kwargs.pop('virtual_params_', dict())
 
         # catch arguments that seem to not belong anywhere
         unexpected_kwargs = []
@@ -244,6 +246,7 @@ class NeuralNet:
 
         self.history = history
         self.initialized_ = initialized
+        self.virtual_params_ = virtual_params
 
     @property
     def _default_callbacks(self):
@@ -474,6 +477,28 @@ class NeuralNet:
         self.module_ = module.to(self.device)
         return self
 
+    def _is_virtual_param(self, key):
+        return any(fnmatch.fnmatch(key, pat) for pat in self.virtual_params_)
+
+    def _virtual_setattr(self, param, val):
+        setattr(self, param, val)
+
+    def _register_virtual_param(self, param_patterns, fn=_virtual_setattr):
+        if not isinstance(param_patterns, list):
+            param_patterns = [param_patterns]
+        for pattern in param_patterns:
+            self.virtual_params_[pattern] = fn
+
+    def _apply_virtual_params(self, virtual_kwargs):
+        for pattern, fn in self.virtual_params_.items():
+            for key, val in virtual_kwargs.items():
+                if not fnmatch.fnmatch(key, pattern):
+                    continue
+                fn(self, key, val)
+
+    def initialize_virtual_params(self):
+        self.virtual_params_ = {}
+
     def initialize_optimizer(self, triggered_directly=True):
         """Initialize the model optimizer. If ``self.optimizer__lr``
         is not set, use ``self.lr`` instead.
@@ -492,15 +517,20 @@ class NeuralNet:
         args, kwargs = self._get_params_for_optimizer(
             'optimizer', self.module_.named_parameters())
 
-        if 'lr' not in kwargs:
-            kwargs['lr'] = self.lr
-
         if self.initialized_ and self.verbose:
             msg = self._format_reinit_msg(
                 "optimizer", kwargs, triggered_directly=triggered_directly)
             print(msg)
 
+        if 'lr' not in kwargs:
+            kwargs['lr'] = self.lr
+
         self.optimizer_ = self.optimizer(*args, **kwargs)
+
+        self._register_virtual_param(
+            ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
+            optimizer_setter,
+        )
 
     def initialize_history(self):
         """Initializes the history."""
@@ -511,6 +541,7 @@ class NeuralNet:
         returns self.
 
         """
+        self.initialize_virtual_params()
         self.initialize_callbacks()
         self.initialize_criterion()
         self.initialize_module()
@@ -664,6 +695,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -740,6 +772,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -785,6 +818,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -821,6 +855,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -871,6 +906,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -949,6 +985,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -985,6 +1022,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -1017,6 +1055,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -1046,6 +1085,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -1098,6 +1138,7 @@ class NeuralNet:
             * numpy arrays
             * torch tensors
             * pandas DataFrame or Series
+            * scipy sparse CSR matrices
             * a dictionary of the former three
             * a list/tuple of the former three
             * a Dataset
@@ -1248,14 +1289,19 @@ class NeuralNet:
         """
         self._check_deprecated_params(**kwargs)
         normal_params, cb_params, special_params = {}, {}, {}
+        virtual_params = {}
+
         for key, val in kwargs.items():
-            if key.startswith('callbacks'):
+            if self._is_virtual_param(key):
+                virtual_params[key] = val
+            elif key.startswith('callbacks'):
                 cb_params[key] = val
             elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
             else:
                 normal_params[key] = val
 
+        self._apply_virtual_params(virtual_params)
         BaseEstimator.set_params(self, **normal_params)
 
         for key, val in special_params.items():
