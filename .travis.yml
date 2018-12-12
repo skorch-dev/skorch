@@ -28,9 +28,9 @@ install:
 
   - conda create -y -n skorch-env python=${TRAVIS_PYTHON_VERSION}
   - source activate skorch-env
-  - cat requirements.txt requirements-dev.txt > reqs.txt
-  - conda install --file=reqs.txt
-  - pip install .
+  - pip install -r requirements.txt
+  - pip install -r requirements-dev.txt
+  - python setup.py install
   - conda install -c pytorch pytorch-cpu==${PYTORCH_VERSION}
 script:
   - pytest
