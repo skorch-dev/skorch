@@ -1,5 +1,5 @@
 numpy>=1.13.3
-PyYAML==3.12
-scikit-learn==0.19.1
-scipy==0.19.0
-tqdm==4.14.0
+scikit-learn>=0.19.1
+scipy>=1.1.0
+tabulate==0.7.7
+tqdm==4.14.r
