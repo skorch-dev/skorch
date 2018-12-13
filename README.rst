@@ -114,7 +114,7 @@ With grid search
     gs.fit(X, y)
     print(gs.best_score_, gs.best_params_)
 
-skorch also provides lots of convenience features, among others:
+skorch also provides many convenient features, among others:
 
 - `Learning rate schedulers <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.LRScheduler>`_ (Warm restarts, cyclic LR and many more)
 - `Scoring using sklearn (and custom) scoring functions <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.EpochScoring>`_
