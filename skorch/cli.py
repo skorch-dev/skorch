@@ -14,18 +14,6 @@ from sklearn.base import BaseEstimator
 from sklearn.pipeline import FeatureUnion
 from sklearn.pipeline import Pipeline
 
-try:
-    from fire.parser import DefaultParseValue
-except ImportError:
-    raise ImportError("Using skorch cli helpers requires the fire library,"
-                      " you can install it with pip: pip install fire.")
-
-try:
-    from numpydoc.docscrape import ClassDoc
-except ImportError:
-    raise ImportError("Using skorch cli helpers requires the numpydoc library,"
-                      " you can install it with pip: pip install numpydoc.")
-
 
 __all__ = ['parse_args']
 
@@ -98,6 +86,8 @@ def _substitute_default(s, new_value):
 
 
 def _parse_args_kwargs(params):
+    from fire.parser import DefaultParseValue
+
     args = ()
     kwargs = {}
     for param in _param_split(params):
@@ -239,6 +229,8 @@ def _get_help_for_params(params, prefix='--', defaults=None, indent=2):
 
 def _get_help_for_estimator(prefix, estimator, defaults=None):
     """Yield help lines for the given estimator and prefix."""
+    from numpydoc.docscrape import ClassDoc
+
     defaults = defaults or {}
     estimator = _extract_estimator_cls(estimator)
     yield "<{}> options:".format(estimator.__name__)
@@ -321,6 +313,17 @@ def parse_args(kwargs, defaults=None):
       the estimator and return it.
 
     """
+    try:
+        import fire
+    except ImportError:
+        raise ImportError("Using skorch cli helpers requires the fire library,"
+                          " you can install it with pip: pip install fire.")
+    try:
+        import numpydoc.docscrape
+    except ImportError:
+        raise ImportError("Using skorch cli helpers requires the numpydoc library,"
+                          " you can install it with pip: pip install numpydoc.")
+
     defaults = defaults or {}
 
     def print_help_and_exit(estimator):
