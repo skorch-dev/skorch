@@ -122,7 +122,7 @@ skorch also provides lots of convenience features, among others:
 - `Checkpointing <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.Checkpoint>`_
 - `Parameter freezing/unfreezing <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.Freezer>`_
 - `Progress bar <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.ProgressBar>`_ (for CLI as well as jupyter)
-- Automatic inference of CLI parameters
+- `Automatic inference of CLI parameters <https://github.com/dnouri/skorch/tree/master/examples/cli>`_
 
 ============
 Installation
