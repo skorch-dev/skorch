@@ -10,6 +10,7 @@ import numpy as np
 
 from skorch.utils import _make_split
 from skorch.utils import _make_optimizer
+from skorch.cli import parse_args
 from skorch.utils import is_torch_data_type
 
 
