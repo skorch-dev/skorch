@@ -9,6 +9,7 @@ env:
 
 cache:
   apt: true
+  pip: true
   timeout: 1000
   directories:
     - $HOME/cache
@@ -28,10 +29,10 @@ install:
 
   - conda create -y -n skorch-env python=${TRAVIS_PYTHON_VERSION}
   - source activate skorch-env
-  - cat requirements.txt requirements-dev.txt > reqs.txt
-  - conda install --file=reqs.txt
+  - pip install -r requirements.txt
+  - pip install -r requirements-dev.txt
   - pip install fire
-  - pip install .
+  - python setup.py install
   - conda install -c pytorch pytorch-cpu==${PYTORCH_VERSION}
 script:
   - pytest
