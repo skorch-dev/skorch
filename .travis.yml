@@ -30,6 +30,7 @@ install:
   - source activate skorch-env
   - cat requirements.txt requirements-dev.txt > reqs.txt
   - conda install --file=reqs.txt
+  - pip install fire
   - pip install .
   - conda install -c pytorch pytorch-cpu==${PYTORCH_VERSION}
 script:
