@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.5.0] - 2018-12-13
+
+### Added
+
 - [Basic usage notebook][1810251445] now runs on Google Colab
 - [Advanced usage notebook][1810261633] now runs on Google Colab
 - [MNIST with scikit-learn and skorch][1811011230] now runs on Google Colab
@@ -95,5 +104,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the net was configured to use the CPU (#354, #358)
 
 
-[Unreleased]: https://github.com/dnouri/skorch/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/dnouri/skorch/compare/v0.5.0...HEAD
 [0.4.0]: https://github.com/dnouri/skorch/compare/v0.3.0...v0.4.0
+[0.5.0]: https://github.com/dnouri/skorch/compare/v0.4.0...v0.5.0

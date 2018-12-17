@@ -40,7 +40,7 @@ class TestToTensor:
         if isinstance(x, dict):
             return (
                 (x.keys() == y.keys()) and
-                self.tensors_equal(list(x.values()), list(y.values()))
+                all(self.tensors_equal(x[k], y[k]) for k in x)
             )
 
         if isinstance(x, (list, tuple)):
