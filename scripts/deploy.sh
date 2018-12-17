@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-PYTORCH_VERSION="0.4.1"
+PYTORCH_VERSION=${PYTORCH_VERSION:-""}
 PYTHON_VERSION="3.6"
 TWINE_VERSION="1.12.1"
 CONDA_ENV="skorch-deploy"
@@ -10,6 +10,11 @@ DEV_REQ="requirements-dev.txt"
 
 if [[ $# -gt 1 ]] || [[ $1 != "live" && $1 != "stage" ]]; then
 	echo "Usage $0 [live|stage]" >&2
+	exit 1
+fi
+
+if [ -z "$PYTORCH_VERSION" ]; then
+	echo "Set a PYTORCH_VERSION in the environment!"
 	exit 1
 fi
 
