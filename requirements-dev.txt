@@ -1,3 +1,4 @@
+fire
 flaky
 jupyter
 matplotlib>=2.0.2
