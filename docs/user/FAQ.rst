@@ -172,7 +172,12 @@ resulting module will be trained for 20 epochs:
     net2 = NeuralNet(module, max_epochs=10, ...)
     net2.fit(X, y)
 
-The module will be re-initialized when the module parameters are set:
+When the module is passed to the second :class:`~skorch.net.NeuralNet`, it
+will not be re-initialized and will keep its parameters from the first 10
+epochs.
+
+When the module parameters are set through keywords arguments,
+:class:`~skorch.net.NeuralNet` will re-initialized the module:
 
 .. code:: python
 
@@ -189,4 +194,5 @@ instead:
     net.fit(X, y)
 
 In this case, :func:`~skorch.net.NeuralNet.fit` will always re-initialize
-the model.
+the model and :func:`~skorch.net.NeuralNet.partial_fit` won't after the
+network is initialized once.
