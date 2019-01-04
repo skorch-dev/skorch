@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Adds FAQ entry regarding the initialization behavior of `NeuralNet` when passed instantiated models. (#409)
+
 ### Changed
 
 ### Fixed
@@ -27,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better user-facing messages when module or optimizer are re-initialized
 - Added an experimental API (`net._register_virtual_param`) to register "virtual"
   parameters on the network with custom setter functions. (#369)
-- Setting parameters `lr`, `momentum`, `optimizer__lr`, etc. no longer resets 
+- Setting parameters `lr`, `momentum`, `optimizer__lr`, etc. no longer resets
   the optmizer. As of now you can do `net.set_params(lr=0.03)` or
   `net.set_params(optimizer__param_group__0__momentum=0.86)` without triggering
   a re-initialization of the optimizer (#369)

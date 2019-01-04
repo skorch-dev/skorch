@@ -150,3 +150,43 @@ it to :func:`~skorch.helper.predefined_split`:
     )
 
     net.fit(X_train, y_train)
+
+
+What happens when NeuralNet is passed a initialized Pytorch module?
+-------------------------------------------------------------------
+
+When :class:`~skorch.net.NeuralNet` is passed an initialized Pytorch module,
+skorch will usually leave the module alone. In the following example, the
+resulting module will be trained for 20 epochs:
+
+.. code:: python
+
+    class MyModule(nn.Module):
+        def __init__(self, hidden=10):
+            ...
+
+    module = MyModule()
+    net1 = NeuralNet(module, max_epochs=10, ...)
+    net1.fit(X, y)
+
+    net2 = NeuralNet(module, max_epochs=10, ...)
+    net2.fit(X, y)
+
+The module will be re-initialized when the module parameters are set:
+
+.. code:: python
+
+    net = NeuralNet(module, module__hidden=10, ...)
+    net.fit(X, y)
+
+Although it is possible to pass an initialized Pytorch module to
+:class:`~skorch.net.NeuralNet`, it is recommended to pass the module class
+instead:
+
+.. code:: python
+
+    net = NeuralNet(MyModule, ...)
+    net.fit(X, y)
+
+In this case, :func:`~skorch.net.NeuralNet.fit` will always re-initialize
+the model.
