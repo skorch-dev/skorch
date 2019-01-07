@@ -152,8 +152,8 @@ it to :func:`~skorch.helper.predefined_split`:
     net.fit(X_train, y_train)
 
 
-What happens when NeuralNet is passed a initialized Pytorch module?
--------------------------------------------------------------------
+What happens when NeuralNet is passed an initialized Pytorch module?
+--------------------------------------------------------------------
 
 When :class:`~skorch.net.NeuralNet` is passed an initialized Pytorch module,
 skorch will usually leave the module alone. In the following example, the
