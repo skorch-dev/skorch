@@ -77,7 +77,7 @@ To see more elaborate examples, look `here
         max_epochs=10,
         lr=0.1,
         # Shuffle training data on each epoch
-        iterator_train__shuffle=True
+        iterator_train__shuffle=True,
     )
 
     net.fit(X, y)
