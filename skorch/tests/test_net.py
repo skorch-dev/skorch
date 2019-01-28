@@ -2067,7 +2067,7 @@ class TestNetSparseInput:
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     @flaky(max_runs=3)
-    def test_fit_sparse_csr_learns(self, model, X, y):
+    def test_fit_sparse_csr_learns_cuda(self, model, X, y):
         model.set_params(net__device='cuda')
         model.fit(X, y)
         net = model.steps[-1][1]
