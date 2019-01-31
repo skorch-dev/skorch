@@ -11,12 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Adds FAQ entry regarding the initialization behavior of `NeuralNet` when passed instantiated models. (#409)
+- Added CUDA pickle test including an artifact that supports testing on CUDA-less CI machines
 
 ### Changed
+
+- Treat cuda dependent attributes as prefix to cover values set using `set_params` since
+  previously `"criterion_"` would not match `net.criterion__weight` as set by
+  `net.set_params(criterion__weight=w)`
 
 ### Fixed
 
 - Include requirements in MANIFEST.in
+- Add `criterion_` to `NeuralNet.cuda_dependent_attributes_` to avoid issues with criterion
+  weight tensors from, e.g., `NLLLoss`
 
 
 ## [0.5.0] - 2018-12-13
