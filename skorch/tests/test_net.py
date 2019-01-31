@@ -289,7 +289,6 @@ class TestNeuralNet:
     def test_pickle_load(self, cuda_available, pickled_cuda_net_path):
         with patch('torch.cuda.is_available', lambda *_: cuda_available):
             with open(pickled_cuda_net_path, 'rb') as f:
-                print('before')
                 pickle.load(f)
 
     @pytest.mark.parametrize('device', ['cpu', 'cuda'])
