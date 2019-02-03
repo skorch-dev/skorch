@@ -89,20 +89,6 @@ def uses_placeholder_y(ds):
     return isinstance(ds, Dataset) and hasattr(ds, "y") and ds.y is None
 
 
-ERROR_MSG_1_ITEM = (
-    "You are using a non-skorch dataset that returns 1 value. "
-    "Remember that for skorch, Dataset.__getitem__ must return exactly "
-    "2 values, X and y (more info: "
-    "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
-
-
-ERROR_MSG_MORE_THAN_2_ITEMS = (
-    "You are using a non-skorch dataset that returns {} values. "
-    "Remember that for skorch, Dataset.__getitem__ must return exactly "
-    "2 values, X and y (more info: "
-    "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
-
-
 def unpack_data(data):
     """Unpack data returned by the net's iterator into a 2-tuple.
 
