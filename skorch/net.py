@@ -35,6 +35,11 @@ from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
 
 
+# workaround to bug with uninstancied callbacks
+class _CallbacksContainer(list):
+    pass
+
+
 # pylint: disable=too-many-instance-attributes
 class NeuralNet:
     # pylint: disable=anomalous-backslash-in-string
@@ -219,6 +224,8 @@ class NeuralNet:
         self.dataset = dataset
         self.train_split = train_split
         self.callbacks = callbacks
+        if self.callbacks is not None:
+            self.callbacks = _CallbacksContainer(callbacks)
         self.warm_start = warm_start
         self.verbose = verbose
         self.device = device
