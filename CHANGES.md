@@ -18,12 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Treat cuda dependent attributes as prefix to cover values set using `set_params` since
   previously `"criterion_"` would not match `net.criterion__weight` as set by
   `net.set_params(criterion__weight=w)`
+- skorch pickle format changed in order to improve CUDA compatibility, if you have pickled models, please re-pickle them to be able to load them in the future
 
 ### Fixed
 
 - Include requirements in MANIFEST.in
 - Add `criterion_` to `NeuralNet.cuda_dependent_attributes_` to avoid issues with criterion
-  weight tensors from, e.g., `NLLLoss`
+  weight tensors from, e.g., `NLLLoss` (#426)
 
 
 ## [0.5.0] - 2018-12-13
