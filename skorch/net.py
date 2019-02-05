@@ -164,9 +164,9 @@ class NeuralNet:
       so: ``NeuralNet(..., optimizer__momentum=0.95)``.
 
     cuda_dependent_attributes_ : list of str
-      Contains a list of all attributes whose values depend on a CUDA
-      device. If a ``NeuralNet`` trained with a CUDA-enabled device is
-      unpickled on a machine without CUDA or with CUDA disabled, the
+      Contains a list of all attribute prefixes whose values depend on a
+      CUDA device. If a ``NeuralNet`` trained with a CUDA-enabled device
+      is unpickled on a machine without CUDA or with CUDA disabled, the
       listed attributes are mapped to CPU.  Expand this list if you
       want to add other cuda-dependent attributes.
 
@@ -187,7 +187,7 @@ class NeuralNet:
     prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
                  'criterion', 'callbacks', 'dataset']
 
-    cuda_dependent_attributes_ = ['module_', 'optimizer_']
+    cuda_dependent_attributes_ = ['module_', 'optimizer_', 'criterion_']
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -1390,16 +1390,36 @@ class NeuralNet:
     def __getstate__(self):
         state = self.__dict__.copy()
         cuda_attrs = {}
-        for key in self.cuda_dependent_attributes_:
-            if key in state:
-                val = state.pop(key)
-                cuda_attrs[key] = val
+        for prefix in self.cuda_dependent_attributes_:
+            for key in state:
+                if key.startswith(prefix):
+                    cuda_attrs[key] = state[key]
+
+        for k in cuda_attrs:
+            state.pop(k)
+
         with tempfile.SpooledTemporaryFile() as f:
             torch.save(cuda_attrs, f)
             f.seek(0)
-            state['cuda_dependent_attributes_'] = f.read()
+            state['__cuda_dependent_attributes__'] = f.read()
 
         return state
+
+    # TODO: remove this with the next release
+    def __setstate_050__(self, load_kwargs, state):
+        warnings.warn(
+            "This pickle file will stop working in the next release since "
+            "the data format changed. Please re-pickle the model to avoid "
+            "any issues in the future.", DeprecationWarning)
+        with tempfile.SpooledTemporaryFile() as f:
+            f.write(state['cuda_dependent_attributes_'])
+            f.seek(0)
+            cuda_attrs = torch.load(f, **load_kwargs)
+        for key in self.cuda_dependent_attributes_:
+            if key in cuda_attrs:
+                del state[key]
+        state.update(cuda_attrs)
+        self.__dict__.update(state)
 
     def __setstate__(self, state):
         # get_map_location will automatically choose the
@@ -1408,23 +1428,17 @@ class NeuralNet:
         load_kwargs = {'map_location': map_location}
         state['device'] = self._check_device(state['device'], map_location)
 
-        with tempfile.SpooledTemporaryFile() as f:
-            f.write(state['cuda_dependent_attributes_'])
-            f.seek(0)
-            cuda_attrs = torch.load(f, **load_kwargs)
+        if '__cuda_dependent_attributes__' not in state:
+            return self.__setstate_050__(load_kwargs, state)
 
-        set_cuda_attrs = {}
-        state.update(cuda_attrs)
-        for key in self.cuda_dependent_attributes_:
-            if key not in cuda_attrs:
-                continue
-            set_cuda_attrs[key] = state.pop(key)
         with tempfile.SpooledTemporaryFile() as f:
-            torch.save(cuda_attrs, f)
+            f.write(state['__cuda_dependent_attributes__'])
             f.seek(0)
             cuda_attrs = torch.load(f, **load_kwargs)
 
         state.update(cuda_attrs)
+        state.pop('__cuda_dependent_attributes__')
+
         self.__dict__.update(state)
 
     def save_params(

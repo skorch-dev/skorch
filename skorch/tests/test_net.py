@@ -254,6 +254,43 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
 
+    def train_picklable_cuda_net(self, net_pickleable, data):
+        X, y = data
+        w = torch.FloatTensor([1.] * int(y.max() + 1)).to('cuda')
+
+        # Use stateful optimizer (CUDA variables in state) and
+        # a CUDA parametrized criterion along with a CUDA net.
+        net_pickleable.set_params(
+            device='cuda',
+            criterion__weight=w,
+            optimizer=torch.optim.Adam,
+        )
+        net_pickleable.fit(X, y)
+
+        return net_pickleable
+
+    @pytest.fixture
+    def pickled_cuda_net_path(self, net_pickleable, data):
+        path = os.path.join('skorch', 'tests', 'net_cuda.pkl')
+
+        # Assume that a previous run on a CUDA-capable device
+        # created `net_cuda.pkl`.
+        if not torch.cuda.is_available():
+            assert os.path.exists(path)
+            return path
+
+        net_pickleable = self.train_picklable_cuda_net(net_pickleable, data)
+
+        with open(path, 'wb') as f:
+            pickle.dump(net_pickleable, f)
+        return path
+
+    @pytest.mark.parametrize('cuda_available', {False, torch.cuda.is_available()})
+    def test_pickle_load(self, cuda_available, pickled_cuda_net_path):
+        with patch('torch.cuda.is_available', lambda *_: cuda_available):
+            with open(pickled_cuda_net_path, 'rb') as f:
+                pickle.load(f)
+
     @pytest.mark.parametrize('device', ['cpu', 'cuda'])
     def test_device_torch_device(self, net_cls, module_cls, device):
         # Check if native torch.device works as well.
