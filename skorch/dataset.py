@@ -20,6 +20,20 @@ from skorch.utils import multi_indexing
 from skorch.utils import to_numpy
 
 
+ERROR_MSG_1_ITEM = (
+    "You are using a non-skorch dataset that returns 1 value. "
+    "Remember that for skorch, Dataset.__getitem__ must return exactly "
+    "2 values, X and y (more info: "
+    "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
+
+
+ERROR_MSG_MORE_THAN_2_ITEMS = (
+    "You are using a non-skorch dataset that returns {} values. "
+    "Remember that for skorch, Dataset.__getitem__ must return exactly "
+    "2 values, X and y (more info: "
+    "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
+
+
 def _apply_to_data(data, func, unpack_dict=False):
     """Apply a function to data, trying to unpack different data
     types.
@@ -73,6 +87,27 @@ def uses_placeholder_y(ds):
     if isinstance(ds, torch.utils.data.Subset):
         return uses_placeholder_y(ds.dataset)
     return isinstance(ds, Dataset) and hasattr(ds, "y") and ds.y is None
+
+
+def unpack_data(data):
+    """Unpack data returned by the net's iterator into a 2-tuple.
+
+    If the wrong number of items is returned, raise a helpful error
+    message.
+
+    """
+    # Note: This function cannot detect it when a user only returns 1
+    # item that is exactly of length 2 (e.g. because the batch size is
+    # 2). In that case, the item will be erroneously split into X and
+    # y.
+    try:
+        X, y = data
+        return X, y
+    except ValueError:
+        # if a 1-tuple/list or something else like a torch tensor
+        if not isinstance(data, (tuple, list)) or len(data) < 2:
+            raise ValueError(ERROR_MSG_1_ITEM)
+        raise ValueError(ERROR_MSG_MORE_THAN_2_ITEMS.format(len(data)))
 
 
 class Dataset(torch.utils.data.Dataset):

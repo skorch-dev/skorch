@@ -1631,6 +1631,74 @@ class TestNeuralNet:
         assert exc.value.args[0] == msg
 
     @pytest.fixture
+    def dataset_1_item(self):
+        class Dataset(torch.utils.data.Dataset):
+            def __len__(self):
+                return 100
+
+            def __getitem__(self, i):
+                return 0.0
+        return Dataset
+
+    def test_fit_with_dataset_one_item_error(
+            self, net_cls, module_cls, dataset_1_item):
+        net = net_cls(module_cls, train_split=None)
+        with pytest.raises(ValueError) as exc:
+            net.fit(dataset_1_item(), None)
+
+        msg = ("You are using a non-skorch dataset that returns 1 value. "
+               "Remember that for skorch, Dataset.__getitem__ must return "
+               "exactly 2 values, X and y (more info: "
+               "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
+        assert exc.value.args[0] == msg
+
+    def test_predict_with_dataset_one_item_error(
+            self, net_cls, module_cls, dataset_1_item):
+        net = net_cls(module_cls, train_split=None).initialize()
+        with pytest.raises(ValueError) as exc:
+            net.predict(dataset_1_item())
+
+        msg = ("You are using a non-skorch dataset that returns 1 value. "
+               "Remember that for skorch, Dataset.__getitem__ must return "
+               "exactly 2 values, X and y (more info: "
+               "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
+        assert exc.value.args[0] == msg
+
+    @pytest.fixture
+    def dataset_3_items(self):
+        class Dataset(torch.utils.data.Dataset):
+            def __len__(self):
+                return 100
+
+            def __getitem__(self, i):
+                return 0.0, 0.0, 0.0
+        return Dataset
+
+    def test_fit_with_dataset_three_items_error(
+            self, net_cls, module_cls, dataset_3_items):
+        net = net_cls(module_cls, train_split=None)
+        with pytest.raises(ValueError) as exc:
+            net.fit(dataset_3_items(), None)
+
+        msg = ("You are using a non-skorch dataset that returns 3 values. "
+               "Remember that for skorch, Dataset.__getitem__ must return "
+               "exactly 2 values, X and y (more info: "
+               "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
+        assert exc.value.args[0] == msg
+
+    def test_predict_with_dataset_three_items_error(
+            self, net_cls, module_cls, dataset_3_items):
+        net = net_cls(module_cls, train_split=None).initialize()
+        with pytest.raises(ValueError) as exc:
+            net.predict(dataset_3_items())
+
+        msg = ("You are using a non-skorch dataset that returns 3 values. "
+               "Remember that for skorch, Dataset.__getitem__ must return "
+               "exactly 2 values, X and y (more info: "
+               "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
+        assert exc.value.args[0] == msg
+
+    @pytest.fixture
     def multiouput_net(self, net_cls, multiouput_module):
         return net_cls(multiouput_module).initialize()
 
@@ -2104,7 +2172,7 @@ class TestNetSparseInput:
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     @flaky(max_runs=3)
-    def test_fit_sparse_csr_learns(self, model, X, y):
+    def test_fit_sparse_csr_learns_cuda(self, model, X, y):
         model.set_params(net__device='cuda')
         model.fit(X, y)
         net = model.steps[-1][1]

@@ -17,6 +17,7 @@ from skorch.callbacks import BatchScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
+from skorch.dataset import unpack_data
 from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
@@ -733,7 +734,8 @@ class NeuralNet:
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
-            for Xi, yi in self.get_iterator(dataset_train, training=True):
+            for data in self.get_iterator(dataset_train, training=True):
+                Xi, yi = unpack_data(data)
                 yi_res = yi if not y_train_is_ph else None
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
@@ -745,7 +747,8 @@ class NeuralNet:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
-            for Xi, yi in self.get_iterator(dataset_valid, training=False):
+            for data in self.get_iterator(dataset_valid, training=False):
+                Xi, yi = unpack_data(data)
                 yi_res = yi if not y_valid_is_ph else None
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
@@ -881,7 +884,8 @@ class NeuralNet:
         """
         dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
-        for Xi, _ in iterator:
+        for data in iterator:
+            Xi = unpack_data(data)[0]
             yp = self.evaluation_step(Xi, training=training)
             if isinstance(yp, tuple):
                 yield tuple(n.to(device) for n in yp)
