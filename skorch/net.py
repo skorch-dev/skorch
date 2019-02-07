@@ -1392,7 +1392,7 @@ class NeuralNet:
         cuda_attrs = {}
         for prefix in self.cuda_dependent_attributes_:
             for key in state:
-                if key.startswith(prefix):
+                if isinstance(key, str) and key.startswith(prefix):
                     cuda_attrs[key] = state[key]
 
         for k in cuda_attrs:
@@ -1411,14 +1411,15 @@ class NeuralNet:
             "This pickle file will stop working in the next release since "
             "the data format changed. Please re-pickle the model to avoid "
             "any issues in the future.", DeprecationWarning)
+        # workaround for cuda_dependent_attributes_ being misused as storage
+        # during __getstate__ in skorch <= 0.5.0.
+        original_cuda_dependent_attributes = self.cuda_dependent_attributes_
         with tempfile.SpooledTemporaryFile() as f:
             f.write(state['cuda_dependent_attributes_'])
             f.seek(0)
             cuda_attrs = torch.load(f, **load_kwargs)
-        for key in self.cuda_dependent_attributes_:
-            if key in cuda_attrs:
-                del state[key]
         state.update(cuda_attrs)
+        state['cuda_dependent_attributes_'] = original_cuda_dependent_attributes
         self.__dict__.update(state)
 
     def __setstate__(self, state):
