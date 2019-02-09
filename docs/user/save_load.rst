@@ -104,18 +104,16 @@ feature can be used to continue training:
 Using callbacks
 ---------------
 
-Skorch provides callbacks: :class:`.Checkpoint`,
-:class:`.TrainEndCheckpoint`, and :class:`.LoadInitState` to handle
-saving and loading models during training. To demonstrate these
-features, we generate a dataset and create a simple module:
+skorch provides :class:`.Checkpoint`, :class:`.TrainEndCheckpoint`,
+and :class:`.LoadInitState` callbacks to handle saving and loading
+models during training. To demonstrate these features, we generate a
+dataset and create a simple module:
 
 .. code:: python
 
     import numpy as np
     from sklearn.datasets import make_classification
     from torch import nn
-
-    from skorch import NeuralNetClassifier
 
     X, y = make_classification(1000, 10, n_informative=5, random_state=0)
     X = X.astype(np.float32)
@@ -132,18 +130,19 @@ features, we generate a dataset and create a simple module:
                 nn.Softmax(dim=-1)
             )
 
-We create a checkpoint setting ``dirname`` to ``'exp1'``. This will
-configure the checkpoint to save the model parameters, optimizer, and
-history into a directory named ``'exp1'``.
+Then we create two different checkpoint callbacks and configure them
+to save the model parameters, optimizer, and history into a directory
+named ``'exp1'``:
 
 .. code:: python
 
     # First run
 
     from skorch.callbacks import Checkpoint, TrainEndCheckpoint
+    from skorch import NeuralNetClassifier
 
     cp = Checkpoint(dirname='exp1')
-    train_end_cp = TrainEndCheckpoint(dirname='exp1', fn_prefix='train_end_')
+    train_end_cp = TrainEndCheckpoint(dirname='exp1')
     net = NeuralNetClassifier(
         MyModule, lr=0.5, callbacks=[cp, train_end_cp]
     )
@@ -164,13 +163,13 @@ history into a directory named ``'exp1'``.
           9        0.1864       0.9254        0.2313        0.0196
          10        0.2024       0.9353        0.2333        0.0221
 
-By default, the checkpoint observes ``valid_loss`` and will save the
-model when the ``valid_loss`` is lowest. This can be seen by the ``+``
-mark in the ``cp`` column of the logs.
+By default, :class:`.Checkpoint` observes ``valid_loss`` metric and
+saves the model when the metric improves. This is indicated by the
+``+`` mark in the ``cp`` column of the logs.
 
 On our first run, the validation loss did not improve after the 7th
-epoch. We can continue training from this checkpoint with a lower
-learning rate by using :class:`.LoadInitState`:
+epoch. We can lower the learning rate and continue training from this
+checkpoint by using :class:`.LoadInitState`:
 
 .. code:: python
 
@@ -199,15 +198,17 @@ learning rate by using :class:`.LoadInitState`:
          16        0.1516       0.9453        0.1864     +  0.0192
          17        0.1576       0.9453        0.1804     +  0.0184
 
-Since we started from the previous checkpoint which ended at epoch 7,
-the second run starts at epoch 8, continuing from the first
-checkpoint. With a lower learning rate, the validation loss was able
-to improve!
+The :class:`.LoadInitState` callback is executed once in the beginning
+of the training procedure and initializes model, history, and
+optimizer parameters from a specified checkpoint (if it exists). In
+our case previous checkpoint was created at the end of epoch 7, so the
+second run resumes from epoch 8. With a lower learning rate, the
+validation loss was able to improve!
 
-Notice in the first run, we included a :class:`.TrainEndCheckpoint` in
-the callbacks. This checkpoint saves the model at the end of training.
-This checkpoint can be passed to :class:`.LoadInitState` to continue
-training:
+Notice that in the first run we included a :class:`.TrainEndCheckpoint`
+in the list of callbacks. As its name suggests, this callback creates
+a checkpoint at the end of training. As before, we can pass it to
+:class:`.LoadInitState` to continue training:
 
 .. code:: python
 
@@ -235,10 +236,11 @@ training:
          20        0.1779       0.9453        0.1814     +  0.0074
 
 In this run, training started at epoch 11, continuing from the end of
-the first run which ended at epoch 10. We created a new checkpoint
-with ``fn_prefix`` set to ``'from_final'`` to prefix the saved
-filenames with ``'from_final'`` to make sure this checkpoint does not
-override the checkpoint from the previous run.
+the first run which ended at epoch 10. We created a new
+:class:`.Checkpoint` callback with ``fn_prefix`` set to
+``'from_train_end_'`` to prefix the saved filenames with
+``'from_train_end_'`` to make sure this checkpoint does not override
+the checkpoint from the previous run.
 
 Since our ``MyModule`` class allows ``num_units`` to be adjusted, we
 can start a new experiment by changing the ``dirname``:
@@ -289,4 +291,4 @@ load this checkpoint to predict with it:
     y_pred = net.predict(X)
 
 In this case, it is important to initialize the neutral net before
-running :meth:`.NeutralNet.load_params`.
+running :meth:`.NeuralNet.load_params`.
