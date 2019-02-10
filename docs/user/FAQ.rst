@@ -196,3 +196,64 @@ instead:
 In this case, :func:`~skorch.net.NeuralNet.fit` will always re-initialize
 the model and :func:`~skorch.net.NeuralNet.partial_fit` won't after the
 network is initialized once.
+
+.. _faq_how_do_i_use_a_pytorch_dataset_with_skorch:
+
+How do I use a PyTorch Dataset with skorch?
+-------------------------------------------
+
+skorch supports PyTorch's :class:`~torch.utils.data.Dataset` as arguments to
+:func:`~skorch.net.NeuralNet.fit` or 
+:func:`~skorch.net.NeuralNet.partial_fit`. We create a dataset by 
+subclassing PyTorch's :class:`~torch.utils.data.Dataset`:
+
+.. code:: python
+
+    import torch.utils.data
+ 
+    class RandomDataset(torch.utils.data.Dataset):
+        def __init__(self):
+            self.X = torch.randn(128, 10)
+            self.Y = torch.randn(128, 10)
+
+        def __getitem__(self, idx):
+            return self.X[idx], self.Y[idx]
+
+        def __len__(self):
+            return 128
+
+skorch expects the output of ``__getitem__`` to be a tuple of two values. 
+The ``RandomDataset`` can be passed directly to 
+:func:`~skorch.net.NeuralNet.fit`:
+
+.. code:: python
+
+    from skorch import NeuralNet
+    import torch.nn as nn
+
+    train_ds = RandomDataset()
+
+    class MyModule(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer = torch.nn.Linear(10, 10)
+            
+        def forward(self, X):
+            return self.layer(X)
+
+    net = NeuralNet(MyModule, criterion=torch.nn.MSELoss)
+    net.fit(train_ds)
+
+Additionally, skorch supports a custom validation PyTorch
+:class:`~torch.utils.data.Dataset` by using 
+:func:`~skorch.helper.predefined_split`:
+
+.. code:: python
+
+    from skorch.helper import predefined_split
+
+    valid_ds = RandomDataset()
+    net = NeuralNet(MyModule, 
+                    criterion=torch.nn.MSELoss,
+                    train_split=predefined_split(valid_ds))
+    net.fit(train_ds)

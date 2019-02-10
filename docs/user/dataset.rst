@@ -69,10 +69,13 @@ container of the data and only needs to implement ``__len__()`` and
 sampling, shuffling, and distributed processing.
 
 skorch uses the PyTorch :class:`~torch.utils.data.DataLoader`\s by default.
-However, the :class:`~torch.utils.data.Dataset`\s provided by PyTorch
-are not sufficient for our usecase; for instance, they don't work with
-:class:`numpy.ndarray`\s. That's why we provide our own
-:class:`.Dataset` class. This container works with:
+skorch supports PyTorch's :class:`~torch.utils.data.Dataset` when calling
+:func:`~skorch.net.NeuralNet.fit` or 
+:func:`~skorch.net.NeuralNet.partial_fit`. Details on how to use PyTorch's
+:class:`~torch.utils.data.Dataset` with skorch, can be found in 
+:ref:`faq_how_do_i_use_a_pytorch_dataset_with_skorch`.
+In order to support other data formats, we provide our own
+:class:`.Dataset` class that is compatible with:
 
 - :class:`numpy.ndarray`\s
 - PyTorch :class:`~torch.Tensor`\s
