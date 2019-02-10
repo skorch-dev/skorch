@@ -201,9 +201,9 @@ checkpoint by using :class:`.LoadInitState`:
 The :class:`.LoadInitState` callback is executed once in the beginning
 of the training procedure and initializes model, history, and
 optimizer parameters from a specified checkpoint (if it exists). In
-our case previous checkpoint was created at the end of epoch 7, so the
-second run resumes from epoch 8. With a lower learning rate, the
-validation loss was able to improve!
+our case, the previous checkpoint was created at the end of epoch 7,
+so the second run resumes from epoch 8. With a lower learning rate,
+the validation loss was able to improve!
 
 Notice that in the first run we included a :class:`.TrainEndCheckpoint`
 in the list of callbacks. As its name suggests, this callback creates
