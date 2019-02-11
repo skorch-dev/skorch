@@ -243,17 +243,3 @@ The ``RandomDataset`` can be passed directly to
 
     net = NeuralNet(MyModule, criterion=torch.nn.MSELoss)
     net.fit(train_ds)
-
-Additionally, skorch supports a custom validation PyTorch
-:class:`~torch.utils.data.Dataset` by using 
-:func:`~skorch.helper.predefined_split`:
-
-.. code:: python
-
-    from skorch.helper import predefined_split
-
-    valid_ds = RandomDataset()
-    net = NeuralNet(MyModule, 
-                    criterion=torch.nn.MSELoss,
-                    train_split=predefined_split(valid_ds))
-    net.fit(train_ds)
