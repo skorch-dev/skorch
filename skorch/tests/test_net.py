@@ -1216,7 +1216,48 @@ class TestNeuralNet:
         stdout = capsys.readouterr()[0]
         assert "Re-initializing module!" not in stdout
 
-    def test_with_initialized_module_partial_fit(
+    def test_message_with_initialized_optimizer_reset(
+            self, net_cls, module_cls, capsys):
+        net = net_cls(module_cls, optimizer__momentum=0.5).initialize()
+        net.set_params(optimizer__momentum=0.6)
+
+        stdout = capsys.readouterr()[0]
+        expected = (
+            "Re-initializing module.\n"
+            "Re-initializing optimizer because the following "
+            "parameters were re-set: momentum."
+        )
+        assert stdout == expected
+
+    def test_message_with_initialized_module_reset_optimizer(
+            self, net_cls, module_cls, capsys):
+        # even though module has a non-default parameter, it is
+        # optimizer__momentum that triggers the reset
+        net = net_cls(module_cls, module__num_hidden=3, max_epochs=1).initialize()
+        net.set_params(optimizer__momentum=0.6)
+
+        stdout = capsys.readouterr()[0]
+        expected = (
+            "Re-initializing module.\n"
+            "Re-initializing optimizer because the following "
+            "parameters were re-set: momentum."
+        )
+        assert stdout == expected
+
+    def test_message_with_initialized_module_non_default_set_params(
+            self, net_cls, module_cls, capsys):
+        net = net_cls(module_cls(hidden_units=123), max_epochs=1).initialize()
+        net.set_params(lr=0.3)
+
+        stdout = capsys.readouterr()[0].strip()
+        expected = (
+            "Re-initializing module.\n"
+            "Re-initializing optimizer because the following "
+            "parameters were re-set: lr."
+        )
+        assert stdout == expected
+
+    def test_message_with_initialized_module_partial_fit(
             self, net_cls, module_cls, data, capsys):
         X, y = data
         module = module_cls(hidden_units=123)
@@ -1257,6 +1298,33 @@ class TestNeuralNet:
 
         stdout = capsys.readouterr()[0]
         assert "Re-initializing module!" not in stdout
+
+    def test_message_with_initialized_net_then_fit(
+            self, net_cls, module_cls, data, capsys):
+        # When components are re-initialized because fit was called,
+        # there should be a clear message to the user.
+        X, y = data
+        net = net_cls(module_cls, max_epochs=0).initialize()
+        net.fit(X, y)
+        stdout = capsys.readouterr()[0].strip()
+        assert not stdout
+
+    def test_message_with_initialized_net_and_kwargs_then_fit(
+            self, net_cls, module_cls, data, capsys):
+        # This is the same test as before, but this time the user has
+        # set parameters that affect the components being
+        # re-initialized. Still the message should give the correct
+        # explanation for re-initialization.
+        X, y = data
+        net = net_cls(
+            module_cls,
+            max_epochs=0,
+            module__dropout=0.1,
+            optimizer__momentum=0.9,
+        ).initialize()
+        net.fit(X, y)
+        stdout = capsys.readouterr()[0].strip()
+        assert not stdout
 
     def test_call_fit_twice_retrains(self, net_cls, module_cls, data):
         # test that after second fit call, even without entering the
