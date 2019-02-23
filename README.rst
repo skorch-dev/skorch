@@ -155,7 +155,11 @@ Using conda
 You need a working conda installation. Get the correct miniconda for
 your system from `here <https://conda.io/miniconda.html>`__.
 
-If you just want to use skorch, use:
+You can also install skorch through the conda-forge channel. 
+The instructions for doing so are 
+available `here <https://github.com/conda-forge/skorch-feedstock>`__.
+
+If you do not want to use conda-forge, you may install skorch using:
 
 .. code:: bash
 
