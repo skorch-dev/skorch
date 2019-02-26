@@ -14,6 +14,7 @@ from unittest.mock import Mock
 from unittest.mock import patch
 import sys
 from contextlib import ExitStack
+import tempfile
 
 import numpy as np
 import pytest
@@ -284,6 +285,41 @@ class TestNeuralNet:
         with open(path, 'wb') as f:
             pickle.dump(net_pickleable, f)
         return path
+
+    # TODO: remove with NeuralNet.__setstate_050__
+    @pytest.fixture
+    def pickled_0_5_0_model_path(self):
+        # script to reproduce:
+        # --------------------
+        # git checkout v0.5.0
+        #
+        # python <<EOF
+        # import pickle
+        #
+        # import skorch
+        # import skorch.toy
+        #
+        #
+        # model = skorch.toy.make_classifier()
+        # model = skorch.NeuralNetClassifier(model)
+        # model.initialize()
+        #
+        # with open('model_0.5.0.pkl', 'wb') as f:
+        #     pickle.dump(model, f)
+        # EOF
+        return os.path.join('skorch', 'tests', 'model_0.5.0.pkl')
+
+    # TODO: remove with NeuralNet.__setstate_050__
+    def test_pickle_0_5_0_load_and_store(self, net_cls, pickled_0_5_0_model_path):
+        # Test if we can load models of skorch <= 0.5.0
+        with open(pickled_0_5_0_model_path, 'rb') as f:
+            model = pickle.load(f)
+
+        assert isinstance(model, net_cls)
+
+        # Test if we can re-pickle it (important for backwards compatibility)
+        with tempfile.SpooledTemporaryFile() as f:
+            pickle.dump(model, f)
 
     @pytest.mark.parametrize('cuda_available', {False, torch.cuda.is_available()})
     def test_pickle_load(self, cuda_available, pickled_cuda_net_path):
