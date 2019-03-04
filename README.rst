@@ -158,6 +158,7 @@ your system from `here <https://conda.io/miniconda.html>`__.
 You can also install skorch through the conda-forge channel. 
 The instructions for doing so are 
 available `here <https://github.com/conda-forge/skorch-feedstock>`__.
+Though conda channel is not managed the skorch maintainers
 
 If you do not want to use conda-forge, you may install skorch using:
 
