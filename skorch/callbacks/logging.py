@@ -148,6 +148,7 @@ class PrintLog(Callback):
                     (key in ('epoch', 'dur')) or
                     (key in self.keys_ignored_) or
                     key.endswith('_best') or
+                    key.endswith('_batch_count') or
                     key.startswith('event_')
             ):
                 sorted_keys.append(key)
