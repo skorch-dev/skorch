@@ -2037,8 +2037,8 @@ class TestNeuralNet:
         X, y = data
         net.fit(X, y)
 
-        train_batch_count = 0.8 * len(X) / batch_size
-        valid_batch_count = 0.2 * len(X) / batch_size
+        train_batch_count = int(0.8 * len(X)) / batch_size
+        valid_batch_count = int(0.2 * len(X)) / batch_size
 
         assert net.history[:, "train_batch_count"] == [train_batch_count]
         assert net.history[:, "valid_batch_count"] == [valid_batch_count]

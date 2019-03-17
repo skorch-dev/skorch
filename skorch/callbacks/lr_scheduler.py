@@ -116,7 +116,10 @@ class LRScheduler(Callback):
 
     def on_train_begin(self, net, **kwargs):
         if net.history:
-            self.batch_idx_ = len(net.history[:, 'batches']) - 1
+            try:
+                self.batch_idx_ = sum(net.history[:, 'train_batch_count'])
+            except KeyError:
+                self.batch_idx_ = len(net.history[:, 'batches'][0])
         self.lr_scheduler_ = self._get_scheduler(
             net, self.policy_, **self.kwargs
         )
@@ -138,15 +141,17 @@ class LRScheduler(Callback):
         else:
             self.lr_scheduler_.step(epoch)
 
-    def on_batch_begin(self, net, **kwargs):
+    def on_batch_begin(self, net, training, **kwargs):
         if (
+                training and
                 hasattr(self.lr_scheduler_, 'batch_step') and
                 callable(self.lr_scheduler_.batch_step)
         ):
             self.lr_scheduler_.batch_step(self.batch_idx_)
 
-    def on_batch_end(self, net, **kwargs):
-        self.batch_idx_ += 1
+    def on_batch_end(self, net, training, **kwargs):
+        if training:
+            self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
         """Return scheduler, based on indicated policy, with appropriate

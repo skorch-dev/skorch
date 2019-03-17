@@ -104,18 +104,52 @@ class TestLRCallbacks:
             policy,
             kwargs,
     ):
-        num_examples = 1000
         batch_size = 100
-        max_epochs = 2
+        max_epochs = 1
 
         X, y = classifier_data
+        num_examples = len(X)
+
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
-        expected = (num_examples // batch_size) * max_epochs - 1
+        net.partial_fit(X, y)
+        expected = int(1.6 * num_examples / batch_size) * max_epochs
         # pylint: disable=protected-access
-        assert lr_policy.lr_scheduler_.last_batch_idx == expected
+        assert lr_policy.batch_idx_ == expected
+
+    @pytest.mark.parametrize('policy, kwargs', [
+        ('CyclicLR', {}),
+    ])
+    def test_lr_callback_batch_steps_correctly_fallback(
+            self,
+            classifier_module,
+            classifier_data,
+            policy,
+            kwargs,
+    ):
+        batch_size = 100
+        max_epochs = 1
+
+        X, y = classifier_data
+        num_examples = len(X)
+
+        lr_policy = LRScheduler(policy, **kwargs)
+        net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
+                                  batch_size=batch_size, callbacks=[lr_policy])
+        net.fit(X, y)
+
+        # Removes batch count information
+        del net.history[0]["train_batch_count"]
+        del net.history[0]["valid_batch_count"]
+        net.partial_fit(X, y)
+
+        # Failback to using both valid and training batches counts on
+        # second run
+        expected = int(1.8 * num_examples / batch_size) * max_epochs
+        # pylint: disable=protected-access
+        assert lr_policy.batch_idx_ == expected
 
     def test_lr_scheduler_cloneable(self):
         # reproduces bug #271
