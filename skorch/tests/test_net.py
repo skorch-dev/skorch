@@ -2030,6 +2030,19 @@ class TestNeuralNet:
         assert train_kwargs['batch_size'] == expected_train_batch_size
         assert valid_kwargs['batch_size'] == expected_valid_batch_size
 
+    @pytest.mark.parametrize('batch_size', [40, 100])
+    def test_batch_count(self, net_cls, module_cls, data, batch_size):
+
+        net = net_cls(module_cls, max_epochs=1, batch_size=batch_size)
+        X, y = data
+        net.fit(X, y)
+
+        train_batch_count = 0.8 * len(X) / batch_size
+        valid_batch_count = 0.2 * len(X) / batch_size
+
+        assert net.history[:, "train_batch_count"] == [train_batch_count]
+        assert net.history[:, "valid_batch_count"] == [valid_batch_count]
+
     def test_fit_lbfgs_optimizer(self, net_cls, module_cls, data):
         X, y = data
         net = net_cls(
