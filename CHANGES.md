@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Repository moved to https://github.com/skorch-dev/skorch/, please change your git remotes
 - Treat cuda dependent attributes as prefix to cover values set using `set_params` since
   previously `"criterion_"` would not match `net.criterion__weight` as set by
   `net.set_params(criterion__weight=w)`
