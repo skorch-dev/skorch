@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Adds FAQ entry regarding the initialization behavior of `NeuralNet` when passed instantiated models. (#409)
 - Added CUDA pickle test including an artifact that supports testing on CUDA-less CI machines
+- Wrapper class for torch Datasets to make them work with some sklearn features (e.g. grid search). (#443)
 
 ### Changed
 

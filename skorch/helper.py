@@ -7,6 +7,7 @@ from functools import partial
 import warnings
 
 import numpy as np
+from torch.utils.data.dataloader import default_collate
 
 from skorch.utils import _make_split
 from skorch.utils import _make_optimizer
@@ -129,6 +130,82 @@ class SliceDict(dict):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+
+def _unpack_first(x):
+    if isinstance(x, tuple):
+        return x[0]
+    return x
+
+
+class SliceDatasetX:
+    """Helper class that wraps a torch dataset to make it work with
+    sklearn.
+
+    Sometimes, sklearn will touch the input data, e.g. when splitting
+    the data for a grid search. This will fail when the input data is
+    a torch dataset. To prevent this, use this wrapper class for your
+    dataset.
+
+    Note that this class will only return the X value (i.e. the first
+    value returned by indexing the original dataset). Sklearn, and
+    hence skorch, always require 2 values, X and y. Therefore, you
+    still need to provide the y data separately.
+
+    Examples
+    --------
+    >>> X = MyCustomDataset()
+    >>> search = GridSearchCV(net, params, ...)
+    >>> search.fit(X, y)  # raises error
+    >>> ds = SliceDatasetX(X)  # or Xs = SliceDict(**X)
+    >>> search.fit(ds, y)  # works
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset
+      A valid torch dataset.
+
+    collate_fn : callable (default=torch.utils.data.dataloader.default_collate)
+      A function that merges a list of samples to form a
+      mini-batch. This is typically the same function that torch's
+      DataLoader class uses to collate batches.
+
+    """
+    def __init__(self, dataset, collate_fn=default_collate):
+        self.dataset = dataset
+        self.collate_fn = collate_fn
+
+        self._indices = list(range(len(self.dataset)))
+
+    def __len__(self):
+        return len(self.dataset)
+
+    @property
+    def shape(self):
+        return (len(self),)
+
+    def transform(self, X):
+        return X
+
+    def __getitem__(self, i):
+        if isinstance(i, (int, np.integer)):
+            Xi = _unpack_first(self.dataset[i])
+            return self.transform(Xi)
+
+        if isinstance(i, slice):
+            i = self._indices[i]
+
+        if isinstance(i, np.ndarray):
+            if i.ndim != 1:
+                raise IndexError("SliceDatasetX only supports slicing with 1 "
+                                 "dimensional arrays, got {} dimensions instead."
+                                 "".format(i.ndim))
+            if i.dtype == np.bool:
+                i = np.flatnonzero(i)
+
+        Xi = self.collate_fn([
+            self.transform(_unpack_first(self.dataset[j])) for j in i])
+        return Xi
 
 
 # TODO: remove in 0.5.0

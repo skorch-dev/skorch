@@ -254,6 +254,125 @@ class TestSliceDict:
         assert sldict0 != sldict1
 
 
+class TestSliceDatasetX:
+    @pytest.fixture
+    def data(self):
+        X, y = make_classification(100, 20, n_informative=10, random_state=0)
+        return X.astype(np.float32), y
+
+    @pytest.fixture
+    def X(self, data):
+        return data[0]
+
+    @pytest.fixture
+    def y(self, data):
+        return data[1]
+
+    @pytest.fixture
+    def custom_ds(self, data):
+        """Return a custom dataset instance"""
+        from skorch.dataset import Dataset
+        class MyDataset(Dataset):
+            """Simple pytorch dataset that returns 2 values"""
+            def __init__(self, X, y):
+                super().__init__(X, y)
+
+            def __len__(self):
+                return len(self.X)
+
+            def __getitem__(self, i):
+                Xi = self.X[i]
+                yi = self.y[i]
+                return self.transform(Xi, yi)
+
+        return MyDataset(*data)
+
+    @pytest.fixture(scope='session')
+    def slds_cls(self):
+        from skorch.helper import SliceDatasetX
+        return SliceDatasetX
+
+    @pytest.fixture
+    def slds(self, slds_cls, custom_ds):
+        return slds_cls(custom_ds)
+
+    def test_len_and_shape(self, slds, y):
+        assert len(slds) == len(y)
+        assert slds.shape == (len(y),)
+
+    @pytest.mark.parametrize('sl', [
+        0,
+        55,
+        -3,
+        slice(0, 1),
+        slice(1, 2),
+        slice(0, 2),
+        slice(0, None),
+        slice(-1, None),
+        slice(None, None, -1),
+        [0],
+        [55],
+        [-3],
+        [0, 10, 3, -8, 3],
+        np.ones(100, dtype=np.bool),
+        np.array([0, 0, 1, 0] * 25, dtype=np.bool),
+    ])
+    def test_slice(self, slds, X, sl):
+        sliced = slds[sl]
+        x = X[sl]
+        assert np.allclose(sliced, x)
+
+    def test_fit_with_slds_works(self, slds, y, classifier_module):
+        from skorch import NeuralNetClassifier
+        net = NeuralNetClassifier(classifier_module)
+        net.fit(slds, y)  # does not raise
+
+    def test_fit_with_slds_without_valid_works(self, slds, y, classifier_module):
+        from skorch import NeuralNetClassifier
+        net = NeuralNetClassifier(classifier_module, train_split=False)
+        net.fit(slds, y)  # does not raise
+
+    def test_grid_search_with_slds_works(
+            self, slds, y, classifier_module):
+        from sklearn.model_selection import GridSearchCV
+        from skorch import NeuralNetClassifier
+
+        net = NeuralNetClassifier(
+            classifier_module,
+            train_split=False,
+            verbose=0,
+        )
+        params = {
+            'lr': [0.01, 0.02],
+            'max_epochs': [10, 20],
+        }
+        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', iid=True)
+        gs.fit(slds, y)  # does not raise
+
+    def test_grid_search_with_slds_and_internal_split_works(
+            self, slds, y, classifier_module):
+        from sklearn.model_selection import GridSearchCV
+        from skorch import NeuralNetClassifier
+
+        net = NeuralNetClassifier(classifier_module)
+        params = {
+            'lr': [0.01, 0.02],
+            'max_epochs': [10, 20],
+        }
+        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy', iid=True)
+        gs.fit(slds, y)  # does not raise
+
+    def test_index_with_2d_array_raises(self, slds):
+        i = np.arange(4).reshape(2, 2)
+        with pytest.raises(IndexError) as exc:
+            # pylint: disable=pointless-statement
+            slds[i]
+
+        msg = ("SliceDatasetX only supports slicing with 1 "
+               "dimensional arrays, got 2 dimensions instead.")
+        assert exc.value.args[0] == msg
+
+
 # TODO: remove in 0.5.0
 class TestFilterParameterGroupsRequiresGrad():
 
