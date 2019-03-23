@@ -254,7 +254,7 @@ class TestSliceDict:
         assert sldict0 != sldict1
 
 
-class TestSliceDatasetX:
+class TestSliceDataset:
     @pytest.fixture
     def data(self):
         X, y = make_classification(100, 20, n_informative=10, random_state=0)
@@ -289,21 +289,22 @@ class TestSliceDatasetX:
 
     @pytest.fixture(scope='session')
     def slds_cls(self):
-        from skorch.helper import SliceDatasetX
-        return SliceDatasetX
+        from skorch.helper import SliceDataset
+        return SliceDataset
 
     @pytest.fixture
     def slds(self, slds_cls, custom_ds):
         return slds_cls(custom_ds)
+
+    @pytest.fixture
+    def slds_y(self, slds_cls, custom_ds):
+        return slds_cls(custom_ds, n=1)
 
     def test_len_and_shape(self, slds, y):
         assert len(slds) == len(y)
         assert slds.shape == (len(y),)
 
     @pytest.mark.parametrize('sl', [
-        0,
-        55,
-        -3,
         slice(0, 1),
         slice(1, 2),
         slice(0, 2),
@@ -317,9 +318,55 @@ class TestSliceDatasetX:
         np.ones(100, dtype=np.bool),
         np.array([0, 0, 1, 0] * 25, dtype=np.bool),
     ])
-    def test_slice(self, slds, X, sl):
+    def test_len_and_shape_sliced(self, slds, y, sl):
+        assert len(slds[sl]) == len(y[sl])
+        assert slds[sl].shape == (len(y[sl]),)
+
+    @pytest.mark.parametrize('n', [0, 1])
+    def test_slice_non_int_is_slicedataset(self, slds_cls, custom_ds, n):
+        slds = slds_cls(custom_ds, n=n)
+        sl = np.arange(7, 55, 3)
         sliced = slds[sl]
-        x = X[sl]
+        assert isinstance(sliced, slds_cls)
+        assert np.allclose(sliced.indices_, sl)
+
+    @pytest.mark.parametrize('n', [0, 1])
+    @pytest.mark.parametrize('sl', [0, 55, -3])
+    def test_slice(self, slds_cls, custom_ds, X, y, sl, n):
+        data = y if n else X
+        slds = slds_cls(custom_ds, n=n)
+        sliced = slds[sl]
+        x = data[sl]
+        assert np.allclose(sliced, x)
+
+    @pytest.mark.parametrize('n', [0, 1])
+    @pytest.mark.parametrize('sl0, sl1', [
+        ([55], 0),
+        (slice(0, 1), 0),
+        (slice(-1, None), 0),
+        ([55], -1),
+        ([0, 10, 3, -8, 3], 1),
+        (np.ones(100, dtype=np.bool), 5),
+        (np.array([0, 0, 1, 0] * 25, dtype=np.bool), 6),
+    ])
+    def test_slice_twice(self, slds_cls, custom_ds, X, y, sl0, sl1, n):
+        data = y if n else X
+        slds = slds_cls(custom_ds, n=n)
+        sliced = slds[sl0][sl1]
+        x = data[sl0][sl1]
+        assert np.allclose(sliced, x)
+
+    @pytest.mark.parametrize('n', [0, 1])
+    @pytest.mark.parametrize('sl0, sl1, sl2', [
+        (slice(0, 50), slice(10, 20), 5),
+        ([0, 10, 3, -8, 3], [1, 2, 3], 2),
+        (np.ones(100, dtype=np.bool), np.arange(10, 40), 29),
+    ])
+    def test_slice_three_times(self, slds_cls, custom_ds, X, y, sl0, sl1, sl2, n):
+        data = y if n else X
+        slds = slds_cls(custom_ds, n=n)
+        sliced = slds[sl0][sl1][sl2]
+        x = data[sl0][sl1][sl2]
         assert np.allclose(sliced, x)
 
     def test_fit_with_slds_works(self, slds, y, classifier_module):
@@ -362,13 +409,30 @@ class TestSliceDatasetX:
         gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy', iid=True)
         gs.fit(slds, y)  # does not raise
 
+    def test_grid_search_with_slds_X_and_slds_y(
+            self, slds, slds_y, classifier_module):
+        from sklearn.model_selection import GridSearchCV
+        from skorch import NeuralNetClassifier
+
+        net = NeuralNetClassifier(
+            classifier_module,
+            train_split=False,
+            verbose=0,
+        )
+        params = {
+            'lr': [0.01, 0.02],
+            'max_epochs': [10, 20],
+        }
+        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', iid=True)
+        gs.fit(slds, slds_y)  # does not raise
+
     def test_index_with_2d_array_raises(self, slds):
         i = np.arange(4).reshape(2, 2)
         with pytest.raises(IndexError) as exc:
             # pylint: disable=pointless-statement
             slds[i]
 
-        msg = ("SliceDatasetX only supports slicing with 1 "
+        msg = ("SliceDataset only supports slicing with 1 "
                "dimensional arrays, got 2 dimensions instead.")
         assert exc.value.args[0] == msg
 

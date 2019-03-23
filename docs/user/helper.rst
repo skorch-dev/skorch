@@ -19,33 +19,33 @@ length of the arrays and not the number of keys, and you get a
 with :class:`.SliceDict`, this works.
 
 
-.. _slicedictx:
+.. _slicedataset:
 
-SliceDatasetX
--------------
+SliceDataset
+------------
 
-A :class:`.SliceDatasetX` is a wrapper for
-:class:`torch.utils.data.Dataset`\s that makes them behave a little
+A :class:`.SliceDataset` is a wrapper for
+PyTorch :class:`~torch.utils.data.Dataset`\s that makes them behave a little
 bit like :class:`numpy.ndarray`\s. That way, you can slice your
 dataset with lists and arrays, and you get a ``shape`` attribute.
 These properties are useful because if your data is in a dataset, you
 would normally not be able to use sklearn
 :class:`~sklearn.model_selection.GridSearchCV` and similar things;
-with :class:`.SliceDatasetX`, this works.
+with :class:`.SliceDataset`, this works.
 
-Note that even if your dataset already contains the y values, you must
-still provide them separately for sklearn. Most of the time, it should
-be pretty straightforward to extract the y values from your dataset,
-so that this won't be an issue. Something like this should do the job:
+Note that :class:`.SliceDataset` can only ever return one of the
+values returned by the dataset. Typically, this will be either the X
+or the y value. Therefore, if you want to wrap both X and y, you
+should create two instances of :class:`.SliceDataset`, one for X
+(with argument ``n=0``, the default) and for y (with argument
+``n=1``):
 
 .. code:: python
 
     ds = MyCustomDataset()
-    # assume that y is the second value returned by indexing into ds
-    y_from_ds = np.asarray([ds[i][1] for i in range(len(ds))])
-    # wrap the dataset into the new helper class
-    ds_sliceable = SliceDatasetX(ds)
-    gs.fit(ds_sliceable, y_from_ds)
+    X_sl = SliceDataset(ds, n=0)  # n=0 is the default
+    y_sl = SliceDataset(ds, n=1)
+    gs.fit(X_sl, y_sl)
 
 
 Command line interface helpers

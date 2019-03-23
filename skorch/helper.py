@@ -3,15 +3,15 @@
 They should not be used in skorch directly.
 
 """
+from collections import Sequence
 from functools import partial
 import warnings
 
 import numpy as np
-from torch.utils.data.dataloader import default_collate
 
+from skorch.cli import parse_args
 from skorch.utils import _make_split
 from skorch.utils import _make_optimizer
-from skorch.cli import parse_args
 from skorch.utils import is_torch_data_type
 
 
@@ -132,13 +132,10 @@ class SliceDict(dict):
         return not self.__eq__(other)
 
 
-def _unpack_first(x):
-    if isinstance(x, tuple):
-        return x[0]
-    return x
-
-
-class SliceDatasetX:
+# This class must be an instance of Sequence and have an ndim
+# attribute because sklearn will test this.
+class SliceDataset(Sequence):
+    # pylint: disable=anomalous-backslash-in-string
     """Helper class that wraps a torch dataset to make it work with
     sklearn.
 
@@ -147,17 +144,26 @@ class SliceDatasetX:
     a torch dataset. To prevent this, use this wrapper class for your
     dataset.
 
-    Note that this class will only return the X value (i.e. the first
-    value returned by indexing the original dataset). Sklearn, and
-    hence skorch, always require 2 values, X and y. Therefore, you
+    Note: This class will only return the X value by default (i.e. the
+    first value returned by indexing the original dataset). Sklearn,
+    and hence skorch, always require 2 values, X and y. Therefore, you
     still need to provide the y data separately.
+
+    Note: This class behaves similarly to a PyTorch
+    :class:`~torch.utils.data.Subset` when it is indexed by a slice or
+    numpy array: It will return another ``SliceDataset`` that
+    references the subset instead of the actual values. Only when it
+    is indexed by an int does it return the actual values. The reason
+    for this is to avoid loading all data into memory when sklearn,
+    for instance, creates a train/validation split on the
+    dataset. Data will only be loaded in batches during the fit loop.
 
     Examples
     --------
     >>> X = MyCustomDataset()
     >>> search = GridSearchCV(net, params, ...)
     >>> search.fit(X, y)  # raises error
-    >>> ds = SliceDatasetX(X)  # or Xs = SliceDict(**X)
+    >>> ds = SliceDataset(X)
     >>> search.fit(ds, y)  # works
 
     Parameters
@@ -165,47 +171,64 @@ class SliceDatasetX:
     dataset : torch.utils.data.Dataset
       A valid torch dataset.
 
-    collate_fn : callable (default=torch.utils.data.dataloader.default_collate)
-      A function that merges a list of samples to form a
-      mini-batch. This is typically the same function that torch's
-      DataLoader class uses to collate batches.
+    n : int (default=0)
+      Indicates which element of the dataset should be
+      returned. Typically, the dataset returns both X and y
+      values. SliceDataset can only return 1 value. If you want to
+      get X, choose n=0 (default), if you want y, choose n=1.
+
+    indices : list, np.ndarray, or None (default=None)
+      If you only want to return a subset of the dataset, indicate
+      which subset that is by passing this argument. Typically, this
+      can be left to be None, which returns all the data. See also
+      :class:`~torch.utils.data.Subset`.
 
     """
-    def __init__(self, dataset, collate_fn=default_collate):
+    def __init__(self, dataset, n=0, indices=None):
         self.dataset = dataset
-        self.collate_fn = collate_fn
+        self.n = n
+        self.indices = indices
 
-        self._indices = list(range(len(self.dataset)))
+        self.indices_ = (self.indices if self.indices is not None
+                         else np.arange(len(self.dataset)))
+        self.ndim = 1
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.indices_)
 
     @property
     def shape(self):
         return (len(self),)
 
-    def transform(self, X):
-        return X
+    def transform(self, data):
+        # pylint: disable=anomalous-backslash-in-string
+        """Additional transformations on ``data``.
+
+        Note: If you use this in conjuction with PyTorch
+        :class:`~torch.utils.data.DataLoader`, the latter will call
+        the dataset for each row separately, which means that the
+        incoming ``data`` is a single rows.
+
+        """
+        return data
 
     def __getitem__(self, i):
         if isinstance(i, (int, np.integer)):
-            Xi = _unpack_first(self.dataset[i])
+            Xi = self.dataset[self.indices_[i]][self.n]
             return self.transform(Xi)
 
         if isinstance(i, slice):
-            i = self._indices[i]
+            return SliceDataset(self.dataset, n=self.n, indices=self.indices_[i])
 
         if isinstance(i, np.ndarray):
             if i.ndim != 1:
-                raise IndexError("SliceDatasetX only supports slicing with 1 "
+                raise IndexError("SliceDataset only supports slicing with 1 "
                                  "dimensional arrays, got {} dimensions instead."
                                  "".format(i.ndim))
             if i.dtype == np.bool:
                 i = np.flatnonzero(i)
 
-        Xi = self.collate_fn([
-            self.transform(_unpack_first(self.dataset[j])) for j in i])
-        return Xi
+        return SliceDataset(self.dataset, n=self.n, indices=self.indices_[i])
 
 
 # TODO: remove in 0.5.0

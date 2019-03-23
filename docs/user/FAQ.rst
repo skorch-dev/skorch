@@ -74,9 +74,9 @@ dataset.
 
 Sometimes, this is not possible, e.g. when your data doesn't fit into
 memory. To get around that, try to wrap your dataset into a
-:class:`.SliceDatasetX`. This is a data container that partly behaves
+:class:`.SliceDataset`. This is a data container that partly behaves
 like a dataset, partly like an ndarray. Further information can be
-found here: :ref:`slicedictx`.
+found here: :ref:`slicedataset`.
 
 I want to use sample_weight, how can I do this?
 -----------------------------------------------
