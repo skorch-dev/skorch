@@ -100,7 +100,7 @@ this feature:
 
     import numpy as np
     import torch
-    import torch.nn.functionl as F
+    import torch.nn.functional as F
 
     class MyModule(torch.nn.Module):
         def __init__(self):
