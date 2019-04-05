@@ -156,7 +156,7 @@ def make_regressor(output_units=1, **kwargs):
     input_units : int (default=20)
       Number of input units.
 
-    output_units : int (default=2)
+    output_units : int (default=1)
       Number of output units.
 
     hidden_units : int (default=10)
