@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="300"
+   height="300"
+   viewBox="0 0 79.374998 79.375002"
+   version="1.1"
+   id="svg853"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   sodipodi:docname="skorch_button.svg">
+  <defs
+     id="defs847" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.49497475"
+     inkscape:cx="1730.9458"
+     inkscape:cy="-207.51105"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     units="px"
+     inkscape:window-width="3840"
+     inkscape:window-height="2096"
+     inkscape:window-x="1920"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata850">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-217.62498)">
+    <g
+       id="g1092"
+       transform="matrix(8.3726953,0,0,8.3726953,-110.70045,212.89619)"
+       style="display:inline;stroke-width:0.11943585">
+      <g
+         transform="translate(-130.29067,-126.22247)"
+         id="g1034"
+         style="stroke-width:0.11943585">
+        <path
+           style="fill:#f89939;fill-rule:evenodd;stroke:none;stroke-width:0.001565"
+           inkscape:connector-curvature="0"
+           d="m 146.58431,132.73293 c -0.44379,0.44377 -0.51755,1.08948 -0.16474,1.44226 0.35277,0.35277 0.99846,0.27901 1.44222,-0.16472 0.44377,-0.44376 0.3154,-1.29157 0.16471,-1.44228 -0.12177,-0.12176 -0.99845,-0.279 -1.44219,0.16474 z"
+           id="path9627" />
+        <path
+           id="path9629"
+           d="m 149.92045,132.73293 c 0.4438,0.44377 0.51756,1.08948 0.16474,1.44226 -0.35277,0.35277 -0.99845,0.27901 -1.44222,-0.16472 -0.44377,-0.44376 -0.31539,-1.29157 -0.16471,-1.44228 0.12177,-0.12176 0.99845,-0.279 1.44219,0.16474 z"
+           inkscape:connector-curvature="0"
+           style="fill:#3499cd;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.001565" />
+        <path
+           id="path9631"
+           d="m 146.58431,131.9626 c -0.44379,-0.44377 -0.51755,-1.08949 -0.16474,-1.44227 0.35277,-0.35274 0.99846,-0.279 1.44222,0.16475 0.44377,0.44374 0.3154,1.29155 0.16471,1.44226 -0.12177,0.12176 -0.99845,0.279 -1.44219,-0.16474 z"
+           inkscape:connector-curvature="0"
+           style="fill:#3499cd;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.001565" />
+        <path
+           style="fill:#f89939;fill-rule:evenodd;stroke:none;stroke-width:0.001565"
+           inkscape:connector-curvature="0"
+           d="m 149.92045,131.9626 c 0.4438,-0.44377 0.51756,-1.08949 0.16474,-1.44227 -0.35277,-0.35274 -0.99845,-0.279 -1.44222,0.16475 -0.44377,0.44374 -0.31539,1.29155 -0.16471,1.44226 0.12177,0.12176 0.99845,0.279 1.44219,-0.16474 z"
+           id="path9633" />
+      </g>
+      <g
+         style="stroke-width:0.09997814"
+         transform="matrix(0.31607641,0,0,0.31607641,14.042365,0.45312491)"
+         id="g933">
+        <path
+           id="path929"
+           d="m 21,9.2 -2.2,2.2 c 3.6,3.6 3.6,9.4 0,12.9 -3.6,3.6 -9.4,3.6 -12.9,0 -3.6,-3.6 -3.6,-9.4 0,-12.9 v 0 l 5.7,-5.7 0.8,-0.8 v 0 -4.3 L 3.8,9.2 C -1,14 -1,21.7 3.8,26.5 8.6,31.3 16.3,31.3 21,26.5 25.8,21.7 25.8,14 21,9.2 Z"
+           class="st0"
+           inkscape:connector-curvature="0"
+           style="fill:#ee4c2c;stroke-width:0.09997814" />
+        <circle
+           id="circle931"
+           r="1.6"
+           cy="7.0999999"
+           cx="16.700001"
+           class="st0"
+           style="fill:#ee4c2c;stroke-width:0.09997814" />
+      </g>
+    </g>
+  </g>
+</svg>
