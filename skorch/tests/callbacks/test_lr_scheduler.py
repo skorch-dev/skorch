@@ -105,7 +105,7 @@ class TestLRCallbacks:
             kwargs,
     ):
         batch_size = 100
-        max_epochs = 1
+        max_epochs = 2
 
         X, y = classifier_data
         num_examples = len(X)
@@ -114,8 +114,12 @@ class TestLRCallbacks:
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
-        net.partial_fit(X, y)
-        expected = int(1.6 * num_examples / batch_size) * max_epochs
+
+        total_iterations_per_epoch = num_examples / batch_size
+        # 80% of sample used for training by default
+        total_training_iterations_per_epoch = 0.8 * total_iterations_per_epoch
+
+        expected = int(total_training_iterations_per_epoch * max_epochs)
         # pylint: disable=protected-access
         assert lr_policy.batch_idx_ == expected
 
@@ -130,7 +134,7 @@ class TestLRCallbacks:
             kwargs,
     ):
         batch_size = 100
-        max_epochs = 1
+        max_epochs = 2
 
         X, y = classifier_data
         num_examples = len(X)
@@ -140,14 +144,28 @@ class TestLRCallbacks:
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
 
-        # Removes batch count information
-        del net.history[0]["train_batch_count"]
-        del net.history[0]["valid_batch_count"]
+        # Removes batch count information in the last two epochs
+        for i in range(2):
+            del net.history[i]["train_batch_count"]
+            del net.history[i]["valid_batch_count"]
         net.partial_fit(X, y)
 
+        total_iterations_per_epoch = num_examples / batch_size
+
+        # batch_counts were removed thus the total iterations of the last
+        # epoch is used
+        total_iterations_fit_run = total_iterations_per_epoch * max_epochs
+
+        # 80% of sample used for training by default
+        total_iterations_partial_fit_run = (
+            0.8 * total_iterations_per_epoch * max_epochs)
+
+        # called fit AND partial_fit
+        total_iterations = (total_iterations_fit_run +
+                            total_iterations_partial_fit_run)
         # Failback to using both valid and training batches counts on
         # second run
-        expected = int(1.8 * num_examples / batch_size) * max_epochs
+        expected = int(total_iterations)
         # pylint: disable=protected-access
         assert lr_policy.batch_idx_ == expected
 
