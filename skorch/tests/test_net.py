@@ -1031,6 +1031,25 @@ class TestNeuralNet:
         assert mock.call_count == 2
         assert mock.call_args_list[1][1]['spam'] == 'eggs'
 
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    @pytest.mark.parametrize('device', ['cpu', 'cuda'])
+    def test_criterion_params_on_device(self, net_cls, module_cls, device):
+        # attributes like criterion.weight should be automatically moved
+        # to the Net's device.
+        criterion = torch.nn.NLLLoss
+        weight = torch.ones(2)
+        net = net_cls(
+            module_cls,
+            criterion=criterion,
+            criterion__weight=weight,
+            device=device,
+        )
+
+        assert weight.device.type == 'cpu'
+        net.initialize()
+        assert net.criterion_.weight.device.type == device
+
+
     def test_callback_with_name_init_with_params(self, net_cls, module_cls):
         mock = Mock()
         net = net_cls(
