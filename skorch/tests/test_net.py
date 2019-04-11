@@ -1252,6 +1252,22 @@ class TestNeuralNet:
         stdout = capsys.readouterr()[0]
         assert "Re-initializing module!" not in stdout
 
+    def test_message_fit_with_initialized_net(
+            self, net_cls, module_cls, data, capsys):
+        net = net_cls(module_cls).initialize()
+        net.fit(*data)
+        stdout = capsys.readouterr()[0]
+
+        msg_module = "Re-initializing module"
+        assert msg_module in stdout
+
+        msg_optimizer = "Re-initializing optimizer"
+        assert msg_optimizer in stdout
+
+        # bug: https://github.com/skorch-dev/skorch/issues/436
+        not_expected = 'because the following parameters were re-set'
+        assert not_expected not in stdout
+
     def test_with_initialized_module_partial_fit(
             self, net_cls, module_cls, data, capsys):
         X, y = data

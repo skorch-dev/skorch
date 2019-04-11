@@ -446,8 +446,7 @@ class NeuralNet:
 
         """
         msg = "Re-initializing {}".format(name)
-        if triggered_directly:
-            kwargs = kwargs or {}
+        if triggered_directly and kwargs:
             msg += (" because the following parameters were re-set: {}."
                     .format(', '.join(sorted(kwargs))))
         else:
