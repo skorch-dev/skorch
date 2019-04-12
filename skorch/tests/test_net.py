@@ -1059,7 +1059,6 @@ class TestNeuralNet:
         net.initialize()
         assert net.criterion_.weight.device.type == device
 
-
     def test_callback_with_name_init_with_params(self, net_cls, module_cls):
         mock = Mock()
         net = net_cls(
