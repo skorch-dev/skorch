@@ -1031,6 +1031,16 @@ class TestNeuralNet:
         assert mock.call_count == 2
         assert mock.call_args_list[1][1]['spam'] == 'eggs'
 
+    def test_criterion_non_module(self, net_cls, module_cls, data):
+        # test non-nn.Module classes passed as criterion
+        class SimpleCriterion:
+            def __call__(self, y_pred, y_true):
+                return y_pred.mean()
+
+        net = net_cls(module_cls, criterion=SimpleCriterion)
+        net.initialize()
+        net.fit(*data)
+
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     @pytest.mark.parametrize('device', ['cpu', 'cuda'])
     def test_criterion_params_on_device(self, net_cls, module_cls, device):

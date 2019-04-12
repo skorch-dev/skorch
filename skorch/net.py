@@ -433,7 +433,9 @@ class NeuralNet:
     def initialize_criterion(self):
         """Initializes the criterion."""
         criterion_params = self._get_params_for('criterion')
-        self.criterion_ = self.criterion(**criterion_params).to(self.device)
+        self.criterion_ = self.criterion(**criterion_params)
+        if isinstance(self.criterion_, torch.nn.Module):
+            self.criterion_ = self.criterion_.to(self.device)
         return self
 
     def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
