@@ -119,8 +119,7 @@ class LRScheduler(Callback):
             try:
                 self.batch_idx_ = sum(net.history[:, 'train_batch_count'])
             except KeyError:
-                self.batch_idx_ = sum(len(b)
-                                      for b in net.history[:, 'batches'])
+                self.batch_idx_ = sum(len(b) for b in net.history[:, 'batches'])
         self.lr_scheduler_ = self._get_scheduler(
             net, self.policy_, **self.kwargs
         )
