@@ -212,9 +212,22 @@ class SliceDataset(Sequence):
         """
         return data
 
+    def _select_item(self, Xn):
+        # Raise a custom error message when accessing out of
+        # bounds. However, this will only trigger as soon as this is
+        # indexed by an integer.
+        try:
+            return Xn[self.n]
+        except IndexError:
+            name = self.__class__.__name__
+            msg = ("{} is trying to access element {} but there are only "
+                   "{} elements.".format(name, self.n, len(Xn)))
+            raise IndexError(msg)
+
     def __getitem__(self, i):
         if isinstance(i, (int, np.integer)):
-            Xi = self.dataset[self.indices_[i]][self.n]
+            Xn = self.dataset[self.indices_[i]]
+            Xi = self._select_item(Xn)
             return self.transform(Xi)
 
         if isinstance(i, slice):

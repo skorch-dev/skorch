@@ -380,6 +380,15 @@ class TestSliceDataset:
         sliced1 = sliced0[2]
         assert np.allclose(sliced1, X[7])
 
+    def test_access_element_out_of_bounds(self, slds_cls, custom_ds):
+        slds = slds_cls(custom_ds, n=2)
+        with pytest.raises(IndexError) as exc:
+            slds[0]
+
+        msg = ("SliceDataset is trying to access element 2 but there are only "
+               "2 elements.")
+        assert exc.value.args[0] == msg
+
     def test_fit_with_slds_works(self, slds, y, classifier_module):
         from skorch import NeuralNetClassifier
         net = NeuralNetClassifier(classifier_module)
