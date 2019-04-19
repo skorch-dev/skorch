@@ -255,7 +255,7 @@ class TestSliceDict:
 
 
 class TestSliceDataset:
-    @pytest.fixture
+    @pytest.fixture(scope='class')
     def data(self):
         X, y = make_classification(100, 20, n_informative=10, random_state=0)
         return X.astype(np.float32), y
@@ -316,6 +316,7 @@ class TestSliceDataset:
         [-3],
         [0, 10, 3, -8, 3],
         np.ones(100, dtype=np.bool),
+        # boolean mask array of length 100
         np.array([0, 0, 1, 0] * 25, dtype=np.bool),
     ])
     def test_len_and_shape_sliced(self, slds, y, sl):
@@ -347,10 +348,11 @@ class TestSliceDataset:
         ([55], -1),
         ([0, 10, 3, -8, 3], 1),
         (np.ones(100, dtype=np.bool), 5),
+        # boolean mask array of length 100
         (np.array([0, 0, 1, 0] * 25, dtype=np.bool), 6),
     ])
     def test_slice_twice(self, slds_cls, custom_ds, X, y, sl0, sl1, n):
-        data = y if n else X
+        data = X if n == 0 else y
         slds = slds_cls(custom_ds, n=n)
         sliced = slds[sl0][sl1]
         x = data[sl0][sl1]
