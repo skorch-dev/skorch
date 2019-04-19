@@ -371,6 +371,15 @@ class TestSliceDataset:
         x = data[sl0][sl1][sl2]
         assert np.allclose(sliced, x)
 
+    def test_explicitly_pass_indices_at_init(self, slds_cls, custom_ds, X):
+        # test passing indices directy to __init__
+        slds = slds_cls(custom_ds, indices=np.arange(10))
+        sliced0 = slds[5:]
+        assert np.allclose(sliced0, X[5:10])
+
+        sliced1 = sliced0[2]
+        assert np.allclose(sliced1, X[7])
+
     def test_fit_with_slds_works(self, slds, y, classifier_module):
         from skorch import NeuralNetClassifier
         net = NeuralNetClassifier(classifier_module)
