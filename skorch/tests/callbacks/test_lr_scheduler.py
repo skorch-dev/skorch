@@ -145,7 +145,7 @@ class TestLRCallbacks:
         net.fit(X, y)
 
         # Removes batch count information in the last two epochs
-        for i in range(2):
+        for i in range(max_epochs):
             del net.history[i]["train_batch_count"]
             del net.history[i]["valid_batch_count"]
         net.partial_fit(X, y)
