@@ -2,15 +2,13 @@ name: skorch
 channels:
 - defaults
 dependencies:
-- libgfortran=3.0.0=1
 - mkl
-- numpy=1.13.1=py36_0
 - openssl=1.0.2l=0
 - pip=10.0.1
 - python=3.6.2=0
 - readline=6.2=2
 - scikit-learn>=0.19.0
-- scipy>=0.19.1
+- scipy>=1.1.0
 - setuptools=27.2.0=py36_0
 - sqlite=3.13.0=0
 - tk=8.5.18=0
