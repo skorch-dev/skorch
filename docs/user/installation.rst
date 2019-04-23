@@ -49,7 +49,7 @@ If you want to help developing, run:
     conda env create
     source activate skorch
     # install pytorch version for your system (see below)
-    conda install --file requirements-dev.txt
+    conda install -c conda-forge --file requirements-dev.txt
     python setup.py develop
 
     py.test  # unit tests
