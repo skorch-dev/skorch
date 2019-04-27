@@ -604,7 +604,7 @@ class LoadInitState(Callback):
                 net.load_params(checkpoint=self.checkpoint)
 
 
-class TrainEndCheckpoint(Checkpoint):
+class TrainEndCheckpoint(Callback):
     """Saves the model parameters, optimizer state, and history at the end of
     training. The default ``fn_prefix`` is 'train_end_'.
 
@@ -681,7 +681,6 @@ class TrainEndCheckpoint(Checkpoint):
             dirname='',
             sink=noop,
     ):
-
         # TODO: Remove warning in release 0.5.0
         if fn_prefix is None:
             warnings.warn(
@@ -689,21 +688,27 @@ class TrainEndCheckpoint(Checkpoint):
                 "to 'train_end_' in 0.5.0", FutureWarning)
             fn_prefix = 'final_'
 
-        super().__init__(
-            monitor=None,
-            f_params=f_params,
-            f_optimizer=f_optimizer,
-            f_history=f_history,
-            f_pickle=f_pickle,
-            fn_prefix=fn_prefix,
-            dirname=dirname,
-            event_name=None,
-            sink=sink,
-        )
+        self.f_params = f_params
+        self.f_optimizer = f_optimizer
+        self.f_history = f_history
+        self.f_pickle = f_pickle
+        self.fn_prefix = fn_prefix
+        self.dirname = dirname
+        self.sink = sink
 
-    def on_epoch_end(self, net, **kwargs):
-        pass
+    def initialize(self):
+        self.checkpoint_ = Checkpoint(
+            monitor=None,
+            f_params=self.f_params,
+            f_optimizer=self.f_optimizer,
+            f_history=self.f_history,
+            f_pickle=self.f_pickle,
+            fn_prefix=self.fn_prefix,
+            dirname=self.dirname,
+            event_name=None,
+            sink=self.sink)
+        self.checkpoint_.initialize()
 
     def on_train_end(self, net, **kwargs):
-        self.save_model(net)
-        self._sink("Final checkpoint triggered", net.verbose)
+        self.checkpoint_.save_model(net)
+        self.checkpoint_._sink("Final checkpoint triggered", net.verbose)
