@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Include requirements in MANIFEST.in
 - Add `criterion_` to `NeuralNet.cuda_dependent_attributes_` to avoid issues with criterion
   weight tensors from, e.g., `NLLLoss` (#426)
+- `TrainEndCheckpoint` can be cloned by `sklearn.base.clone`. (#459)
 
 
 ## [0.5.0] - 2018-12-13
