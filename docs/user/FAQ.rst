@@ -99,6 +99,11 @@ dictionary. Below, there is example code on how to achieve this:
             ...
 
     class MyNet(NeuralNet):
+        def __init__(self, *args, criterion__reduce=False, **kwargs):
+            # make sure to set reduce=False in your criterion, since we need the loss
+            # for each sample so that it can be weighted
+            super().__init__(*args, criterion__reduce=criterion__reduce, **kwargs)
+
         def get_loss(self, y_pred, y_true, X, *args, **kwargs):
             # override get_loss to use the sample_weight from X
             loss_unreduced = super().get_loss(y_pred, y_true, X, *args, **kwargs)
@@ -106,9 +111,7 @@ dictionary. Below, there is example code on how to achieve this:
             loss_reduced = (sample_weight * loss_unreduced).mean()
             return loss_reduced
 
-    # make sure to pass reduce=False to your criterion, since we need the loss
-    # for each sample so that it can be weighted
-    net = MyNet(MyModule, ..., criterion__reduce=False)
+    net = MyNet(MyModule, ...)
     net.fit(X, y)
 
 
