@@ -104,18 +104,70 @@ class TestLRCallbacks:
             policy,
             kwargs,
     ):
-        num_examples = 1000
         batch_size = 100
         max_epochs = 2
 
         X, y = classifier_data
+        num_examples = len(X)
+
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
-        expected = (num_examples // batch_size) * max_epochs - 1
+
+        total_iterations_per_epoch = num_examples / batch_size
+        # 80% of sample used for training by default
+        total_training_iterations_per_epoch = 0.8 * total_iterations_per_epoch
+
+        expected = int(total_training_iterations_per_epoch * max_epochs)
         # pylint: disable=protected-access
-        assert lr_policy.lr_scheduler_.last_batch_idx == expected
+        assert lr_policy.batch_idx_ == expected
+
+    @pytest.mark.parametrize('policy, kwargs', [
+        ('CyclicLR', {}),
+    ])
+    def test_lr_callback_batch_steps_correctly_fallback(
+            self,
+            classifier_module,
+            classifier_data,
+            policy,
+            kwargs,
+    ):
+        batch_size = 100
+        max_epochs = 2
+
+        X, y = classifier_data
+        num_examples = len(X)
+
+        lr_policy = LRScheduler(policy, **kwargs)
+        net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
+                                  batch_size=batch_size, callbacks=[lr_policy])
+        net.fit(X, y)
+
+        # Removes batch count information in the last two epochs
+        for i in range(max_epochs):
+            del net.history[i]["train_batch_count"]
+            del net.history[i]["valid_batch_count"]
+        net.partial_fit(X, y)
+
+        total_iterations_per_epoch = num_examples / batch_size
+
+        # batch_counts were removed thus the total iterations of the last
+        # epoch is used
+        total_iterations_fit_run = total_iterations_per_epoch * max_epochs
+
+        # 80% of sample used for training by default
+        total_iterations_partial_fit_run = (
+            0.8 * total_iterations_per_epoch * max_epochs)
+
+        # called fit AND partial_fit
+        total_iterations = (total_iterations_fit_run +
+                            total_iterations_partial_fit_run)
+        # Failback to using both valid and training batches counts on
+        # second run
+        expected = int(total_iterations)
+        # pylint: disable=protected-access
+        assert lr_policy.batch_idx_ == expected
 
     def test_lr_scheduler_cloneable(self):
         # reproduces bug #271

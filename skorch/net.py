@@ -735,6 +735,7 @@ class NeuralNet:
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
+            train_batch_count = 0
             for data in self.get_iterator(dataset_train, training=True):
                 Xi, yi = unpack_data(data)
                 yi_res = yi if not y_train_is_ph else None
@@ -743,11 +744,14 @@ class NeuralNet:
                 self.history.record_batch('train_loss', step['loss'].item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
+                train_batch_count += 1
+            self.history.record("train_batch_count", train_batch_count)
 
             if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
+            valid_batch_count = 0
             for data in self.get_iterator(dataset_valid, training=False):
                 Xi, yi = unpack_data(data)
                 yi_res = yi if not y_valid_is_ph else None
@@ -756,6 +760,8 @@ class NeuralNet:
                 self.history.record_batch('valid_loss', step['loss'].item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
+                valid_batch_count += 1
+            self.history.record("valid_batch_count", valid_batch_count)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
