@@ -7,6 +7,7 @@ from unittest.mock import call
 
 import numpy as np
 import pytest
+from sklearn.base import clone
 
 
 class TestCheckpoint:
@@ -891,3 +892,8 @@ class TestTrainEndCheckpoint:
             call(f_optimizer='exp1/train_end_optimizer_10.pt'),
             call(f_history='exp1/train_end_history.json')
         ])
+
+    def test_cloneable(self, finalcheckpoint_cls):
+        # reproduces bug #459
+        cp = finalcheckpoint_cls()
+        clone(cp)  # does not raise
