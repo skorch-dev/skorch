@@ -18,6 +18,7 @@ from skorch.utils import noop
 from skorch.utils import to_numpy
 from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
+from sklearn.base import ClassifierMixin
 
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks
@@ -43,7 +44,7 @@ def get_neural_net_clf_doc(doc):
 
 
 # pylint: disable=missing-docstring
-class NeuralNetClassifier(NeuralNet):
+class NeuralNetClassifier(NeuralNet, ClassifierMixin):
     __doc__ = get_neural_net_clf_doc(NeuralNet.__doc__)
 
     def __init__(
@@ -219,7 +220,7 @@ def get_neural_net_binary_clf_doc(doc):
     return doc
 
 
-class NeuralNetBinaryClassifier(NeuralNet):
+class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
     # pylint: disable=missing-docstring
     __doc__ = get_neural_net_binary_clf_doc(NeuralNet.__doc__)
 
