@@ -12,11 +12,13 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
 
 from skorch import NeuralNetClassifier
 from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler, CyclicLR
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestLRCallbacks:
 
     @pytest.mark.parametrize('policy', [StepLR, 'StepLR'])
@@ -26,7 +28,7 @@ class TestLRCallbacks:
         expected = np.array([1.0, 1.0, 0.1, 0.1, 0.01, 0.01])
         assert np.allclose(expected, lrs)
 
-    @pytest.mark.parametrize('policy', [CyclicLR, 'CyclicLR'])
+    @pytest.mark.parametrize('policy', [CyclicLR, 'CyclicLR', TorchCyclicLR])
     def test_simulate_lrs_batch_step(self, policy):
         lr_sch = LRScheduler(
             policy, base_lr=1, max_lr=5, step_size_up=4)
@@ -96,6 +98,7 @@ class TestLRCallbacks:
 
     @pytest.mark.parametrize('policy, kwargs', [
         ('CyclicLR', {}),
+        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3}),
     ])
     def test_lr_callback_batch_steps_correctly(
             self,
@@ -125,6 +128,7 @@ class TestLRCallbacks:
 
     @pytest.mark.parametrize('policy, kwargs', [
         ('CyclicLR', {}),
+        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3}),
     ])
     def test_lr_callback_batch_steps_correctly_fallback(
             self,
@@ -376,6 +380,7 @@ class TestWarmRestartLR():
         )
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestCyclicLR():
 
     @pytest.fixture(params=[1, 3])
@@ -477,9 +482,12 @@ class TestCyclicLR():
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
     def test_batch_idx_with_none(self, init_optimizer):
-        scheduler = CyclicLR(init_optimizer)
+        with pytest.warns(DeprecationWarning):
+            scheduler = CyclicLR(init_optimizer)
+        for p_group in init_optimizer.param_groups:
+            assert p_group['initial_lr']
         scheduler.batch_step()
-        assert scheduler.last_batch_idx == 0
+        assert scheduler.last_batch_idx == 1
 
     def test_scale_fn(self, init_optimizer):
         def scale_fn(x):
