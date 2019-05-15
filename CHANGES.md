@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `net.set_params(criterion__weight=w)`
 - skorch pickle format changed in order to improve CUDA compatibility, if you have pickled models, please re-pickle them to be able to load them in the future
 - `net.criterion_` and its parameters are now moved to target device when using criteria that inherit from `torch.nn.Module`. Previously the user had to make sure that parameters such as class weight are on the compute device
+- skorch now assumes PyTorch >= 1.1.0. This mainly affects learning rate schedulers, whose inner workings have been changed with version 1.1.0. This update will also invalidate pickled skorch models after a change introduced in PyTorch optimizers.
 
 ### Fixed
 
