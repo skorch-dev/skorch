@@ -608,18 +608,6 @@ class TestNeuralNet:
         assert new_net.history[:, 'event_cp'] == [
             False, False, True, False, False, False, False, False]
 
-    def test_save_params_f_keyword_deprecation(
-            self, net_cls, module_cls, tmpdir):
-        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
-        net = net_cls(module_cls).initialize()
-
-        # TODO: remove this test when the target argument is removed
-        # after its deprecation grace period is over.
-        with pytest.warns(DeprecationWarning):
-            net.save_params(f=str(p))
-
-        assert p.exists()
-
     def test_save_params_not_init_optimizer(
             self, net_cls, module_cls, tmpdir):
         from skorch.exceptions import NotInitializedError

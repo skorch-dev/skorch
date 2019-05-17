@@ -1454,7 +1454,7 @@ class NeuralNet:
         self.__dict__.update(state)
 
     def save_params(
-            self, f=None, f_params=None, f_optimizer=None, f_history=None):
+            self, f_params=None, f_optimizer=None, f_history=None):
         """Saves the module's parameters, history, and optimizer,
         not the whole object.
 
@@ -1474,8 +1474,6 @@ class NeuralNet:
         f_history : file-like object, str, None (default=None)
           Path to history. Pass ``None`` to not save
 
-        f : deprecated
-
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
@@ -1488,17 +1486,6 @@ class NeuralNet:
         >>>                   f_history='history.json')
 
         """
-
-        # TODO: Remove warning in a future release
-        if f is not None:
-            warnings.warn(
-                "f argument was renamed to f_params and will be removed "
-                "in the next release. To make your code future-proof it is "
-                "recommended to explicitly specify keyword arguments' names "
-                "instead of relying on positional order.",
-                DeprecationWarning)
-            f_params = f
-
         if f_params is not None:
             if not hasattr(self, 'module_'):
                 raise NotInitializedError(
@@ -1536,7 +1523,7 @@ class NeuralNet:
         return requested_device
 
     def load_params(
-            self, f=None, f_params=None, f_optimizer=None, f_history=None,
+            self, f_params=None, f_optimizer=None, f_history=None,
             checkpoint=None):
         """Loads the the module's parameters, history, and optimizer,
         not the whole object.
@@ -1562,8 +1549,6 @@ class NeuralNet:
           path is passed in, the ``f_*`` will be loaded. Pass
           ``None`` to not load.
 
-        f : deprecated
-
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
@@ -1580,14 +1565,6 @@ class NeuralNet:
             map_location = get_map_location(self.device)
             self.device = self._check_device(self.device, map_location)
             return torch.load(f, map_location=map_location)
-
-        # TODO: Remove warning in a future release
-        if f is not None:
-            warnings.warn(
-                "f is deprecated in save_params and will be removed in the "
-                "next release, please use f_params instead",
-                DeprecationWarning)
-            f_params = f
 
         if f_history is not None:
             self.history = History.from_file(f_history)
