@@ -1416,32 +1416,12 @@ class NeuralNet:
 
         return state
 
-    # TODO: remove this with the next release
-    def __setstate_050__(self, load_kwargs, state):
-        warnings.warn(
-            "This pickle file will stop working in the next release since "
-            "the data format changed. Please re-pickle the model to avoid "
-            "any issues in the future.", DeprecationWarning)
-        # workaround for cuda_dependent_attributes_ being misused as storage
-        # during __getstate__ in skorch <= 0.5.0.
-        original_cuda_dependent_attributes = self.cuda_dependent_attributes_
-        with tempfile.SpooledTemporaryFile() as f:
-            f.write(state['cuda_dependent_attributes_'])
-            f.seek(0)
-            cuda_attrs = torch.load(f, **load_kwargs)
-        state.update(cuda_attrs)
-        state['cuda_dependent_attributes_'] = original_cuda_dependent_attributes
-        self.__dict__.update(state)
-
     def __setstate__(self, state):
         # get_map_location will automatically choose the
         # right device in cases where CUDA is not available.
         map_location = get_map_location(state['device'])
         load_kwargs = {'map_location': map_location}
         state['device'] = self._check_device(state['device'], map_location)
-
-        if '__cuda_dependent_attributes__' not in state:
-            return self.__setstate_050__(load_kwargs, state)
 
         with tempfile.SpooledTemporaryFile() as f:
             f.write(state['__cuda_dependent_attributes__'])
