@@ -743,49 +743,6 @@ class TestNeuralNet:
 
         assert net.history == history_before
 
-    # TODO: remove this test when the target argument is removed
-    # after its deprecation grace period is over.
-    @pytest.mark.parametrize('converter', [str, Path])
-    def test_save_history_file_path(
-            self, net_cls, module_cls, net_fit, tmpdir, converter):
-        # Test loading/saving with different kinds of path representations.
-
-        if converter is Path and sys.version < '3.6':
-            # `PosixPath` cannot be `open`ed in Python < 3.6
-            pytest.skip()
-
-        net = net_cls(module_cls).initialize()
-
-        history_before = net_fit.history
-
-        p = tmpdir.mkdir('skorch').join('history.json')
-        with pytest.warns(DeprecationWarning):
-            net_fit.save_history(converter(p))
-        del net_fit
-        with pytest.warns(DeprecationWarning):
-            net.load_history(converter(p))
-
-        assert net.history == history_before
-
-    # TODO: remove this test when the target argument is removed
-    # after its deprecation grace period is over.
-    def test_load_history_file_obj(
-            self, net_cls, module_cls, net_fit, tmpdir):
-        net = net_cls(module_cls).initialize()
-
-        history_before = net_fit.history
-
-        p = tmpdir.mkdir('skorch').join('history.json')
-        with open(str(p), 'w') as f:
-            with pytest.warns(DeprecationWarning):
-                net_fit.save_history(f)
-        del net_fit
-        with open(str(p), 'r') as f:
-            with pytest.warns(DeprecationWarning):
-                net.load_history(f)
-
-        assert net.history == history_before
-
     @pytest.mark.parametrize('converter', [str, Path])
     def test_save_params_with_history_file_path(
             self, net_cls, module_cls, net_fit, tmpdir, converter):
