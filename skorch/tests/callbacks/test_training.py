@@ -280,13 +280,6 @@ class TestCheckpoint:
         assert save_params_mock.call_count == 0
         assert pickle_dump_mock.call_count == 0
 
-    def test_target_argument(self, net_cls, checkpoint_cls):
-        # TODO: remove this test when the target argument is removed
-        # after its deprecation grace period is over.
-        with pytest.warns(DeprecationWarning):
-            checkpoint = checkpoint_cls(target='foobar.pt')
-        assert checkpoint.f_params == 'foobar.pt'
-
     def test_warnings_when_monitor_appears_in_history(
             self, net_cls, checkpoint_cls, save_params_mock, data):
         net = net_cls(callbacks=[

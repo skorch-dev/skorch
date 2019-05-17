@@ -61,8 +61,6 @@ class Checkpoint(Callback):
 
     Parameters
     ----------
-    target : deprecated
-
     monitor : str, function, None
       Value of the history to monitor or callback that determines
       whether this epoch should lead to a checkpoint. The callback
@@ -121,10 +119,10 @@ class Checkpoint(Callback):
       The target that the information about created checkpoints is
       sent to. This can be a logger or ``print`` function (to send to
       stdout). By default the output is discarded.
+
     """
     def __init__(
             self,
-            target=None,
             monitor='valid_loss_best',
             f_params='params.pt',
             f_optimizer='optimizer.pt',
@@ -135,14 +133,6 @@ class Checkpoint(Callback):
             event_name='event_cp',
             sink=noop,
     ):
-        if target is not None:
-            warnings.warn(
-                "target argument was renamed to f_params and will be removed "
-                "in the next release. To make your code future-proof it is "
-                "recommended to explicitly specify keyword arguments' names "
-                "instead of relying on positional order.",
-                DeprecationWarning)
-            f_params = target
         self.monitor = monitor
         self.f_params = f_params
         self.f_optimizer = f_optimizer
