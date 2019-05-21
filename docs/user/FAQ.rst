@@ -60,7 +60,7 @@ that, try to wrap your dictionary into a :class:`.SliceDict`. This is
 a data container that partly behaves like a dict, partly like an
 ndarray. For more details on how to do this, have a look at the
 coresponding `data section
-<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Working-with-sklearn-FunctionTransformer-and-GridSearch>`__
+<https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Working-with-sklearn-FunctionTransformer-and-GridSearch>`__
 in the notebook.
 
 
@@ -267,4 +267,4 @@ To inspect all output values, you can use either the
 :func:`~skorch.net.NeuralNet.forward_iter` method (lazy).
 
 For an example of how this works, have a look at this `notebook
-<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Multiple-return-values-from-forward>`_.
+<https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Multiple-return-values-from-forward>`_.
