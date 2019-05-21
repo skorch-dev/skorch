@@ -85,3 +85,9 @@ class TestNeuralNetRegressor:
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
         assert np.allclose(y_pred, y_proba, atol=1e-6)
+
+    def test_score(self, net, data):
+        X, y = data
+        r2_score = net.score(X, y)
+        assert r2_score <= 1.
+        return r2_score
