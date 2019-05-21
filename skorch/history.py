@@ -52,22 +52,6 @@ def _unpack_index(i):
     # fill trailing indices with None
     i_e, k_e, i_b, k_b = i + tuple([None] * (4 - len(i)))
 
-    # handle special case of
-    # history[j, 'batches', somekey]
-    # which should really be
-    # history[j, 'batches', :, somekey]
-    if i_b is not None and not isinstance(i_b, (int, slice)):
-        if k_b is not None:
-            raise KeyError("The last argument '{}' is invalid; it must be a "
-                           "string or tuple of strings.".format(k_b))
-        warnings.warn(
-            "Argument 3 to history slicing must be of type int or slice, e.g. "
-            "history[:, 'batches', 'train_loss'] should be "
-            "history[:, 'batches', :, 'train_loss'].",
-            DeprecationWarning,
-        )
-        i_b, k_b = slice(None), i_b
-
     return i_e, k_e, i_b, k_b
 
 
