@@ -735,6 +735,7 @@ class NeuralNet:
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
+            train_batch_count = 0
             for data in self.get_iterator(dataset_train, training=True):
                 Xi, yi = unpack_data(data)
                 yi_res = yi if not y_train_is_ph else None
@@ -743,11 +744,14 @@ class NeuralNet:
                 self.history.record_batch('train_loss', step['loss'].item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
+                train_batch_count += 1
+            self.history.record("train_batch_count", train_batch_count)
 
             if dataset_valid is None:
                 self.notify('on_epoch_end', **on_epoch_kwargs)
                 continue
 
+            valid_batch_count = 0
             for data in self.get_iterator(dataset_valid, training=False):
                 Xi, yi = unpack_data(data)
                 yi_res = yi if not y_valid_is_ph else None
@@ -756,6 +760,8 @@ class NeuralNet:
                 self.history.record_batch('valid_loss', step['loss'].item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
+                valid_batch_count += 1
+            self.history.record("valid_batch_count", valid_batch_count)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
@@ -1410,32 +1416,12 @@ class NeuralNet:
 
         return state
 
-    # TODO: remove this with the next release
-    def __setstate_050__(self, load_kwargs, state):
-        warnings.warn(
-            "This pickle file will stop working in the next release since "
-            "the data format changed. Please re-pickle the model to avoid "
-            "any issues in the future.", DeprecationWarning)
-        # workaround for cuda_dependent_attributes_ being misused as storage
-        # during __getstate__ in skorch <= 0.5.0.
-        original_cuda_dependent_attributes = self.cuda_dependent_attributes_
-        with tempfile.SpooledTemporaryFile() as f:
-            f.write(state['cuda_dependent_attributes_'])
-            f.seek(0)
-            cuda_attrs = torch.load(f, **load_kwargs)
-        state.update(cuda_attrs)
-        state['cuda_dependent_attributes_'] = original_cuda_dependent_attributes
-        self.__dict__.update(state)
-
     def __setstate__(self, state):
         # get_map_location will automatically choose the
         # right device in cases where CUDA is not available.
         map_location = get_map_location(state['device'])
         load_kwargs = {'map_location': map_location}
         state['device'] = self._check_device(state['device'], map_location)
-
-        if '__cuda_dependent_attributes__' not in state:
-            return self.__setstate_050__(load_kwargs, state)
 
         with tempfile.SpooledTemporaryFile() as f:
             f.write(state['__cuda_dependent_attributes__'])
@@ -1448,7 +1434,7 @@ class NeuralNet:
         self.__dict__.update(state)
 
     def save_params(
-            self, f=None, f_params=None, f_optimizer=None, f_history=None):
+            self, f_params=None, f_optimizer=None, f_history=None):
         """Saves the module's parameters, history, and optimizer,
         not the whole object.
 
@@ -1468,8 +1454,6 @@ class NeuralNet:
         f_history : file-like object, str, None (default=None)
           Path to history. Pass ``None`` to not save
 
-        f : deprecated
-
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
@@ -1482,17 +1466,6 @@ class NeuralNet:
         >>>                   f_history='history.json')
 
         """
-
-        # TODO: Remove warning in a future release
-        if f is not None:
-            warnings.warn(
-                "f argument was renamed to f_params and will be removed "
-                "in the next release. To make your code future-proof it is "
-                "recommended to explicitly specify keyword arguments' names "
-                "instead of relying on positional order.",
-                DeprecationWarning)
-            f_params = f
-
         if f_params is not None:
             if not hasattr(self, 'module_'):
                 raise NotInitializedError(
@@ -1530,7 +1503,7 @@ class NeuralNet:
         return requested_device
 
     def load_params(
-            self, f=None, f_params=None, f_optimizer=None, f_history=None,
+            self, f_params=None, f_optimizer=None, f_history=None,
             checkpoint=None):
         """Loads the the module's parameters, history, and optimizer,
         not the whole object.
@@ -1556,8 +1529,6 @@ class NeuralNet:
           path is passed in, the ``f_*`` will be loaded. Pass
           ``None`` to not load.
 
-        f : deprecated
-
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
@@ -1574,14 +1545,6 @@ class NeuralNet:
             map_location = get_map_location(self.device)
             self.device = self._check_device(self.device, map_location)
             return torch.load(f, map_location=map_location)
-
-        # TODO: Remove warning in a future release
-        if f is not None:
-            warnings.warn(
-                "f is deprecated in save_params and will be removed in the "
-                "next release, please use f_params instead",
-                DeprecationWarning)
-            f_params = f
 
         if f_history is not None:
             self.history = History.from_file(f_history)
@@ -1610,54 +1573,6 @@ class NeuralNet:
                     "or by fitting the model with .fit(...).")
             state_dict = _get_state_dict(f_optimizer)
             self.optimizer_.load_state_dict(state_dict)
-
-    def save_history(self, f):
-        """Saves the history of ``NeuralNet`` as a json file. In order
-        to use this feature, the history must only contain JSON encodable
-        Python data structures. Numpy and PyTorch types should not
-        be in the history.
-
-        Parameters
-        ----------
-        f : file-like object or str
-
-        Examples
-        --------
-
-        >>> before = NeuralNetClassifier(mymodule)
-        >>> before.fit(X, y, epoch=2) # Train for 2 epochs
-        >>> before.save_params('path/to/params')
-        >>> before.save_history('path/to/history.json')
-        >>> after = NeuralNetClassifier(mymodule).initialize()
-        >>> after.load_params('path/to/params')
-        >>> after.load_history('path/to/history.json')
-        >>> after.fit(X, y, epoch=2) # Train for another 2 epochs
-
-        """
-        # TODO: Remove warning in a future release
-        warnings.warn(
-            "save_history is deprecated and will be removed in the next "
-            "release, please use save_params with the f_history keyword",
-            DeprecationWarning)
-
-        self.history.to_file(f)
-
-    def load_history(self, f):
-        """Load the history of a ``NeuralNet`` from a json file. See
-        ``save_history`` for examples.
-
-        Parameters
-        ----------
-        f : file-like object or str
-
-        """
-        # TODO: Remove warning in a future release
-        warnings.warn(
-            "load_history is deprecated and will be removed in the next "
-            "release, please use load_params with the f_history keyword",
-            DeprecationWarning)
-
-        self.history = History.from_file(f)
 
     def __repr__(self):
         params = self.get_params(deep=False)

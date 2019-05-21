@@ -286,41 +286,6 @@ class TestNeuralNet:
             pickle.dump(net_pickleable, f)
         return path
 
-    # TODO: remove with NeuralNet.__setstate_050__
-    @pytest.fixture
-    def pickled_0_5_0_model_path(self):
-        # script to reproduce:
-        # --------------------
-        # git checkout v0.5.0
-        #
-        # python <<EOF
-        # import pickle
-        #
-        # import skorch
-        # import skorch.toy
-        #
-        #
-        # model = skorch.toy.make_classifier()
-        # model = skorch.NeuralNetClassifier(model)
-        # model.initialize()
-        #
-        # with open('model_0.5.0.pkl', 'wb') as f:
-        #     pickle.dump(model, f)
-        # EOF
-        return os.path.join('skorch', 'tests', 'model_0.5.0.pkl')
-
-    # TODO: remove with NeuralNet.__setstate_050__
-    def test_pickle_0_5_0_load_and_store(self, net_cls, pickled_0_5_0_model_path):
-        # Test if we can load models of skorch <= 0.5.0
-        with open(pickled_0_5_0_model_path, 'rb') as f:
-            model = pickle.load(f)
-
-        assert isinstance(model, net_cls)
-
-        # Test if we can re-pickle it (important for backwards compatibility)
-        with tempfile.SpooledTemporaryFile() as f:
-            pickle.dump(model, f)
-
     @pytest.mark.parametrize('cuda_available', {False, torch.cuda.is_available()})
     def test_pickle_load(self, cuda_available, pickled_cuda_net_path):
         with patch('torch.cuda.is_available', lambda *_: cuda_available):
@@ -608,18 +573,6 @@ class TestNeuralNet:
         assert new_net.history[:, 'event_cp'] == [
             False, False, True, False, False, False, False, False]
 
-    def test_save_params_f_keyword_deprecation(
-            self, net_cls, module_cls, tmpdir):
-        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
-        net = net_cls(module_cls).initialize()
-
-        # TODO: remove this test when the target argument is removed
-        # after its deprecation grace period is over.
-        with pytest.warns(DeprecationWarning):
-            net.save_params(f=str(p))
-
-        assert p.exists()
-
     def test_save_params_not_init_optimizer(
             self, net_cls, module_cls, tmpdir):
         from skorch.exceptions import NotInitializedError
@@ -752,49 +705,6 @@ class TestNeuralNet:
         del net_fit
         with open(str(p), 'r') as f:
             net.load_params(f_history=f)
-
-        assert net.history == history_before
-
-    # TODO: remove this test when the target argument is removed
-    # after its deprecation grace period is over.
-    @pytest.mark.parametrize('converter', [str, Path])
-    def test_save_history_file_path(
-            self, net_cls, module_cls, net_fit, tmpdir, converter):
-        # Test loading/saving with different kinds of path representations.
-
-        if converter is Path and sys.version < '3.6':
-            # `PosixPath` cannot be `open`ed in Python < 3.6
-            pytest.skip()
-
-        net = net_cls(module_cls).initialize()
-
-        history_before = net_fit.history
-
-        p = tmpdir.mkdir('skorch').join('history.json')
-        with pytest.warns(DeprecationWarning):
-            net_fit.save_history(converter(p))
-        del net_fit
-        with pytest.warns(DeprecationWarning):
-            net.load_history(converter(p))
-
-        assert net.history == history_before
-
-    # TODO: remove this test when the target argument is removed
-    # after its deprecation grace period is over.
-    def test_load_history_file_obj(
-            self, net_cls, module_cls, net_fit, tmpdir):
-        net = net_cls(module_cls).initialize()
-
-        history_before = net_fit.history
-
-        p = tmpdir.mkdir('skorch').join('history.json')
-        with open(str(p), 'w') as f:
-            with pytest.warns(DeprecationWarning):
-                net_fit.save_history(f)
-        del net_fit
-        with open(str(p), 'r') as f:
-            with pytest.warns(DeprecationWarning):
-                net.load_history(f)
 
         assert net.history == history_before
 
@@ -2073,6 +1983,19 @@ class TestNeuralNet:
         valid_kwargs = valid_loader_mock.call_args[1]
         assert train_kwargs['batch_size'] == expected_train_batch_size
         assert valid_kwargs['batch_size'] == expected_valid_batch_size
+
+    @pytest.mark.parametrize('batch_size', [40, 100])
+    def test_batch_count(self, net_cls, module_cls, data, batch_size):
+
+        net = net_cls(module_cls, max_epochs=1, batch_size=batch_size)
+        X, y = data
+        net.fit(X, y)
+
+        train_batch_count = int(0.8 * len(X)) / batch_size
+        valid_batch_count = int(0.2 * len(X)) / batch_size
+
+        assert net.history[:, "train_batch_count"] == [train_batch_count]
+        assert net.history[:, "valid_batch_count"] == [valid_batch_count]
 
     def test_fit_lbfgs_optimizer(self, net_cls, module_cls, data):
         X, y = data

@@ -149,15 +149,8 @@ class Dataset(torch.utils.data.Dataset):
             self,
             X,
             y=None,
-            device=None,
             length=None,
     ):
-        # TODO: Remove warning in release 0.4
-        if device is not None:
-            warnings.warn(
-                "device is no longer needed by Dataset and will be ignored.",
-                DeprecationWarning)
-
         self.X = X
         self.y = y
 
