@@ -359,7 +359,8 @@ score(X, y)
 
 This method returns the mean accuracy on the given test data and labels for
 classifiers and the coefficient of determination R^2 of the prediction for
-regressors.
+regressors. NeuralNet Class still has no score method. If one needs it,
+one needs to implement it himself.
 
 model persistence
 ^^^^^^^^^^^^^^^^^
