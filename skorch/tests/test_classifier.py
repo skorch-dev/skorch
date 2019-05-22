@@ -68,7 +68,6 @@ class TestNeuralNet:
         X, y = data
         accuracy = net.score(X, y)
         assert 0. <= accuracy <= 1.
-        return accuracy
 
     # classifier-specific test
     def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
@@ -186,7 +185,6 @@ class TestNeuralNetBinaryClassifier:
         X, y = data
         accuracy = net.score(X, y)
         assert 0. <= accuracy <= 1.
-        return accuracy
 
     def test_target_2d_raises(self, net, data):
         X, y = data

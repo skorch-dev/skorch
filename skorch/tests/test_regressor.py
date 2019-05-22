@@ -37,6 +37,23 @@ class TestNeuralNetRegressor:
         )
 
     @pytest.fixture(scope='module')
+    def multi_target_data(self, multi_target_regression_data):
+        return multi_target_regression_data
+
+    @pytest.fixture(scope='module')
+    def multi_target_module_cls(self):
+        from skorch.toy import make_regressor
+        return make_regressor(output_units=3, dropout=0.5)
+
+    @pytest.fixture(scope='module')
+    def multi_target_net(self, net_cls, multi_target_module_cls):
+        return net_cls(
+            multi_target_module_cls,
+            max_epochs=20,
+            lr=0.1,
+        )
+
+    @pytest.fixture(scope='module')
     def net_fit(self, net, data):
         # Careful, don't call additional fits on this, since that would have
         # side effects on other tests.
@@ -90,4 +107,8 @@ class TestNeuralNetRegressor:
         X, y = data
         r2_score = net.score(X, y)
         assert r2_score <= 1.
-        return r2_score
+
+    def multi_target_test_score(self, multi_target_net, multi_target_data):
+        X, y = multi_target_data
+        r2_score = multi_target_net.score(X, y)
+        assert r2_score <= 1.
