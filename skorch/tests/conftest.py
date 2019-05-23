@@ -79,10 +79,10 @@ def regression_data():
     return Xt, yt
 
 @pytest.fixture(scope='module')
-def multi_target_regression_data():
+def multioutput_regression_data():
     X, y = make_regression(
         1000, 20, n_targets=3, n_informative=10, bias=0, random_state=0)
-    X, y = X.astype(np.float32), y.astype(np.float32).reshape(-1, 1)
+    X, y = X.astype(np.float32), y.astype(np.float32).reshape(-1, n_targets)
     Xt = StandardScaler().fit_transform(X)
     yt = StandardScaler().fit_transform(y)
     return Xt, yt
