@@ -104,8 +104,8 @@ class TestNeuralNetRegressor:
         r2_score = net.score(X, y)
         assert r2_score <= 1.
 
-    def test_multioutput_score(self, multioutput_net, multioutput_data):
-        X, y = multioutput_data
+    def test_multioutput_score(self, multioutput_net, multioutput_regression_data):
+        X, y = multioutput_regression_data
         multioutput_net.fit(X, y)
         r2_score = multioutput_net.score(X, y)
         assert r2_score <= 1.
