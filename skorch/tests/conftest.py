@@ -82,7 +82,7 @@ def regression_data():
 def multioutput_regression_data():
     X, y = make_regression(
         1000, 20, n_targets=3, n_informative=10, bias=0, random_state=0)
-    X, y = X.astype(np.float32), y.astype(np.float32).reshape(-1, 3)
+    X, y = X.astype(np.float32), y.astype(np.float32)
     Xt = StandardScaler().fit_transform(X)
     yt = StandardScaler().fit_transform(y)
     return Xt, yt
