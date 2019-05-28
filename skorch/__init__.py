@@ -6,6 +6,7 @@ from pkg_resources import parse_version
 from .history import History
 from .net import NeuralNet
 from .classifier import NeuralNetClassifier
+from .classifier import NeuralNetBinaryClassifier
 from .regressor import NeuralNetRegressor
 from . import callbacks
 
@@ -32,6 +33,7 @@ __all__ = [
     'History',
     'NeuralNet',
     'NeuralNetClassifier',
+    'NeuralNetBinaryClassifier',
     'NeuralNetRegressor',
     'callbacks',
 ]
