@@ -13,6 +13,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
 from torch.optim.optimizer import Optimizer
 from skorch.callbacks import Callback
 
@@ -88,8 +89,8 @@ class LRScheduler(Callback):
             step = sch.step
         lrs = []
         for _ in range(steps):
+            lrs.append(opt.param_groups[0]['lr'])
             step()
-            lrs.append(sch.get_lr()[0])
 
         return np.array(lrs)
 
@@ -116,12 +117,15 @@ class LRScheduler(Callback):
 
     def on_train_begin(self, net, **kwargs):
         if net.history:
-            self.batch_idx_ = len(net.history[:, 'batches']) - 1
+            try:
+                self.batch_idx_ = sum(net.history[:, 'train_batch_count'])
+            except KeyError:
+                self.batch_idx_ = sum(len(b) for b in net.history[:, 'batches'])
         self.lr_scheduler_ = self._get_scheduler(
             net, self.policy_, **self.kwargs
         )
 
-    def on_epoch_begin(self, net, **kwargs):
+    def on_epoch_end(self, net, **kwargs):
         epoch = len(net.history) - 1
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             if callable(self.monitor):
@@ -138,15 +142,19 @@ class LRScheduler(Callback):
         else:
             self.lr_scheduler_.step(epoch)
 
-    def on_batch_begin(self, net, **kwargs):
+    def on_batch_end(self, net, training, **kwargs):
         if (
+                training and
                 hasattr(self.lr_scheduler_, 'batch_step') and
                 callable(self.lr_scheduler_.batch_step)
         ):
             self.lr_scheduler_.batch_step(self.batch_idx_)
 
-    def on_batch_end(self, net, **kwargs):
-        self.batch_idx_ += 1
+        if isinstance(self.lr_scheduler_, TorchCyclicLR):
+            self.lr_scheduler_.step(self.batch_idx_)
+
+        if training:
+            self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
         """Return scheduler, based on indicated policy, with appropriate
@@ -332,11 +340,33 @@ class CyclicLR:
                  gamma=1., scale_fn=None, scale_mode='cycle',
                  last_batch_idx=-1, step_size=None):
 
+        # TODO: Remove class in 0.7
+        warnings.warn(
+            "skorch.callbacks.CyclicLR is deprecated, please use "
+            "torch.optim.lr_scheduler.CyclicLR instead",
+            DeprecationWarning
+        )
+
         if not isinstance(optimizer, Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
                 type(optimizer).__name__))
         self.optimizer = optimizer
-        self.base_lrs = _check_lr('base_lr', optimizer, base_lr)
+
+        # copied from torch.optim._lr_scheduler._LRScheduler
+        base_lrs = _check_lr('base_lr', optimizer, base_lr)
+        if last_batch_idx == -1:
+            for lr, group in zip(base_lrs, optimizer.param_groups):
+                group['lr'] = lr
+            for group in optimizer.param_groups:
+                group.setdefault('initial_lr', group['lr'])
+            last_batch_idx = 0
+        else:
+            for i, group in enumerate(optimizer.param_groups):
+                if 'initial_lr' not in group:
+                    raise KeyError("param 'initial_lr' is not specified "
+                                   "in param_groups[{}] when resuming an optimizer".format(i))
+        self.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
+
         self.max_lrs = _check_lr('max_lr', optimizer, max_lr)
 
         # TODO: Remove warning in a future release
@@ -373,8 +403,7 @@ class CyclicLR:
             self.scale_fn = scale_fn
             self.scale_mode = scale_mode
 
-        self.batch_step(last_batch_idx + 1)
-        self.last_batch_idx = last_batch_idx
+        self.batch_step(last_batch_idx)
 
     def step(self, epoch=None):
         """Not used by ``CyclicLR``, use batch_step instead."""

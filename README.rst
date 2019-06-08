@@ -175,7 +175,7 @@ If you want to help developing, run:
     conda env create
     source activate skorch
     # install pytorch version for your system (see below)
-    conda install --file requirements-dev.txt
+    conda install -c conda-forge --file requirements-dev.txt
     python setup.py develop
 
     py.test  # unit tests
@@ -213,10 +213,10 @@ If you want to help developing, run:
 PyTorch
 =======
 
-PyTorch is not covered by the dependencies, since the PyTorch
-version you need is dependent on your system. For installation
-instructions for PyTorch, visit the `PyTorch website
-<http://pytorch.org/>`__.
+PyTorch is not covered by the dependencies, since the PyTorch version
+you need is dependent on your system. For installation instructions
+for PyTorch, visit the `PyTorch website <http://pytorch.org/>`__. The
+current version of skorch assumes PyTorch >= 1.1.0.
 
 In general, this should work (assuming CUDA 9):
 

@@ -7,6 +7,7 @@ from unittest.mock import call
 
 import numpy as np
 import pytest
+from sklearn.base import clone
 
 
 class TestCheckpoint:
@@ -278,13 +279,6 @@ class TestCheckpoint:
 
         assert save_params_mock.call_count == 0
         assert pickle_dump_mock.call_count == 0
-
-    def test_target_argument(self, net_cls, checkpoint_cls):
-        # TODO: remove this test when the target argument is removed
-        # after its deprecation grace period is over.
-        with pytest.warns(DeprecationWarning):
-            checkpoint = checkpoint_cls(target='foobar.pt')
-        assert checkpoint.f_params == 'foobar.pt'
 
     def test_warnings_when_monitor_appears_in_history(
             self, net_cls, checkpoint_cls, save_params_mock, data):
@@ -891,3 +885,8 @@ class TestTrainEndCheckpoint:
             call(f_optimizer='exp1/train_end_optimizer_10.pt'),
             call(f_history='exp1/train_end_history.json')
         ])
+
+    def test_cloneable(self, finalcheckpoint_cls):
+        # reproduces bug #459
+        cp = finalcheckpoint_cls()
+        clone(cp)  # does not raise

@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from skorch import NeuralNet
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
+from sklearn.base import RegressorMixin
 
 
 neural_net_reg_doc_start = """NeuralNet for regression tasks
@@ -32,7 +33,7 @@ def get_neural_net_reg_doc(doc):
 
 
 # pylint: disable=missing-docstring
-class NeuralNetRegressor(NeuralNet):
+class NeuralNetRegressor(NeuralNet, RegressorMixin):
     __doc__ = get_neural_net_reg_doc(NeuralNet.__doc__)
 
     def __init__(

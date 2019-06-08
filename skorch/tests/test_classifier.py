@@ -64,6 +64,11 @@ class TestNeuralNet:
         y_pred = net_fit.predict(X)
         assert np.allclose(np.argmax(y_proba, 1), y_pred, rtol=1e-5)
 
+    def test_score(self, net, data):
+        X, y = data
+        accuracy = net.score(X, y)
+        assert 0. <= accuracy <= 1.
+
     # classifier-specific test
     def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
         net = net_cls(module_cls, criterion=nn.NLLLoss, max_epochs=1)
@@ -175,6 +180,11 @@ class TestNeuralNetBinaryClassifier:
 
         y_pred_actual = net.predict(X)
         assert np.allclose(y_pred_exp, y_pred_actual)
+
+    def test_score(self, net, data):
+        X, y = data
+        accuracy = net.score(X, y)
+        assert 0. <= accuracy <= 1.
 
     def test_target_2d_raises(self, net, data):
         X, y = data

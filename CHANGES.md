@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Adds FAQ entry regarding the initialization behavior of `NeuralNet` when passed instantiated models. (#409)
 - Added CUDA pickle test including an artifact that supports testing on CUDA-less CI machines
+- Adds `train_batch_count` and `valid_batch_count` to history in training loop. (#445)
+- Adds score method for NeuralNetClassifier, NeuralNetBinaryClassifier, and NeuralNetRegressor (#469)
 - Wrapper class for torch Datasets to make them work with some sklearn features (e.g. grid search). (#443)
 
 ### Changed
@@ -21,12 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously `"criterion_"` would not match `net.criterion__weight` as set by
   `net.set_params(criterion__weight=w)`
 - skorch pickle format changed in order to improve CUDA compatibility, if you have pickled models, please re-pickle them to be able to load them in the future
+- `net.criterion_` and its parameters are now moved to target device when using criteria that inherit from `torch.nn.Module`. Previously the user had to make sure that parameters such as class weight are on the compute device
+- skorch now assumes PyTorch >= 1.1.0. This mainly affects learning rate schedulers, whose inner workings have been changed with version 1.1.0. This update will also invalidate pickled skorch models after a change introduced in PyTorch optimizers.
 
 ### Fixed
 
 - Include requirements in MANIFEST.in
 - Add `criterion_` to `NeuralNet.cuda_dependent_attributes_` to avoid issues with criterion
   weight tensors from, e.g., `NLLLoss` (#426)
+- `TrainEndCheckpoint` can be cloned by `sklearn.base.clone`. (#459)
 
 
 ## [0.5.0] - 2018-12-13

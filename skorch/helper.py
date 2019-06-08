@@ -244,55 +244,6 @@ class SliceDataset(Sequence):
         return SliceDataset(self.dataset, n=self.n, indices=self.indices_[i])
 
 
-# TODO: remove in 0.5.0
-def filter_requires_grad(pgroups):
-    """Returns parameter groups where parameters
-    that don't require a gradient are filtered out.
-
-    Parameters
-    ----------
-    pgroups : dict
-      Parameter groups to be filtered
-
-    """
-    warnings.warn(
-        "For filtering gradients, please use skorch.callbacks.Freezer.",
-        DeprecationWarning)
-
-    for pgroup in pgroups:
-        output = {k: v for k, v in pgroup.items() if k != 'params'}
-        output['params'] = (p for p in pgroup['params'] if p.requires_grad)
-        yield output
-
-
-# TODO: remove in 0.5.0
-def filtered_optimizer(optimizer, filter_fn):
-    """Wraps an optimizer that filters out parameters where
-    ``filter_fn`` over ``pgroups`` returns ``False``.
-    This function can be used, for example, to filter parameters
-    that do not require a gradient:
-
-    >>> from skorch.helper import filtered_optimizer, filter_requires_grad
-    >>> optimizer = filtered_optimizer(torch.optim.SGD, filter_requires_grad)
-    >>> net = NeuralNetClassifier(module, optimizer=optimizer)
-
-    Parameters
-    ----------
-    optimizer : torch optim (class)
-      The uninitialized optimizer that is wrapped
-
-    filter_fn : function
-      Use this function to filter parameter groups before passing
-      it to ``optimizer``.
-
-    """
-    warnings.warn(
-        "For filtering gradients, please use skorch.callbacks.Freezer.",
-        DeprecationWarning)
-
-    return partial(_make_optimizer, optimizer=optimizer, filter_fn=filter_fn)
-
-
 def predefined_split(dataset):
     """Uses ``dataset`` for validiation in ``NeutralNet``.
 

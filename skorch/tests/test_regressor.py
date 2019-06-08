@@ -37,6 +37,19 @@ class TestNeuralNetRegressor:
         )
 
     @pytest.fixture(scope='module')
+    def multioutput_module_cls(self):
+        from skorch.toy import make_regressor
+        return make_regressor(output_units=3, dropout=0.5)
+
+    @pytest.fixture(scope='module')
+    def multioutput_net(self, net_cls, multioutput_module_cls):
+        return net_cls(
+            multioutput_module_cls,
+            max_epochs=1,
+            lr=0.1,
+        )
+
+    @pytest.fixture(scope='module')
     def net_fit(self, net, data):
         # Careful, don't call additional fits on this, since that would have
         # side effects on other tests.
@@ -85,3 +98,14 @@ class TestNeuralNetRegressor:
         y_proba = net_fit.predict_proba(X)
         # predict and predict_proba should be identical for regression
         assert np.allclose(y_pred, y_proba, atol=1e-6)
+
+    def test_score(self, net, data):
+        X, y = data
+        r2_score = net.score(X, y)
+        assert r2_score <= 1.
+
+    def test_multioutput_score(self, multioutput_net, multioutput_regression_data):
+        X, y = multioutput_regression_data
+        multioutput_net.fit(X, y)
+        r2_score = multioutput_net.score(X, y)
+        assert r2_score <= 1.

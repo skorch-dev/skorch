@@ -12,11 +12,13 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
 
 from skorch import NeuralNetClassifier
 from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler, CyclicLR
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestLRCallbacks:
 
     @pytest.mark.parametrize('policy', [StepLR, 'StepLR'])
@@ -26,7 +28,7 @@ class TestLRCallbacks:
         expected = np.array([1.0, 1.0, 0.1, 0.1, 0.01, 0.01])
         assert np.allclose(expected, lrs)
 
-    @pytest.mark.parametrize('policy', [CyclicLR, 'CyclicLR'])
+    @pytest.mark.parametrize('policy', [CyclicLR, 'CyclicLR', TorchCyclicLR])
     def test_simulate_lrs_batch_step(self, policy):
         lr_sch = LRScheduler(
             policy, base_lr=1, max_lr=5, step_size_up=4)
@@ -96,6 +98,7 @@ class TestLRCallbacks:
 
     @pytest.mark.parametrize('policy, kwargs', [
         ('CyclicLR', {}),
+        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3}),
     ])
     def test_lr_callback_batch_steps_correctly(
             self,
@@ -104,18 +107,71 @@ class TestLRCallbacks:
             policy,
             kwargs,
     ):
-        num_examples = 1000
         batch_size = 100
         max_epochs = 2
 
         X, y = classifier_data
+        num_examples = len(X)
+
         lr_policy = LRScheduler(policy, **kwargs)
         net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
                                   batch_size=batch_size, callbacks=[lr_policy])
         net.fit(X, y)
-        expected = (num_examples // batch_size) * max_epochs - 1
+
+        total_iterations_per_epoch = num_examples / batch_size
+        # 80% of sample used for training by default
+        total_training_iterations_per_epoch = 0.8 * total_iterations_per_epoch
+
+        expected = int(total_training_iterations_per_epoch * max_epochs)
         # pylint: disable=protected-access
-        assert lr_policy.lr_scheduler_.last_batch_idx == expected
+        assert lr_policy.batch_idx_ == expected
+
+    @pytest.mark.parametrize('policy, kwargs', [
+        ('CyclicLR', {}),
+        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3}),
+    ])
+    def test_lr_callback_batch_steps_correctly_fallback(
+            self,
+            classifier_module,
+            classifier_data,
+            policy,
+            kwargs,
+    ):
+        batch_size = 100
+        max_epochs = 2
+
+        X, y = classifier_data
+        num_examples = len(X)
+
+        lr_policy = LRScheduler(policy, **kwargs)
+        net = NeuralNetClassifier(classifier_module(), max_epochs=max_epochs,
+                                  batch_size=batch_size, callbacks=[lr_policy])
+        net.fit(X, y)
+
+        # Removes batch count information in the last two epochs
+        for i in range(max_epochs):
+            del net.history[i]["train_batch_count"]
+            del net.history[i]["valid_batch_count"]
+        net.partial_fit(X, y)
+
+        total_iterations_per_epoch = num_examples / batch_size
+
+        # batch_counts were removed thus the total iterations of the last
+        # epoch is used
+        total_iterations_fit_run = total_iterations_per_epoch * max_epochs
+
+        # 80% of sample used for training by default
+        total_iterations_partial_fit_run = (
+            0.8 * total_iterations_per_epoch * max_epochs)
+
+        # called fit AND partial_fit
+        total_iterations = (total_iterations_fit_run +
+                            total_iterations_partial_fit_run)
+        # Failback to using both valid and training batches counts on
+        # second run
+        expected = int(total_iterations)
+        # pylint: disable=protected-access
+        assert lr_policy.batch_idx_ == expected
 
     def test_lr_scheduler_cloneable(self):
         # reproduces bug #271
@@ -324,6 +380,7 @@ class TestWarmRestartLR():
         )
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 class TestCyclicLR():
 
     @pytest.fixture(params=[1, 3])
@@ -425,9 +482,12 @@ class TestCyclicLR():
         self._test_cycle_lr(init_optimizer, scheduler, targets)
 
     def test_batch_idx_with_none(self, init_optimizer):
-        scheduler = CyclicLR(init_optimizer)
+        with pytest.warns(DeprecationWarning):
+            scheduler = CyclicLR(init_optimizer)
+        for p_group in init_optimizer.param_groups:
+            assert p_group['initial_lr']
         scheduler.batch_step()
-        assert scheduler.last_batch_idx == 0
+        assert scheduler.last_batch_idx == 1
 
     def test_scale_fn(self, init_optimizer):
         def scale_fn(x):

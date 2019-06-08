@@ -179,37 +179,6 @@ class TestHistory:
                     "found key 'not-batches'.")
         assert msg == expected
 
-    # TODO: remove once argument 3 as string is removed, since won't
-    # need a special case anymore
-    def test_history_invalid_batch_key(self, history):
-        # note: Having 'loss' as 3rd argument is valid as of now but
-        # will be invalid in the future.
-        key = slice(None), 'batches', 'loss', slice(None)
-        with pytest.raises(KeyError) as exc:
-            # pylint: disable=pointless-statement
-            history[key]
-
-        msg = exc.value.args[0]
-        expected = ("The last argument 'slice(None, None, None)' is invalid; "
-                    "it must be a string or tuple of strings.")
-        assert msg == expected
-
-    # TODO: remove once argument 3 as string is removed
-    def test_history_invalid_batch_index_deprecation(self, history):
-        # note: Having 'loss' as 3rd argument is valid as of now but
-        # will be invalid in the future.
-        key = slice(None), 'batches', 'loss'
-        with pytest.warns(DeprecationWarning) as warning:
-            # pylint: disable=pointless-statement
-            history[key]
-
-        msg = warning[0].message.args[0]
-        expected = (
-            "Argument 3 to history slicing must be of type int or slice, e.g. "
-            "history[:, 'batches', 'train_loss'] should be "
-            "history[:, 'batches', :, 'train_loss'].")
-        assert msg == expected
-
     def test_history_with_invalid_epoch_key(self, history):
         key = slice(None), 'not-batches'
         with pytest.raises(KeyError) as exc:

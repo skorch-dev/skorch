@@ -354,6 +354,14 @@ Obviously, this only makes sense if
 probabilities. If this is not true, you should just use
 :func:`~skorch.net.NeuralNetClassifier.predict_proba`.
 
+score(X, y)
+^^^^^^^^^^^
+
+This method returns the mean accuracy on the given data and labels for
+classifiers and the coefficient of determination R^2 of the prediction for
+regressors. :class:`.NeuralNet` still has no score method. If you need it,
+you have to implement it yourself.
+
 model persistence
 ^^^^^^^^^^^^^^^^^
 
