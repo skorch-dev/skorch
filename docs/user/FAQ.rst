@@ -60,7 +60,7 @@ that, try to wrap your dictionary into a :class:`.SliceDict`. This is
 a data container that partly behaves like a dict, partly like an
 ndarray. For more details on how to do this, have a look at the
 coresponding `data section
-<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Working-with-sklearn-FunctionTransformer-and-GridSearch>`__
+<https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Working-with-sklearn-FunctionTransformer-and-GridSearch>`__
 in the notebook.
 
 
@@ -246,3 +246,25 @@ The ``RandomDataset`` can be passed directly to
 
     net = NeuralNet(MyModule, criterion=torch.nn.MSELoss)
     net.fit(train_ds)
+
+
+How can I deal with multiple return values from forward?
+--------------------------------------------------------
+
+skorch supports modules that return multiple values. To do this,
+simply return a tuple of all values that you want to return from the
+``forward`` method. However, this tuple will also be passed to the
+criterion. If the criterion cannot deal with multiple values, this
+will result in an error.
+
+To remedy this, you need to either implement your own criterion that
+can deal with the output or you need to override
+:func:`~skorch.net.NeuralNet.get_loss` and handle the unpacking of the
+tuple.
+
+To inspect all output values, you can use either the
+:func:`~skorch.net.NeuralNet.forward` method (eager) or the
+:func:`~skorch.net.NeuralNet.forward_iter` method (lazy).
+
+For an example of how this works, have a look at this `notebook
+<https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Multiple-return-values-from-forward>`_.
