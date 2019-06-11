@@ -13,7 +13,11 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
-from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
+try:
+    from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
+except ImportError:
+    # Backward compatibility with torch >= 1.0 && < 1.1
+    TorchCyclicLR = None
 from torch.optim.optimizer import Optimizer
 from skorch.callbacks import Callback
 
@@ -150,7 +154,7 @@ class LRScheduler(Callback):
         ):
             self.lr_scheduler_.batch_step(self.batch_idx_)
 
-        if isinstance(self.lr_scheduler_, TorchCyclicLR):
+        if TorchCyclicLR and isinstance(self.lr_scheduler_, TorchCyclicLR):
             self.lr_scheduler_.step(self.batch_idx_)
 
         if training:
