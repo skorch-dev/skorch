@@ -274,9 +274,6 @@ class TestSliceDataset:
         from skorch.dataset import Dataset
         class MyDataset(Dataset):
             """Simple pytorch dataset that returns 2 values"""
-            def __init__(self, X, y):
-                super().__init__(X, y)
-
             def __len__(self):
                 return len(self.X)
 
@@ -298,7 +295,7 @@ class TestSliceDataset:
 
     @pytest.fixture
     def slds_y(self, slds_cls, custom_ds):
-        return slds_cls(custom_ds, n=1)
+        return slds_cls(custom_ds, idx=1)
 
     def test_len_and_shape(self, slds, y):
         assert len(slds) == len(y)
@@ -325,7 +322,7 @@ class TestSliceDataset:
 
     @pytest.mark.parametrize('n', [0, 1])
     def test_slice_non_int_is_slicedataset(self, slds_cls, custom_ds, n):
-        slds = slds_cls(custom_ds, n=n)
+        slds = slds_cls(custom_ds, idx=n)
         sl = np.arange(7, 55, 3)
         sliced = slds[sl]
         assert isinstance(sliced, slds_cls)
@@ -335,7 +332,7 @@ class TestSliceDataset:
     @pytest.mark.parametrize('sl', [0, 55, -3])
     def test_slice(self, slds_cls, custom_ds, X, y, sl, n):
         data = y if n else X
-        slds = slds_cls(custom_ds, n=n)
+        slds = slds_cls(custom_ds, idx=n)
         sliced = slds[sl]
         x = data[sl]
         assert np.allclose(sliced, x)
@@ -353,7 +350,7 @@ class TestSliceDataset:
     ])
     def test_slice_twice(self, slds_cls, custom_ds, X, y, sl0, sl1, n):
         data = X if n == 0 else y
-        slds = slds_cls(custom_ds, n=n)
+        slds = slds_cls(custom_ds, idx=n)
         sliced = slds[sl0][sl1]
         x = data[sl0][sl1]
         assert np.allclose(sliced, x)
@@ -366,7 +363,7 @@ class TestSliceDataset:
     ])
     def test_slice_three_times(self, slds_cls, custom_ds, X, y, sl0, sl1, sl2, n):
         data = y if n else X
-        slds = slds_cls(custom_ds, n=n)
+        slds = slds_cls(custom_ds, idx=n)
         sliced = slds[sl0][sl1][sl2]
         x = data[sl0][sl1][sl2]
         assert np.allclose(sliced, x)
@@ -381,8 +378,9 @@ class TestSliceDataset:
         assert np.allclose(sliced1, X[7])
 
     def test_access_element_out_of_bounds(self, slds_cls, custom_ds):
-        slds = slds_cls(custom_ds, n=2)
+        slds = slds_cls(custom_ds, idx=2)
         with pytest.raises(IndexError) as exc:
+            # pylint: disable=pointless-statement
             slds[0]
 
         msg = ("SliceDataset is trying to access element 2 but there are only "
