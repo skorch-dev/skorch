@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adds `train_batch_count` and `valid_batch_count` to history in training loop. (#445)
 - Adds score method for NeuralNetClassifier, NeuralNetBinaryClassifier, and NeuralNetRegressor (#469)
 - Wrapper class for torch Datasets to make them work with some sklearn features (e.g. grid search). (#443)
+- [MNIST notebook][201907191142] showing the integration of torch datasets with skorch
 
 ### Changed
 
@@ -33,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   weight tensors from, e.g., `NLLLoss` (#426)
 - `TrainEndCheckpoint` can be cloned by `sklearn.base.clone`. (#459)
 
+
+[201907191142]: https://github.com/skorch-dev/skorch/blob/master/notebooks/MNIST-torchvision.ipynb
 
 ## [0.5.0] - 2018-12-13
 
