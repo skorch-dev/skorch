@@ -147,7 +147,14 @@ From source
 ===========
 
 If you would like to use the must recent additions to skorch or
-help development, you should install skorch from source.
+help development, you should install skorch from source:
+
+.. code:: bash
+
+    git clone https://github.com/skorch-dev/skorch.git
+    cd skorch
+    # install pytorch version for your system (see below)
+    python setup.py install
 
 Using conda
 ===========
@@ -158,13 +165,13 @@ your system from `here <https://conda.io/miniconda.html>`__.
 You can also install skorch through the conda-forge channel. 
 The instructions for doing so are 
 available `here <https://github.com/conda-forge/skorch-feedstock>`__.
-Though conda channel is not managed the skorch maintainers
+**Note**: The conda channel is _not_ managed by the skorch maintainers.
 
 If you do not want to use conda-forge, you may install skorch using:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
     source activate skorch
@@ -175,7 +182,7 @@ If you want to help developing, run:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
     source activate skorch
@@ -228,7 +235,7 @@ In general, this should work (assuming CUDA 9):
 .. code:: bash
 
     # using conda:
-    conda install pytorch -c pytorch
+    conda install pytorch cudatoolkit=9.0 -c pytorch
     # using pip
     pip install torch
 
