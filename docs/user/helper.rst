@@ -19,6 +19,35 @@ length of the arrays and not the number of keys, and you get a
 with :class:`.SliceDict`, this works.
 
 
+.. _slicedataset:
+
+SliceDataset
+------------
+
+A :class:`.SliceDataset` is a wrapper for
+PyTorch :class:`~torch.utils.data.Dataset`\s that makes them behave a little
+bit like :class:`numpy.ndarray`\s. That way, you can slice your
+dataset with lists and arrays, and you get a ``shape`` attribute.
+These properties are useful because if your data is in a dataset, you
+would normally not be able to use sklearn
+:class:`~sklearn.model_selection.GridSearchCV` and similar things;
+with :class:`.SliceDataset`, this works.
+
+Note that :class:`.SliceDataset` can only ever return one of the
+values returned by the dataset. Typically, this will be either the X
+or the y value. Therefore, if you want to wrap both X and y, you
+should create two instances of :class:`.SliceDataset`, one for X (with
+argument ``idx=0``, the default) and one for y (with argument
+``idx=1``):
+
+.. code:: python
+
+    ds = MyCustomDataset()
+    X_sl = SliceDataset(ds, idx=0)  # idx=0 is the default
+    y_sl = SliceDataset(ds, idx=1)
+    gs.fit(X_sl, y_sl)
+
+
 Command line interface helpers
 ------------------------------
 

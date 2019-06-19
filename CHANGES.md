@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added CUDA pickle test including an artifact that supports testing on CUDA-less CI machines
 - Adds `train_batch_count` and `valid_batch_count` to history in training loop. (#445)
 - Adds score method for NeuralNetClassifier, NeuralNetBinaryClassifier, and NeuralNetRegressor (#469)
+- Wrapper class for torch Datasets to make them work with some sklearn features (e.g. grid search). (#443)
 
 ### Changed
 

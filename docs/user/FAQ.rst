@@ -64,6 +64,20 @@ coresponding `data section
 in the notebook.
 
 
+How do I use sklearn GridSeachCV when my data is in a dataset?
+-----------------------------------------------------------------
+
+skorch supports datasets as input but sklearn doesn't. If it's
+possible, you should provide your data in a non-dataset format,
+e.g. as a numpy array or torch tensor, extracted from your original
+dataset.
+
+Sometimes, this is not possible, e.g. when your data doesn't fit into
+memory. To get around that, try to wrap your dataset into a
+:class:`.SliceDataset`. This is a data container that partly behaves
+like a dataset, partly like an ndarray. Further information can be
+found here: :ref:`slicedataset`.
+
 I want to use sample_weight, how can I do this?
 -----------------------------------------------
 

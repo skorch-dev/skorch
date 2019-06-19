@@ -3,14 +3,15 @@
 They should not be used in skorch directly.
 
 """
+from collections import Sequence
 from functools import partial
 import warnings
 
 import numpy as np
 
+from skorch.cli import parse_args
 from skorch.utils import _make_split
 from skorch.utils import _make_optimizer
-from skorch.cli import parse_args
 from skorch.utils import is_torch_data_type
 
 
@@ -129,6 +130,118 @@ class SliceDict(dict):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+
+# This class must be an instance of Sequence and have an ndim
+# attribute because sklearn will test this.
+class SliceDataset(Sequence):
+    # pylint: disable=anomalous-backslash-in-string
+    """Helper class that wraps a torch dataset to make it work with
+    sklearn.
+
+    Sometimes, sklearn will touch the input data, e.g. when splitting
+    the data for a grid search. This will fail when the input data is
+    a torch dataset. To prevent this, use this wrapper class for your
+    dataset.
+
+    Note: This class will only return the X value by default (i.e. the
+    first value returned by indexing the original dataset). Sklearn,
+    and hence skorch, always require 2 values, X and y. Therefore, you
+    still need to provide the y data separately.
+
+    Note: This class behaves similarly to a PyTorch
+    :class:`~torch.utils.data.Subset` when it is indexed by a slice or
+    numpy array: It will return another ``SliceDataset`` that
+    references the subset instead of the actual values. Only when it
+    is indexed by an int does it return the actual values. The reason
+    for this is to avoid loading all data into memory when sklearn,
+    for instance, creates a train/validation split on the
+    dataset. Data will only be loaded in batches during the fit loop.
+
+    Examples
+    --------
+    >>> X = MyCustomDataset()
+    >>> search = GridSearchCV(net, params, ...)
+    >>> search.fit(X, y)  # raises error
+    >>> ds = SliceDataset(X)
+    >>> search.fit(ds, y)  # works
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset
+      A valid torch dataset.
+
+    idx : int (default=0)
+      Indicates which element of the dataset should be
+      returned. Typically, the dataset returns both X and y
+      values. SliceDataset can only return 1 value. If you want to
+      get X, choose idx=0 (default), if you want y, choose idx=1.
+
+    indices : list, np.ndarray, or None (default=None)
+      If you only want to return a subset of the dataset, indicate
+      which subset that is by passing this argument. Typically, this
+      can be left to be None, which returns all the data. See also
+      :class:`~torch.utils.data.Subset`.
+
+    """
+    def __init__(self, dataset, idx=0, indices=None):
+        self.dataset = dataset
+        self.idx = idx
+        self.indices = indices
+
+        self.indices_ = (self.indices if self.indices is not None
+                         else np.arange(len(self.dataset)))
+        self.ndim = 1
+
+    def __len__(self):
+        return len(self.indices_)
+
+    @property
+    def shape(self):
+        return (len(self),)
+
+    def transform(self, data):
+        # pylint: disable=anomalous-backslash-in-string
+        """Additional transformations on ``data``.
+
+        Note: If you use this in conjuction with PyTorch
+        :class:`~torch.utils.data.DataLoader`, the latter will call
+        the dataset for each row separately, which means that the
+        incoming ``data`` is a single rows.
+
+        """
+        return data
+
+    def _select_item(self, Xn):
+        # Raise a custom error message when accessing out of
+        # bounds. However, this will only trigger as soon as this is
+        # indexed by an integer.
+        try:
+            return Xn[self.idx]
+        except IndexError:
+            name = self.__class__.__name__
+            msg = ("{} is trying to access element {} but there are only "
+                   "{} elements.".format(name, self.idx, len(Xn)))
+            raise IndexError(msg)
+
+    def __getitem__(self, i):
+        if isinstance(i, (int, np.integer)):
+            Xn = self.dataset[self.indices_[i]]
+            Xi = self._select_item(Xn)
+            return self.transform(Xi)
+
+        if isinstance(i, slice):
+            return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
+
+        if isinstance(i, np.ndarray):
+            if i.ndim != 1:
+                raise IndexError("SliceDataset only supports slicing with 1 "
+                                 "dimensional arrays, got {} dimensions instead."
+                                 "".format(i.ndim))
+            if i.dtype == np.bool:
+                i = np.flatnonzero(i)
+
+        return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
 
 
 def predefined_split(dataset):
