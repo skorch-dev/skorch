@@ -171,11 +171,11 @@ class SliceDataset(Sequence):
     dataset : torch.utils.data.Dataset
       A valid torch dataset.
 
-    n : int (default=0)
+    idx : int (default=0)
       Indicates which element of the dataset should be
       returned. Typically, the dataset returns both X and y
       values. SliceDataset can only return 1 value. If you want to
-      get X, choose n=0 (default), if you want y, choose n=1.
+      get X, choose idx=0 (default), if you want y, choose idx=1.
 
     indices : list, np.ndarray, or None (default=None)
       If you only want to return a subset of the dataset, indicate
@@ -187,6 +187,11 @@ class SliceDataset(Sequence):
     def __init__(self, dataset, n=0, indices=None):
         self.dataset = dataset
         self.n = n
+=======
+    def __init__(self, dataset, idx=0, indices=None):
+        self.dataset = dataset
+        self.idx = idx
+>>>>>>> master
         self.indices = indices
 
         self.indices_ = (self.indices if self.indices is not None
@@ -217,11 +222,11 @@ class SliceDataset(Sequence):
         # bounds. However, this will only trigger as soon as this is
         # indexed by an integer.
         try:
-            return Xn[self.n]
+            return Xn[self.idx]
         except IndexError:
             name = self.__class__.__name__
             msg = ("{} is trying to access element {} but there are only "
-                   "{} elements.".format(name, self.n, len(Xn)))
+                   "{} elements.".format(name, self.idx, len(Xn)))
             raise IndexError(msg)
 
     def __getitem__(self, i):
@@ -231,7 +236,7 @@ class SliceDataset(Sequence):
             return self.transform(Xi)
 
         if isinstance(i, slice):
-            return SliceDataset(self.dataset, n=self.n, indices=self.indices_[i])
+            return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
 
         if isinstance(i, np.ndarray):
             if i.ndim != 1:
@@ -241,7 +246,7 @@ class SliceDataset(Sequence):
             if i.dtype == np.bool:
                 i = np.flatnonzero(i)
 
-        return SliceDataset(self.dataset, n=self.n, indices=self.indices_[i])
+        return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
 
 
 def predefined_split(dataset):
