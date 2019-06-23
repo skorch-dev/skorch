@@ -20,6 +20,7 @@ from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
 
 from skorch.exceptions import DeviceWarning
+from skorch.exceptions import NotInitializedError
 
 
 class Ansi(Enum):
@@ -481,6 +482,31 @@ def get_map_location(target_device, fallback_device='cpu'):
             ), DeviceWarning)
         map_location = torch.device(fallback_device)
     return map_location
+
+
+def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
+    """Checks whether the net is initialized.
+
+    Note: This is a re-implementation of
+    sklearn.utils.validation.check_is_fitted, using exactly the same
+    arguments and logic. The only exception is that this function
+    raises a ``skorch.exception.NotInitializedError`` instead of an
+    ``sklearn.exceptions.NotFittedError``.
+
+    """
+    if msg is None:
+        msg = ("This %(name)s instance is not initialized yet. Call "
+               "'initialize' or 'fit' with appropriate arguments "
+               "before using this method.")
+
+    if not hasattr(estimator, 'fit'):
+        raise TypeError("%s is not an estimator instance." % (estimator))
+
+    if not isinstance(attributes, (list, tuple)):
+        attributes = [attributes]
+
+    if not all_or_any([hasattr(estimator, attr) for attr in attributes]):
+        raise NotInitializedError(msg % {'name': type(estimator).__name__})
 
 
 class TeeGenerator:
