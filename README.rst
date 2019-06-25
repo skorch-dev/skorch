@@ -1,4 +1,4 @@
-.. image:: https://github.com/dnouri/skorch/blob/master/assets/skorch.svg
+.. image:: https://github.com/skorch-dev/skorch/blob/master/assets/skorch.svg
    :width: 30%
 
 ------------
@@ -7,12 +7,12 @@
 
 A scikit-learn compatible neural network library that wraps PyTorch.
 
-.. |build| image:: https://travis-ci.org/dnouri/skorch.svg?branch=master
+.. |build| image:: https://api.travis-ci.org/skorch-dev/skorch.svg?branch=master
     :alt: Build Status
     :scale: 100%
-    :target: https://travis-ci.org/dnouri/skorch?branch=master
+    :target: https://travis-ci.org/skorch-dev/skorch?branch=master
 
-.. |coverage| image:: https://github.com/dnouri/skorch/blob/master/assets/coverage.svg
+.. |coverage| image:: https://github.com/skorch-dev/skorch/blob/master/assets/coverage.svg
     :alt: Test Coverage
     :scale: 100%
 
@@ -21,7 +21,7 @@ A scikit-learn compatible neural network library that wraps PyTorch.
     :scale: 100%
     :target: https://skorch.readthedocs.io/en/latest/?badge=latest
 
-.. |powered| image:: https://github.com/dnouri/skorch/blob/master/assets/powered.svg
+.. |powered| image:: https://github.com/skorch-dev/skorch/blob/master/assets/powered.svg
     :alt: Powered by
     :scale: 100%
     :target: https://github.com/ottogroup/
@@ -31,14 +31,14 @@ Resources
 =========
 
 - `Documentation <https://skorch.readthedocs.io/en/latest/?badge=latest>`_
-- `Source Code <https://github.com/dnouri/skorch/>`_
+- `Source Code <https://github.com/skorch-dev/skorch/>`_
 
 ========
 Examples
 ========
 
 To see more elaborate examples, look `here
-<https://github.com/dnouri/skorch/tree/master/notebooks/README.md>`__.
+<https://github.com/skorch-dev/skorch/tree/master/notebooks/README.md>`__.
 
 .. code:: python
 
@@ -124,7 +124,7 @@ skorch also provides many convenient features, among others:
 - `Checkpointing <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.Checkpoint>`_
 - `Parameter freezing/unfreezing <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.Freezer>`_
 - `Progress bar <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.ProgressBar>`_ (for CLI as well as jupyter)
-- `Automatic inference of CLI parameters <https://github.com/dnouri/skorch/tree/master/examples/cli>`_
+- `Automatic inference of CLI parameters <https://github.com/skorch-dev/skorch/tree/master/examples/cli>`_
 
 ============
 Installation
@@ -147,7 +147,14 @@ From source
 ===========
 
 If you would like to use the must recent additions to skorch or
-help development, you should install skorch from source.
+help development, you should install skorch from source:
+
+.. code:: bash
+
+    git clone https://github.com/skorch-dev/skorch.git
+    cd skorch
+    # install pytorch version for your system (see below)
+    python setup.py install
 
 Using conda
 ===========
@@ -155,11 +162,16 @@ Using conda
 You need a working conda installation. Get the correct miniconda for
 your system from `here <https://conda.io/miniconda.html>`__.
 
-If you just want to use skorch, use:
+You can also install skorch through the conda-forge channel. 
+The instructions for doing so are 
+available `here <https://github.com/conda-forge/skorch-feedstock>`__.
+**Note**: The conda channel is _not_ managed by the skorch maintainers.
+
+If you do not want to use conda-forge, you may install skorch using:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
     source activate skorch
@@ -170,7 +182,7 @@ If you want to help developing, run:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
     source activate skorch
@@ -188,7 +200,7 @@ If you just want to use skorch, use:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     # create and activate a virtual environment
     pip install -r requirements.txt
@@ -199,7 +211,7 @@ If you want to help developing, run:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     # create and activate a virtual environment
     pip install -r requirements.txt
@@ -223,7 +235,7 @@ In general, this should work (assuming CUDA 9):
 .. code:: bash
 
     # using conda:
-    conda install pytorch -c pytorch
+    conda install pytorch cudatoolkit=9.0 -c pytorch
     # using pip
     pip install torch
 
@@ -231,7 +243,7 @@ In general, this should work (assuming CUDA 9):
 Communication
 =============
 
-- `GitHub issues <https://github.com/dnouri/skorch/issues>`_: bug
+- `GitHub issues <https://github.com/skorch-dev/skorch/issues>`_: bug
   reports, feature requests, install issues, RFCs, thoughts, etc.
 
 - Slack: We run the #skorch channel on the `PyTorch Slack server
