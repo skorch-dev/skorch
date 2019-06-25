@@ -7,7 +7,7 @@
 
 A scikit-learn compatible neural network library that wraps PyTorch.
 
-.. |build| image:: https://travis-ci.org/dnouri/skorch.svg?branch=master
+.. |build| image:: https://api.travis-ci.org/skorch-dev/skorch.svg?branch=master
     :alt: Build Status
     :scale: 100%
     :target: https://travis-ci.org/dnouri/skorch?branch=master
