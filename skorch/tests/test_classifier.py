@@ -98,6 +98,13 @@ class TestNeuralNet:
             assert not (y_out < 0).all()
             assert torch.isclose(torch.ones(len(y_out)), y_out.sum(1)).all()
 
+    # classifier-specific test
+    def test_high_learning_rate(self, net_cls, module_cls, data):
+        # regression test for nan loss with high learning rates issue #481
+        net = net_cls(module_cls, max_epochs=2, lr=2, optimizer=torch.optim.Adam)
+        net.fit(*data)
+        assert np.any(~np.isnan(net.history[:, 'train_loss']))
+
 
 class TestNeuralNetBinaryClassifier:
     @pytest.fixture(scope='module')
