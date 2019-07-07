@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Adds an eps to `y_pred` when calculating loss for a `NeuralNetClassifer` (#491)
+
 ### Fixed
 
 
