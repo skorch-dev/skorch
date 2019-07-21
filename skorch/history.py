@@ -1,7 +1,6 @@
 """Contains history class and helper functions."""
 
 import json
-import warnings
 
 from skorch.utils import open_file_like
 

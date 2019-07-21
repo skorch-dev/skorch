@@ -5,13 +5,11 @@ They should not be used in skorch directly.
 """
 from collections import Sequence
 from functools import partial
-import warnings
 
 import numpy as np
 
 from skorch.cli import parse_args
 from skorch.utils import _make_split
-from skorch.utils import _make_optimizer
 from skorch.utils import is_torch_data_type
 
 
@@ -201,7 +199,6 @@ class SliceDataset(Sequence):
         return (len(self),)
 
     def transform(self, data):
-        # pylint: disable=anomalous-backslash-in-string
         """Additional transformations on ``data``.
 
         Note: If you use this in conjuction with PyTorch

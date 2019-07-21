@@ -194,6 +194,7 @@ class TestSliceDict:
         copied = sldict.copy()
         copied['f0'] = -copied['f0']
 
+        # pylint: disable=comparison-with-itself
         assert copied == copied
         assert not copied == sldict
         assert copied != sldict
@@ -202,6 +203,7 @@ class TestSliceDict:
         copied = sldict.copy()
         copied['f0'] = np.array(copied['f0'].copy())
 
+        # pylint: disable=comparison-with-itself
         assert copied == copied
         assert copied == sldict
 
@@ -213,6 +215,7 @@ class TestSliceDict:
         copied = sldict.copy()
         copied['f0'] = -copied['f0']
 
+        # pylint: disable=comparison-with-itself
         assert copied == copied
         assert not copied == sldict
         assert copied != sldict
@@ -225,6 +228,7 @@ class TestSliceDict:
         copied = sldict.copy()
         copied['f0'] = copied['f0'].clone()
 
+        # pylint: disable=comparison-with-itself
         assert copied == copied
         assert copied == sldict
 

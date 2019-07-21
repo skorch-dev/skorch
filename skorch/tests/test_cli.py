@@ -1,8 +1,6 @@
 """Test for cli.py"""
 
 from math import cos
-import os
-import subprocess
 from unittest.mock import Mock
 from unittest.mock import patch
 
@@ -17,7 +15,7 @@ from torch.nn import RReLU
 
 fire_installed = True
 try:
-    import fire
+    import fire  # pylint: disable=unused-import
 except ImportError:
     fire_installed = False
 
@@ -265,19 +263,19 @@ class TestCli:
         return mock
 
     def test_parse_args_help(self, parse_args, estimator):
-        with patch('skorch.cli.sys.exit') as exit:
-            with patch('skorch.cli.print_help') as help:
+        with patch('skorch.cli.sys.exit') as exit_:
+            with patch('skorch.cli.print_help') as help_:
                 parsed = parse_args({'help': True, 'foo': 'bar'})
                 parsed(estimator)
 
         assert estimator.set_params.call_count == 0  # kwargs and defaults
-        assert help.call_count == 1
-        assert exit.call_count == 1
+        assert help_.call_count == 1
+        assert exit_.call_count == 1
 
     def test_parse_args_run(self, parse_args, estimator):
         kwargs = {'foo': 'bar', 'baz': 'math.cos'}
-        with patch('skorch.cli.sys.exit') as exit:
-            with patch('skorch.cli.print_help') as help:
+        with patch('skorch.cli.sys.exit') as exit_:
+            with patch('skorch.cli.print_help') as help_:
                 parsed = parse_args(kwargs)
                 parsed(estimator)
 
@@ -290,8 +288,8 @@ class TestCli:
         assert kwargs_set_params['foo'] == 'bar'
         assert kwargs_set_params['baz'] == cos
 
-        assert help.call_count == 0
-        assert exit.call_count == 0
+        assert help_.call_count == 0
+        assert exit_.call_count == 0
 
     def test_parse_args_net_custom_defaults(self, parse_args, net):
         defaults = {'batch_size': 256, 'module__hidden_units': 55}

@@ -314,12 +314,12 @@ def parse_args(kwargs, defaults=None):
 
     """
     try:
-        import fire
+        import fire  # pylint: disable=unused-import
     except ImportError:
         raise ImportError("Using skorch cli helpers requires the fire library,"
                           " you can install it with pip: pip install fire.")
     try:
-        import numpydoc.docscrape
+        import numpydoc.docscrape  # pylint: disable=unused-import
     except ImportError:
         raise ImportError("Using skorch cli helpers requires the numpydoc library,"
                           " you can install it with pip: pip install numpydoc.")

@@ -2,7 +2,6 @@
 
 from functools import partial
 from numbers import Number
-import warnings
 
 import numpy as np
 from scipy import sparse

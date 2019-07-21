@@ -388,7 +388,6 @@ def noop(*args, **kwargs):
     This is useful for defining scoring callbacks that do not need a
     target extractor.
     """
-    pass
 
 
 @contextmanager
@@ -439,11 +438,6 @@ class FirstStepAccumulator:
     def get_step(self):
         """Return the stored step."""
         return self.step
-
-
-def _make_optimizer(pgroups, optimizer, filter_fn, **kwargs):
-    """Used by ``skorch.helper.filtered_optimizer`` to allow for pickling"""
-    return optimizer(filter_fn(pgroups), **kwargs)
 
 
 def _make_split(X, y, valid_ds, **kwargs):
