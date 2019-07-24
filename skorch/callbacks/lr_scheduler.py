@@ -368,8 +368,10 @@ class CyclicLR:
             for i, group in enumerate(optimizer.param_groups):
                 if 'initial_lr' not in group:
                     raise KeyError("param 'initial_lr' is not specified "
-                                   "in param_groups[{}] when resuming an optimizer".format(i))
-        self.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
+                                   "in param_groups[{}] when resuming an optimizer"
+                                   .format(i))
+        self.base_lrs = list(map(
+            lambda group: group['initial_lr'], optimizer.param_groups))
 
         self.max_lrs = _check_lr('max_lr', optimizer, max_lr)
 
@@ -411,7 +413,6 @@ class CyclicLR:
 
     def step(self, epoch=None):
         """Not used by ``CyclicLR``, use batch_step instead."""
-        pass
 
     def batch_step(self, batch_idx=None):
         """Updates the learning rate for the batch index: ``batch_idx``.

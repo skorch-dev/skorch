@@ -1321,8 +1321,7 @@ class NeuralNet:
                     "Something went wrong here. Please open an issue on "
                     "https://github.com/dnouri/skorch/issues detailing what "
                     "caused this error.")
-            else:
-                setattr(self, key, val)
+            setattr(self, key, val)
 
         # Below: Re-initialize parts of the net if necessary.
 

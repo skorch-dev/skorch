@@ -3,6 +3,7 @@
 import re
 
 import numpy as np
+from sklearn.base import ClassifierMixin
 import torch
 from torch.utils.data import DataLoader
 
@@ -18,7 +19,6 @@ from skorch.utils import noop
 from skorch.utils import to_numpy
 from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
-from sklearn.base import ClassifierMixin
 
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks

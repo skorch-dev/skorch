@@ -14,7 +14,6 @@ from unittest.mock import Mock
 from unittest.mock import patch
 import sys
 from contextlib import ExitStack
-import tempfile
 
 import numpy as np
 import pytest

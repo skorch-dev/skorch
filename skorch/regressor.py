@@ -2,13 +2,13 @@
 
 import re
 
+from sklearn.base import RegressorMixin
 import torch
 from torch.utils.data import DataLoader
 
 from skorch import NeuralNet
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
-from sklearn.base import RegressorMixin
 
 
 neural_net_reg_doc_start = """NeuralNet for regression tasks
@@ -62,7 +62,7 @@ class NeuralNetRegressor(NeuralNet, RegressorMixin):
                              "(and your validation) and supply it using the "
                              "``iterator_train`` and ``iterator_valid`` "
                              "parameters respectively.")
-        elif y is None:
+        if y is None:
             # The user implements its own mechanism for generating y.
             return
 
