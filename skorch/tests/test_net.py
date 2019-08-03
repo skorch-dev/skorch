@@ -178,6 +178,48 @@ class TestNeuralNet:
                     "should deal with the new arguments explicitely.")
         assert e.value.args[0] == expected
 
+    def test_net_init_missing_dunder_in_prefix_argument(
+            self, net_cls, module_cls):
+        # forgot to use double-underscore notation
+        with pytest.raises(TypeError) as e:
+            net_cls(module_cls, iterator_train_shuffle=True)
+        expected = ("Got an unexpected argument iterator_train_shuffle, "
+                    "did you mean iterator_train__shuffle?")
+        assert e.value.args[0] == expected
+
+    def test_net_init_missing_dunder_in_2_prefix_arguments(
+            self, net_cls, module_cls):
+        # forgot to use double-underscore notation in 2 arguments
+        with pytest.raises(TypeError) as e:
+            net_cls(
+                module_cls,
+                max_epochs=7,  # correct
+                iterator_train_shuffle=True,  # uses _ instead of __
+                optimizerlr=0.5,  # missing __
+            )
+        expected = ("Got an unexpected argument iterator_train_shuffle, "
+                    "did you mean iterator_train__shuffle?\n"
+                    "Got an unexpected argument optimizerlr, "
+                    "did you mean optimizer__lr?")
+        assert e.value.args[0] == expected
+
+    def test_net_init_missing_dunder_and_unknown(
+            self, net_cls, module_cls):
+        # unknown argument and forgot to use double-underscore notation
+        with pytest.raises(TypeError) as e:
+            net_cls(
+                module_cls,
+                foobar=123,
+                iterator_train_shuffle=True,
+            )
+        expected = ("__init__() got unexpected argument(s) foobar. "
+                    "Either you made a typo, or you added new arguments "
+                    "in a subclass; if that is the case, the subclass "
+                    "should deal with the new arguments explicitely.\n"
+                    "Got an unexpected argument iterator_train_shuffle, "
+                    "did you mean iterator_train__shuffle?")
+        assert e.value.args[0] == expected
+
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass

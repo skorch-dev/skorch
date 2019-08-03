@@ -229,20 +229,7 @@ class NeuralNet:
         initialized = kwargs.pop('initialized_', False)
         virtual_params = kwargs.pop('virtual_params_', dict())
 
-        # catch arguments that seem to not belong anywhere
-        unexpected_kwargs = []
-        for key in kwargs:
-            if key.endswith('_'):
-                continue
-            if any(key.startswith(p) for p in self.prefixes_):
-                continue
-            unexpected_kwargs.append(key)
-        if unexpected_kwargs:
-            msg = ("__init__() got unexpected argument(s) {}. "
-                   "Either you made a typo, or you added new arguments "
-                   "in a subclass; if that is the case, the subclass "
-                   "should deal with the new arguments explicitely.")
-            raise TypeError(msg.format(', '.join(sorted(unexpected_kwargs))))
+        kwargs = self.check_kwargs(kwargs)
         vars(self).update(kwargs)
 
         self.history = history
@@ -1284,6 +1271,55 @@ class NeuralNet:
         params_cb = self._get_params_callbacks(deep=deep)
         params.update(params_cb)
         return params
+
+    def check_kwargs(self, kwargs):
+        """Check argument names passed at initialization.
+
+        Raises
+        ------
+        TypeError
+          Raises a TypeError if one or more arguments don't seem to
+          match or are malformed.
+
+        Returns
+        -------
+        kwargs: dict
+          Return the passed keyword arguments.
+
+        """
+        unexpected_kwargs = []
+        missing_dunder_kwargs = []
+        for key in kwargs:
+            if key.endswith('_'):
+                continue
+            for prefix in self.prefixes_:
+                if key.startswith(prefix):
+                    if not key.startswith(prefix + '__'):
+                        missing_dunder_kwargs.append((prefix, key))
+                    break
+            else:  # if no break
+                unexpected_kwargs.append(key)
+
+        msgs = []
+        if unexpected_kwargs:
+            tmpl = ("__init__() got unexpected argument(s) {}. "
+                    "Either you made a typo, or you added new arguments "
+                    "in a subclass; if that is the case, the subclass "
+                    "should deal with the new arguments explicitely.")
+            msg = tmpl.format(', '.join(sorted(unexpected_kwargs)))
+            msgs.append(msg)
+
+        for prefix, key in sorted(missing_dunder_kwargs, key=lambda tup: tup[1]):
+            tmpl = "Got an unexpected argument {}, did you mean {}?"
+            suffix = key[len(prefix):].lstrip('_')
+            suggestion = prefix + '__' + suffix
+            msgs.append(tmpl.format(key, suggestion))
+
+        if msgs:
+            full_msg = '\n'.join(msgs)
+            raise TypeError(full_msg)
+
+        return kwargs
 
     def _check_deprecated_params(self, **kwargs):
         pass
