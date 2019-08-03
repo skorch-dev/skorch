@@ -178,13 +178,21 @@ class TestNeuralNet:
                     "should deal with the new arguments explicitely.")
         assert e.value.args[0] == expected
 
+    @pytest.mark.parametrize('name, suggestion', [
+        ('iterator_train_shuffle', 'iterator_train__shuffle'),
+        ('optimizer_momentum', 'optimizer__momentum'),
+        ('modulenum_units', 'module__num_units'),
+        ('criterionreduce', 'criterion__reduce'),
+        ('callbacks_mycb__foo', 'callbacks__mycb__foo'),
+    ])
     def test_net_init_missing_dunder_in_prefix_argument(
-            self, net_cls, module_cls):
+            self, net_cls, module_cls, name, suggestion):
         # forgot to use double-underscore notation
         with pytest.raises(TypeError) as e:
-            net_cls(module_cls, iterator_train_shuffle=True)
-        expected = ("Got an unexpected argument iterator_train_shuffle, "
-                    "did you mean iterator_train__shuffle?")
+            net_cls(module_cls, **{name: 123})
+
+        tmpl = "Got an unexpected argument {}, did you mean {}?"
+        expected = tmpl.format(name, suggestion)
         assert e.value.args[0] == expected
 
     def test_net_init_missing_dunder_in_2_prefix_arguments(

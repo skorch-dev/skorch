@@ -229,7 +229,7 @@ class NeuralNet:
         initialized = kwargs.pop('initialized_', False)
         virtual_params = kwargs.pop('virtual_params_', dict())
 
-        kwargs = self.check_kwargs(kwargs)
+        kwargs = self._check_kwargs(kwargs)
         vars(self).update(kwargs)
 
         self.history = history
@@ -1272,7 +1272,7 @@ class NeuralNet:
         params.update(params_cb)
         return params
 
-    def check_kwargs(self, kwargs):
+    def _check_kwargs(self, kwargs):
         """Check argument names passed at initialization.
 
         Raises
@@ -1285,6 +1285,12 @@ class NeuralNet:
         -------
         kwargs: dict
           Return the passed keyword arguments.
+
+        Example
+        -------
+        >>> net = NeuralNetClassifier(MyModule, iterator_train_shuffle=True)
+        TypeError: Got an unexpected argument iterator_train_shuffle,
+        did you mean iterator_train__shuffle?
 
         """
         unexpected_kwargs = []
