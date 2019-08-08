@@ -8,6 +8,8 @@ from functools import partial
 
 import numpy as np
 
+from sklearn.base import BaseEstimator
+from sklearn.base import TransformerMixin
 from skorch.cli import parse_args
 from skorch.utils import _make_split
 from skorch.utils import is_torch_data_type
@@ -256,3 +258,211 @@ def predefined_split(dataset):
 
     """
     return partial(_make_split, valid_ds=dataset)
+
+
+class DataFrameTransformer(BaseEstimator, TransformerMixin):
+    """Transform a DataFrame into a dict useful for working with skorch.
+
+    Transforms cardinal data to floats and categorical data to vectors
+    of ints so that they can be embedded.
+
+    Although skorch can deal with pandas DataFrames, the default
+    behavior is often not very useful. Use this transformer to
+    transform the DataFrame into a dict with all float columns
+    concatenated using the key "X" and all categorical values encoded
+    as integers, using their respective column names as keys.
+
+    Your module must have a matching signature for this to work. It
+    must accept an argument ``X`` for all cardinal
+    values. Additionally, for all categorical values, it must accept
+    an argument with the same name as the corresponding column (see
+    example below).
+
+    You can choose whether you want to treat int columns the same as
+    float columns (default) or as categorical values.
+
+    To one-hot encode categorical features, initialize their
+    corresponding embedding layers using the identity matrix.
+
+    Examples
+    --------
+    >>> df = pd.DataFrame({
+    ...     'col_floats': np.linspace(0, 1, 12),
+    ...     'col_ints': [11, 11, 10] * 4,
+    ...     'col_cats': ['a', 'b', 'a'] * 4,
+    ... })
+    >>> # cast to category dtype to later learn embeddings
+    >>> df['col_cats'] = df['col_cats'].astype('category')
+    >>> y = np.asarray([0, 1, 0] * 4)
+
+    >>> class MyModule(nn.Module):
+    ...     def __init__(self):
+    ...         super().__init__()
+    ...         self.reset_params()
+
+    >>>     def reset_params(self):
+    ...         self.embedding = nn.Embedding(2, 10)
+    ...         self.linear = nn.Linear(2, 10)
+    ...         self.out = nn.Linear(20, 2)
+    ...         self.nonlin = nn.Softmax(dim=-1)
+
+    >>>     def forward(self, X, col_cats):
+    ...         # "X" contains the values from col_floats and col_ints
+    ...         # "col_cats" contains the values from "col_cats"
+    ...         X_lin = self.linear(X)
+    ...         X_cat = self.embedding(col_cats)
+    ...         X_concat = torch.cat((X_lin, X_cat), dim=1)
+    ...         return self.nonlin(self.out(X_concat))
+
+    >>> net = NeuralNetClassifier(MyModule)
+    >>> pipe = Pipeline([
+    ...     ('transform', DataFrameTransformer()),
+    ...     ('net', net),
+    ... ])
+    >>> pipe.fit(df, y)
+
+    Parameters
+    ----------
+    treat_int_as_categorical : bool (default=False)
+      Whether to treat integers as categorical values or as cardinal
+      values, i.e. the same as floats.
+
+    float_dtype : numpy dtype or None (default=np.float32)
+      The dtype to cast the cardinal values to. If None, don't change
+      them.
+
+    int_dtype : numpy dtype or None (default=np.int64)
+      The dtype to cast the categorical values to. If None, don't
+      change them. If you do this, it can happen that the categorical
+      values will have different dtypes, reflecting the number of
+      unique categories.
+
+    Attributes
+    ----------
+    int_dtypes_ : list of numpy dtypes
+      All valid integer dtypes.
+
+    float_dtypes_ : list of numpy dtypes
+      All valid float dtypes.
+
+    Notes
+    -----
+    The value of X will always be 2-dimensional, even if it only
+    contains 1 column.
+
+    """
+    import pandas as pd
+
+    int_dtypes_ = {
+        np.dtype('int8'), np.dtype('uint8'), np.dtype('int16'),
+        np.dtype('int32'), np.dtype('int64')}
+    float_dtypes_ = {
+        np.dtype('float16'), np.dtype('float32'), np.dtype('float64')}
+
+    def __init__(
+            self,
+            treat_int_as_categorical=False,
+            float_dtype=np.float32,
+            int_dtype=np.int64,
+    ):
+        self.treat_int_as_categorical = treat_int_as_categorical
+        self.float_dtype = float_dtype
+        self.int_dtype = int_dtype
+
+    def _check_dtypes(self, df):
+        """Perform a check on the DataFrame to detect wrong dtypes or keys.
+
+        Makes sure that there are no conflicts in key names.
+
+        If dtypes are found that cannot be dealt with, raises a
+        TypeError with a message indicating which ones caused trouble.
+
+        Raises
+        ------
+        ValueError
+          If there already is a column named 'X'.
+
+        TypeError
+          If a wrong dtype is found.
+
+        """
+        if 'X' in df:
+            raise ValueError(
+                "DataFrame contains a column named 'X', which clashes "
+                "with the name chosen for cardinal features; consider "
+                "renaming that column.")
+
+        wrong_dtypes = []
+
+        for col, dtype in zip(df, df.dtypes):
+            if isinstance(dtype, self.pd.core.dtypes.dtypes.CategoricalDtype):
+                continue
+            if dtype in self.int_dtypes_:
+                continue
+            if dtype in self.float_dtypes_:
+                continue
+            wrong_dtypes.append((col, dtype))
+
+        if not wrong_dtypes:
+            return
+
+        wrong_dtypes = sorted(wrong_dtypes, key=lambda tup: tup[0])
+        msg_dtypes = ", ".join(
+            "{} ({})".format(col, dtype) for col, dtype in wrong_dtypes)
+        msg = ("The following columns have dtypes that cannot be "
+               "interpreted as numerical dtypes: {}".format(msg_dtypes))
+        raise TypeError(msg)
+
+    # pylint: disable=unused-argument
+    def fit(self, df, y=None, **fit_params):
+        self._check_dtypes(df)
+        return self
+
+    def transform(self, df):
+        """Transform DataFrame to become a dict that works well with skorch.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+          Incoming DataFrame.
+
+        Returns
+        -------
+        X_dict: dict
+          Dictionary with all floats concatenated using the key "X"
+          and all categorical values encoded as integers, using their
+          respective column names as keys.
+
+        """
+        self._check_dtypes(df)
+
+        X_dict = {}
+        Xf = []  # floats
+
+        for col, dtype in zip(df, df.dtypes):
+            values = df[col]
+
+            if isinstance(dtype, self.pd.core.dtypes.dtypes.CategoricalDtype):
+                x = values.cat.codes.values
+                if self.int_dtype is not None:
+                    x = x.astype(self.int_dtype)
+                X_dict[col] = x
+                continue
+
+            if (
+                    dtype in (np.dtype('int32'), np.dtype('int64'))
+                    and self.treat_int_as_categorical
+            ):
+                x = values.astype('category').cat.codes.values
+                if self.int_dtype is not None:
+                    x = x.astype(self.int_dtype)
+                X_dict[col] = x
+                continue
+
+            Xf.append(values.values)
+
+        X = np.stack(Xf, axis=1)
+        if self.float_dtype is not None:
+            X = X.astype(self.float_dtype)
+        X_dict['X'] = X
+        return X_dict
