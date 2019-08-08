@@ -7,12 +7,17 @@ import torch
 from sklearn.datasets import make_classification
 
 
-class TestSliceDict:
-    def assert_dicts_equal(self, d0, d1):
-        assert d0.keys() == d1.keys()
-        for key in d0.keys():
-            assert np.allclose(d0[key], d1[key])
 
+def assert_dicts_equal(d0, d1):
+    assert d0.keys() == d1.keys()
+    for key in d0.keys():
+        val0, val1 = d0[key], d1[key]
+
+        np.testing.assert_allclose(val0, val1)
+        assert val0.dtype == val1.dtype
+
+
+class TestSliceDict:
     @pytest.fixture
     def data(self):
         X, y = make_classification(100, 20, n_informative=10, random_state=0)
@@ -114,21 +119,21 @@ class TestSliceDict:
     ])
     def test_get_item_slice(self, sldict_cls, sldict, sl, expected):
         sliced = sldict[sl]
-        self.assert_dicts_equal(sliced, sldict_cls(**expected))
+        assert_dicts_equal(sliced, sldict_cls(**expected))
 
     def test_slice_list(self, sldict, sldict_cls):
         result = sldict[[0, 2]]
         expected = sldict_cls(
             f0=np.array([0, 2]),
             f1=np.array([[0, 1, 2], [6, 7, 8]]))
-        self.assert_dicts_equal(result, expected)
+        assert_dicts_equal(result, expected)
 
     def test_slice_mask(self, sldict, sldict_cls):
         result = sldict[np.array([1, 0, 1, 0]).astype(bool)]
         expected = sldict_cls(
             f0=np.array([0, 2]),
             f1=np.array([[0, 1, 2], [6, 7, 8]]))
-        self.assert_dicts_equal(result, expected)
+        assert_dicts_equal(result, expected)
 
     def test_slice_int(self, sldict):
         with pytest.raises(ValueError) as exc:
@@ -146,7 +151,7 @@ class TestSliceDict:
         loc.update({'array': np.array, 'SliceDict': sldict_cls})
         # pylint: disable=eval-used
         result = eval(str(sldict), globals(), loc)
-        self.assert_dicts_equal(result, sldict)
+        assert_dicts_equal(result, sldict)
 
     def test_iter_over_keys(self, sldict):
         found_keys = {key for key in sldict}
