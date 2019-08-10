@@ -1152,7 +1152,6 @@ class TestNeuralNet:
         # now initialized
         assert 'callbacks__myscore__scoring' in params
 
-    @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
         from skorch.callbacks import EpochTimer
 
