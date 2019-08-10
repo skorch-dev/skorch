@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- More careful check for wrong parameter names being passed to NeuralNet
+- More careful check for wrong parameter names being passed to NeuralNet (#500)
 
 ### Changed
 
