@@ -676,3 +676,40 @@ class TestDataFrameTransformer:
 
         y_pred = pipe.predict(df)
         assert y_pred.shape == (len(df),)
+
+    @pytest.fixture
+    def signature(self, transformer_cls):
+        return transformer_cls.signature_
+
+    def test_describe_signature_default_df(self, transformer_cls, df, signature):
+        result = transformer_cls().describe_signature(df)
+        expected = {
+            'X': signature(torch.float32, 2),
+            'col_cats': signature(torch.int64, 2),
+        }
+        assert result == expected
+
+    def test_describe_signature_non_default_df(self, transformer_cls, df, signature):
+        # replace float column with integer having 3 unique units
+        df = df.assign(col_floats=[1, 2, 0])
+
+        result = transformer_cls(
+            treat_int_as_categorical=True).describe_signature(df)
+        expected = {
+            'col_floats': signature(torch.int64, 3),
+            'col_ints': signature(torch.int64, 2),
+            'col_cats': signature(torch.int64, 2),
+        }
+        assert result == expected
+
+    def test_describe_signature_other_dtypes(self, transformer_cls, df, signature):
+        transformer = transformer_cls(
+            float_dtype=np.float16,
+            int_dtype=np.int32,
+        )
+        result = transformer.describe_signature(df)
+        expected = {
+            'X': signature(torch.float16, 2),
+            'col_cats': signature(torch.int32, 2),
+        }
+        assert result == expected
