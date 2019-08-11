@@ -552,6 +552,15 @@ class TestDataFrameTransformer:
         Xt = transformer_cls(treat_int_as_categorical=True).fit_transform(df)
         assert_dicts_equal(Xt, expected)
 
+    def test_fit_transform_no_X(self, transformer_cls, df):
+        df = df[['col_ints', 'col_cats']]  # no float type present
+        expected = {
+            'col_ints': np.asarray([1, 1, 0]),
+            'col_cats': np.asarray([0, 1, 0]),
+        }
+        Xt = transformer_cls(treat_int_as_categorical=True).fit_transform(df)
+        assert_dicts_equal(Xt, expected)
+
     @pytest.mark.parametrize('data', [
         np.array([object, object, object]),
         np.array(['foo', 'bar', 'baz']),

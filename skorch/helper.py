@@ -461,6 +461,9 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
 
             Xf.append(values.values)
 
+        if not Xf:
+            return X_dict
+
         X = np.stack(Xf, axis=1)
         if self.float_dtype is not None:
             X = X.astype(self.float_dtype)
