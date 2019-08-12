@@ -16,6 +16,7 @@ import sys
 from contextlib import ExitStack
 
 import numpy as np
+from packaging import version
 import pytest
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
@@ -1152,7 +1153,6 @@ class TestNeuralNet:
         # now initialized
         assert 'callbacks__myscore__scoring' in params
 
-    @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
         from skorch.callbacks import EpochTimer
 
@@ -1410,6 +1410,10 @@ class TestNeuralNet:
     )
   ),
 )"""
+        if version.parse(torch.__version__) >= version.parse('1.2'):
+            expected = expected.replace("Softmax()", "Softmax(dim=-1)")
+            expected = expected.replace("Dropout(p=0.5)",
+                                        "Dropout(p=0.5, inplace=False)")
         assert result == expected
 
     def test_repr_fitted_works(self, net_cls, module_cls, data):
@@ -1437,6 +1441,10 @@ class TestNeuralNet:
     )
   ),
 )"""
+        if version.parse(torch.__version__) >= version.parse('1.2'):
+            expected = expected.replace("Softmax()", "Softmax(dim=-1)")
+            expected = expected.replace("Dropout(p=0.5)",
+                                        "Dropout(p=0.5, inplace=False)")
         assert result == expected
 
     def test_fit_params_passed_to_module(self, net_cls, data):
