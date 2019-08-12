@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- More helpful error messages when trying to predict using an uninitialized model.
+
 ### Changed
 
 - Improve numerical stability when using `NLLLoss` in `NeuralNetClassifer` (#491)

@@ -11,6 +11,9 @@ from torch import nn
 F = nn.functional
 
 
+INFERENCE_METHODS = ['predict', 'predict_proba', 'forward', 'forward_iter']
+
+
 ###################
 # shared fixtures #
 ###################

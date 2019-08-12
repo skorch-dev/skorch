@@ -25,6 +25,7 @@ from skorch.history import History
 from skorch.setter import optimizer_setter
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import TeeGenerator
+from skorch.utils import check_is_fitted
 from skorch.utils import duplicate_items
 from skorch.utils import get_map_location
 from skorch.utils import is_dataset
@@ -679,6 +680,7 @@ class NeuralNet:
         like dropout by setting ``training=True``.
 
         """
+        self.check_is_fitted()
         with torch.set_grad_enabled(training):
             self.module_.train(training)
             return self.infer(Xi)
@@ -851,6 +853,27 @@ class NeuralNet:
 
         self.partial_fit(X, y, **fit_params)
         return self
+
+    def check_is_fitted(self, attributes=None, *args, **kwargs):
+        """Checks whether the net is initialized
+
+        Parameters
+        ----------
+        attributes : iterable of str or None (default=None)
+          All the attributes that are strictly required of a fitted
+          net. By default, this is the `module_` attribute.
+
+        Other arguments as in
+        ``sklearn.utils.validation.check_is_fitted``.
+
+        Raises
+        ------
+        skorch.exceptions.NotInitializedError
+          When the given attributes are not present.
+
+        """
+        attributes = attributes or ['module_']
+        check_is_fitted(self, attributes, *args, **kwargs)
 
     def forward_iter(self, X, training=False, device='cpu'):
         """Yield outputs of module forward calls on each batch of data.
@@ -1466,19 +1489,19 @@ class NeuralNet:
 
         """
         if f_params is not None:
-            if not hasattr(self, 'module_'):
-                raise NotInitializedError(
-                    "Cannot save parameters of an un-initialized model. "
-                    "Please initialize first by calling .initialize() "
-                    "or by fitting the model with .fit(...).")
+            msg = (
+                "Cannot save parameters of an un-initialized model. "
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
+            self.check_is_fitted(msg=msg)
             torch.save(self.module_.state_dict(), f_params)
 
         if f_optimizer is not None:
-            if not hasattr(self, 'optimizer_'):
-                raise NotInitializedError(
-                    "Cannot save state of an un-initialized optimizer. "
-                    "Please initialize first by calling .initialize() "
-                    "or by fitting the model with .fit(...).")
+            msg = (
+                "Cannot save state of an un-initialized optimizer. "
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
+            self.check_is_fitted(attributes=['optimizer_'], msg=msg)
             torch.save(self.optimizer_.state_dict(), f_optimizer)
 
         if f_history is not None:
@@ -1556,20 +1579,20 @@ class NeuralNet:
             f_optimizer = f_optimizer or formatted_files['f_optimizer']
 
         if f_params is not None:
-            if not hasattr(self, 'module_'):
-                raise NotInitializedError(
-                    "Cannot load parameters of an un-initialized model. "
-                    "Please initialize first by calling .initialize() "
-                    "or by fitting the model with .fit(...).")
+            msg = (
+                "Cannot load parameters of an un-initialized model. "
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
+            self.check_is_fitted(msg=msg)
             state_dict = _get_state_dict(f_params)
             self.module_.load_state_dict(state_dict)
 
         if f_optimizer is not None:
-            if not hasattr(self, 'optimizer_'):
-                raise NotInitializedError(
-                    "Cannot load state of an un-initialized optimizer. "
-                    "Please initialize first by calling .initialize() "
-                    "or by fitting the model with .fit(...).")
+            msg = (
+                "Cannot load state of an un-initialized optimizer. "
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
+            self.check_is_fitted(attributes=['optimizer_'], msg=msg)
             state_dict = _get_state_dict(f_optimizer)
             self.optimizer_.load_state_dict(state_dict)
 
