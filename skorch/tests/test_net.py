@@ -16,17 +16,20 @@ import sys
 from contextlib import ExitStack
 
 import numpy as np
+from packaging import version
 import pytest
+from sklearn.base import clone
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.base import clone
 import torch
 from torch import nn
 from flaky import flaky
 
+from skorch.exceptions import NotInitializedError
+from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
 from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
@@ -231,6 +234,32 @@ class TestNeuralNet:
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass
+
+    @pytest.mark.parametrize('method', INFERENCE_METHODS)
+    def test_not_fitted_raises(self, net_cls, module_cls, data, method):
+        from skorch.exceptions import NotInitializedError
+        net = net_cls(module_cls)
+        X = data[0]
+        with pytest.raises(NotInitializedError) as exc:
+            # we call `list` because `forward_iter` is lazy
+            list(getattr(net, method)(X))
+
+        msg = ("This NeuralNetClassifier instance is not initialized yet. "
+               "Call 'initialize' or 'fit' with appropriate arguments "
+               "before using this method.")
+        assert exc.value.args[0] == msg
+
+    def test_not_fitted_other_attributes(self, module_cls):
+        # pass attributes to check for explicitly
+        with patch('skorch.net.check_is_fitted') as check:
+            from skorch import NeuralNetClassifier
+
+            net = NeuralNetClassifier(module_cls)
+            attributes = ['foo', 'bar_']
+
+            net.check_is_fitted(attributes=attributes)
+            args = check.call_args_list[0][0][1]
+            assert args == attributes
 
     @flaky(max_runs=3)
     def test_net_learns(self, net_cls, module_cls, data):
@@ -1202,7 +1231,6 @@ class TestNeuralNet:
         # now initialized
         assert 'callbacks__myscore__scoring' in params
 
-    @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
         from skorch.callbacks import EpochTimer
 
@@ -1460,6 +1488,10 @@ class TestNeuralNet:
     )
   ),
 )"""
+        if version.parse(torch.__version__) >= version.parse('1.2'):
+            expected = expected.replace("Softmax()", "Softmax(dim=-1)")
+            expected = expected.replace("Dropout(p=0.5)",
+                                        "Dropout(p=0.5, inplace=False)")
         assert result == expected
 
     def test_repr_fitted_works(self, net_cls, module_cls, data):
@@ -1487,6 +1519,10 @@ class TestNeuralNet:
     )
   ),
 )"""
+        if version.parse(torch.__version__) >= version.parse('1.2'):
+            expected = expected.replace("Softmax()", "Softmax(dim=-1)")
+            expected = expected.replace("Dropout(p=0.5)",
+                                        "Dropout(p=0.5, inplace=False)")
         assert result == expected
 
     def test_fit_params_passed_to_module(self, net_cls, data):
