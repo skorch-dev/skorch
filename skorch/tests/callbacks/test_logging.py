@@ -8,6 +8,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from skorch.tests.conftest import tensorboard_installed
+
 
 class TestPrintLog:
     @pytest.fixture
@@ -279,6 +281,8 @@ class TestProgressBar:
             assert tqdm_mock.call_args_list[i][1]['total'] == total
 
 
+@pytest.mark.skipif(
+    not tensorboard_installed, reason='tensorboard is not installed')
 class TestTensorBoard:
     @pytest.fixture
     def net_cls(self):

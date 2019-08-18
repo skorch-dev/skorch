@@ -132,3 +132,11 @@ try:
     pandas_installed = True
 except ImportError:
     pass
+
+
+tensorboard_installed = False
+try:
+    import tensorboard
+    tensorboard_installed = True
+except ImportError:
+    pass
