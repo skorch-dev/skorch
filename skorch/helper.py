@@ -342,17 +342,6 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
       values will have different dtypes, reflecting the number of
       unique categories.
 
-    signature_ : namedtuple
-      A namedtuple used for the ``describe_signature`` method.
-
-    Attributes
-    ----------
-    int_dtypes_ : list of numpy dtypes
-      All valid integer dtypes.
-
-    float_dtypes_ : list of numpy dtypes
-      All valid float dtypes.
-
     Notes
     -----
     The value of X will always be 2-dimensional, even if it only
@@ -360,13 +349,6 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
 
     """
     import pandas as pd
-
-    int_dtypes_ = {
-        np.dtype('int8'), np.dtype('uint8'), np.dtype('int16'),
-        np.dtype('int32'), np.dtype('int64')}
-    float_dtypes_ = {
-        np.dtype('float16'), np.dtype('float32'), np.dtype('float64')}
-    signature_ = namedtuple('signature', ['dtype', 'input_units'])
 
     def __init__(
             self,
@@ -406,9 +388,9 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         for col, dtype in zip(df, df.dtypes):
             if isinstance(dtype, self.pd.core.dtypes.dtypes.CategoricalDtype):
                 continue
-            if dtype in self.int_dtypes_:
+            if np.issubdtype(dtype, np.integer):
                 continue
-            if dtype in self.float_dtypes_:
+            if np.issubdtype(dtype, np.floating):
                 continue
             wrong_dtypes.append((col, dtype))
 
@@ -496,12 +478,12 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        signature : dict of str, namedtuple
+        signature : dict
           Returns a dict with each key corresponding to one key
-          required for the forward method. The values are namedtuples
-          of two elements. The first element is the torch dtype of the
-          resulting tensor, the second element is the number of input
-          units.
+          required for the forward method. The values are dictionaries
+          of two elements. The key "dtype" describes the torch dtype
+          of the resulting tensor, the key "input_units" describes the
+          required number of input units.
 
         """
         X_dict = self.fit_transform(df)
@@ -509,7 +491,7 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
 
         X = X_dict.get('X')
         if X is not None:
-            signature['X'] = self.signature_(
+            signature['X'] = dict(
                 dtype=to_tensor(X, device='cpu').dtype,
                 input_units=X.shape[1],
             )
@@ -520,7 +502,7 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
 
             tensor = to_tensor(val, device='cpu')
             nunique = len(torch.unique(tensor))
-            signature[key] = self.signature_(
+            signature[key] = dict(
                 dtype=tensor.dtype,
                 input_units=nunique,
             )
