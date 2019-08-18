@@ -352,6 +352,7 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
 
         """
         y_probas = []
+        self.check_is_fitted(attributes=['criterion_'])
         bce_logits_loss = isinstance(
             self.criterion_, torch.nn.BCEWithLogitsLoss)
 

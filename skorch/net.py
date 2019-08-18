@@ -25,6 +25,7 @@ from skorch.history import History
 from skorch.setter import optimizer_setter
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import TeeGenerator
+from skorch.utils import check_is_fitted
 from skorch.utils import duplicate_items
 from skorch.utils import get_map_location
 from skorch.utils import is_dataset
@@ -229,20 +230,7 @@ class NeuralNet:
         initialized = kwargs.pop('initialized_', False)
         virtual_params = kwargs.pop('virtual_params_', dict())
 
-        # catch arguments that seem to not belong anywhere
-        unexpected_kwargs = []
-        for key in kwargs:
-            if key.endswith('_'):
-                continue
-            if any(key.startswith(p) for p in self.prefixes_):
-                continue
-            unexpected_kwargs.append(key)
-        if unexpected_kwargs:
-            msg = ("__init__() got unexpected argument(s) {}. "
-                   "Either you made a typo, or you added new arguments "
-                   "in a subclass; if that is the case, the subclass "
-                   "should deal with the new arguments explicitely.")
-            raise TypeError(msg.format(', '.join(sorted(unexpected_kwargs))))
+        kwargs = self._check_kwargs(kwargs)
         vars(self).update(kwargs)
 
         self.history = history
@@ -679,6 +667,7 @@ class NeuralNet:
         like dropout by setting ``training=True``.
 
         """
+        self.check_is_fitted()
         with torch.set_grad_enabled(training):
             self.module_.train(training)
             return self.infer(Xi)
@@ -851,6 +840,27 @@ class NeuralNet:
 
         self.partial_fit(X, y, **fit_params)
         return self
+
+    def check_is_fitted(self, attributes=None, *args, **kwargs):
+        """Checks whether the net is initialized
+
+        Parameters
+        ----------
+        attributes : iterable of str or None (default=None)
+          All the attributes that are strictly required of a fitted
+          net. By default, this is the `module_` attribute.
+
+        Other arguments as in
+        ``sklearn.utils.validation.check_is_fitted``.
+
+        Raises
+        ------
+        skorch.exceptions.NotInitializedError
+          When the given attributes are not present.
+
+        """
+        attributes = attributes or ['module_']
+        check_is_fitted(self, attributes, *args, **kwargs)
 
     def forward_iter(self, X, training=False, device='cpu'):
         """Yield outputs of module forward calls on each batch of data.
@@ -1285,6 +1295,61 @@ class NeuralNet:
         params.update(params_cb)
         return params
 
+    def _check_kwargs(self, kwargs):
+        """Check argument names passed at initialization.
+
+        Raises
+        ------
+        TypeError
+          Raises a TypeError if one or more arguments don't seem to
+          match or are malformed.
+
+        Returns
+        -------
+        kwargs: dict
+          Return the passed keyword arguments.
+
+        Example
+        -------
+        >>> net = NeuralNetClassifier(MyModule, iterator_train_shuffle=True)
+        TypeError: Got an unexpected argument iterator_train_shuffle,
+        did you mean iterator_train__shuffle?
+
+        """
+        unexpected_kwargs = []
+        missing_dunder_kwargs = []
+        for key in kwargs:
+            if key.endswith('_'):
+                continue
+            for prefix in self.prefixes_:
+                if key.startswith(prefix):
+                    if not key.startswith(prefix + '__'):
+                        missing_dunder_kwargs.append((prefix, key))
+                    break
+            else:  # no break means key didn't match a prefix
+                unexpected_kwargs.append(key)
+
+        msgs = []
+        if unexpected_kwargs:
+            tmpl = ("__init__() got unexpected argument(s) {}. "
+                    "Either you made a typo, or you added new arguments "
+                    "in a subclass; if that is the case, the subclass "
+                    "should deal with the new arguments explicitely.")
+            msg = tmpl.format(', '.join(sorted(unexpected_kwargs)))
+            msgs.append(msg)
+
+        for prefix, key in sorted(missing_dunder_kwargs, key=lambda tup: tup[1]):
+            tmpl = "Got an unexpected argument {}, did you mean {}?"
+            suffix = key[len(prefix):].lstrip('_')
+            suggestion = prefix + '__' + suffix
+            msgs.append(tmpl.format(key, suggestion))
+
+        if msgs:
+            full_msg = '\n'.join(msgs)
+            raise TypeError(full_msg)
+
+        return kwargs
+
     def _check_deprecated_params(self, **kwargs):
         pass
 
@@ -1466,19 +1531,19 @@ class NeuralNet:
 
         """
         if f_params is not None:
-            if not hasattr(self, 'module_'):
-                raise NotInitializedError(
-                    "Cannot save parameters of an un-initialized model. "
-                    "Please initialize first by calling .initialize() "
-                    "or by fitting the model with .fit(...).")
+            msg = (
+                "Cannot save parameters of an un-initialized model. "
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
+            self.check_is_fitted(msg=msg)
             torch.save(self.module_.state_dict(), f_params)
 
         if f_optimizer is not None:
-            if not hasattr(self, 'optimizer_'):
-                raise NotInitializedError(
-                    "Cannot save state of an un-initialized optimizer. "
-                    "Please initialize first by calling .initialize() "
-                    "or by fitting the model with .fit(...).")
+            msg = (
+                "Cannot save state of an un-initialized optimizer. "
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
+            self.check_is_fitted(attributes=['optimizer_'], msg=msg)
             torch.save(self.optimizer_.state_dict(), f_optimizer)
 
         if f_history is not None:
@@ -1556,20 +1621,20 @@ class NeuralNet:
             f_optimizer = f_optimizer or formatted_files['f_optimizer']
 
         if f_params is not None:
-            if not hasattr(self, 'module_'):
-                raise NotInitializedError(
-                    "Cannot load parameters of an un-initialized model. "
-                    "Please initialize first by calling .initialize() "
-                    "or by fitting the model with .fit(...).")
+            msg = (
+                "Cannot load parameters of an un-initialized model. "
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
+            self.check_is_fitted(msg=msg)
             state_dict = _get_state_dict(f_params)
             self.module_.load_state_dict(state_dict)
 
         if f_optimizer is not None:
-            if not hasattr(self, 'optimizer_'):
-                raise NotInitializedError(
-                    "Cannot load state of an un-initialized optimizer. "
-                    "Please initialize first by calling .initialize() "
-                    "or by fitting the model with .fit(...).")
+            msg = (
+                "Cannot load state of an un-initialized optimizer. "
+                "Please initialize first by calling .initialize() "
+                "or by fitting the model with .fit(...).")
+            self.check_is_fitted(attributes=['optimizer_'], msg=msg)
             state_dict = _get_state_dict(f_optimizer)
             self.optimizer_.load_state_dict(state_dict)
 

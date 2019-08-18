@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- More careful check for wrong parameter names being passed to NeuralNet (#500)
+- More helpful error messages when trying to predict using an uninitialized model
 - Add DataFrameTransformer, an sklearn compatible transformer that helps working with pandas DataFrames by transforming the DataFrame into a representation that works well with neural networks
 
 ### Changed

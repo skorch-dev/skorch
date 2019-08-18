@@ -16,17 +16,20 @@ import sys
 from contextlib import ExitStack
 
 import numpy as np
+from packaging import version
 import pytest
+from sklearn.base import clone
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.base import clone
 import torch
 from torch import nn
 from flaky import flaky
 
+from skorch.exceptions import NotInitializedError
+from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
 from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
@@ -178,9 +181,85 @@ class TestNeuralNet:
                     "should deal with the new arguments explicitely.")
         assert e.value.args[0] == expected
 
+    @pytest.mark.parametrize('name, suggestion', [
+        ('iterator_train_shuffle', 'iterator_train__shuffle'),
+        ('optimizer_momentum', 'optimizer__momentum'),
+        ('modulenum_units', 'module__num_units'),
+        ('criterionreduce', 'criterion__reduce'),
+        ('callbacks_mycb__foo', 'callbacks__mycb__foo'),
+    ])
+    def test_net_init_missing_dunder_in_prefix_argument(
+            self, net_cls, module_cls, name, suggestion):
+        # forgot to use double-underscore notation
+        with pytest.raises(TypeError) as e:
+            net_cls(module_cls, **{name: 123})
+
+        tmpl = "Got an unexpected argument {}, did you mean {}?"
+        expected = tmpl.format(name, suggestion)
+        assert e.value.args[0] == expected
+
+    def test_net_init_missing_dunder_in_2_prefix_arguments(
+            self, net_cls, module_cls):
+        # forgot to use double-underscore notation in 2 arguments
+        with pytest.raises(TypeError) as e:
+            net_cls(
+                module_cls,
+                max_epochs=7,  # correct
+                iterator_train_shuffle=True,  # uses _ instead of __
+                optimizerlr=0.5,  # missing __
+            )
+        expected = ("Got an unexpected argument iterator_train_shuffle, "
+                    "did you mean iterator_train__shuffle?\n"
+                    "Got an unexpected argument optimizerlr, "
+                    "did you mean optimizer__lr?")
+        assert e.value.args[0] == expected
+
+    def test_net_init_missing_dunder_and_unknown(
+            self, net_cls, module_cls):
+        # unknown argument and forgot to use double-underscore notation
+        with pytest.raises(TypeError) as e:
+            net_cls(
+                module_cls,
+                foobar=123,
+                iterator_train_shuffle=True,
+            )
+        expected = ("__init__() got unexpected argument(s) foobar. "
+                    "Either you made a typo, or you added new arguments "
+                    "in a subclass; if that is the case, the subclass "
+                    "should deal with the new arguments explicitely.\n"
+                    "Got an unexpected argument iterator_train_shuffle, "
+                    "did you mean iterator_train__shuffle?")
+        assert e.value.args[0] == expected
+
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass
+
+    @pytest.mark.parametrize('method', INFERENCE_METHODS)
+    def test_not_fitted_raises(self, net_cls, module_cls, data, method):
+        from skorch.exceptions import NotInitializedError
+        net = net_cls(module_cls)
+        X = data[0]
+        with pytest.raises(NotInitializedError) as exc:
+            # we call `list` because `forward_iter` is lazy
+            list(getattr(net, method)(X))
+
+        msg = ("This NeuralNetClassifier instance is not initialized yet. "
+               "Call 'initialize' or 'fit' with appropriate arguments "
+               "before using this method.")
+        assert exc.value.args[0] == msg
+
+    def test_not_fitted_other_attributes(self, module_cls):
+        # pass attributes to check for explicitly
+        with patch('skorch.net.check_is_fitted') as check:
+            from skorch import NeuralNetClassifier
+
+            net = NeuralNetClassifier(module_cls)
+            attributes = ['foo', 'bar_']
+
+            net.check_is_fitted(attributes=attributes)
+            args = check.call_args_list[0][0][1]
+            assert args == attributes
 
     @flaky(max_runs=3)
     def test_net_learns(self, net_cls, module_cls, data):
@@ -1152,7 +1231,6 @@ class TestNeuralNet:
         # now initialized
         assert 'callbacks__myscore__scoring' in params
 
-    @pytest.mark.xfail
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
         from skorch.callbacks import EpochTimer
 
@@ -1410,6 +1488,10 @@ class TestNeuralNet:
     )
   ),
 )"""
+        if version.parse(torch.__version__) >= version.parse('1.2'):
+            expected = expected.replace("Softmax()", "Softmax(dim=-1)")
+            expected = expected.replace("Dropout(p=0.5)",
+                                        "Dropout(p=0.5, inplace=False)")
         assert result == expected
 
     def test_repr_fitted_works(self, net_cls, module_cls, data):
@@ -1437,6 +1519,10 @@ class TestNeuralNet:
     )
   ),
 )"""
+        if version.parse(torch.__version__) >= version.parse('1.2'):
+            expected = expected.replace("Softmax()", "Softmax(dim=-1)")
+            expected = expected.replace("Dropout(p=0.5)",
+                                        "Dropout(p=0.5, inplace=False)")
         assert result == expected
 
     def test_fit_params_passed_to_module(self, net_cls, data):
