@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - More helpful error messages when trying to predict using an uninitialized model.
+- Add TensorBoard callback for automatic logging to tensorboard
 
 ### Changed
 

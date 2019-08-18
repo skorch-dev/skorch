@@ -14,7 +14,7 @@ from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
 
-__all__ = ['EpochTimer', 'PrintLog', 'ProgressBar']
+__all__ = ['EpochTimer', 'PrintLog', 'ProgressBar', 'TensorBoard']
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -352,3 +352,162 @@ class ProgressBar(Callback):
 
     def on_epoch_end(self, net, **kwargs):
         self.pbar.close()
+
+
+def rename_tensorboard_key(key):
+    """Rename keys from history to keys in TensorBoard
+
+    Specifically, prefixes all names with "Loss/" if they seem to be
+    losses.
+
+    """
+    if key.startswith('train') or key.startswith('valid'):
+        key = 'Loss/' + key
+    return key
+
+
+class TensorBoard(Callback):
+    """Logs results from history to TensorBoard
+
+    "TensorBoard provides the visualization and tooling needed for
+    machine learning experimentation" (tensorboard_)
+
+    Use this callback to automatically log all interesting values from
+    your net's history to tensorboard after each epoch. Additionally
+    logs the graph of your module.
+
+    The best way to log additional information is to subclass this
+    callback and add your code to one of the ``on_*`` methods.
+
+    Examples
+    --------
+    >>> # Example to log the bias parameter as a histogram
+    >>> def extract_bias(module):
+    ...     return module.hidden.bias
+
+    >>> class MyTensorBoard(TensorBoard):
+    ...     def on_epoch_end(self, net, **kwargs):
+    ...         bias = extract_bias(net.module_)
+    ...         epoch = net.history[-1, 'epoch']
+    ...         self.writer.add_histogram('bias', bias, global_step=epoch)
+    ...         super().on_epoch_end(net, **kwargs)  # call super last
+
+    Parameters
+    ----------
+    writer : torch.utils.tensorboard.writer.SummaryWriter
+      Instantiated ``SummaryWriter`` class.
+
+    include_graph : bool (default=True)
+      Whether to include a graph of the module. Turn this off if there
+      are problems while generating the graph.
+
+    close_after_train : bool (default=True)
+      Whether to close the ``SummaryWriter`` object once training
+      finishes. Set this parameter to False if you want to continue
+      logging with the same writer or if you use it as a context
+      manager.
+
+    keys_ignored : str or list of str (default=None)
+      Key or list of keys that should not be part of the printed
+      table. Note that keys starting with 'even_' or ending on '_best'
+      are ignored by default.
+
+    key_mapper : callable or function (default=rename_tensorboard_key)
+      This function maps a key name from the history to a tag in
+      tensorboard. This is useful because tensorboard can
+      automatically group similar tags if their names start with the
+      same prefix, followed by a forward slash. By default, this
+      callback will prefix all keys that start with "train" or "valid"
+      with the "Loss/" prefix.
+
+    .. _tensorboard: https://www.tensorflow.org/tensorboard/
+
+    """
+    def __init__(
+            self,
+            writer,
+            include_graph=True,
+            close_after_train=True,
+            keys_ignored=None,
+            key_mapper=rename_tensorboard_key,
+    ):
+        self.writer = writer
+        self.include_graph = include_graph
+        self.close_after_train = close_after_train
+        self.keys_ignored = keys_ignored
+        self.key_mapper = key_mapper
+
+    def initialize(self):
+        self.first_batch_ = True
+
+        keys_ignored = self.keys_ignored
+        if isinstance(keys_ignored, str):
+            keys_ignored = [keys_ignored]
+        self.keys_ignored_ = set(keys_ignored or [])
+        self.keys_ignored_.add('batches')
+        return self
+
+    def add_graph(self, module, X):
+        """"Add a graph to tensorboard
+
+        This requires to run the module with a sample from the
+        dataset.
+
+        """
+        self.writer.add_graph(module, X)
+
+    def on_batch_begin(self, net, X, **kwargs):
+        if self.first_batch_ and self.include_graph:
+            self.add_graph(net.module_, X)
+
+    def on_batch_end(self, net, **kwargs):
+        self.first_batch_ = False
+
+    def add_scalar_maybe(self, history, key, tag, global_step=None):
+        """Add a scalar value from the history to TensorBoard
+
+        Will catch errors like missing keys or wrong value types.
+
+        Parameters
+        ----------
+        history : skorch.History
+          History object saved as attribute on the neural net.
+
+        key : str
+          Key of the desired value in the history.
+
+        tag : str
+          Name of the tag used in TensorBoard.
+
+        global_step : int or None
+          Global step value to record.
+
+        """
+        hist = history[-1]
+        val = hist.get(key)
+        if val is None:
+            return
+
+        global_step = global_step if global_step is not None else hist['epoch']
+        try:
+            self.writer.add_scalar(
+                tag=tag,
+                scalar_value=val,
+                global_step=global_step,
+            )
+        except NotImplementedError:  # pytorch raises this on wrong types
+            pass
+
+    def on_epoch_end(self, net, **kwargs):
+        """Automatically log values from the last history step."""
+        history = net.history
+        hist = history[-1]
+        epoch = hist['epoch']
+
+        for key in filter_log_keys(hist, keys_ignored=self.keys_ignored_):
+            tag = self.key_mapper(key)
+            self.add_scalar_maybe(history, key=key, tag=tag, global_step=epoch)
+
+    def on_train_end(self, net, **kwargs):
+        if self.close_after_train:
+            self.writer.close()
