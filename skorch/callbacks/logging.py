@@ -17,6 +17,33 @@ from skorch.callbacks import Callback
 __all__ = ['EpochTimer', 'PrintLog', 'ProgressBar']
 
 
+def filter_log_keys(keys, keys_ignored=None):
+    """Filter out keys that are generally to be ignored.
+
+    This is used by several callbacks to filter out keys from history
+    that should not be logged.
+
+    Parameters
+    ----------
+    keys : iterable of str
+      All keys.
+
+    keys_ignored : iterable of str or None (default=None)
+      If not None, collection of extra keys to be ignored.
+
+    """
+    keys_ignored = keys_ignored or ()
+    for key in keys:
+        if not (
+                key == 'epoch' or
+                (key in keys_ignored) or
+                key.endswith('_best') or
+                key.endswith('_batch_count') or
+                key.startswith('event_')
+        ):
+            yield key
+
+
 class EpochTimer(Callback):
     """Measures the duration of each epoch and writes it to the
     history with the name ``dur``.
@@ -62,7 +89,8 @@ class PrintLog(Callback):
     ----------
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be part of the printed
-      table. Note that keys ending on '_best' are also ignored.
+      table. Note that keys starting with 'even_' or ending on '_best'
+      are ignored by default.
 
     sink : callable (default=print)
       The target that the output string is sent to. By default, the
@@ -92,8 +120,6 @@ class PrintLog(Callback):
             floatfmt='.4f',
             stralign='right',
     ):
-        if isinstance(keys_ignored, str):
-            keys_ignored = [keys_ignored]
         self.keys_ignored = keys_ignored
         self.sink = sink
         self.tablefmt = tablefmt
@@ -102,7 +128,11 @@ class PrintLog(Callback):
 
     def initialize(self):
         self.first_iteration_ = True
-        self.keys_ignored_ = set(self.keys_ignored or [])
+
+        keys_ignored = self.keys_ignored
+        if isinstance(keys_ignored, str):
+            keys_ignored = [keys_ignored]
+        self.keys_ignored_ = set(keys_ignored or [])
         self.keys_ignored_.add('batches')
         return self
 
@@ -140,24 +170,25 @@ class PrintLog(Callback):
           * all remaining keys are sorted alphabetically.
         """
         sorted_keys = []
+
+        # make sure 'epoch' comes first
         if ('epoch' in keys) and ('epoch' not in self.keys_ignored_):
             sorted_keys.append('epoch')
 
-        for key in sorted(keys):
-            if not (
-                    (key in ('epoch', 'dur')) or
-                    (key in self.keys_ignored_) or
-                    key.endswith('_best') or
-                    key.endswith('_batch_count') or
-                    key.startswith('event_')
-            ):
+        # ignore keys like *_best or event_*
+        for key in filter_log_keys(sorted(keys), keys_ignored=self.keys_ignored_):
+            if key != 'dur':
                 sorted_keys.append(key)
 
+        # add event_* keys
         for key in sorted(keys):
             if key.startswith('event_') and (key not in self.keys_ignored_):
                 sorted_keys.append(key)
+
+        # make sure 'dur' comes last
         if ('dur' in keys) and ('dur' not in self.keys_ignored_):
             sorted_keys.append('dur')
+
         return sorted_keys
 
     def _yield_keys_formatted(self, row):
