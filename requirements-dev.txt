@@ -6,6 +6,7 @@ matplotlib>=2.0.2
 numpydoc
 openpyxl
 pandas
+pillow
 pylint
 pytest>=3.4
 pytest-cov
