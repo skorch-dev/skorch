@@ -1,5 +1,6 @@
 fire
 flaky
+future>=0.17.1
 jupyter
 matplotlib>=2.0.2
 numpydoc
