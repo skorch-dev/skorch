@@ -1326,7 +1326,7 @@ class NeuralNet:
                     if not key.startswith(prefix + '__'):
                         missing_dunder_kwargs.append((prefix, key))
                     break
-            else:  # if no break
+            else:  # no break means key didn't match a prefix
                 unexpected_kwargs.append(key)
 
         msgs = []
