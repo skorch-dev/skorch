@@ -89,7 +89,7 @@ class PrintLog(Callback):
     ----------
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be part of the printed
-      table. Note that keys starting with 'even_' or ending on '_best'
+      table. Note that keys starting with 'event_' or ending on '_best'
       are ignored by default.
 
     sink : callable (default=print)
