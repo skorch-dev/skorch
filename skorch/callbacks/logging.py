@@ -90,7 +90,7 @@ class PrintLog(Callback):
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be part of the printed
       table. Note that in addition to the keys provided by the user,
-      keys such as those starting with 'even_' or ending on '_best'
+      keys such as those starting with 'event_' or ending on '_best'
       are ignored by default.
 
     sink : callable (default=print)
@@ -411,7 +411,7 @@ class TensorBoard(Callback):
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be logged to
       tensorboard. Note that in addition to the keys provided by the
-      user, keys such as those starting with 'even_' or ending on
+      user, keys such as those starting with 'event_' or ending on
       '_best' are ignored by default.
 
     key_mapper : callable or function (default=rename_tensorboard_key)
