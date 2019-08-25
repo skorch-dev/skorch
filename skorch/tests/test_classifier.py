@@ -166,7 +166,7 @@ class TestNeuralNetBinaryClassifier:
                "before using this method.")
         assert exc.value.args[0] == msg
 
-    @flaky(max_runs=3)
+    @flaky(max_runs=5)
     def test_net_learns(self, net_cls, module_cls, data):
         X, y = data
         net = net_cls(
@@ -196,10 +196,10 @@ class TestNeuralNetBinaryClassifier:
         net.fit(X, y)
 
         y_pred_proba = net.predict_proba(X)
-        assert y_pred_proba.ndim == 1
+        assert y_pred_proba.shape[1] == 2
         assert y_pred_proba.shape[0] == X.shape[0]
 
-        y_pred_exp = (y_pred_proba > threshold).astype('uint8')
+        y_pred_exp = (y_pred_proba[:, 1] > threshold).astype('uint8')
 
         y_pred_actual = net.predict(X)
         assert np.allclose(y_pred_exp, y_pred_actual)
@@ -240,3 +240,43 @@ class TestNeuralNetBinaryClassifier:
 
         net.predict_proba(X)
         assert mock.call_count > 0
+
+    def test_with_calibrated_classifier_cv(self, net_fit, data):
+        from sklearn.calibration import CalibratedClassifierCV
+        cccv = CalibratedClassifierCV(net_fit, cv=3)
+        cccv.fit(*data)
+
+    def test_grid_search_with_roc_auc(self, net_fit, data):
+        from sklearn.model_selection import GridSearchCV
+        search = GridSearchCV(
+            net_fit,
+            {'max_epochs': [1, 2]},
+            refit=False,
+            cv=3,
+            scoring='roc_auc',
+        )
+        search.fit(*data)
+
+    def test_module_output_not_1d(self, net_cls, data):
+        from skorch.toy import make_classifier
+        module = make_classifier(
+            input_units=20,
+            output_units=1,
+        )  # the output will not be squeezed
+        net = net_cls(module, max_epochs=1)
+        net.fit(*data)  # does not raise
+
+    def test_module_output_2d_raises(self, net_cls, data):
+        from skorch.toy import make_classifier
+        module = make_classifier(
+            input_units=20,
+            output_units=2,
+        )
+        net = net_cls(module, max_epochs=1)
+        with pytest.raises(ValueError) as exc:
+            net.fit(*data)
+
+        msg = exc.value.args[0]
+        expected = ("Expected module output to have shape (n,) or "
+                    "(n, 1), got (n, 2) instead")
+        assert msg == expected
