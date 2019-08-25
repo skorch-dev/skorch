@@ -730,11 +730,12 @@ class NeuralNet:
                 yi_res = yi if not y_train_is_ph else None
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
-                if step:
-                    self.history.record_batch('train_loss', step['loss'].item())
-                    self.history.record_batch('train_batch_size', get_len(Xi))
-                    self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
                 train_batch_count += 1
+                if not step:
+                    continue
+                self.history.record_batch('train_loss', step['loss'].item())
+                self.history.record_batch('train_batch_size', get_len(Xi))
+                self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
             self.history.record("train_batch_count", train_batch_count)
 
             if dataset_valid is None:
@@ -747,10 +748,10 @@ class NeuralNet:
                 yi_res = yi if not y_valid_is_ph else None
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
+                valid_batch_count += 1
                 self.history.record_batch('valid_loss', step['loss'].item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
-                valid_batch_count += 1
             self.history.record("valid_batch_count", valid_batch_count)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
