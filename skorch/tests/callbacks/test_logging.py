@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+import torch
+from torch import nn
 
 from skorch.tests.conftest import tensorboard_installed
 
@@ -477,6 +479,38 @@ class TestTensorBoard:
             max_epochs=5,
         )
         net.fit(*data)
+
+        # is not empty
+        assert os.listdir(path)
+
+    def test_fit_with_dict_input(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            tensorboard_cls,
+            summary_writer_cls,
+            tmp_path,
+    ):
+        from skorch.toy import MLPModule
+        path = str(tmp_path)
+        X, y = data
+
+        # create a dictionary with unordered keys
+        X_dict = {k: X[:, i:i+2] for k, i in zip('cebad', range(0, X.shape[1], 4))}
+
+        class MyModule(MLPModule):
+            # use different order for args here
+            def forward(self, b, e, c, d, a, **kwargs):
+                X = torch.cat((b, e, c, d, a), 1)
+                return super().forward(X, **kwargs)
+
+        net = net_cls(
+            MyModule(output_nonlin=nn.Softmax(dim=-1)),
+            callbacks=[tensorboard_cls(summary_writer_cls(path))],
+            max_epochs=5,
+        )
+        net.fit(X_dict, y)
 
         # is not empty
         assert os.listdir(path)
