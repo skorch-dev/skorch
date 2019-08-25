@@ -2215,6 +2215,56 @@ class TestNeuralNet:
         assert net.optimizer_.param_groups[0]['lr'] == lr_pgroup_0_new
         assert net.optimizer_.param_groups[1]['lr'] == lr_pgroup_1_new
 
+    def test_gradient_accumulation(self, net_cls, module_cls, data):
+        # Test if gradient accumulation technique is possible,
+        # i.e. performing a weight update only every couple of
+        # batches.
+        mock_optimizer = Mock()
+
+        class GradAccNet(net_cls):
+            """Net that accumulates gradients"""
+            def initialize(self):
+                # This is not necessary for gradient accumulation but
+                # only for testing purposes
+                super().initialize()
+                self.true_optimizer_ = self.optimizer_
+                mock_optimizer.step.side_effect = self.true_optimizer_.step
+                mock_optimizer.zero_grad.side_effect = self.true_optimizer_.zero_grad
+                self.optimizer_ = mock_optimizer
+
+            def train_step(self, Xi, yi, **fit_params):
+                """Perform gradient accumulation
+
+                Only optimize every 2nd batch.
+
+                """
+                step_accumulator = self.get_train_step_accumulator()
+                # note that n_train_batches starts at 1 for each epoch
+                n_train_batches = len(self.history[-1, 'batches'])
+
+                def step_fn():
+                    step = self.train_step_single(Xi, yi, **fit_params)
+                    step_accumulator.store_step(step)
+                    return step['loss']
+
+                if n_train_batches % 2 == 0:
+                    self.optimizer_.step(step_fn)
+                    self.optimizer_.zero_grad()
+                return step_accumulator.get_step()
+
+        max_epochs = 5
+        net = GradAccNet(module_cls, max_epochs=max_epochs)
+        X, y = data
+        net.fit(X, y)
+
+        n = len(X) * 0.8  # number of training samples
+        b = np.floor(n / net.batch_size)  # batches per epoch
+        b_total = max_epochs * b
+        calls_total = b_total // 2  # only every 2nd time
+        calls_step = mock_optimizer.step.call_count
+        calls_zero_grad = mock_optimizer.zero_grad.call_count
+        assert calls_total == calls_step == calls_zero_grad
+
 
 class TestNetSparseInput:
     @pytest.fixture(scope='module')
