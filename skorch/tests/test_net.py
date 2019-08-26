@@ -2238,19 +2238,15 @@ class TestNeuralNet:
                 Only optimize every 2nd batch.
 
                 """
-                step_accumulator = self.get_train_step_accumulator()
                 # note that n_train_batches starts at 1 for each epoch
                 n_train_batches = len(self.history[-1, 'batches'])
-
-                def step_fn():
-                    step = self.train_step_single(Xi, yi, **fit_params)
-                    step_accumulator.store_step(step)
-                    return step['loss']
+                step = self.train_step_single(Xi, yi, **fit_params)
+                step['loss'] = step['loss'] / 2
 
                 if n_train_batches % 2 == 0:
-                    self.optimizer_.step(step_fn)
+                    self.optimizer_.step()
                     self.optimizer_.zero_grad()
-                return step_accumulator.get_step()
+                return step
 
         max_epochs = 5
         net = GradAccNet(module_cls, max_epochs=max_epochs)
