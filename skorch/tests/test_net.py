@@ -2232,6 +2232,10 @@ class TestNeuralNet:
                 mock_optimizer.zero_grad.side_effect = self.true_optimizer_.zero_grad
                 self.optimizer_ = mock_optimizer
 
+            def get_loss(self, *args, **kwargs):
+                loss = super().get_loss(*args, **kwargs)
+                return loss / 2  # because only every 2nd step is optimized
+
             def train_step(self, Xi, yi, **fit_params):
                 """Perform gradient accumulation
 
@@ -2241,7 +2245,6 @@ class TestNeuralNet:
                 # note that n_train_batches starts at 1 for each epoch
                 n_train_batches = len(self.history[-1, 'batches'])
                 step = self.train_step_single(Xi, yi, **fit_params)
-                step['loss'] = step['loss'] / 2
 
                 if n_train_batches % 2 == 0:
                     self.optimizer_.step()
