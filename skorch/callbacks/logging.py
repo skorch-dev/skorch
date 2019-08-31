@@ -374,8 +374,7 @@ class TensorBoard(Callback):
     machine learning experimentation" (tensorboard_)
 
     Use this callback to automatically log all interesting values from
-    your net's history to tensorboard after each epoch. Additionally
-    logs the graph of your module.
+    your net's history to tensorboard after each epoch.
 
     The best way to log additional information is to subclass this
     callback and add your code to one of the ``on_*`` methods.
@@ -397,10 +396,6 @@ class TensorBoard(Callback):
     ----------
     writer : torch.utils.tensorboard.writer.SummaryWriter
       Instantiated ``SummaryWriter`` class.
-
-    include_graph : bool (default=True)
-      Whether to include a graph of the module. Turn this off if there
-      are problems while generating the graph.
 
     close_after_train : bool (default=True)
       Whether to close the ``SummaryWriter`` object once training
@@ -428,13 +423,11 @@ class TensorBoard(Callback):
     def __init__(
             self,
             writer,
-            include_graph=True,
             close_after_train=True,
             keys_ignored=None,
             key_mapper=rename_tensorboard_key,
     ):
         self.writer = writer
-        self.include_graph = include_graph
         self.close_after_train = close_after_train
         self.keys_ignored = keys_ignored
         self.key_mapper = key_mapper
@@ -448,19 +441,6 @@ class TensorBoard(Callback):
         self.keys_ignored_ = set(keys_ignored or [])
         self.keys_ignored_.add('batches')
         return self
-
-    def add_graph(self, module, X):
-        """"Add a graph to tensorboard
-
-        This requires to run the module with a sample from the
-        dataset.
-
-        """
-        self.writer.add_graph(module, X)
-
-    def on_batch_begin(self, net, X, **kwargs):
-        if self.first_batch_ and self.include_graph:
-            self.add_graph(net.module_, X)
 
     def on_batch_end(self, net, **kwargs):
         self.first_batch_ = False
