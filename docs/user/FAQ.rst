@@ -282,3 +282,46 @@ To inspect all output values, you can use either the
 
 For an example of how this works, have a look at this `notebook
 <https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Multiple-return-values-from-forward>`_.
+
+How can I perform gradient accumulation with skorch?
+----------------------------------------------------
+
+There is no direct option to turn on gradient accumulation (at least
+for now). However, with a few modifications, you can implement
+gradient accumulation yourself:
+
+
+.. code:: python
+
+    ACC_STEPS = 2  # number of steps to accumulate before updating weights
+
+    class GradAccNet(net_cls):
+        """Net that accumulates gradients"""
+        def __init__(self, *args, acc_steps=ACC_STEPS, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.acc_steps = acc_steps
+
+        def get_loss(self, *args, **kwargs):
+            loss = super().get_loss(*args, **kwargs)
+            return loss / self.acc_steps  # normalize loss
+
+        def train_step(self, Xi, yi, **fit_params):
+            """Perform gradient accumulation
+
+            Only optimize every nth batch.
+
+            """
+            # note that n_train_batches starts at 1 for each epoch
+            n_train_batches = len(self.history[-1, 'batches'])
+            step = self.train_step_single(Xi, yi, **fit_params)
+
+            if n_train_batches % self.acc_steps == 0:
+                self.optimizer_.step()
+                self.optimizer_.zero_grad()
+            return step
+
+This is not a complete recipe. For example, if you optimize every 2nd
+step, and the number of training batches is uneven, you should make
+sure that there is an optimization step after the last batch of each
+epoch. However, this example can serve as a starting point to
+implement your own version gradient accumulation.
