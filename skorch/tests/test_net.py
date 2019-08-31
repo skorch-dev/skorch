@@ -2215,7 +2215,8 @@ class TestNeuralNet:
         assert net.optimizer_.param_groups[0]['lr'] == lr_pgroup_0_new
         assert net.optimizer_.param_groups[1]['lr'] == lr_pgroup_1_new
 
-    def test_gradient_accumulation(self, net_cls, module_cls, data):
+    @pytest.mark.parametrize('acc_steps', [1, 2, 3, 5, 10])
+    def test_gradient_accumulation(self, net_cls, module_cls, data, acc_steps):
         # Test if gradient accumulation technique is possible,
         # i.e. performing a weight update only every couple of
         # batches.
@@ -2223,6 +2224,10 @@ class TestNeuralNet:
 
         class GradAccNet(net_cls):
             """Net that accumulates gradients"""
+            def __init__(self, *args, acc_steps=acc_steps, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.acc_steps = acc_steps
+
             def initialize(self):
                 # This is not necessary for gradient accumulation but
                 # only for testing purposes
@@ -2234,7 +2239,8 @@ class TestNeuralNet:
 
             def get_loss(self, *args, **kwargs):
                 loss = super().get_loss(*args, **kwargs)
-                return loss / 2  # because only every 2nd step is optimized
+                # because only every nth step is optimized
+                return loss / self.acc_steps
 
             def train_step(self, Xi, yi, **fit_params):
                 """Perform gradient accumulation
@@ -2246,7 +2252,7 @@ class TestNeuralNet:
                 n_train_batches = len(self.history[-1, 'batches'])
                 step = self.train_step_single(Xi, yi, **fit_params)
 
-                if n_train_batches % 2 == 0:
+                if n_train_batches % self.acc_steps == 0:
                     self.optimizer_.step()
                     self.optimizer_.zero_grad()
                 return step
@@ -2257,9 +2263,9 @@ class TestNeuralNet:
         net.fit(X, y)
 
         n = len(X) * 0.8  # number of training samples
-        b = np.floor(n / net.batch_size)  # batches per epoch
-        b_total = max_epochs * b
-        calls_total = b_total // 2  # only every 2nd time
+        b = np.ceil(n / net.batch_size)  # batches per epoch
+        s = b // acc_steps  # number of acc steps per epoch
+        calls_total = s * max_epochs
         calls_step = mock_optimizer.step.call_count
         calls_zero_grad = mock_optimizer.zero_grad.call_count
         assert calls_total == calls_step == calls_zero_grad
