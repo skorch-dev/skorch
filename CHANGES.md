@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Improve numerical stability when using `NLLLoss` in `NeuralNetClassifer` (#491)
+- Refactor code to make gradient accumulation easier to implement (#506)
 
 ### Fixed
 
