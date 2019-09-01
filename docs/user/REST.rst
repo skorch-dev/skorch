@@ -47,6 +47,7 @@ defines the dataset and model:
     }
 
 You can save this configuration as ``palladium-config.py``.
+
 The ``dataset_loader_train`` and ``dataset_loader_test`` entries
 define where the data comes from.  They refer to a Python class
 defined inside the ``model`` module.  Let's create a file and call it
@@ -105,6 +106,7 @@ we'll create next:
     from skorch import NeuralNetClassifier
     import torch
 
+
     def create_pipeline(
         vocab_size=1000,
         max_len=50,
@@ -137,6 +139,7 @@ We'll also add the RNNClassifier to ``model.py``:
 
     from torch import nn
     F = nn.functional
+
 
     class RNNClassifier(nn.Module):
         def __init__(
