@@ -1,6 +1,6 @@
 # Nuclei Image Segmentation With UNets
 
-This tutorial can be viewed at [nbviewer](https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/examples/nuclei_image_segmentation/Nuclei_Image_Segmentation.ipynb).
+This tutorial can be viewed at [nbviewer](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/examples/nuclei_image_segmentation/Nuclei_Image_Segmentation.ipynb).
 
 ## Setup
 
