@@ -295,7 +295,7 @@ gradient accumulation yourself:
 
     ACC_STEPS = 2  # number of steps to accumulate before updating weights
 
-    class GradAccNet(net_cls):
+    class GradAccNet(NeuralNetClassifier):
         """Net that accumulates gradients"""
         def __init__(self, *args, acc_steps=ACC_STEPS, **kwargs):
             super().__init__(*args, **kwargs)
