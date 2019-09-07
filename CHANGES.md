@@ -12,13 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More careful check for wrong parameter names being passed to NeuralNet (#500)
 - More helpful error messages when trying to predict using an uninitialized model
 - Make NeuralNetBinaryClassifier work with sklearn.calibration.CalibratedClassifierCV
-- Improve NeuralNetBinaryClassifier compatibility with certain sklearn metrics
-- NeuralNetBinaryClassifier automatically squeezes module output if necessary
+- Improve NeuralNetBinaryClassifier compatibility with certain sklearn metrics (#515)
+- NeuralNetBinaryClassifier automatically squeezes module output if necessary (#515)
 
 ### Changed
 
 - Improve numerical stability when using `NLLLoss` in `NeuralNetClassifer` (#491)
-- NeuralNetBinaryClassifier.predict_proba now returns a 2-dim array; to access the "old" y_proba, take y_proba[:, 1]
+- NeuralNetBinaryClassifier.predict_proba now returns a 2-dim array; to access the "old" y_proba, take y_proba[:, 1] (#515)
 
 ### Fixed
 
