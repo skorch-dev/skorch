@@ -731,8 +731,6 @@ class NeuralNet:
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
                 train_batch_count += 1
-                if not step:
-                    continue
                 self.history.record_batch('train_loss', step['loss'].item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
