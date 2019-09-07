@@ -121,8 +121,8 @@ class TestNeuralNetBinaryClassifier:
             input_units=20,
             hidden_units=10,
             output_units=1,
-            num_hidden=2,
-            dropout=0.5,
+            num_hidden=1,
+            dropout=0,
         )
 
     @pytest.fixture(scope='module')
@@ -166,13 +166,14 @@ class TestNeuralNetBinaryClassifier:
                "before using this method.")
         assert exc.value.args[0] == msg
 
-    @flaky(max_runs=5)
+    @flaky(max_runs=3)
     def test_net_learns(self, net_cls, module_cls, data):
         X, y = data
         net = net_cls(
             module_cls,
-            max_epochs=11,
+            max_epochs=10,
             lr=1,
+            batch_size=64,
         )
         net.fit(X, y)
 
@@ -243,7 +244,7 @@ class TestNeuralNetBinaryClassifier:
 
     def test_with_calibrated_classifier_cv(self, net_fit, data):
         from sklearn.calibration import CalibratedClassifierCV
-        cccv = CalibratedClassifierCV(net_fit, cv=3)
+        cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
 
     def test_grid_search_with_roc_auc(self, net_fit, data):
