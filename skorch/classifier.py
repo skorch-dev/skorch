@@ -278,7 +278,7 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
 
     def infer(self, x, **fit_params):
         y_infer = super().infer(x, **fit_params)
-        if y_infer.dim() < 2:
+        if y_infer.dim() == 1:
             return y_infer
 
         y_infer = y_infer.squeeze(1)

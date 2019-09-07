@@ -196,7 +196,7 @@ class TestNeuralNetBinaryClassifier:
         net.fit(X, y)
 
         y_pred_proba = net.predict_proba(X)
-        assert y_pred_proba.shape[1] == 2
+        assert y_pred_proba.shape == (X.shape[0], 2)
         assert y_pred_proba.shape[0] == X.shape[0]
 
         y_pred_exp = (y_pred_proba[:, 1] > threshold).astype('uint8')
