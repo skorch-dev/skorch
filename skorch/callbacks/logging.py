@@ -2,6 +2,7 @@
 
 import sys
 import time
+from contextlib import suppress
 from numbers import Number
 from itertools import cycle
 
@@ -471,14 +472,13 @@ class TensorBoard(Callback):
             return
 
         global_step = global_step if global_step is not None else hist['epoch']
-        try:
+        with suppress(NotImplementedError):
+            # pytorch raises NotImplementedError on wrong types
             self.writer.add_scalar(
                 tag=tag,
                 scalar_value=val,
                 global_step=global_step,
             )
-        except NotImplementedError:  # pytorch raises this on wrong types
-            pass
 
     def on_epoch_end(self, net, **kwargs):
         """Automatically log values from the last history step."""
