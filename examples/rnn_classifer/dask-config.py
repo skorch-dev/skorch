@@ -7,12 +7,11 @@
             'param_grid': {'__copy__': 'grid_search.param_grid'},
             'scoring': {'__copy__': 'scoring'},
         },
-        'backend': 'dask.distributed',
-        'scheduler_host': '127.0.0.1:8786',
+        'backend': 'dask',
     },
 
-    '_init_distributed': {
-        '__factory__': 'palladium.util.resolve_dotted_name',
-        'dotted_name': 'distributed.joblib.joblib',
+    '_init_client': {
+        '__factory__': 'dask.distributed.Client',
+        'address': '127.0.0.1:8786',
     },
 }
