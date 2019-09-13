@@ -119,7 +119,7 @@ class TestNeuralNet:
         # This test comes from [issue #317], and makes sure that models
         # can be trained after copying (which is really pickling).
         #
-        # [issue #317]:https://github.com/dnouri/skorch/issues/317
+        # [issue #317]:https://github.com/skorch-dev/skorch/issues/317
         X, y = data
         n1 = net_cls(module_cls)
         n1.partial_fit(X, y, epochs=1)

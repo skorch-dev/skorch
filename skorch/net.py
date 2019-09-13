@@ -1384,7 +1384,7 @@ class NeuralNet:
             if key.endswith('_'):
                 raise ValueError(
                     "Something went wrong here. Please open an issue on "
-                    "https://github.com/dnouri/skorch/issues detailing what "
+                    "https://github.com/skorch-dev/skorch/issues detailing what "
                     "caused this error.")
             setattr(self, key, val)
 

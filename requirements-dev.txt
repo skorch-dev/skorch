@@ -1,12 +1,15 @@
 fire
 flaky
+future>=0.17.1
 jupyter
 matplotlib>=2.0.2
 numpydoc
 openpyxl
 pandas
+pillow
 pylint
 pytest>=3.4
 pytest-cov
 sphinx
 sphinx_rtd_theme
+tensorboard>=1.14.0
