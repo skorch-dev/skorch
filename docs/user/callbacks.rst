@@ -230,3 +230,45 @@ starting with ``f_``:
 
 Please refer to :ref:`saving and loading` for more information about
 restoring your network from a checkpoint.
+
+
+Learning rate schedulers
+------------------------
+
+The :class:`.LRScheduler` callback allows the use of the various
+learning rate schedulers defined in :mod:`torch.optim.lr_scheduler`,
+such as :class:`~torch.optim.lr_scheduler.ReduceLROnPlateau`, which
+allows dynamic learning rate reducing based on a given value to
+monitor, or :class:`~torch.optim.lr_scheduler.CyclicLR`, which cycles
+the learning rate between two boundaries with a constant frequency.
+
+Here's a network that uses a callback to set a cyclic learning rate:
+
+.. code:: python
+
+    from skorch.callbacks import LRScheduler
+    from torch.optim.lr_scheduler import CyclicLR
+          
+    net = NeuralNet(
+        module=MyModule,
+        callbacks=[
+            ('lr_scheduler',
+             LRScheduler(policy=CyclicLR,
+                         base_lr=0.001,
+                         max_lr=0.01)),
+        ],
+    )
+
+As with other callbacks, you can use `set_params` to set parameters,
+and thus search learning rate scheduler parameters using
+:class:`~sklearn.model_selection.GridSearchCV` or similar.  An
+example:
+
+.. code:: python
+
+    from sklearn.model_selection import GridSearchCV
+
+    search = GridSearchCV(
+        net,
+        param_grid={'callbacks__lr_scheduler__max_lr': [0.01, 0.1, 1.0]},
+    )
