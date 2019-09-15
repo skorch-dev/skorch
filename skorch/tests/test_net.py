@@ -1240,7 +1240,7 @@ class TestNeuralNet:
             callbacks=[EpochTimer, ('other_timer', EpochTimer)],
         )
         # none of this raises an exception
-        net = copy.deepcopy(net)
+        net = clone(net)
         net.get_params()
         net.initialize()
         net.get_params()
