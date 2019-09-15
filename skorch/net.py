@@ -1266,6 +1266,15 @@ class NeuralNet:
     def _get_param_names(self):
         return self.__dict__.keys()
 
+    def _get_param_names_new(self):
+        # TODO: This will be the new behavior for _get_param_names in
+        # a future release. This is to make get_params work as in
+        # sklearn, i.e. not returning "learned" attributes (ending on
+        # '_'). Once the transition period has passed, remove the old
+        # code and use the new one instead.
+        return (k for k in self.__dict__
+                if not k.endswith('_') and k != 'history')
+
     def _get_params_callbacks(self, deep=True):
         """sklearn's .get_params checks for `hasattr(value,
         'get_params')`. This returns False for a list. But our
@@ -1639,8 +1648,6 @@ class NeuralNet:
             self.optimizer_.load_state_dict(state_dict)
 
     def __repr__(self):
-        params = self.get_params(deep=False)
-
         to_include = ['module']
         to_exclude = []
         parts = [str(self.__class__) + '[uninitialized](']
@@ -1649,7 +1656,7 @@ class NeuralNet:
             to_include = ['module_']
             to_exclude = ['module__']
 
-        for key, val in sorted(params.items()):
+        for key, val in sorted(self.__dict__.items()):
             if not any(key.startswith(prefix) for prefix in to_include):
                 continue
             if any(key.startswith(prefix) for prefix in to_exclude):
