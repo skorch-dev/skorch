@@ -2215,6 +2215,61 @@ class TestNeuralNet:
         assert net.optimizer_.param_groups[0]['lr'] == lr_pgroup_0_new
         assert net.optimizer_.param_groups[1]['lr'] == lr_pgroup_1_new
 
+    @pytest.mark.parametrize('acc_steps', [1, 2, 3, 5, 10])
+    def test_gradient_accumulation(self, net_cls, module_cls, data, acc_steps):
+        # Test if gradient accumulation technique is possible,
+        # i.e. performing a weight update only every couple of
+        # batches.
+        mock_optimizer = Mock()
+
+        class GradAccNet(net_cls):
+            """Net that accumulates gradients"""
+            def __init__(self, *args, acc_steps=acc_steps, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.acc_steps = acc_steps
+
+            def initialize(self):
+                # This is not necessary for gradient accumulation but
+                # only for testing purposes
+                super().initialize()
+                self.true_optimizer_ = self.optimizer_
+                mock_optimizer.step.side_effect = self.true_optimizer_.step
+                mock_optimizer.zero_grad.side_effect = self.true_optimizer_.zero_grad
+                self.optimizer_ = mock_optimizer
+
+            def get_loss(self, *args, **kwargs):
+                loss = super().get_loss(*args, **kwargs)
+                # because only every nth step is optimized
+                return loss / self.acc_steps
+
+            def train_step(self, Xi, yi, **fit_params):
+                """Perform gradient accumulation
+
+                Only optimize every 2nd batch.
+
+                """
+                # note that n_train_batches starts at 1 for each epoch
+                n_train_batches = len(self.history[-1, 'batches'])
+                step = self.train_step_single(Xi, yi, **fit_params)
+
+                if n_train_batches % self.acc_steps == 0:
+                    self.optimizer_.step()
+                    self.optimizer_.zero_grad()
+                return step
+
+        max_epochs = 5
+        net = GradAccNet(module_cls, max_epochs=max_epochs)
+        X, y = data
+        net.fit(X, y)
+
+        n = len(X) * 0.8  # number of training samples
+        b = np.ceil(n / net.batch_size)  # batches per epoch
+        s = b // acc_steps  # number of acc steps per epoch
+        calls_total = s * max_epochs
+        calls_step = mock_optimizer.step.call_count
+        calls_zero_grad = mock_optimizer.zero_grad.call_count
+        assert calls_total == calls_step == calls_zero_grad
+
 
 class TestNetSparseInput:
     @pytest.fixture(scope='module')
