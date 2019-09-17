@@ -277,16 +277,27 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
             raise ValueError("The target data should be 1-dimensional.")
 
     def infer(self, x, **fit_params):
-        y_infer = super().infer(x, **fit_params)
-        if y_infer.dim() == 1:
-            return y_infer
+        """Perform an inference step
 
-        y_infer = y_infer.squeeze(1)
-        if y_infer.dim() != 1:
+        The first output of the ``module`` must be a single array that
+        has either shape (n,) or shape (n, 1). In the latter case, the
+        output will be squeezed to become 1-dim.
+
+        """
+        y_infer = super().infer(x, **fit_params)
+        rest = None
+        if isinstance(y_infer, tuple):
+            y_infer, *rest = y_infer
+
+        if (y_infer.dim() > 2) or ((y_infer.dim() == 2) and (y_infer.shape[1] != 1)):
             raise ValueError(
                 "Expected module output to have shape (n,) or "
-                "(n, 1), got (n, {}) instead".format(y_infer.shape[1]))
-        return y_infer
+                "(n, 1), got {} instead".format(tuple(y_infer.shape)))
+
+        y_infer = y_infer.squeeze()
+        if rest is None:
+            return y_infer
+        return (y_infer,) + tuple(rest)
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):

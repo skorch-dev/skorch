@@ -279,5 +279,5 @@ class TestNeuralNetBinaryClassifier:
 
         msg = exc.value.args[0]
         expected = ("Expected module output to have shape (n,) or "
-                    "(n, 1), got (n, 2) instead")
+                    "(n, 1), got (128, 2) instead")
         assert msg == expected
