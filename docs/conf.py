@@ -260,7 +260,7 @@ def project_linkcode_resolve(domain, info):
     return _linkcode_resolve(domain, info,
             package='skorch',
             revision=_linkcode_git_revision,
-            url_fmt='https://github.com/dnouri/skorch/'
+            url_fmt='https://github.com/skorch-dev/skorch/'
                     'blob/{revision}/'
                     '{package}/{path}#L{lineno}')
 

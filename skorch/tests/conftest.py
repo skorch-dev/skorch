@@ -81,6 +81,7 @@ def regression_data():
     yt = StandardScaler().fit_transform(y)
     return Xt, yt
 
+
 @pytest.fixture(scope='module')
 def multioutput_regression_data():
     X, y = make_regression(
@@ -130,5 +131,14 @@ try:
     # pylint: disable=unused-import
     import pandas
     pandas_installed = True
+except ImportError:
+    pass
+
+
+tensorboard_installed = False
+try:
+    # pylint: disable=unused-import
+    import tensorboard
+    tensorboard_installed = True
 except ImportError:
     pass

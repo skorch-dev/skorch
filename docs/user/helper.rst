@@ -203,4 +203,4 @@ as usual).
 
 .. _fire: https://github.com/google/python-fire
 .. _numpydoc: https://github.com/numpy/numpydoc
-.. _example: https://github.com/dnouri/skorch/tree/master/examples/cli
+.. _example: https://github.com/skorch-dev/skorch/tree/master/examples/cli

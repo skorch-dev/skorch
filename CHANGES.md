@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - More careful check for wrong parameter names being passed to NeuralNet (#500)
 - More helpful error messages when trying to predict using an uninitialized model
+- Add TensorBoard callback for automatic logging to tensorboard
 - Make NeuralNetBinaryClassifier work with sklearn.calibration.CalibratedClassifierCV
 - Improve NeuralNetBinaryClassifier compatibility with certain sklearn metrics (#515)
 - NeuralNetBinaryClassifier automatically squeezes module output if necessary (#515)
@@ -70,10 +71,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Helper functions to build command line interfaces with almost no
   boilerplate, [example][1811191713] that shows usage
 
-[1810251445]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb
-[1810261633]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb
-[1811011230]: https://colab.research.google.com/github/dnouri/skorch/blob/master/notebooks/MNIST.ipynb
-[1811191713]: https://github.com/dnouri/skorch/tree/master/examples/cli
+[1810251445]: https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/Basic_Usage.ipynb
+[1810261633]: https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/Advanced_Usage.ipynb
+[1811011230]: https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/MNIST.ipynb
+[1811191713]: https://github.com/skorch-dev/skorch/tree/master/examples/cli
 
 ### Changed
 
@@ -110,7 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NeuralNetwork.load_params` now supports loading from `Checkpoint` instances
 - Added documentation for [saving and loading][4]
 
-[1]: https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/examples/nuclei_image_segmentation/Nuclei_Image_Segmentation.ipynb
+[1]: https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/examples/nuclei_image_segmentation/Nuclei_Image_Segmentation.ipynb
 [2]: https://skorch.readthedocs.io/en/latest/toy.html
 [3]: https://skorch.readthedocs.io/en/latest/callbacks.html#skorch.callbacks.ParamMapper
 [4]: https://skorch.readthedocs.io/en/latest/user/save_load.html
@@ -140,6 +141,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the net was configured to use the CPU (#354, #358)
 
 
-[Unreleased]: https://github.com/dnouri/skorch/compare/v0.5.0...HEAD
-[0.4.0]: https://github.com/dnouri/skorch/compare/v0.3.0...v0.4.0
-[0.5.0]: https://github.com/dnouri/skorch/compare/v0.4.0...v0.5.0
+[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.5.0...HEAD
+[0.4.0]: https://github.com/skorch-dev/skorch/compare/v0.3.0...v0.4.0
+[0.5.0]: https://github.com/skorch-dev/skorch/compare/v0.4.0...v0.5.0

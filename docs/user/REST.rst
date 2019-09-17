@@ -4,7 +4,7 @@ REST Service
 
 In this section we'll take the RNN sentiment classifer from the
 example `Predicting sentiment on the IMDB dataset
-<https://github.com/dnouri/skorch/blob/master/examples/rnn_classifer/RNN_sentiment_classification.ipynb>`_
+<https://github.com/skorch-dev/skorch/blob/master/examples/rnn_classifer/RNN_sentiment_classification.ipynb>`_
 and use it to demonstrate how to easily expose your PyTorch module on
 the web using skorch and another library called `Palladium
 <https://github.com/ottogroup/palladium>`_.
@@ -47,7 +47,7 @@ defines the dataset and model:
     }
 
 You can save this configuration as ``palladium-config.py``.
-    
+
 The ``dataset_loader_train`` and ``dataset_loader_test`` entries
 define where the data comes from.  They refer to a Python class
 defined inside the ``model`` module.  Let's create a file and call it
@@ -106,7 +106,7 @@ we'll create next:
     from skorch import NeuralNetClassifier
     import torch
 
-   
+
     def create_pipeline(
         vocab_size=1000,
         max_len=50,
@@ -132,14 +132,14 @@ You've noticed that this function's job is to create the model and
 return it.  Here, we're defining a pipeline that wraps skorch's
 ``NeuralNetClassifier``, which in turn is a wrapper around our PyTorch
 module, as it's defined in the `predicting sentiment tutorial
-<https://github.com/dnouri/skorch/blob/master/examples/rnn_classifer/RNN_sentiment_classification.ipynb>`_.
+<https://github.com/skorch-dev/skorch/blob/master/examples/rnn_classifer/RNN_sentiment_classification.ipynb>`_.
 We'll also add the RNNClassifier to ``model.py``:
 
 .. code:: python
 
     from torch import nn
     F = nn.functional
-          
+
 
     class RNNClassifier(nn.Module):
         def __init__(
