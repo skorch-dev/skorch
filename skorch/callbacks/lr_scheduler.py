@@ -347,6 +347,7 @@ class CyclicLR:
         # TODO: Remove class in 0.7
         warnings.warn(
             "skorch.callbacks.CyclicLR is deprecated, please use "
+            "skorch.callbacks.LRScheduler together with "
             "torch.optim.lr_scheduler.CyclicLR instead",
             DeprecationWarning
         )

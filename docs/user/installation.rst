@@ -33,7 +33,7 @@ If you just want to use skorch, use:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
     source activate skorch
@@ -44,7 +44,7 @@ If you want to help developing, run:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
     source activate skorch
@@ -62,7 +62,7 @@ If you just want to use skorch, use:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     # create and activate a virtual environment
     pip install -r requirements.txt
@@ -73,7 +73,7 @@ If you want to help developing, run:
 
 .. code:: bash
 
-    git clone https://github.com/dnouri/skorch.git
+    git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     # create and activate a virtual environment
     pip install -r requirements.txt

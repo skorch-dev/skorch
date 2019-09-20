@@ -20,7 +20,7 @@ The base class for each callback is :class:`.Callback`. If you would
 like to write your own callbacks, you should inherit from this class.
 A guide and practical example on how to write your own callbacks is
 shown in this `notebook
-<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Writing-a-custom-callback>`_.
+<https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Writing-a-custom-callback>`_.
 In general, remember this:
 
 
@@ -153,7 +153,7 @@ In general, the scoring callbacks are useful when the default scores
 determined by the :class:`.NeuralNet` are not enough. They allow you
 to easily add new metrics to be logged during training. For an example
 of how to add a new score to your model, look `at this notebook
-<https://nbviewer.jupyter.org/github/dnouri/skorch/blob/master/notebooks/Basic_Usage.ipynb#Callbacks>`_.
+<https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Basic_Usage.ipynb#Callbacks>`_.
 
 The first argument to both callbacks is ``name`` and should be a
 string. This determines the column name of the score shown by the
@@ -230,3 +230,45 @@ starting with ``f_``:
 
 Please refer to :ref:`saving and loading` for more information about
 restoring your network from a checkpoint.
+
+
+Learning rate schedulers
+------------------------
+
+The :class:`.LRScheduler` callback allows the use of the various
+learning rate schedulers defined in :mod:`torch.optim.lr_scheduler`,
+such as :class:`~torch.optim.lr_scheduler.ReduceLROnPlateau`, which
+allows dynamic learning rate reducing based on a given value to
+monitor, or :class:`~torch.optim.lr_scheduler.CyclicLR`, which cycles
+the learning rate between two boundaries with a constant frequency.
+
+Here's a network that uses a callback to set a cyclic learning rate:
+
+.. code:: python
+
+    from skorch.callbacks import LRScheduler
+    from torch.optim.lr_scheduler import CyclicLR
+          
+    net = NeuralNet(
+        module=MyModule,
+        callbacks=[
+            ('lr_scheduler',
+             LRScheduler(policy=CyclicLR,
+                         base_lr=0.001,
+                         max_lr=0.01)),
+        ],
+    )
+
+As with other callbacks, you can use `set_params` to set parameters,
+and thus search learning rate scheduler parameters using
+:class:`~sklearn.model_selection.GridSearchCV` or similar.  An
+example:
+
+.. code:: python
+
+    from sklearn.model_selection import GridSearchCV
+
+    search = GridSearchCV(
+        net,
+        param_grid={'callbacks__lr_scheduler__max_lr': [0.01, 0.1, 1.0]},
+    )

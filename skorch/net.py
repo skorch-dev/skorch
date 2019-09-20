@@ -593,7 +593,6 @@ class NeuralNet:
 
         """
         self.module_.train()
-        self.optimizer_.zero_grad()
         y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
@@ -656,6 +655,7 @@ class NeuralNet:
             step_accumulator.store_step(step)
             return step['loss']
         self.optimizer_.step(step_fn)
+        self.optimizer_.zero_grad()
         return step_accumulator.get_step()
 
     def evaluation_step(self, Xi, training=False):
@@ -730,10 +730,10 @@ class NeuralNet:
                 yi_res = yi if not y_train_is_ph else None
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
                 step = self.train_step(Xi, yi, **fit_params)
+                train_batch_count += 1
                 self.history.record_batch('train_loss', step['loss'].item())
                 self.history.record_batch('train_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
-                train_batch_count += 1
             self.history.record("train_batch_count", train_batch_count)
 
             if dataset_valid is None:
@@ -746,10 +746,10 @@ class NeuralNet:
                 yi_res = yi if not y_valid_is_ph else None
                 self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
                 step = self.validation_step(Xi, yi, **fit_params)
+                valid_batch_count += 1
                 self.history.record_batch('valid_loss', step['loss'].item())
                 self.history.record_batch('valid_batch_size', get_len(Xi))
                 self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
-                valid_batch_count += 1
             self.history.record("valid_batch_count", valid_batch_count)
 
             self.notify('on_epoch_end', **on_epoch_kwargs)
@@ -1384,7 +1384,7 @@ class NeuralNet:
             if key.endswith('_'):
                 raise ValueError(
                     "Something went wrong here. Please open an issue on "
-                    "https://github.com/dnouri/skorch/issues detailing what "
+                    "https://github.com/skorch-dev/skorch/issues detailing what "
                     "caused this error.")
             setattr(self, key, val)
 
