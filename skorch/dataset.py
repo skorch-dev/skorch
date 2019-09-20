@@ -46,9 +46,6 @@ def _apply_to_data(data, func, unpack_dict=False):
         return {k: apply_(v) for k, v in data.items()}
 
     if isinstance(data, (list, tuple)):
-        # added by sakuranew
-        if isinstance(data[0],str):
-            return func(data)
         try:
             # e.g.list/tuple of arrays
             return [apply_(x) for x in data]
