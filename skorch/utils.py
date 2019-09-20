@@ -77,6 +77,9 @@ def to_tensor(X, device, accept_sparse=False):
 
     if is_torch_data_type(X):
         return X.to(device)
+    #  added by sakuranew 
+    if isinstance(X, str):
+        return X
     if isinstance(X, dict):
         return {key: to_tensor_(val) for key, val in X.items()}
     if isinstance(X, (list, tuple)):
