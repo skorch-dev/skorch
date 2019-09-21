@@ -886,7 +886,31 @@ class TestTrainEndCheckpoint:
             call(f_history='exp1/train_end_history.json')
         ])
 
-    def test_cloneable(self, finalcheckpoint_cls):
+    def test_cloneable(self, trainendcheckpoint_cls):
         # reproduces bug #459
-        cp = finalcheckpoint_cls()
+        cp = trainendcheckpoint_cls()
         clone(cp)  # does not raise
+
+    def test_train_end_with_load_init(self, trainendcheckpoint_cls, net_cls, data):
+        # test for https://github.com/skorch-dev/skorch/issues/528
+        # Check that the initial state is indeed loaded from the checkpoint.
+        from skorch.callbacks import LoadInitState
+        from sklearn.metrics import mean_squared_error
+
+        X, y = data
+        cp = trainendcheckpoint_cls()
+        net = net_cls(callbacks=[cp], max_epochs=3, lr=0.1).initialize()
+        score_before = mean_squared_error(y, net.predict(X))
+        net.partial_fit(X, y)
+        score_after = mean_squared_error(y, net.predict(X))
+
+        # make sure the net learned at all
+        assert score_after < score_before
+
+        net_new = net_cls(callbacks=[LoadInitState(cp)], max_epochs=0)
+        net_new.fit(X, y)
+        score_loaded = mean_squared_error(y, net_new.predict(X))
+
+        # the same score as after the end of training of the initial
+        # net should be obtained
+        assert np.isclose(score_loaded, score_after)
