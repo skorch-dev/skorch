@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed a bug that caused LoadInitState not to work with TrainEndCheckpoint (#528)
+
 
 ## [0.6.0] - 2019-07-19
 
