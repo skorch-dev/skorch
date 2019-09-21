@@ -809,7 +809,7 @@ class TestLoadInitState:
 
 class TestTrainEndCheckpoint:
     @pytest.fixture
-    def finalcheckpoint_cls(self):
+    def trainendcheckpoint_cls(self):
         from skorch.callbacks import TrainEndCheckpoint
         return TrainEndCheckpoint
 
@@ -849,10 +849,10 @@ class TestTrainEndCheckpoint:
         return X, y
 
     def test_saves_at_end(
-            self, save_params_mock, net_cls, finalcheckpoint_cls, data):
+            self, save_params_mock, net_cls, trainendcheckpoint_cls, data):
         sink = Mock()
         net = net_cls(callbacks=[
-            finalcheckpoint_cls(
+            trainendcheckpoint_cls(
                 sink=sink, dirname='exp1', fn_prefix='train_end_')
         ])
         net.fit(*data)
@@ -866,10 +866,10 @@ class TestTrainEndCheckpoint:
         ])
 
     def test_saves_at_end_with_custom_formatting(
-            self, save_params_mock, net_cls, finalcheckpoint_cls, data):
+            self, save_params_mock, net_cls, trainendcheckpoint_cls, data):
         sink = Mock()
         net = net_cls(callbacks=[
-            finalcheckpoint_cls(
+            trainendcheckpoint_cls(
                 sink=sink, dirname='exp1',
                 f_params='model_{last_epoch[epoch]}.pt',
                 f_optimizer='optimizer_{last_epoch[epoch]}.pt',
