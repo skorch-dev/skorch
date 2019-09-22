@@ -386,7 +386,7 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         wrong_dtypes = []
 
         for col, dtype in zip(df, df.dtypes):
-            if isinstance(dtype, self.pd.core.dtypes.dtypes.CategoricalDtype):
+            if isinstance(dtype, self.pd.api.types.CategoricalDtype):
                 continue
             if np.issubdtype(dtype, np.integer):
                 continue
@@ -431,10 +431,10 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         Xf = []  # floats
 
         for col, dtype in zip(df, df.dtypes):
-            values = df[col]
+            X_col = df[col]
 
-            if isinstance(dtype, self.pd.core.dtypes.dtypes.CategoricalDtype):
-                x = values.cat.codes.values
+            if isinstance(dtype, self.pd.api.types.CategoricalDtype):
+                x = X_col.cat.codes.values
                 if self.int_dtype is not None:
                     x = x.astype(self.int_dtype)
                 X_dict[col] = x
@@ -444,13 +444,13 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
                     dtype in (np.dtype('int32'), np.dtype('int64'))
                     and self.treat_int_as_categorical
             ):
-                x = values.astype('category').cat.codes.values
+                x = X_col.astype('category').cat.codes.values
                 if self.int_dtype is not None:
                     x = x.astype(self.int_dtype)
                 X_dict[col] = x
                 continue
 
-            Xf.append(values.values)
+            Xf.append(X_col.values)
 
         if not Xf:
             return X_dict
