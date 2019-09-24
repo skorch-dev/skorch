@@ -709,50 +709,49 @@ class NeuralNet:
 
         """
         self.check_data(X, y)
-        epochs = epochs if epochs is not None else self.max_epochs
 
-        dataset_train, dataset_valid = self.get_split_datasets(
-            X, y, **fit_params)
-        on_epoch_kwargs = {
-            'dataset_train': dataset_train,
-            'dataset_valid': dataset_valid,
-        }
+        for dataset_train, dataset_valid in self.get_split_datasets(X, y, **fit_params):
+            epochs = epochs if epochs is not None else self.max_epochs
+            on_epoch_kwargs = {
+                'dataset_train': dataset_train,
+                'dataset_valid': dataset_valid,
+            }
 
-        y_train_is_ph = uses_placeholder_y(dataset_train)
-        y_valid_is_ph = uses_placeholder_y(dataset_valid)
+            y_train_is_ph = uses_placeholder_y(dataset_train)
+            y_valid_is_ph = uses_placeholder_y(dataset_valid)
 
-        for _ in range(epochs):
-            self.notify('on_epoch_begin', **on_epoch_kwargs)
+            for _ in range(epochs):
+                self.notify('on_epoch_begin', **on_epoch_kwargs)
 
-            train_batch_count = 0
-            for data in self.get_iterator(dataset_train, training=True):
-                Xi, yi = unpack_data(data)
-                yi_res = yi if not y_train_is_ph else None
-                self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
-                step = self.train_step(Xi, yi, **fit_params)
-                train_batch_count += 1
-                self.history.record_batch('train_loss', step['loss'].item())
-                self.history.record_batch('train_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
-            self.history.record("train_batch_count", train_batch_count)
+                train_batch_count = 0
+                for data in self.get_iterator(dataset_train, training=True):
+                    Xi, yi = unpack_data(data)
+                    yi_res = yi if not y_train_is_ph else None
+                    self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
+                    step = self.train_step(Xi, yi, **fit_params)
+                    self.history.record_batch('train_loss', step['loss'].item())
+                    self.history.record_batch('train_batch_size', get_len(Xi))
+                    self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
+                    train_batch_count += 1
+                self.history.record("train_batch_count", train_batch_count)
 
-            if dataset_valid is None:
+                if dataset_valid is None:
+                    self.notify('on_epoch_end', **on_epoch_kwargs)
+                    continue
+
+                valid_batch_count = 0
+                for data in self.get_iterator(dataset_valid, training=False):
+                    Xi, yi = unpack_data(data)
+                    yi_res = yi if not y_valid_is_ph else None
+                    self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
+                    step = self.validation_step(Xi, yi, **fit_params)
+                    self.history.record_batch('valid_loss', step['loss'].item())
+                    self.history.record_batch('valid_batch_size', get_len(Xi))
+                    self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
+                    valid_batch_count += 1
+                self.history.record("valid_batch_count", valid_batch_count)
+
                 self.notify('on_epoch_end', **on_epoch_kwargs)
-                continue
-
-            valid_batch_count = 0
-            for data in self.get_iterator(dataset_valid, training=False):
-                Xi, yi = unpack_data(data)
-                yi_res = yi if not y_valid_is_ph else None
-                self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
-                step = self.validation_step(Xi, yi, **fit_params)
-                valid_batch_count += 1
-                self.history.record_batch('valid_loss', step['loss'].item())
-                self.history.record_batch('valid_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
-            self.history.record("valid_batch_count", valid_batch_count)
-
-            self.notify('on_epoch_end', **on_epoch_kwargs)
         return self
 
     # pylint: disable=unused-argument
@@ -1187,11 +1186,10 @@ class NeuralNet:
         """
         dataset = self.get_dataset(X, y)
         if self.train_split:
-            dataset_train, dataset_valid = self.train_split(
-                dataset, y, **fit_params)
+            for dataset_train, dataset_valid in self.train_split(dataset, y, **fit_params):
+                yield dataset_train, dataset_valid
         else:
-            dataset_train, dataset_valid = dataset, None
-        return dataset_train, dataset_valid
+            yield dataset, None
 
     def get_iterator(self, dataset, training=False):
         """Get an iterator that allows to loop over the batches of the

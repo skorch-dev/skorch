@@ -322,10 +322,10 @@ class CVSplit:
         if self._is_stratified(cv):
             args = args + (to_numpy(y),)
 
-        idx_train, idx_valid = next(iter(cv.split(*args, groups=groups)))
-        dataset_train = torch.utils.data.Subset(dataset, idx_train)
-        dataset_valid = torch.utils.data.Subset(dataset, idx_valid)
-        return dataset_train, dataset_valid
+        for idx_train, idx_valid in cv.split(*args, groups=groups):
+            dataset_train = torch.utils.data.Subset(dataset, idx_train)
+            dataset_valid = torch.utils.data.Subset(dataset, idx_valid)
+            yield dataset_train, dataset_valid
 
     def __repr__(self):
         # pylint: disable=useless-super-delegation
