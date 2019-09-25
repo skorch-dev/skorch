@@ -232,9 +232,17 @@ class NeuralNet:
         kwargs = self._check_kwargs(kwargs)
         vars(self).update(kwargs)
 
-        self.history = history
+        self.history_ = history
         self.initialized_ = initialized
         self.virtual_params_ = virtual_params
+
+    @property
+    def history(self):
+        return self.history_
+
+    @history.setter
+    def history(self, value):
+        self.history_ = value
 
     @property
     def _default_callbacks(self):
@@ -523,7 +531,7 @@ class NeuralNet:
 
     def initialize_history(self):
         """Initializes the history."""
-        self.history = History()
+        self.history_ = History()
 
     def initialize(self):
         """Initializes all components of the :class:`.NeuralNet` and
@@ -1271,8 +1279,7 @@ class NeuralNet:
         # sklearn, i.e. not returning "learned" attributes (ending on
         # '_'). Once the transition period has passed, remove the old
         # code and use the new one instead.
-        return (k for k in self.__dict__
-                if not k.endswith('_') and k != 'history')
+        return (k for k in self.__dict__ if not k.endswith('_'))
 
     def _get_params_callbacks(self, deep=True):
         """sklearn's .get_params checks for `hasattr(value,
