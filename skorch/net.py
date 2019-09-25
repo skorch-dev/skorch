@@ -20,7 +20,6 @@ from skorch.dataset import get_len
 from skorch.dataset import unpack_data
 from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
-from skorch.exceptions import NotInitializedError
 from skorch.history import History
 from skorch.setter import optimizer_setter
 from skorch.utils import FirstStepAccumulator
