@@ -266,11 +266,38 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
             ('print_log', PrintLog()),
         ]
 
+    @property
+    def classes_(self):
+        return [0, 1]
+
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         super().check_data(X, y)
         if get_dim(y) != 1:
             raise ValueError("The target data should be 1-dimensional.")
+
+    def infer(self, x, **fit_params):
+        """Perform an inference step
+
+        The first output of the ``module`` must be a single array that
+        has either shape (n,) or shape (n, 1). In the latter case, the
+        output will be squeezed to become 1-dim.
+
+        """
+        y_infer = super().infer(x, **fit_params)
+        rest = None
+        if isinstance(y_infer, tuple):
+            y_infer, *rest = y_infer
+
+        if (y_infer.dim() > 2) or ((y_infer.dim() == 2) and (y_infer.shape[1] != 1)):
+            raise ValueError(
+                "Expected module output to have shape (n,) or "
+                "(n, 1), got {} instead".format(tuple(y_infer.shape)))
+
+        y_infer = y_infer.squeeze()
+        if rest is None:
+            return y_infer
+        return (y_infer,) + tuple(rest)
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
@@ -317,7 +344,8 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
         y_pred : numpy ndarray
 
         """
-        return (self.predict_proba(X) > self.threshold).astype('uint8')
+        y_proba = self.predict_proba(X)
+        return (y_proba[:, 1] > self.threshold).astype('uint8')
 
     # pylint: disable=missing-docstring
     def predict_proba(self, X):
@@ -362,4 +390,5 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
                 yp = torch.sigmoid(yp)
             y_probas.append(to_numpy(yp))
         y_proba = np.concatenate(y_probas, 0)
+        y_proba = np.stack((1 - y_proba, y_proba), axis=1)
         return y_proba
