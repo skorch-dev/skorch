@@ -1271,7 +1271,7 @@ class NeuralNet:
         return [pgroups], kwargs
 
     def _get_param_names(self):
-        return self.__dict__.keys()
+        return (k for k in self.__dict__.keys() if k != 'history_')
 
     def _get_param_names_new(self):
         # TODO: This will be the new behavior for _get_param_names in
