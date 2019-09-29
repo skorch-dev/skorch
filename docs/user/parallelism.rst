@@ -32,25 +32,28 @@ packages required to do the work::
   CUDA_VISIBLE_DEVICES=0 dask-worker 127.0.0.1:8786 --nthreads 1
   CUDA_VISIBLE_DEVICES=1 dask-worker 127.0.0.1:8786 --nthreads 1
 
-In your code, use joblib's ``parallel_backend`` to choose the Dask
-backend for grid searches and the like.  Remember to also import the
-``distributed.joblib`` module, as that will register the joblib
-backend.  Let's see how this could look like:
+In your code, use joblib's :func:`~joblib.parallel_backend` context
+manager to activate the Dask backend when you run grid searches and
+the like.  Also instantiate a :class:`dask.distributed.Client` to
+point to the Dask scheduler that you want to use.  Let's see how this
+could look like:
 
 .. code:: python
 
-    import distributed.joblib  # imported for side effects
-    from sklearn.externals.joblib import parallel_backend
+    from dask.distributed import Client
+    from joblib import parallel_backend
+
+    client = Client('127.0.0.1:8786')
 
     X, y = load_my_data()
-    model = get_that_model()      
+    net = get_that_net()
 
     gs = GridSearchCV(
-        model,
-        param_grid={'net__lr': [0.01, 0.03]},
+        net,
+        param_grid={'lr': [0.01, 0.03]},
         scoring='accuracy',
         )
-    with parallel_backend('dask.distributed', scheduler_host='127.0.0.1:8786'):
+    with parallel_backend('dask'):
         gs.fit(X, y)
     print(gs.cv_results_)
 

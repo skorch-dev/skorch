@@ -7,7 +7,6 @@ from functools import partial
 import numpy as np
 from sklearn.metrics.scorer import (
     check_scoring, _BaseScorer, make_scorer)
-from sklearn.model_selection._validation import _score
 
 from skorch.utils import data_from_dataset
 from skorch.utils import is_skorch_dataset
@@ -116,14 +115,7 @@ class ScoringBase(Callback):
         """Resolve scoring and apply it to data. Use cached prediction
         instead of running inference again, if available."""
         scorer = check_scoring(net, self.scoring_)
-        scores = _score(
-            estimator=net,
-            X_test=X_test,
-            y_test=y_test,
-            scorer=scorer,
-            is_multimetric=False,
-        )
-        return scores
+        return scorer(net, X_test, y_test)
 
     def _is_best_score(self, current_score):
         if self.lower_is_better is None:
