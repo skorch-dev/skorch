@@ -45,15 +45,15 @@ class Callback:
         """Called at the end of each epoch."""
 
     def on_batch_begin(self, net,
-                       Xi=None, yi=None, training=None, **kwargs):
+                       X=None, y=None, training=None, **kwargs):
         """Called at the beginning of each batch."""
 
     def on_batch_end(self, net,
-                     Xi=None, yi=None, training=None, **kwargs):
+                     X=None, y=None, training=None, **kwargs):
         """Called at the end of each batch."""
 
     def on_grad_computed(self, net, named_parameters,
-                         Xi=None, yi=None, training=None, **kwargs):
+                         X=None, y=None, training=None, **kwargs):
         """Called once per batch after gradients have been computed but before
         an update step was performed.
         """
