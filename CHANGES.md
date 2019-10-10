@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve numerical stability when using `NLLLoss` in `NeuralNetClassifer` (#491)
 - Refactor code to make gradient accumulation easier to implement (#506)
 - NeuralNetBinaryClassifier.predict_proba now returns a 2-dim array; to access the "old" y_proba, take y_proba[:, 1] (#515)
+- net.history is now a property that accesses net.history_, which stores the History object (#527)
+
+### Future Changes
+
+- WARNING: In a future release, the behavior of method `net.get_params` will change to make it more consistent with sklearn: it will no longer return "learned" attributes like `module_`. Therefore, functions like `sklearn.base.clone`, when called with a fitted net, will no longer return a fitted net but instead an uninitialized net. If you want a copy of a fitted net, use `copy.deepcopy` instead. Note that `net.get_params` is used under the hood by many sklearn functions and classes, such as `GridSearchCV`, whose behavior may thus be affected by the change. (#521, #527)
 
 ### Fixed
 
