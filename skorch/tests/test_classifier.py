@@ -107,6 +107,46 @@ class TestNeuralNet:
         net.fit(*data)
         assert np.any(~np.isnan(net.history[:, 'train_loss']))
 
+    def test_binary_classes_set_by_default(self, net_cls, module_cls, data):
+        net = net_cls(module_cls).fit(*data)
+        assert (net.classes_ == [0, 1]).all()
+
+    def test_non_binary_classes_set_by_default(self, net_cls, module_cls, data):
+        X = data[0]
+        y = np.arange(len(X)) % 10
+        net = net_cls(module_cls, max_epochs=0).fit(X, y)
+        assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
+    def test_classes_data_torch_tensor(self, net_cls, module_cls, data):
+        X = torch.as_tensor(data[0])
+        y = torch.as_tensor(np.arange(len(X)) % 10)
+
+        net = net_cls(module_cls, max_epochs=0).fit(X, y)
+        assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
+    def test_classes_with_gaps(self, net_cls, module_cls, data):
+        X = data[0]
+        y = np.arange(len(X)) % 10
+        y[(y == 0) | (y == 5)] = 4  # remove classes 0 and 5
+        net = net_cls(module_cls, max_epochs=0).fit(X, y)
+        assert (net.classes_ == [1, 2, 3, 4, 6, 7, 8, 9]).all()
+
+    def test_pass_classes_explicitly_overrides(self, net_cls, module_cls, data):
+        net = net_cls(module_cls, max_epochs=0, classes=['foo', 'bar']).fit(*data)
+        assert net.classes_ == ['foo', 'bar']
+
+    @pytest.mark.parametrize('classes', [[], np.array([])])
+    def test_pass_empty_classes_raises(
+            self, net_cls, module_cls, data, classes):
+        net = net_cls(
+            module_cls, max_epochs=0, classes=classes).fit(*data).fit(*data)
+        with pytest.raises(AttributeError) as exc:
+            net.classes_
+
+        msg = exc.value.args[0]
+        expected = "NeuralNetClassifier has no attribute 'classes_'"
+        assert msg == expected
+
 
 class TestNeuralNetBinaryClassifier:
     @pytest.fixture(scope='module')
