@@ -10,6 +10,7 @@ from flaky import flaky
 import numpy as np
 import pytest
 import torch
+from sklearn.base import clone
 from torch import nn
 
 from skorch.tests.conftest import INFERENCE_METHODS
@@ -56,6 +57,9 @@ class TestNeuralNet:
         # side effects on other tests.
         X, y = data
         return net.fit(X, y)
+
+    def test_clone(self, net_fit):
+        clone(net_fit)
 
     def test_predict_and_predict_proba(self, net_fit, data):
         X = data[0]
@@ -147,6 +151,11 @@ class TestNeuralNet:
         expected = "NeuralNetClassifier has no attribute 'classes_'"
         assert msg == expected
 
+    def test_with_calibrated_classifier_cv(self, net_fit, data):
+        from sklearn.calibration import CalibratedClassifierCV
+        cccv = CalibratedClassifierCV(net_fit, cv=2)
+        cccv.fit(*data)
+
 
 class TestNeuralNetBinaryClassifier:
     @pytest.fixture(scope='module')
@@ -191,6 +200,9 @@ class TestNeuralNetBinaryClassifier:
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass
+
+    def test_clone(self, net_fit):
+        clone(net_fit)
 
     @pytest.mark.parametrize('method', INFERENCE_METHODS)
     def test_not_fitted_raises(self, net_cls, module_cls, data, method):
