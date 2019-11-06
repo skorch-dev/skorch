@@ -7,6 +7,7 @@ Only contains tests that are specific for regressor subclasses.
 from flaky import flaky
 import numpy as np
 import pytest
+from sklearn.base import clone
 import torch
 
 from skorch.tests.conftest import INFERENCE_METHODS
@@ -57,6 +58,9 @@ class TestNeuralNetRegressor:
         # side effects on other tests.
         X, y = data
         return net.fit(X, y)
+
+    def test_clone(self, net_fit):
+        clone(net_fit)
 
     def test_fit(self, net_fit):
         # fitting does not raise anything
