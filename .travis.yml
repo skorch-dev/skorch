@@ -1,7 +1,6 @@
 language: python
 dist: xenial
 python:
-  - "3.8"
   - "3.7.5"
   - "3.6"
   - "3.5"
