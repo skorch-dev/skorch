@@ -87,8 +87,8 @@ class TestEpochScoring:
     ])
     @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
     def test_scoring_uses_best_score_when_continuing_training(
-        self, net_cls, module_cls, scoring_cls, train_split, data,
-        lower_is_better, expected, tmpdir, initial_epochs
+            self, net_cls, module_cls, scoring_cls, data,
+            lower_is_better, expected, tmpdir, initial_epochs,
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
@@ -361,7 +361,7 @@ class TestEpochScoring:
             train_split, expected_type, caching,
     ):
         score_calls = 0
-        def myscore(net, X, y=None):
+        def myscore(net, X, y=None):  # pylint: disable=unused-argument
             nonlocal score_calls
             score_calls += 1
             assert type(X) == expected_type
@@ -602,8 +602,8 @@ class TestBatchScoring:
     ])
     @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
     def test_scoring_uses_best_score_when_continuing_training(
-        self, net_cls, module_cls, scoring_cls, train_split, data,
-        lower_is_better, expected, tmpdir, initial_epochs
+            self, net_cls, module_cls, scoring_cls, data,
+            lower_is_better, expected, tmpdir, initial_epochs,
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
@@ -840,7 +840,7 @@ class TestBatchScoring:
     ):
         score_calls = 0
 
-        def myscore(net, X, y=None):
+        def myscore(net, X, y=None):  # pylint: disable=unused-argument
             nonlocal score_calls
             score_calls += 1
             assert y is None
