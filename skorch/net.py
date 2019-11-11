@@ -911,10 +911,12 @@ class NeuralNet:
         for data in iterator:
             Xi = unpack_data(data)[0]
             yp = self.evaluation_step(Xi, training=training)
-            if isinstance(yp, tuple):
-                yield tuple(n.to(device) for n in yp)
-            else:
-                yield yp.to(device)
+            yield self._forward_output(yp, device=device)
+
+    def _forward_output(self, yp, device):
+        if isinstance(yp, tuple):
+            return tuple(n.to(device) for n in yp)
+        return yp.to(device)
 
     def forward(self, X, training=False, device='cpu'):
         """Gather and concatenate the output from forward call with

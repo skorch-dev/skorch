@@ -457,6 +457,31 @@ class TestEpochScoring:
         for c1, c2 in zip(cbs['a1'].y_trues_, cbs['a2'].y_trues_):
             assert id(c1) == id(c2)
 
+    @pytest.mark.parametrize('use_caching, count', [(False, 1), (True, 0)])
+    def test_with_caching_get_iterator_not_called(
+            self, net_cls, module_cls, train_split, caching_scoring_cls, data,
+            use_caching, count,
+    ):
+        max_epochs = 3
+        net = net_cls(
+            module=module_cls,
+            callbacks=[
+                ('acc', caching_scoring_cls('accuracy', use_caching=use_caching)),
+            ],
+            train_split=train_split,
+            max_epochs=max_epochs,
+        )
+
+        get_iterator = net.get_iterator
+        net.get_iterator = Mock(side_effect=get_iterator)
+        net.fit(*data)
+
+        # expected count should be:
+        # max_epochs * (1 (train) + 1 (valid) + 0 or 1 (from scoring,
+        # depending on caching))
+        count_expected = max_epochs * (1 + 1 + count)
+        assert net.get_iterator.call_count == count_expected
+
     def test_subclassing_epoch_scoring(
             self, classifier_module, classifier_data):
         # This test's purpose is to check that it is possible to
