@@ -235,6 +235,15 @@ class TestNeuralNetBinaryClassifier:
         valid_acc = net.history[-1, 'valid_acc']
         assert valid_acc > 0.65
 
+    def test_batch_size_one(self, net_cls, module_cls, data):
+        X, y = data
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            batch_size=1,
+        )
+        net.fit(X, y)
+
     def test_history_default_keys(self, net_fit):
         expected_keys = {
             'train_loss', 'valid_loss', 'epoch', 'dur', 'batches', 'valid_acc'
