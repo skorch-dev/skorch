@@ -14,6 +14,7 @@ from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 from skorch.utils import check_indexing
+from skorch.utils import to_device
 from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
 
@@ -69,10 +70,10 @@ def _cache_net_forward_iter(net, use_caching, y_preds):
         return
     y_preds = iter(y_preds)
 
+    # pylint: disable=unused-argument
     def cached_forward_iter(*args, device=net.device, **kwargs):
         for yp in y_preds:
-            # pylint: disable=protected-access
-            yield net._forward_output(yp, device=device)
+            yield to_device(yp, device=device)
 
     net.forward_iter = cached_forward_iter
     try:

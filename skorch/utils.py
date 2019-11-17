@@ -121,6 +121,17 @@ def to_numpy(X):
     return X.numpy()
 
 
+def to_device(X, device):
+    """Generic function to move module output(s) to a device.
+
+    Deals with X being a torch tensor or a tuple of torch tensors.
+
+    """
+    if isinstance(X, tuple):
+        return tuple(x.to(device) for x in X)
+    return X.to(device)
+
+
 def get_dim(y):
     """Return the number of dimensions of a torch tensor or numpy
     array-like object.
