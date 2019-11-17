@@ -92,7 +92,8 @@ class ScoringBase(Callback):
         if isinstance(self.scoring_, _BaseScorer):
             return self.scoring_._score_func.__name__
         if isinstance(self.scoring_, dict):
-            raise ValueError("Dict not supported for scoring. If you wan't to use multiple scores pass multiple callbacks")
+            raise ValueError("Dict not supported as scorer for multi-metric scoring."
+                             " Register multiple scoring callbacks instead.")
         return self.scoring_.__name__
 
     def initialize(self):
