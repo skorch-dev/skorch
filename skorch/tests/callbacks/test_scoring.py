@@ -458,8 +458,8 @@ class TestEpochScoring:
             assert id(c1) == id(c2)
 
     def test_multiple_scorings_with_dict(
-            self, net_cls, module_cls, train_split, caching_scoring_cls, data,
-    ):
+            self, net_cls, module_cls, train_split, caching_scoring_cls, data):
+        # This test checks if an exception is raised when a dictionary is passed as scorer.
         net = net_cls(
             module=module_cls,
             callbacks=[
@@ -469,10 +469,7 @@ class TestEpochScoring:
             max_epochs=2,
         )
 
-        # on_train_end clears cache, overwrite so we can inspect the contents.
-        with patch('skorch.callbacks.scoring.EpochScoring.on_train_end',
-                   lambda *x, **y: None):
-            with pytest.raises(ValueError):
+        with pytest.raises(ValueError):
                 net.fit(*data)
 
     def test_subclassing_epoch_scoring(
