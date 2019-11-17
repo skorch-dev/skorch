@@ -307,7 +307,7 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
 
         The first output of the ``module`` must be a single array that
         has either shape (n,) or shape (n, 1). In the latter case, the
-        output will be squeezed to become 1-dim.
+        output will be reshaped to become 1-dim.
 
         """
         y_infer = super().infer(x, **fit_params)
@@ -320,7 +320,7 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
                 "Expected module output to have shape (n,) or "
                 "(n, 1), got {} instead".format(tuple(y_infer.shape)))
 
-        y_infer = y_infer.squeeze()
+        y_infer = y_infer.reshape(-1)
         if rest is None:
             return y_infer
         return (y_infer,) + tuple(rest)

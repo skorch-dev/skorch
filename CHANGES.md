@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed a bug that caused LoadInitState not to work with TrainEndCheckpoint (#528)
+- Fixed NeuralNetBinaryClassifier wrongly squeezing the batch dimension when using batch_size = 1 (#558)
 
 
 ## [0.6.0] - 2019-07-19
