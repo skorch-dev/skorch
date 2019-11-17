@@ -569,7 +569,7 @@ class TestNeuralNet:
 
         new_net = net_cls(
             module_cls, max_epochs=4, lr=0.1,
-            optimizer=torch.optim.Adam, callbacks=[cp]).initialize()
+            optimizer=torch.optim.Adam, callbacks=[cp])
         new_net.load_params(checkpoint=cp)
 
         assert len(new_net.history) == 4
@@ -635,7 +635,7 @@ class TestNeuralNet:
             module_cls, max_epochs=5, lr=0.1,
             optimizer=torch.optim.Adam, callbacks=[
                 ('my_score', scoring), cp
-            ]).initialize()
+            ])
         new_net.load_params(checkpoint=cp)
 
         # original run saved checkpoint at epoch 3

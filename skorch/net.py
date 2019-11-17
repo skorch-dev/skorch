@@ -1614,6 +1614,7 @@ class NeuralNet:
             self.history = History.from_file(f_history)
 
         if checkpoint is not None:
+            self.initialize()
             if f_history is None and checkpoint.f_history is not None:
                 self.history = History.from_file(checkpoint.f_history_)
             formatted_files = checkpoint.get_formatted_files(self)
