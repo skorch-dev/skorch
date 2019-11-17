@@ -81,7 +81,6 @@ class ScoringBase(Callback):
     def _get_name(self):
         """Find name of scoring function."""
         if self.name is not None:
-            print("name", self.name)
             return self.name
         if self.scoring_ is None:
             return 'score'
