@@ -81,6 +81,7 @@ class ScoringBase(Callback):
     def _get_name(self):
         """Find name of scoring function."""
         if self.name is not None:
+            print("name", self.name)
             return self.name
         if self.scoring_ is None:
             return 'score'
@@ -90,6 +91,8 @@ class ScoringBase(Callback):
             return self.scoring_.func.__name__
         if isinstance(self.scoring_, _BaseScorer):
             return self.scoring_._score_func.__name__
+        if isinstance(self.scoring_, dict):
+            raise ValueError("Dict not supported for scoring. If you wan't to use multiple scores pass multiple callbacks")
         return self.scoring_.__name__
 
     def initialize(self):

@@ -457,6 +457,24 @@ class TestEpochScoring:
         for c1, c2 in zip(cbs['a1'].y_trues_, cbs['a2'].y_trues_):
             assert id(c1) == id(c2)
 
+    def test_multiple_scorings_with_dict(
+            self, net_cls, module_cls, train_split, caching_scoring_cls, data,
+    ):
+        net = net_cls(
+            module=module_cls,
+            callbacks=[
+                caching_scoring_cls({'a1': 'accuracy', 'a2': 'accuracy'}),
+            ],
+            train_split=train_split,
+            max_epochs=2,
+        )
+
+        # on_train_end clears cache, overwrite so we can inspect the contents.
+        with patch('skorch.callbacks.scoring.EpochScoring.on_train_end',
+                   lambda *x, **y: None):
+            with pytest.raises(ValueError):
+                net.fit(*data)
+
     def test_subclassing_epoch_scoring(
             self, classifier_module, classifier_data):
         # This test's purpose is to check that it is possible to
