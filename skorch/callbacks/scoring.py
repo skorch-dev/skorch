@@ -78,6 +78,10 @@ def _cache_net_forward_iter(net, use_caching, y_preds):
     try:
         yield net
     finally:
+        # By setting net.forward_iter we define an attribute
+        # `forward_iter` that precedes the bound method
+        # `forward_iter`. By deleting the entry from the attribute
+        # dict we undo this.
         del net.__dict__['forward_iter']
 
 
