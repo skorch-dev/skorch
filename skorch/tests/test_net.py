@@ -28,7 +28,6 @@ import torch
 from torch import nn
 from flaky import flaky
 
-from skorch.exceptions import NotInitializedError
 from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
 from skorch.utils import to_numpy
