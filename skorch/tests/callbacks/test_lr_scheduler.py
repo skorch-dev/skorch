@@ -270,6 +270,7 @@ class TestWarmRestartLR():
             optimizer, min_lr, max_lr, base_period, period_mult
         )
         for epoch in range(epochs):
+            optimizer.step() # suppress warning about .step call order
             scheduler.step(epoch)
             for param_group, target in zip(optimizer.param_groups, targets):
                 assert param_group['lr'] == pytest.approx(target[epoch])
