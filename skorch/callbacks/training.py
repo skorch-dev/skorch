@@ -381,7 +381,6 @@ class EarlyStopping(Callback):
             self.sink(text)
 
 
-
 class ParamMapper(Callback):
     """Map arbitrary functions over module parameters filtered by pattern
     matching.
@@ -692,3 +691,6 @@ class TrainEndCheckpoint(Callback):
     def on_train_end(self, net, **kwargs):
         self.checkpoint_.save_model(net)
         self.checkpoint_._sink("Final checkpoint triggered", net.verbose)
+
+    def __getattr__(self, attr):
+        return getattr(self.checkpoint_, attr)

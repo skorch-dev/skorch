@@ -12,13 +12,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More careful check for wrong parameter names being passed to NeuralNet (#500)
 - More helpful error messages when trying to predict using an uninitialized model
 - Add TensorBoard callback for automatic logging to tensorboard
+- Make NeuralNetBinaryClassifier work with sklearn.calibration.CalibratedClassifierCV
+- Improve NeuralNetBinaryClassifier compatibility with certain sklearn metrics (#515)
+- NeuralNetBinaryClassifier automatically squeezes module output if necessary (#515)
+- NeuralNetClassifier now has a classes_ attribute after fit is called, which is inferred from y by default (#465, #486)
 
 ### Changed
 
 - Improve numerical stability when using `NLLLoss` in `NeuralNetClassifer` (#491)
 - Refactor code to make gradient accumulation easier to implement (#506)
+- NeuralNetBinaryClassifier.predict_proba now returns a 2-dim array; to access the "old" y_proba, take y_proba[:, 1] (#515)
+- net.history is now a property that accesses net.history_, which stores the History object (#527)
+
+### Future Changes
+
+- WARNING: In a future release, the behavior of method `net.get_params` will change to make it more consistent with sklearn: it will no longer return "learned" attributes like `module_`. Therefore, functions like `sklearn.base.clone`, when called with a fitted net, will no longer return a fitted net but instead an uninitialized net. If you want a copy of a fitted net, use `copy.deepcopy` instead. Note that `net.get_params` is used under the hood by many sklearn functions and classes, such as `GridSearchCV`, whose behavior may thus be affected by the change. (#521, #527)
 
 ### Fixed
+
+- Fixed a bug that caused LoadInitState not to work with TrainEndCheckpoint (#528)
+- Fixed NeuralNetBinaryClassifier wrongly squeezing the batch dimension when using batch_size = 1 (#558)
 
 
 ## [0.6.0] - 2019-07-19
