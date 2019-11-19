@@ -458,18 +458,19 @@ class TestEpochScoring:
             assert id(c1) == id(c2)
 
     def test_multiple_scorings_with_dict(
-            self, net_cls, module_cls, train_split, caching_scoring_cls, data):
+            self, net_cls, module_cls, train_split, scoring_cls, data):
         # This test checks if an exception is raised when a dictionary is passed as scorer.
         net = net_cls(
             module=module_cls,
             callbacks=[
-                caching_scoring_cls({'a1': 'accuracy', 'a2': 'accuracy'}),
+                scoring_cls({'a1': 'accuracy', 'a2': 'accuracy'}),
             ],
             train_split=train_split,
             max_epochs=2,
         )
 
-        with pytest.raises(ValueError) as excinfo:
+msg = "Dict not supported as scorer for multi-metric scoring"
+        with pytest.raises(ValueError, match=msg) as excinfo:
                 net.fit(*data)
         assert "multi-metric scoring" in str(excinfo.value)
 
