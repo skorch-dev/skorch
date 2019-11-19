@@ -457,6 +457,22 @@ class TestEpochScoring:
         for c1, c2 in zip(cbs['a1'].y_trues_, cbs['a2'].y_trues_):
             assert id(c1) == id(c2)
 
+    def test_multiple_scorings_with_dict(
+            self, net_cls, module_cls, train_split, scoring_cls, data):
+        # This test checks if an exception is raised when a dictionary is passed as scorer.
+        net = net_cls(
+            module=module_cls,
+            callbacks=[
+                scoring_cls({'a1': 'accuracy', 'a2': 'accuracy'}),
+            ],
+            train_split=train_split,
+            max_epochs=2,
+        )
+
+        msg = "Dict not supported as scorer for multi-metric scoring"
+        with pytest.raises(ValueError, match=msg):
+                net.fit(*data)
+
     def test_subclassing_epoch_scoring(
             self, classifier_module, classifier_data):
         # This test's purpose is to check that it is possible to
