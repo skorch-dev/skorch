@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve NeuralNetBinaryClassifier compatibility with certain sklearn metrics (#515)
 - NeuralNetBinaryClassifier automatically squeezes module output if necessary (#515)
 - NeuralNetClassifier now has a classes_ attribute after fit is called, which is inferred from y by default (#465, #486)
+- NeuralNet.load_params with a checkpoint now initializes when needed (#497)
 
 ### Changed
 
