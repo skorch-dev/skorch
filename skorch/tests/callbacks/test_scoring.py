@@ -469,10 +469,9 @@ class TestEpochScoring:
             max_epochs=2,
         )
 
-msg = "Dict not supported as scorer for multi-metric scoring"
-        with pytest.raises(ValueError, match=msg) as excinfo:
+        msg = "Dict not supported as scorer for multi-metric scoring"
+        with pytest.raises(ValueError, match=msg):
                 net.fit(*data)
-        assert "multi-metric scoring" in str(excinfo.value)
 
     def test_subclassing_epoch_scoring(
             self, classifier_module, classifier_data):
