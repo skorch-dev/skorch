@@ -469,8 +469,9 @@ class TestEpochScoring:
             max_epochs=2,
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError) as excinfo:
                 net.fit(*data)
+        assert "multi-metric scoring" in str(excinfo.value)
 
     def test_subclassing_epoch_scoring(
             self, classifier_module, classifier_data):
