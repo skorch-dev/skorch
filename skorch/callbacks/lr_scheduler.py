@@ -93,6 +93,7 @@ class LRScheduler(Callback):
             step = sch.step
         lrs = []
         for _ in range(steps):
+            opt.step() # suppress warning about .step call order
             lrs.append(opt.param_groups[0]['lr'])
             step()
 
