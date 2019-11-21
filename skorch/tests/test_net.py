@@ -545,8 +545,10 @@ class TestNeuralNet:
         assert np.allclose(orig_loss, new_loss)
         assert orig_steps == new_steps
 
+    @pytest.mark.parametrize("explicit_init", [True, False])
     def test_save_and_load_from_checkpoint(
-            self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
+            self, net_cls, module_cls, data, checkpoint_cls, tmpdir,
+            explicit_init):
 
         skorch_dir = tmpdir.mkdir('skorch')
         f_params = skorch_dir.join('params.pt')
@@ -570,7 +572,9 @@ class TestNeuralNet:
 
         new_net = net_cls(
             module_cls, max_epochs=4, lr=0.1,
-            optimizer=torch.optim.Adam, callbacks=[cp]).initialize()
+            optimizer=torch.optim.Adam, callbacks=[cp])
+        if explicit_init:
+            new_net.initialize()
         new_net.load_params(checkpoint=cp)
 
         assert len(new_net.history) == 4
@@ -636,7 +640,7 @@ class TestNeuralNet:
             module_cls, max_epochs=5, lr=0.1,
             optimizer=torch.optim.Adam, callbacks=[
                 ('my_score', scoring), cp
-            ]).initialize()
+            ])
         new_net.load_params(checkpoint=cp)
 
         # original run saved checkpoint at epoch 3
