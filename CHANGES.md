@@ -9,21 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- More careful check for wrong parameter names being passed to NeuralNet (#500)
+### Changed
+
+### Fixed
+
+
+## [0.7.0] - 2019-11-29
+
+### Added
+
+- More careful check for wrong parameter names being passed to `NeuralNet` (#500)
 - More helpful error messages when trying to predict using an uninitialized model
-- Add TensorBoard callback for automatic logging to tensorboard
-- Make NeuralNetBinaryClassifier work with sklearn.calibration.CalibratedClassifierCV
-- Improve NeuralNetBinaryClassifier compatibility with certain sklearn metrics (#515)
-- NeuralNetBinaryClassifier automatically squeezes module output if necessary (#515)
-- NeuralNetClassifier now has a classes_ attribute after fit is called, which is inferred from y by default (#465, #486)
-- NeuralNet.load_params with a checkpoint now initializes when needed (#497)
+- Add `TensorBoard` callback for automatic logging to tensorboard
+- Make `NeuralNetBinaryClassifier` work with `sklearn.calibration.CalibratedClassifierCV`
+- Improve `NeuralNetBinaryClassifier` compatibility with certain sklearn metrics (#515)
+- `NeuralNetBinaryClassifier` automatically squeezes module output if necessary (#515)
+- `NeuralNetClassifier` now has a `classes_` attribute after fit is called, which is inferred from y by default (#465, #486)
+- `NeuralNet.load_params` with a checkpoint now initializes when needed (#497)
 
 ### Changed
 
 - Improve numerical stability when using `NLLLoss` in `NeuralNetClassifer` (#491)
 - Refactor code to make gradient accumulation easier to implement (#506)
-- NeuralNetBinaryClassifier.predict_proba now returns a 2-dim array; to access the "old" y_proba, take y_proba[:, 1] (#515)
-- net.history is now a property that accesses net.history_, which stores the History object (#527)
+- `NeuralNetBinaryClassifier.predict_proba` now returns a 2-dim array; to access the "old" `y_proba`, take `y_proba[:, 1]` (#515)
+- `net.history` is now a property that accesses `net.history_`, which stores the `History` object (#527)
+- Remove deprecated `skorch.callbacks.CyclicLR`, use `torch.optim.lr_scheduler.CyclicLR` instead
 
 ### Future Changes
 
@@ -31,8 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed a bug that caused LoadInitState not to work with TrainEndCheckpoint (#528)
-- Fixed NeuralNetBinaryClassifier wrongly squeezing the batch dimension when using batch_size = 1 (#558)
+- Fixed a bug that caused `LoadInitState` not to work with `TrainEndCheckpoint` (#528)
+- Fixed `NeuralNetBinaryClassifier` wrongly squeezing the batch dimension when using `batch_size = 1` (#558)
 
 
 ## [0.6.0] - 2019-07-19
@@ -152,6 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the net was configured to use the CPU (#354, #358)
 
 
-[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.7.0...HEAD
 [0.4.0]: https://github.com/skorch-dev/skorch/compare/v0.3.0...v0.4.0
 [0.5.0]: https://github.com/skorch-dev/skorch/compare/v0.4.0...v0.5.0
+[0.6.0]: https://github.com/skorch-dev/skorch/compare/v0.5.0...v0.6.0
+[0.7.0]: https://github.com/skorch-dev/skorch/compare/v0.6.0...v0.7.0
