@@ -725,27 +725,40 @@ class NeuralNet:
             'dataset_valid': dataset_valid,
         }
 
-        for epoch in range(epochs):
+        for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
-            self._single_epoch(dataset_train, training=True, epoch=epoch, **fit_params)
+            self.single_epoch(dataset_train, training=True, prefix="train",
+                              step_fn=self.train_step, **fit_params)
 
             if dataset_valid is not None:
-                self._single_epoch(dataset_valid, training=False, epoch=epoch, **fit_params)
+                self.single_epoch(dataset_valid, training=False, prefix="valid",
+                                  step_fn=self.validation_step, **fit_params)
 
             self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
 
-    def _single_epoch(self, dataset, training, epoch, **fit_params):
-        """Computes a single epoch of train or validation."""
-        is_placeholder_y = uses_placeholder_y(dataset)
+    def single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
+        """Compute a single epoch of train or validation.
 
-        if training:
-            prfx = "train"
-            step_fn = self.train_step
-        else:
-            prfx = "valid"
-            step_fn = self.validation_step
+        Parameters
+        ----------
+        dataset : torch Dataset
+            The initialized dataset to loop over.
+
+        training : bool
+            Whether to set the module to train mode or not.
+
+        prefix : str
+            Prefix to use when saving to the history.
+
+        step_fn : callable
+            Function to call for each batch.
+
+        **fit_params : dict
+            Additional parameters passed to the ``step_fn``.
+        """
+        is_placeholder_y = uses_placeholder_y(dataset)
 
         batch_count = 0
         for data in self.get_iterator(dataset, training=training):
@@ -753,12 +766,12 @@ class NeuralNet:
             yi_res = yi if not is_placeholder_y else None
             self.notify("on_batch_begin", X=Xi, y=yi_res, training=training)
             step = step_fn(Xi, yi, **fit_params)
-            self.history.record_batch(prfx + "_loss", step["loss"].item())
-            self.history.record_batch(prfx + "_batch_size", get_len(Xi))
+            self.history.record_batch(prefix + "_loss", step["loss"].item())
+            self.history.record_batch(prefix + "_batch_size", get_len(Xi))
             self.notify("on_batch_end", X=Xi, y=yi_res, training=training, **step)
             batch_count += 1
 
-        self.history.record(prfx + "_batch_count", batch_count)
+        self.history.record(prefix + "_batch_count", batch_count)
 
     # pylint: disable=unused-argument
     def partial_fit(self, X, y=None, classes=None, **fit_params):
