@@ -11,7 +11,7 @@ from .regressor import NeuralNetRegressor
 from . import callbacks
 
 
-MIN_TORCH_VERSION = '0.4.1'
+MIN_TORCH_VERSION = '1.1.0'
 
 try:
     # pylint: disable=wrong-import-position
