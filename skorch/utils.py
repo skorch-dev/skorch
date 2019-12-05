@@ -9,18 +9,24 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from itertools import tee
+from packaging import version
 import pathlib
 import warnings
 
 import numpy as np
 from scipy import sparse
-from sklearn.utils import safe_indexing
+import sklearn
 import torch
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
 
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
+
+if version.parse(sklearn.__version__) >= version.parse('0.22.0'):
+    from sklearn.utils import _safe_indexing as safe_indexing
+else:
+    from sklearn.utils import safe_indexing
 
 
 class Ansi(Enum):
@@ -176,7 +182,8 @@ def _indexing_ndframe(data, i):
 
 
 def _indexing_other(data, i):
-    if isinstance(i, (int, np.integer, slice)):
+    # sklearn's safe_indexing doesn't work with tuples since 0.22
+    if isinstance(i, (int, np.integer, slice, tuple)):
         return data[i]
     return safe_indexing(data, i)
 
