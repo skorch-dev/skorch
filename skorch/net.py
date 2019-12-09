@@ -728,17 +728,17 @@ class NeuralNet:
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
-            self.single_epoch(dataset_train, training=True, prefix="train",
+            self.run_single_epoch(dataset_train, training=True, prefix="train",
                               step_fn=self.train_step, **fit_params)
 
             if dataset_valid is not None:
-                self.single_epoch(dataset_valid, training=False, prefix="valid",
+                self.run_single_epoch(dataset_valid, training=False, prefix="valid",
                                   step_fn=self.validation_step, **fit_params)
 
             self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
 
-    def single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
+    def run_single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
         """Compute a single epoch of train or validation.
 
         Parameters
