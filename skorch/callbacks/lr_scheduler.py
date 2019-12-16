@@ -1,7 +1,6 @@
 """Contains learning rate scheduler callbacks"""
 
 import sys
-import warnings
 
 # pylint: disable=unused-import
 import numpy as np

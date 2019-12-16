@@ -513,13 +513,20 @@ class TestMultiIndexing:
         assert (result == X[:100]).all()
 
     def test_index_with_float_array_raises(self, multi_indexing):
+        # sklearn < 0.22 raises IndexError with msg0
+        # sklearn >= 0.22 raises ValueError with msg1
         X = np.zeros(10)
         i = np.arange(3, 0.5)
-        with pytest.raises(IndexError) as exc:
+
+        with pytest.raises((IndexError, ValueError)) as exc:
             multi_indexing(X, i)
 
-        assert exc.value.args[0] == (
-            "arrays used as indices must be of integer (or boolean) type")
+        msg0 = "arrays used as indices must be of integer (or boolean) type"
+        msg1 = ("No valid specification of the columns. Only a scalar, list or "
+                "slice of all integers or all strings, or boolean mask is allowed")
+
+        result = exc.value.args[0]
+        assert result in (msg0, msg1)
 
     def test_boolean_index_2d(self, multi_indexing):
         X = np.arange(9).reshape(3, 3)
