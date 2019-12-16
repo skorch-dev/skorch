@@ -5,8 +5,8 @@ from contextlib import suppress
 from functools import partial
 
 import numpy as np
-from sklearn.metrics.scorer import (
-    check_scoring, _BaseScorer, make_scorer)
+from sklearn.metrics import make_scorer, check_scoring
+from sklearn.metrics.scorer import _BaseScorer
 
 from skorch.utils import data_from_dataset
 from skorch.utils import is_skorch_dataset
