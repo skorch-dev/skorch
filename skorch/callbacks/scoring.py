@@ -46,11 +46,16 @@ def convert_sklearn_metric_function(scoring):
     sklearn scorer and return it. Otherwise, return ``scoring`` unchanged."""
     if callable(scoring):
         module = getattr(scoring, '__module__', None)
+
+        # those are scoring objects returned by make_scorer starting
+        # from sklearn 0.22
+        scorer_names = ('_PredictScorer', '_ProbaScorer', '_ThresholdScorer')
         if (
                 hasattr(module, 'startswith') and
                 module.startswith('sklearn.metrics.') and
                 not module.startswith('sklearn.metrics.scorer') and
-                not module.startswith('sklearn.metrics.tests.')
+                not module.startswith('sklearn.metrics.tests.') and
+                not scoring.__class__.__name__ in scorer_names
         ):
             return make_scorer(scoring)
     return scoring
@@ -89,7 +94,12 @@ class ScoringBase(Callback):
         if isinstance(self.scoring_, partial):
             return self.scoring_.func.__name__
         if isinstance(self.scoring_, _BaseScorer):
-            return self.scoring_._score_func.__name__
+            if hasattr(self.scoring_._score_func, '__name__'):
+                # sklearn < 0.22
+                return self.scoring_._score_func.__name__
+            else:
+                # sklearn >= 0.22
+                return self.scoring_._score_func._score_func.__name__
         if isinstance(self.scoring_, dict):
             raise ValueError("Dict not supported as scorer for multi-metric scoring."
                              " Register multiple scoring callbacks instead.")

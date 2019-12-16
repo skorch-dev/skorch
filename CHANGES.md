@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Make skorch compatible with sklearn 0.22
 
 ## [0.7.0] - 2019-11-29
 
