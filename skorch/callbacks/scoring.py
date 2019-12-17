@@ -3,10 +3,16 @@
 from contextlib import contextmanager
 from contextlib import suppress
 from functools import partial
+from packaging import version
 
 import numpy as np
+import sklearn
 from sklearn.metrics import make_scorer, check_scoring
-from sklearn.metrics.scorer import _BaseScorer
+
+if version.parse(sklearn.__version__) >= version.parse('0.22.0'):
+    from sklearn.metrics._scorer import _BaseScorer
+else:
+    from sklearn.metrics.scorer import _BaseScorer
 
 from skorch.utils import data_from_dataset
 from skorch.utils import is_skorch_dataset
