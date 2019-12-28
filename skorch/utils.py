@@ -181,6 +181,7 @@ def _indexing_list_tuple_of_data(data, i, indexings=None):
     if not indexings:
         return [multi_indexing(x, i) for x in data]
     return [multi_indexing(x, i, indexing)
+            for x, indexing in zip(data, indexings)]
 
 
 def _indexing_ndframe(data, i):
