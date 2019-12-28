@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from itertools import tee
-from packaging import version
+from distutils.version import LooseVersion
 import pathlib
 import warnings
 
@@ -23,7 +23,7 @@ from torch.utils.data.dataset import Subset
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 
-if version.parse(sklearn.__version__) >= version.parse('0.22.0'):
+if LooseVersion(sklearn.__version__) >= '0.22.0':
     from sklearn.utils import _safe_indexing as safe_indexing
 else:
     from sklearn.utils import safe_indexing
@@ -93,8 +93,8 @@ def to_tensor(X, device, accept_sparse=False):
         return torch.as_tensor(X, device=device)
     if sparse.issparse(X):
         if accept_sparse:
-            return torch.sparse_coo_tensor(
-                X.nonzero(), X.data, size=X.shape).to(device)
+            return torch.sparse_coo_tensor(X.nonzero(), X.data,
+                                           size=X.shape).to(device)
         raise TypeError("Sparse matrices are not supported. Set "
                         "accept_sparse=True to allow sparse matrices.")
 
@@ -180,8 +180,9 @@ def _indexing_list_tuple_of_data(data, i, indexings=None):
     """
     if not indexings:
         return [multi_indexing(x, i) for x in data]
-    return [multi_indexing(x, i, indexing)
-            for x, indexing in zip(data, indexings)]
+    return [
+        multi_indexing(x, i, indexing) for x, indexing in zip(data, indexings)
+    ]
 
 
 def _indexing_ndframe(data, i):
@@ -345,8 +346,10 @@ def params_for(prefix, kwargs):
     """
     if not prefix.endswith('__'):
         prefix += '__'
-    return {key[len(prefix):]: val for key, val in kwargs.items()
-            if key.startswith(prefix)}
+    return {
+        key[len(prefix):]: val
+        for key, val in kwargs.items() if key.startswith(prefix)
+    }
 
 
 # pylint: disable=invalid-name
@@ -378,8 +381,9 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
     X, y = _none, _none
 
     if isinstance(dataset, Subset):
-        X, y = data_from_dataset(
-            dataset.dataset, X_indexing=X_indexing, y_indexing=y_indexing)
+        X, y = data_from_dataset(dataset.dataset,
+                                 X_indexing=X_indexing,
+                                 y_indexing=y_indexing)
         X = multi_indexing(X, dataset.indices, indexing=X_indexing)
         y = multi_indexing(y, dataset.indices, indexing=y_indexing)
     elif hasattr(dataset, 'X') and hasattr(dataset, 'y'):
@@ -407,8 +411,6 @@ def noop(*args, **kwargs):
     This is useful for defining scoring callbacks that do not need a
     target extractor.
     """
-
-
 @contextmanager
 def open_file_like(f, mode):
     """Wrapper for opening a file"""
@@ -490,8 +492,7 @@ def get_map_location(target_device, fallback_device='cpu'):
         warnings.warn(
             'Requested to load data to CUDA but no CUDA devices '
             'are available. Loading on device "{}" instead.'.format(
-                fallback_device,
-            ), DeviceWarning)
+                fallback_device, ), DeviceWarning)
         map_location = torch.device(fallback_device)
     return map_location
 
@@ -510,7 +511,6 @@ def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
         msg = ("This %(name)s instance is not initialized yet. Call "
                "'initialize' or 'fit' with appropriate arguments "
                "before using this method.")
-
 
     if not isinstance(attributes, (list, tuple)):
         attributes = [attributes]
