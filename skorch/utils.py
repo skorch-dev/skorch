@@ -9,20 +9,24 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from itertools import tee
+from packaging import version
 import pathlib
 import warnings
 
 import numpy as np
 from scipy import sparse
-from sklearn.utils import safe_indexing
-from sklearn.exceptions import NotFittedError
-from sklearn.utils.validation import check_is_fitted as sklearn_check_is_fitted
+import sklearn
 import torch
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
 
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
+
+if version.parse(sklearn.__version__) >= version.parse('0.22.0'):
+    from sklearn.utils import _safe_indexing as safe_indexing
+else:
+    from sklearn.utils import safe_indexing
 
 
 class Ansi(Enum):
@@ -121,6 +125,17 @@ def to_numpy(X):
     return X.numpy()
 
 
+def to_device(X, device):
+    """Generic function to move module output(s) to a device.
+
+    Deals with X being a torch tensor or a tuple of torch tensors.
+
+    """
+    if isinstance(X, tuple):
+        return tuple(x.to(device) for x in X)
+    return X.to(device)
+
+
 def get_dim(y):
     """Return the number of dimensions of a torch tensor or numpy
     array-like object.
@@ -178,7 +193,8 @@ def _indexing_ndframe(data, i):
 
 
 def _indexing_other(data, i):
-    if isinstance(i, (int, np.integer, slice)):
+    # sklearn's safe_indexing doesn't work with tuples since 0.22
+    if isinstance(i, (int, np.integer, slice, tuple)):
         return data[i]
     return safe_indexing(data, i)
 
@@ -494,15 +510,13 @@ def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
         msg = ("This %(name)s instance is not initialized yet. Call "
                "'initialize' or 'fit' with appropriate arguments "
                "before using this method.")
-    try:
-        sklearn_check_is_fitted(
-            estimator=estimator,
-            attributes=attributes,
-            msg=msg,
-            all_or_any=all_or_any,
-        )
-    except NotFittedError as e:
-        raise NotInitializedError(str(e))
+
+
+    if not isinstance(attributes, (list, tuple)):
+        attributes = [attributes]
+
+    if not all_or_any([hasattr(estimator, attr) for attr in attributes]):
+        raise NotInitializedError(msg % {'name': type(estimator).__name__})
 
 
 class TeeGenerator:
