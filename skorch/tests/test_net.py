@@ -28,7 +28,6 @@ import torch
 from torch import nn
 from flaky import flaky
 
-from skorch.exceptions import NotInitializedError
 from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
 from skorch.utils import to_numpy
@@ -36,6 +35,7 @@ from skorch.utils import is_torch_data_type
 
 
 torch.manual_seed(0)
+ACCURACY_EXPECTED = 0.65
 
 
 # pylint: disable=too-many-public-methods
@@ -108,7 +108,7 @@ class TestNeuralNet:
         # remove mock callback
         net_fit.callbacks_ = [(n, cb) for n, cb in net_fit.callbacks_
                               if not isinstance(cb, Mock)]
-        net_clone = clone(net_fit)
+        net_clone = copy.deepcopy(net_fit)
         net_fit.callbacks = callbacks
         net_fit.callbacks_ = callbacks_
         return net_clone
@@ -271,7 +271,7 @@ class TestNeuralNet:
         )
         net.fit(X, y)
         y_pred = net.predict(X)
-        assert accuracy_score(y, y_pred) > 0.65
+        assert accuracy_score(y, y_pred) > ACCURACY_EXPECTED
 
     def test_forward(self, net_fit, data):
         X = data[0]
@@ -544,8 +544,10 @@ class TestNeuralNet:
         assert np.allclose(orig_loss, new_loss)
         assert orig_steps == new_steps
 
+    @pytest.mark.parametrize("explicit_init", [True, False])
     def test_save_and_load_from_checkpoint(
-            self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
+            self, net_cls, module_cls, data, checkpoint_cls, tmpdir,
+            explicit_init):
 
         skorch_dir = tmpdir.mkdir('skorch')
         f_params = skorch_dir.join('params.pt')
@@ -569,7 +571,9 @@ class TestNeuralNet:
 
         new_net = net_cls(
             module_cls, max_epochs=4, lr=0.1,
-            optimizer=torch.optim.Adam, callbacks=[cp]).initialize()
+            optimizer=torch.optim.Adam, callbacks=[cp])
+        if explicit_init:
+            new_net.initialize()
         new_net.load_params(checkpoint=cp)
 
         assert len(new_net.history) == 4
@@ -635,7 +639,7 @@ class TestNeuralNet:
             module_cls, max_epochs=5, lr=0.1,
             optimizer=torch.optim.Adam, callbacks=[
                 ('my_score', scoring), cp
-            ]).initialize()
+            ])
         new_net.load_params(checkpoint=cp)
 
         # original run saved checkpoint at epoch 3
@@ -1243,6 +1247,48 @@ class TestNeuralNet:
         net.get_params()
         net.initialize()
         net.get_params()
+
+    @pytest.mark.new_get_params_behavior
+    @pytest.mark.xfail(strict=True)
+    def test_get_params_no_learned_params(self, net_fit):
+        # TODO: This test should fail for now but should succeed once
+        # we change the behavior of get_params to be more in line with
+        # sklearn. At that point, remove the decorators.
+        params = net_fit.get_params()
+        params_learned = set(filter(lambda x: x.endswith('_'), params))
+        assert not params_learned
+
+    @pytest.mark.new_get_params_behavior
+    @pytest.mark.xfail(strict=True)
+    def test_clone_results_in_uninitialized_net(
+            self, net_fit, data):
+        # TODO: This test should fail for now but should succeed once
+        # we change the behavior of get_params to be more in line with
+        # sklearn. At that point, remove the decorators.
+        X, y = data
+        accuracy = accuracy_score(net_fit.predict(X), y)
+        assert accuracy > ACCURACY_EXPECTED  # make sure net has learned
+
+        net_cloned = clone(net_fit).set_params(max_epochs=0)
+        net_cloned.callbacks_ = []
+        net_cloned.partial_fit(X, y)
+        accuracy_cloned = accuracy_score(net_cloned.predict(X), y)
+        assert accuracy_cloned < ACCURACY_EXPECTED
+
+        assert not net_cloned.history
+
+    @pytest.mark.new_get_params_behavior
+    def test_clone_copies_parameters(self, net_cls, module_cls):
+        kwargs = dict(
+            module__hidden_units=20,
+            lr=0.2,
+            iterator_train__batch_size=123,
+        )
+        net = net_cls(module_cls, **kwargs)
+        net_cloned = clone(net)
+        params = net_cloned.get_params()
+        for key, val in kwargs.items():
+            assert params[key] == val
 
     def test_with_initialized_module(self, net_cls, module_cls, data):
         X, y = data

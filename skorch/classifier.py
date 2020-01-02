@@ -28,18 +28,31 @@ neural_net_clf_doc_start = """NeuralNet for classification tasks
 
 """
 
-neural_net_clf_criterion_text = """
+neural_net_clf_additional_text = """
 
     criterion : torch criterion (class, default=torch.nn.NLLLoss)
       Negative log likelihood loss. Note that the module should return
-      probabilities, the log is applied during ``get_loss``."""
+      probabilities, the log is applied during ``get_loss``.
+
+    classes : None or list (default=None)
+      If None, the ``classes_`` attribute will be inferred from the
+      ``y`` data passed to ``fit``. If a non-empty list is passed,
+      that list will be returned as ``classes_``. If the initial
+      skorch behavior should be restored, i.e. raising an
+      ``AttributeError``, pass an empty list."""
+
+neural_net_clf_additional_attribute = """classes_ : array, shape (n_classes, )
+      A list of class labels known to the classifier.
+
+"""
 
 
 def get_neural_net_clf_doc(doc):
     doc = neural_net_clf_doc_start + " " + doc.split("\n ", 4)[-1]
     pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
     start, end = pattern.search(doc).span()
-    doc = doc[:start] + neural_net_clf_criterion_text + doc[end:]
+    doc = doc[:start] + neural_net_clf_additional_text + doc[end:]
+    doc = doc + neural_net_clf_additional_attribute
     return doc
 
 
@@ -53,6 +66,7 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
             *args,
             criterion=torch.nn.NLLLoss,
             train_split=CVSplit(5, stratified=True),
+            classes=None,
             **kwargs
     ):
         super(NeuralNetClassifier, self).__init__(
@@ -62,6 +76,7 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
             train_split=train_split,
             **kwargs
         )
+        self.classes = classes
 
     @property
     def _default_callbacks(self):
@@ -86,6 +101,15 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
             ('print_log', PrintLog()),
         ]
 
+    @property
+    def classes_(self):
+        if self.classes is not None:
+            if not len(self.classes):
+                raise AttributeError("{} has no attribute 'classes_'".format(
+                    self.__class__.__name__))
+            return self.classes
+        return self.classes_inferred_
+
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         if (
@@ -99,6 +123,8 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
                    "``iterator_train`` and ``iterator_valid`` parameters "
                    "respectively.")
             raise ValueError(msg)
+        if y is not None:
+            self.classes_inferred_ = np.unique(y)
 
     # pylint: disable=arguments-differ
     def get_loss(self, y_pred, y_true, *args, **kwargs):
@@ -281,7 +307,7 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
 
         The first output of the ``module`` must be a single array that
         has either shape (n,) or shape (n, 1). In the latter case, the
-        output will be squeezed to become 1-dim.
+        output will be reshaped to become 1-dim.
 
         """
         y_infer = super().infer(x, **fit_params)
@@ -294,7 +320,7 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
                 "Expected module output to have shape (n,) or "
                 "(n, 1), got {} instead".format(tuple(y_infer.shape)))
 
-        y_infer = y_infer.squeeze()
+        y_infer = y_infer.reshape(-1)
         if rest is None:
             return y_infer
         return (y_infer,) + tuple(rest)

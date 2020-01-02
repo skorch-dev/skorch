@@ -10,6 +10,7 @@ from flaky import flaky
 import numpy as np
 import pytest
 import torch
+from sklearn.base import clone
 from torch import nn
 
 from skorch.tests.conftest import INFERENCE_METHODS
@@ -56,6 +57,9 @@ class TestNeuralNet:
         # side effects on other tests.
         X, y = data
         return net.fit(X, y)
+
+    def test_clone(self, net_fit):
+        clone(net_fit)
 
     def test_predict_and_predict_proba(self, net_fit, data):
         X = data[0]
@@ -107,6 +111,51 @@ class TestNeuralNet:
         net.fit(*data)
         assert np.any(~np.isnan(net.history[:, 'train_loss']))
 
+    def test_binary_classes_set_by_default(self, net_cls, module_cls, data):
+        net = net_cls(module_cls).fit(*data)
+        assert (net.classes_ == [0, 1]).all()
+
+    def test_non_binary_classes_set_by_default(self, net_cls, module_cls, data):
+        X = data[0]
+        y = np.arange(len(X)) % 10
+        net = net_cls(module_cls, max_epochs=0).fit(X, y)
+        assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
+    def test_classes_data_torch_tensor(self, net_cls, module_cls, data):
+        X = torch.as_tensor(data[0])
+        y = torch.as_tensor(np.arange(len(X)) % 10)
+
+        net = net_cls(module_cls, max_epochs=0).fit(X, y)
+        assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
+    def test_classes_with_gaps(self, net_cls, module_cls, data):
+        X = data[0]
+        y = np.arange(len(X)) % 10
+        y[(y == 0) | (y == 5)] = 4  # remove classes 0 and 5
+        net = net_cls(module_cls, max_epochs=0).fit(X, y)
+        assert (net.classes_ == [1, 2, 3, 4, 6, 7, 8, 9]).all()
+
+    def test_pass_classes_explicitly_overrides(self, net_cls, module_cls, data):
+        net = net_cls(module_cls, max_epochs=0, classes=['foo', 'bar']).fit(*data)
+        assert net.classes_ == ['foo', 'bar']
+
+    @pytest.mark.parametrize('classes', [[], np.array([])])
+    def test_pass_empty_classes_raises(
+            self, net_cls, module_cls, data, classes):
+        net = net_cls(
+            module_cls, max_epochs=0, classes=classes).fit(*data).fit(*data)
+        with pytest.raises(AttributeError) as exc:
+            net.classes_
+
+        msg = exc.value.args[0]
+        expected = "NeuralNetClassifier has no attribute 'classes_'"
+        assert msg == expected
+
+    def test_with_calibrated_classifier_cv(self, net_fit, data):
+        from sklearn.calibration import CalibratedClassifierCV
+        cccv = CalibratedClassifierCV(net_fit, cv=2)
+        cccv.fit(*data)
+
 
 class TestNeuralNetBinaryClassifier:
     @pytest.fixture(scope='module')
@@ -152,6 +201,9 @@ class TestNeuralNetBinaryClassifier:
         # fitting does not raise anything
         pass
 
+    def test_clone(self, net_fit):
+        clone(net_fit)
+
     @pytest.mark.parametrize('method', INFERENCE_METHODS)
     def test_not_fitted_raises(self, net_cls, module_cls, data, method):
         from skorch.exceptions import NotInitializedError
@@ -182,6 +234,15 @@ class TestNeuralNetBinaryClassifier:
 
         valid_acc = net.history[-1, 'valid_acc']
         assert valid_acc > 0.65
+
+    def test_batch_size_one(self, net_cls, module_cls, data):
+        X, y = data
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            batch_size=1,
+        )
+        net.fit(X, y)
 
     def test_history_default_keys(self, net_fit):
         expected_keys = {

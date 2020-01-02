@@ -247,5 +247,5 @@ Communication
   reports, feature requests, install issues, RFCs, thoughts, etc.
 
 - Slack: We run the #skorch channel on the `PyTorch Slack server
-  <https://pytorch.slack.com/>`_.  If you need an invite, send an
-  email to daniel.nouri@gmail.com.
+  <https://pytorch.slack.com/>`_, for which you can `request access
+  here <https://bit.ly/ptslack>`_.
