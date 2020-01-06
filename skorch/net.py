@@ -993,6 +993,9 @@ class NeuralNet:
             return self.module_(**x_dict)
         return self.module_(x, **fit_params)
 
+    def transform_proba(self, yp):
+        return yp
+
     def predict_proba(self, X):
         """Return the output of the module's forward method as a numpy
         array.
@@ -1027,6 +1030,7 @@ class NeuralNet:
         y_probas = []
         for yp in self.forward_iter(X, training=False):
             yp = yp[0] if isinstance(yp, tuple) else yp
+            yp = self.transform_proba(yp)
             y_probas.append(to_numpy(yp))
         y_proba = np.concatenate(y_probas, 0)
         return y_proba
