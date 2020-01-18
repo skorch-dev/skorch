@@ -729,11 +729,11 @@ class NeuralNet:
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             self.run_single_epoch(dataset_train, training=True, prefix="train",
-                              step_fn=self.train_step, **fit_params)
+                                  step_fn=self.train_step, **fit_params)
 
             if dataset_valid is not None:
                 self.run_single_epoch(dataset_valid, training=False, prefix="valid",
-                                  step_fn=self.validation_step, **fit_params)
+                                      step_fn=self.validation_step, **fit_params)
 
             self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
