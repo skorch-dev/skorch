@@ -441,7 +441,7 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
                 continue
 
             if (
-                    dtype in (np.dtype('int32'), np.dtype('int64'))
+                    np.issubdtype(dtype, np.integer):
                     and self.treat_int_as_categorical
             ):
                 x = X_col.astype('category').cat.codes.values
