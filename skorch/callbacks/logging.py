@@ -71,8 +71,9 @@ class PrintLog(Callback):
     To determine the best loss, ``PrintLog`` looks for keys that end on
     ``'_best'`` and associates them with the corresponding loss. E.g.,
     ``'train_loss_best'`` will be matched with ``'train_loss'``. The
-    ``Scoring`` callback takes care of creating those entries, which is
-    why ``PrintLog`` works best in conjunction with that callback.
+    :class:`skorch.callbacks.EpochScoring` callback takes care of
+    creating those entries, which is why ``PrintLog`` works best in
+    conjunction with that callback.
 
     ``PrintLog`` treats keys with the ``'event_'`` prefix in a special
     way. They are assumed to contain information about occasionally
