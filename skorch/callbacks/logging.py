@@ -161,7 +161,6 @@ class NeptuneLogger(Callback):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
         self.keys_ignored_.add('batches')
-        self.keys_ignored_.add('epoch')
         return self
 
     def on_batch_end(self, net, **kwargs):

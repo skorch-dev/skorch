@@ -125,6 +125,13 @@ def data():
     y = np.array([-1, 0, 5, 4]).astype(np.float32).reshape(-1, 1)
     return X, y
 
+neptune_installed = False
+try:
+    # pylint: disable=unused-import
+    import neptune
+    neptune_installed = True
+except ImportError:
+    pass
 
 pandas_installed = False
 try:
