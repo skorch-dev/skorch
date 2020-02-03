@@ -79,6 +79,9 @@ class NeptuneLogger(Callback):
 
     >>> pip install psutil
 
+    You can view example experiment logs here:
+    https://ui.neptune.ai/o/neptune-ai/org/skorch-integration/e/SKOR-24/charts
+
     Examples
     --------
     >>> # Create a neptune experiment object
