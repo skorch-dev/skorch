@@ -66,13 +66,18 @@ class EpochTimer(Callback):
 class NeptuneLogger(Callback):
     """Logs results from history to Neptune
 
-    "Neptune is a lightweight experiment tracking tool" (Neptune_)
+    Neptune is a lightweight experiment tracking tool.
+    You can read more about it here: https://neptune.ai
 
     Use this callback to automatically log all interesting values from
     your net's history to Neptune.
 
     The best way to log additional information is to log directly to the
     experiment object or subclass the `on_*`` methods.
+
+    To monitor resource consumption install psutil
+
+    >>> pip install psutil
 
     Examples
     --------
@@ -138,8 +143,6 @@ class NeptuneLogger(Callback):
     Install psutil to monitor resource consumption
 
     > pip install psutil
-
-    .. _Neptune: https://www.neptune.ai
 
     """
 
