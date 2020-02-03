@@ -410,8 +410,7 @@ class TestProgressBar:
         (1, [1, 1]),  # offset by -1, should still work
     ])
     def test_different_count_schemes(
-            self, tqdm_mock, scheme, expected_total, net_cls, progressbar_cls,
-            data):
+            self, tqdm_mock, scheme, expected_total, net_cls, progressbar_cls, data):
         net = net_cls(callbacks=[
             progressbar_cls(batches_per_epoch=scheme),
         ])
@@ -513,8 +512,7 @@ class TestTensorBoard:
         # 3 epochs with 4 keys
         assert add_scalar.call_count == 3 * 4
         keys = {call_args[1]['tag'] for call_args in add_scalar.call_args_list}
-        expected = {'dur', 'Loss/train_loss', 'Loss/valid_loss',
-                    'Loss/valid_acc'}
+        expected = {'dur', 'Loss/train_loss', 'Loss/valid_loss', 'Loss/valid_acc'}
         assert keys == expected
 
     def test_ignore_keys(
@@ -640,8 +638,7 @@ class TestTensorBoard:
         X, y = data
 
         # create a dictionary with unordered keys
-        X_dict = {k: X[:, i:i + 4] for k, i in
-                  zip('cebad', range(0, X.shape[1], 4))}
+        X_dict = {k: X[:, i:i + 4] for k, i in zip('cebad', range(0, X.shape[1], 4))}
 
         class MyModule(MLPModule):
             # use different order for args here

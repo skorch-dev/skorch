@@ -14,8 +14,7 @@ from skorch.utils import Ansi
 from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
-__all__ = ['EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar',
-           'TensorBoard']
+__all__ = ['EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar', 'TensorBoard']
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -50,7 +49,6 @@ class EpochTimer(Callback):
     history with the name ``dur``.
 
     """
-
     def __init__(self, **kwargs):
         super(EpochTimer, self).__init__(**kwargs)
 
@@ -148,7 +146,6 @@ class NeptuneLogger(Callback):
     > pip install psutil
 
     """
-
     def __init__(
             self,
             experiment,
@@ -241,7 +238,6 @@ class PrintLog(Callback):
       be consistent with numerical columns).
 
     """
-
     def __init__(
             self,
             keys_ignored=None,
@@ -306,8 +302,7 @@ class PrintLog(Callback):
             sorted_keys.append('epoch')
 
         # ignore keys like *_best or event_*
-        for key in filter_log_keys(sorted(keys),
-                                   keys_ignored=self.keys_ignored_):
+        for key in filter_log_keys(sorted(keys), keys_ignored=self.keys_ignored_):
             if key != 'dur':
                 sorted_keys.append(key)
 
@@ -411,7 +406,6 @@ class ProgressBar(Callback):
 
       >>> net.history[-1, 'batches', -1, key]
     """
-
     def __init__(
             self,
             batches_per_epoch='auto',
@@ -461,8 +455,7 @@ class ProgressBar(Callback):
         self.pbar.update()
 
     # pylint: disable=attribute-defined-outside-init, arguments-differ
-    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None,
-                       **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         # Assume it is a number until proven otherwise.
         batches_per_epoch = self.batches_per_epoch
 
@@ -551,7 +544,6 @@ class TensorBoard(Callback):
     .. _tensorboard: https://www.tensorflow.org/tensorboard/
 
     """
-
     def __init__(
             self,
             writer,
