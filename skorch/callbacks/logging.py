@@ -72,11 +72,17 @@ class NeptuneLogger(Callback):
     your net's history to Neptune.
 
     The best way to log additional information is to log directly to the
-    experiment object or subclass the `on_*`` methods.
+    experiment object or subclass the ``on_*`` methods.
 
     Examples
     --------
+    >>> # Install neptune
+    >>> pip install neptune-client
+    >>> # To monitor resource consumption install psutil (optional)
+    >>> pip install psutil
     >>> # Create a neptune experiment object
+    >>> import neptune
+    ...
     >>> neptune.init('neptune-ai/skorch-integration')
     ... experiment = neptune.create_experiment(
     ...                        name='skorch-basic-example',
@@ -121,6 +127,9 @@ class NeptuneLogger(Callback):
     experiment : neptune.experiments.Experiment
       Instantiated ``Experiment`` class.
 
+    log_on_batch_end : bool (default=False)
+      Whether to log loss and other metrics on batch level.
+
     close_after_train : bool (default=True)
       Whether to close the ``Experiment`` object once training
       finishes. Set this parameter to False if you want to continue
@@ -130,14 +139,8 @@ class NeptuneLogger(Callback):
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be logged to
       Neptune. Note that in addition to the keys provided by the
-      user.
-
-    Note
-    ----
-
-    Install psutil to monitor resource consumption
-
-    > pip install psutil
+      user, keys such as those starting with 'event_' or ending on
+      '_best' are ignored by default.
 
     .. _Neptune: https://www.neptune.ai
 
@@ -146,10 +149,12 @@ class NeptuneLogger(Callback):
     def __init__(
             self,
             experiment,
+            log_on_batch_end=False,
             close_after_train=True,
             keys_ignored=None,
     ):
         self.experiment = experiment
+        self.log_on_batch_end = log_on_batch_end
         self.close_after_train = close_after_train
         self.keys_ignored = keys_ignored
 
@@ -165,10 +170,11 @@ class NeptuneLogger(Callback):
         return self
 
     def on_batch_end(self, net, **kwargs):
-        batch_logs = net.history[-1]['batches'][-1]
+        if self.log_on_batch_end:
+            batch_logs = net.history[-1]['batches'][-1]
 
-        for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
-            self.experiment.log_metric(key, batch_logs[key])
+            for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
+                self.experiment.log_metric(key, batch_logs[key])
 
     def on_epoch_end(self, net, **kwargs):
         """Automatically log values from the last history step."""

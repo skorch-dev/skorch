@@ -10,7 +10,7 @@ import pytest
 import torch
 from torch import nn
 
-from skorch.tests.conftest import tensorboard_installed
+from skorch.tests.conftest import neptune_installed, tensorboard_installed
 
 
 @pytest.mark.skipif(
@@ -29,18 +29,21 @@ class TestNeptune:
         return X, y
 
     @pytest.fixture
-    def tensorboard_cls(self):
-        from skorch.callbacks import TensorBoard
-        return TensorBoard
+    def neptune_logger_cls(self):
+        from skorch.callbacks import NeptuneLogger
+        return NeptuneLogger
 
     @pytest.fixture
-    def summary_writer_cls(self):
-        from torch.utils.tensorboard import SummaryWriter
-        return SummaryWriter
+    def neptune_experiment_cls(self):
+        import neptune
+        neptune.init(project_qualified_name="dry-run/project",
+                     backend=neptune.OfflineBackend())
+        experiment = neptune.create_experiment()
+        return experiment
 
     @pytest.fixture
-    def mock_writer(self, summary_writer_cls):
-        mock = Mock(spec=summary_writer_cls)
+    def mock_experiment(self, neptune_experiment_cls):
+        mock = Mock(spec=neptune_experiment_cls)
         return mock
 
     @pytest.fixture
@@ -49,37 +52,14 @@ class TestNeptune:
             net_cls,
             classifier_module,
             data,
-            tensorboard_cls,
-            mock_writer,
+            neptune_logger_cls,
+            mock_experiment,
     ):
         return net_cls(
             classifier_module,
-            callbacks=[tensorboard_cls(mock_writer)],
+            callbacks=[neptune_logger_cls(mock_experiment)],
             max_epochs=3,
         ).fit(*data)
-
-    @pytest.mark.skipif(
-        True, reason="Waiting for proper implementation of graph tracing")
-    def test_graph_added_once(self, net_fitted, mock_writer):
-        # graph should just be added once
-        assert mock_writer.add_graph.call_count == 1
-
-    @pytest.mark.skipif(
-        True, reason="Waiting for proper implementation of graph tracing")
-    def test_include_graph_false(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            mock_writer,
-    ):
-        net_cls(
-            classifier_module,
-            callbacks=[tensorboard_cls(mock_writer, include_graph=False)],
-            max_epochs=2,
-        ).fit(*data)
-        assert mock_writer.add_graph.call_count == 0
 
     def test_writer_closed_automatically(self, net_fitted, mock_writer):
         assert mock_writer.close.call_count == 1
