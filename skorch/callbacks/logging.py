@@ -14,8 +14,7 @@ from skorch.utils import Ansi
 from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
-__all__ = ['EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar',
-           'TensorBoard']
+__all__ = ['EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar', 'TensorBoard']
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -50,7 +49,6 @@ class EpochTimer(Callback):
     history with the name ``dur``.
 
     """
-
     def __init__(self, **kwargs):
         super(EpochTimer, self).__init__(**kwargs)
 
@@ -66,7 +64,8 @@ class EpochTimer(Callback):
 class NeptuneLogger(Callback):
     """Logs results from history to Neptune
 
-    "Neptune is a lightweight experiment tracking tool" (Neptune_)
+    Neptune is a lightweight experiment tracking tool.
+    You can read more about it here: https://neptune.ai
 
     Use this callback to automatically log all interesting values from
     your net's history to Neptune.
@@ -74,20 +73,29 @@ class NeptuneLogger(Callback):
     The best way to log additional information is to log directly to the
     experiment object or subclass the ``on_*`` methods.
 
+    To monitor resource consumption install psutil
+
+    >>> pip install psutil
+
+    You can view example experiment logs here:
+    https://ui.neptune.ai/o/shared/org/skorch-integration/e/SKOR-4/logs
+
     Examples
     --------
     >>> # Install neptune
     >>> pip install neptune-client
-    >>> # To monitor resource consumption install psutil (optional)
-    >>> pip install psutil
     >>> # Create a neptune experiment object
     >>> import neptune
     ...
-    >>> neptune.init('neptune-ai/skorch-integration')
+    ... # We are using api token for an anonymous user.
+    ... # For your projects use the token associated with your neptune.ai account
+    >>> neptune.init(api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5tbCIsImFwaV9rZXkiOiJiNzA2YmM4Zi03NmY5LTRjMmUtOTM5ZC00YmEwMzZmOTMyZTQifQ==',
+    ...              project_qualified_name='shared/skorch-integration')
+    ...
     ... experiment = neptune.create_experiment(
     ...                        name='skorch-basic-example',
     ...                        params={'max_epochs': 20,
-    ...                                'lr': 0.1},
+    ...                                'lr': 0.01},
     ...                        upload_source_files=['skorch_example.py'])
 
     >>> # Create a neptune_logger callback
@@ -166,7 +174,6 @@ class NeptuneLogger(Callback):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
         self.keys_ignored_.add('batches')
-        self.keys_ignored_.add('epoch')
         return self
 
     def on_batch_end(self, net, **kwargs):
@@ -242,7 +249,6 @@ class PrintLog(Callback):
       be consistent with numerical columns).
 
     """
-
     def __init__(
             self,
             keys_ignored=None,
@@ -307,8 +313,7 @@ class PrintLog(Callback):
             sorted_keys.append('epoch')
 
         # ignore keys like *_best or event_*
-        for key in filter_log_keys(sorted(keys),
-                                   keys_ignored=self.keys_ignored_):
+        for key in filter_log_keys(sorted(keys), keys_ignored=self.keys_ignored_):
             if key != 'dur':
                 sorted_keys.append(key)
 
@@ -412,7 +417,6 @@ class ProgressBar(Callback):
 
       >>> net.history[-1, 'batches', -1, key]
     """
-
     def __init__(
             self,
             batches_per_epoch='auto',
@@ -462,8 +466,7 @@ class ProgressBar(Callback):
         self.pbar.update()
 
     # pylint: disable=attribute-defined-outside-init, arguments-differ
-    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None,
-                       **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         # Assume it is a number until proven otherwise.
         batches_per_epoch = self.batches_per_epoch
 
@@ -552,7 +555,6 @@ class TensorBoard(Callback):
     .. _tensorboard: https://www.tensorflow.org/tensorboard/
 
     """
-
     def __init__(
             self,
             writer,

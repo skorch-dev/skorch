@@ -36,14 +36,15 @@ class TestNeptune:
     @pytest.fixture
     def neptune_experiment_cls(self):
         import neptune
-        neptune.init(project_qualified_name="dry-run/project",
+        neptune.init(project_qualified_name="tests/dry-run",
                      backend=neptune.OfflineBackend())
-        experiment = neptune.create_experiment()
-        return experiment
+        return neptune.create_experiment
 
     @pytest.fixture
     def mock_experiment(self, neptune_experiment_cls):
         mock = Mock(spec=neptune_experiment_cls)
+        mock.log_metric = Mock()
+        mock.stop = Mock()
         return mock
 
     @pytest.fixture
@@ -61,175 +62,63 @@ class TestNeptune:
             max_epochs=3,
         ).fit(*data)
 
-    def test_writer_closed_automatically(self, net_fitted, mock_writer):
-        assert mock_writer.close.call_count == 1
+    def test_experiment_closed_automatically(self, net_fitted, mock_experiment):
+        assert mock_experiment.stop.call_count == 1
 
-    def test_writer_not_closed(
+    def test_experiment_not_closed(
             self,
             net_cls,
             classifier_module,
             data,
-            tensorboard_cls,
-            mock_writer,
+            neptune_logger_cls,
+            mock_experiment,
     ):
         net_cls(
             classifier_module,
-            callbacks=[tensorboard_cls(mock_writer, close_after_train=False)],
+            callbacks=[
+                neptune_logger_cls(mock_experiment, close_after_train=False)],
             max_epochs=2,
         ).fit(*data)
-        assert mock_writer.close.call_count == 0
-
-    def test_keys_from_history_logged(self, net_fitted, mock_writer):
-        add_scalar = mock_writer.add_scalar
-
-        # 3 epochs with 4 keys
-        assert add_scalar.call_count == 3 * 4
-        keys = {call_args[1]['tag'] for call_args in add_scalar.call_args_list}
-        expected = {'dur', 'Loss/train_loss', 'Loss/valid_loss',
-                    'Loss/valid_acc'}
-        assert keys == expected
+        assert mock_experiment.stop.call_count == 0
 
     def test_ignore_keys(
             self,
             net_cls,
             classifier_module,
             data,
-            tensorboard_cls,
-            mock_writer,
+            neptune_logger_cls,
+            mock_experiment,
     ):
         # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
         # this should not cause a problem
-        tb = tensorboard_cls(
-            mock_writer, keys_ignored=['dur', 'valid_loss', 'unknown'])
+        npt = neptune_logger_cls(
+            mock_experiment, keys_ignored=['dur', 'valid_loss', 'unknown'])
         net_cls(
             classifier_module,
-            callbacks=[tb],
+            callbacks=[npt],
             max_epochs=3,
         ).fit(*data)
-        add_scalar = mock_writer.add_scalar
 
-        keys = {call_args[1]['tag'] for call_args in add_scalar.call_args_list}
-        expected = {'Loss/train_loss', 'Loss/valid_acc'}
-        assert keys == expected
-
-    def test_keys_ignored_is_string(self, tensorboard_cls, mock_writer):
-        tb = tensorboard_cls(mock_writer, keys_ignored='a-key').initialize()
+    def test_keys_ignored_is_string(self, neptune_logger_cls, mock_experiment):
+        npt = neptune_logger_cls(mock_experiment,
+                                 keys_ignored='a-key').initialize()
         expected = {'a-key', 'batches'}
-        assert tb.keys_ignored_ == expected
+        assert npt.keys_ignored_ == expected
 
-    def test_other_key_mapper(
+    def test_fit_with_real_experiment(
             self,
             net_cls,
             classifier_module,
             data,
-            tensorboard_cls,
-            mock_writer,
+            neptune_logger_cls,
+            neptune_experiment_cls,
     ):
-        # just map all keys to uppercase
-        tb = tensorboard_cls(mock_writer, key_mapper=lambda s: s.upper())
-        net_cls(
-            classifier_module,
-            callbacks=[tb],
-            max_epochs=3,
-        ).fit(*data)
-        add_scalar = mock_writer.add_scalar
-
-        keys = {call_args[1]['tag'] for call_args in add_scalar.call_args_list}
-        expected = {'DUR', 'TRAIN_LOSS', 'VALID_LOSS', 'VALID_ACC'}
-        assert keys == expected
-
-    @pytest.fixture
-    def add_scalar_maybe(self, tensorboard_cls, mock_writer):
-        tb = tensorboard_cls(mock_writer)
-        return tb.add_scalar_maybe
-
-    @pytest.fixture
-    def history(self):
-        return [
-            {'loss': 0.1, 'epoch': 1, 'foo': ['invalid', 'type']},
-            {'loss': 0.2, 'epoch': 2, 'foo': ['invalid', 'type']},
-        ]
-
-    def test_add_scalar_maybe_uses_last_epoch_values(
-            self, add_scalar_maybe, mock_writer, history):
-        add_scalar_maybe(history, key='loss', tag='myloss', global_step=2)
-        call_kwargs = mock_writer.add_scalar.call_args_list[0][1]
-        assert call_kwargs['tag'] == 'myloss'
-        assert call_kwargs['scalar_value'] == 0.2
-        assert call_kwargs['global_step'] == 2
-
-    def test_add_scalar_maybe_infers_epoch(
-            self, add_scalar_maybe, mock_writer, history):
-        # don't indicate 'global_step' value
-        add_scalar_maybe(history, key='loss', tag='myloss')
-        call_kwargs = mock_writer.add_scalar.call_args_list[0][1]
-        assert call_kwargs['global_step'] == 2
-
-    def test_add_scalar_maybe_unknown_key_does_not_raise(
-            self, tensorboard_cls, summary_writer_cls, history):
-        tb = tensorboard_cls(summary_writer_cls())
-        # does not raise:
-        tb.add_scalar_maybe(history, key='unknown', tag='bar')
-
-    def test_add_scalar_maybe_wrong_type_does_not_raise(
-            self, tensorboard_cls, summary_writer_cls, history):
-        tb = tensorboard_cls(summary_writer_cls())
-        # value of 'foo' is a list but that does not raise:
-        tb.add_scalar_maybe(history, key='foo', tag='bar')
-
-    def test_fit_with_real_summary_writer(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            summary_writer_cls,
-            tmp_path,
-    ):
-        path = str(tmp_path)
-
         net = net_cls(
             classifier_module,
-            callbacks=[tensorboard_cls(summary_writer_cls(path))],
+            callbacks=[neptune_logger_cls(neptune_experiment_cls())],
             max_epochs=5,
         )
         net.fit(*data)
-
-        # is not empty
-        assert os.listdir(path)
-
-    def test_fit_with_dict_input(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            summary_writer_cls,
-            tmp_path,
-    ):
-        from skorch.toy import MLPModule
-        path = str(tmp_path)
-        X, y = data
-
-        # create a dictionary with unordered keys
-        X_dict = {k: X[:, i:i + 4] for k, i in
-                  zip('cebad', range(0, X.shape[1], 4))}
-
-        class MyModule(MLPModule):
-            # use different order for args here
-            def forward(self, b, e, c, d, a, **kwargs):
-                X = torch.cat((b, e, c, d, a), 1)
-                return super().forward(X, **kwargs)
-
-        net = net_cls(
-            MyModule(output_nonlin=nn.Softmax(dim=-1)),
-            callbacks=[tensorboard_cls(summary_writer_cls(path))],
-            max_epochs=5,
-        )
-        net.fit(X_dict, y)
-
-        # is not empty
-        assert os.listdir(path)
 
 
 class TestPrintLog:
@@ -493,8 +382,7 @@ class TestProgressBar:
         (1, [1, 1]),  # offset by -1, should still work
     ])
     def test_different_count_schemes(
-            self, tqdm_mock, scheme, expected_total, net_cls, progressbar_cls,
-            data):
+            self, tqdm_mock, scheme, expected_total, net_cls, progressbar_cls, data):
         net = net_cls(callbacks=[
             progressbar_cls(batches_per_epoch=scheme),
         ])
@@ -596,8 +484,7 @@ class TestTensorBoard:
         # 3 epochs with 4 keys
         assert add_scalar.call_count == 3 * 4
         keys = {call_args[1]['tag'] for call_args in add_scalar.call_args_list}
-        expected = {'dur', 'Loss/train_loss', 'Loss/valid_loss',
-                    'Loss/valid_acc'}
+        expected = {'dur', 'Loss/train_loss', 'Loss/valid_loss', 'Loss/valid_acc'}
         assert keys == expected
 
     def test_ignore_keys(
@@ -723,8 +610,7 @@ class TestTensorBoard:
         X, y = data
 
         # create a dictionary with unordered keys
-        X_dict = {k: X[:, i:i + 4] for k, i in
-                  zip('cebad', range(0, X.shape[1], 4))}
+        X_dict = {k: X[:, i:i + 4] for k, i in zip('cebad', range(0, X.shape[1], 4))}
 
         class MyModule(MLPModule):
             # use different order for args here
