@@ -1515,7 +1515,10 @@ class NeuralNet:
         """Saves the module's parameters, history, and optimizer,
         not the whole object.
 
-        To save the whole object, use pickle.
+        To save the whole object, use pickle. This is necessary when
+        you need additional learned attributes on the net, e.g. the
+        ``classes_`` attribute on
+        :class:`skorch.classifier.NeuralNetClassifier`.
 
         ``f_params`` and ``f_optimizer`` uses PyTorchs'
         :func:`~torch.save`.

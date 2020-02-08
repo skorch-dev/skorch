@@ -21,6 +21,7 @@ class SliceDict(dict):
     SliceDict and it should usually work.
 
     Note:
+
     * SliceDict cannot be indexed by integers, if you want one row,
       say row 3, use `[3:4]`.
     * SliceDict accepts numpy arrays and torch tensors as values.
