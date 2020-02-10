@@ -3,7 +3,7 @@
 from functools import partial
 import os
 from unittest.mock import Mock
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import numpy as np
 import pytest
@@ -119,6 +119,24 @@ class TestNeptune:
             max_epochs=5,
         )
         net.fit(*data)
+
+    def test_log_on_batch_level(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            mock_experiment,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[neptune_logger_cls(mock_experiment, log_on_batch_end=True)],
+            max_epochs=5,
+            batch_size=4,
+        )
+        net.fit(*data)
+        assert mock_experiment.log_metric.call_count == 130
+        mock_experiment.log_metric.assert_any_call('valid_batch_size', 1)
 
 
 class TestPrintLog:
