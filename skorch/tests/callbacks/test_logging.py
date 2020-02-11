@@ -120,7 +120,7 @@ class TestNeptune:
         )
         net.fit(*data)
 
-    def test_log_on_batch_level(
+    def test_log_on_batch_level_on(
             self,
             net_cls,
             classifier_module,
@@ -133,10 +133,35 @@ class TestNeptune:
             callbacks=[neptune_logger_cls(mock_experiment, log_on_batch_end=True)],
             max_epochs=5,
             batch_size=4,
+            train_split=False
         )
         net.fit(*data)
-        assert mock_experiment.log_metric.call_count == 130
-        mock_experiment.log_metric.assert_any_call('valid_batch_size', 1)
+
+        # 5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls
+        assert mock_experiment.log_metric.call_count == 110
+        mock_experiment.log_metric.assert_any_call('train_batch_size', 4)
+
+    def test_log_on_batch_level_off(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            mock_experiment,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[neptune_logger_cls(mock_experiment, log_on_batch_end=False)],
+            max_epochs=5,
+            batch_size=4,
+            train_split=False
+        )
+        net.fit(*data)
+
+        # 5 epochs x 2 epoch metrics = 10 calls
+        assert mock_experiment.log_metric.call_count == 10
+        assert call('train_batch_size', 4) \
+               not in mock_experiment.log_metric.call_args_list
 
 
 class TestPrintLog:
