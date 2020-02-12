@@ -1334,6 +1334,9 @@ class NeuralNet:
         for key in kwargs:
             if key.endswith('_'):
                 continue
+
+            # see https://github.com/skorch-dev/skorch/pull/590 for
+            # why this must be sorted
             for prefix in sorted(self.prefixes_, key=lambda s: (-len(s), s)):
                 if key.startswith(prefix):
                     if not key.startswith(prefix + '__'):
