@@ -3,13 +3,13 @@
 from contextlib import contextmanager
 from contextlib import suppress
 from functools import partial
-from packaging import version
+from distutils.version import LooseVersion
 
 import numpy as np
 import sklearn
 from sklearn.metrics import make_scorer, check_scoring
 
-if version.parse(sklearn.__version__) >= version.parse('0.22.0'):
+if LooseVersion(sklearn.__version__) >= '0.22':
     from sklearn.metrics._scorer import _BaseScorer
 else:
     from sklearn.metrics.scorer import _BaseScorer
