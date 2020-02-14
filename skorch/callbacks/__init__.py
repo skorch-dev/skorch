@@ -14,7 +14,7 @@ from .training import *
 from .lr_scheduler import *
 
 __all__ = ['Callback', 'EpochTimer', 'PrintLog', 'ProgressBar',
-           'LRScheduler', 'WarmRestartLR', 'CyclicLR', 'GradientNormClipping',
+           'LRScheduler', 'WarmRestartLR', 'GradientNormClipping',
            'BatchScoring', 'EpochScoring', 'Checkpoint', 'EarlyStopping',
            'Freezer', 'Unfreezer', 'Initializer', 'ParamMapper',
            'LoadInitState', 'TrainEndCheckpoint']

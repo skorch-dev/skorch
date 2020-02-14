@@ -135,6 +135,56 @@ class TestToTensor:
         assert exc.value.args[0] == msg
 
 
+class TestToDevice:
+    @pytest.fixture
+    def to_device(self):
+        from skorch.utils import to_device
+        return to_device
+
+    @pytest.fixture
+    def x(self):
+        return torch.zeros(3)
+
+    @pytest.fixture
+    def x_tup(self):
+        return torch.zeros(3), torch.ones((4, 5))
+
+    @pytest.mark.parametrize('device_from, device_to', [
+        ('cpu', 'cpu'),
+        ('cpu', 'cuda'),
+        ('cuda', 'cpu'),
+        ('cuda', 'cuda'),
+    ])
+    def test_check_device_torch_tensor(self, to_device, x, device_from, device_to):
+        if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
+            pytest.skip()
+
+        x = to_device(x, device=device_from)
+        assert x.device.type == device_from
+
+        x = to_device(x, device=device_to)
+        assert x.device.type == device_to
+
+    @pytest.mark.parametrize('device_from, device_to', [
+        ('cpu', 'cpu'),
+        ('cpu', 'cuda'),
+        ('cuda', 'cpu'),
+        ('cuda', 'cuda'),
+    ])
+    def test_check_device_tuple_torch_tensor(
+            self, to_device, x, device_from, device_to):
+        if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
+            pytest.skip()
+
+        x = to_device(x, device=device_from)
+        for xi in x:
+            assert xi.device.type == device_from
+
+        x = to_device(x, device=device_to)
+        for xi in x:
+            assert xi.device.type == device_to
+
+
 class TestDuplicateItems:
     @pytest.fixture
     def duplicate_items(self):
@@ -463,13 +513,20 @@ class TestMultiIndexing:
         assert (result == X[:100]).all()
 
     def test_index_with_float_array_raises(self, multi_indexing):
+        # sklearn < 0.22 raises IndexError with msg0
+        # sklearn >= 0.22 raises ValueError with msg1
         X = np.zeros(10)
         i = np.arange(3, 0.5)
-        with pytest.raises(IndexError) as exc:
+
+        with pytest.raises((IndexError, ValueError)) as exc:
             multi_indexing(X, i)
 
-        assert exc.value.args[0] == (
-            "arrays used as indices must be of integer (or boolean) type")
+        msg0 = "arrays used as indices must be of integer (or boolean) type"
+        msg1 = ("No valid specification of the columns. Only a scalar, list or "
+                "slice of all integers or all strings, or boolean mask is allowed")
+
+        result = exc.value.args[0]
+        assert result in (msg0, msg1)
 
     def test_boolean_index_2d(self, multi_indexing):
         X = np.arange(9).reshape(3, 3)

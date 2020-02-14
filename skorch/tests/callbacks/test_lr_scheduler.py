@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import StepLR
 from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
 
 from skorch import NeuralNetClassifier
-from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler, CyclicLR
+from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler
 
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -28,7 +28,7 @@ class TestLRCallbacks:
         expected = np.array([1.0, 1.0, 0.1, 0.1, 0.01, 0.01])
         assert np.allclose(expected, lrs)
 
-    @pytest.mark.parametrize('policy', [CyclicLR, 'CyclicLR', TorchCyclicLR])
+    @pytest.mark.parametrize('policy', [TorchCyclicLR])
     def test_simulate_lrs_batch_step(self, policy):
         lr_sch = LRScheduler(
             policy, base_lr=1, max_lr=5, step_size_up=4)
@@ -43,7 +43,6 @@ class TestLRCallbacks:
         ('ExponentialLR', ExponentialLR, {'gamma': 0.1}),
         ('ReduceLROnPlateau', ReduceLROnPlateau, {}),
         ('WarmRestartLR', WarmRestartLR, {}),
-        ('CyclicLR', CyclicLR, {}),
         ('CosineAnnealingLR', CosineAnnealingLR, {'T_max': 5, 'eta_min': 1e-3}),
         (WarmRestartLR, WarmRestartLR, {}),
     ])
@@ -97,7 +96,6 @@ class TestLRCallbacks:
         assert lr_policy.lr_scheduler_.last_epoch == max_epochs - 1
 
     @pytest.mark.parametrize('policy, kwargs', [
-        ('CyclicLR', {}),
         (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3}),
     ])
     def test_lr_callback_batch_steps_correctly(
@@ -127,7 +125,6 @@ class TestLRCallbacks:
         assert lr_policy.batch_idx_ == expected
 
     @pytest.mark.parametrize('policy, kwargs', [
-        ('CyclicLR', {}),
         (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3}),
     ])
     def test_lr_callback_batch_steps_correctly_fallback(
@@ -175,11 +172,11 @@ class TestLRCallbacks:
 
     def test_lr_scheduler_cloneable(self):
         # reproduces bug #271
-        scheduler = LRScheduler(CyclicLR, base_lr=123)
+        scheduler = LRScheduler(WarmRestartLR, base_lr=123)
         clone(scheduler)  # does not raise
 
     def test_lr_scheduler_set_params(self, classifier_module, classifier_data):
-        scheduler = LRScheduler(CyclicLR, base_lr=123)
+        scheduler = LRScheduler(TorchCyclicLR, base_lr=123, max_lr=999)
         net = NeuralNetClassifier(
             classifier_module,
             max_epochs=0,
@@ -270,6 +267,7 @@ class TestWarmRestartLR():
             optimizer, min_lr, max_lr, base_period, period_mult
         )
         for epoch in range(epochs):
+            optimizer.step() # suppress warning about .step call order
             scheduler.step(epoch)
             for param_group, target in zip(optimizer.param_groups, targets):
                 assert param_group['lr'] == pytest.approx(target[epoch])
@@ -378,127 +376,3 @@ class TestWarmRestartLR():
             base_period,
             period_mult
         )
-
-
-@pytest.mark.filterwarnings("ignore::DeprecationWarning")
-class TestCyclicLR():
-
-    @pytest.fixture(params=[1, 3])
-    def init_optimizer(self, classifier_module, request):
-        if request.param == 1:
-            return SGD(classifier_module().parameters(), lr=0.05)
-        classifier = classifier_module()
-        return SGD(
-            [
-                {'params': classifier.sequential[0].parameters(), 'lr': 1e-3},
-                {'params': classifier.sequential[1].parameters(), 'lr': 1e-2},
-                {'params': classifier.sequential[2].parameters(), 'lr': 1e-1},
-            ]
-        )
-
-    @pytest.fixture
-    def num_groups(self, init_optimizer):
-        return len(init_optimizer.param_groups)
-
-    def test_invalid_number_of_base_lr(self, init_optimizer):
-        with pytest.raises(ValueError):
-            CyclicLR(init_optimizer, base_lr=[1, 2])
-
-    def test_invalid_number_of_max_lr(self, init_optimizer):
-        with pytest.raises(ValueError):
-            CyclicLR(init_optimizer, max_lr=[1, 2])
-
-    def test_invalid_mode(self, init_optimizer):
-        with pytest.raises(ValueError):
-            CyclicLR(init_optimizer, mode='badmode')
-
-    def test_invalid_not_a_optimizer(self):
-        with pytest.raises(TypeError):
-            CyclicLR('this is a string')
-
-    def test_triangular_mode(self, init_optimizer, num_groups):
-        target = [1, 2, 3, 4, 5, 4, 3, 2, 1, 2, 3]
-        targets = [target] * num_groups
-        scheduler = CyclicLR(init_optimizer, base_lr=1, max_lr=5, step_size_up=4,
-                             mode='triangular')
-        self._test_cycle_lr(init_optimizer, scheduler, targets)
-
-    def test_triangular_mode_step_size_up_down(self, init_optimizer, num_groups):
-        target = [1, 2, 3, 4, 5, 13/3, 11/3, 9/3, 7/3, 5/3, 1]
-        targets = [target] * num_groups
-        scheduler = CyclicLR(init_optimizer, base_lr=1, max_lr=5,
-                             step_size_up=4,
-                             step_size_down=6,
-                             mode='triangular')
-        self._test_cycle_lr(init_optimizer, scheduler, targets)
-
-    def test_triangular2_mode(self, init_optimizer, num_groups):
-        base_target = ([1, 2, 3, 4, 5, 4, 3, 2, 1,
-                        1.5, 2.0, 2.5, 3.0, 2.5, 2.0, 1.5, 1,
-                        1.25, 1.50, 1.75, 2.00, 1.75])
-        deltas = [2*i for i in range(0, num_groups)]
-        base_lrs = [1 + delta for delta in deltas]
-        max_lrs = [5 + delta for delta in deltas]
-        targets = [[x + delta for x in base_target] for delta in deltas]
-        scheduler = CyclicLR(init_optimizer, base_lr=base_lrs, max_lr=max_lrs,
-                             step_size_up=4, mode='triangular2')
-        self._test_cycle_lr(init_optimizer, scheduler, targets)
-
-    def test_triangular2_mode_step_size_up_down(self, init_optimizer, num_groups):
-        base_target = ([1, 3, 5, 13/3, 11/3, 9/3, 7/3, 5/3,
-                        1, 2, 3, 8/3, 7/3, 6/3, 5/3, 4/3,
-                        1, 3/2, 2, 11/6, 10/6, 9/6, 8/6, 7/6])
-        deltas = [2*i for i in range(0, num_groups)]
-        base_lrs = [1 + delta for delta in deltas]
-        max_lrs = [5 + delta for delta in deltas]
-        targets = [[x + delta for x in base_target] for delta in deltas]
-        scheduler = CyclicLR(init_optimizer, base_lr=base_lrs, max_lr=max_lrs,
-                             step_size_up=2, step_size_down=6,
-                             mode='triangular2')
-        self._test_cycle_lr(init_optimizer, scheduler, targets)
-
-    def test_exp_range_mode(self, init_optimizer, num_groups):
-        base_lr, max_lr = 1, 5
-        diff_lr = max_lr - base_lr
-        gamma = 0.9
-        xs = ([0, 0.25, 0.5, 0.75, 1, 0.75, 0.50, 0.25,
-               0, 0.25, 0.5, 0.75, 1])
-        target = [base_lr + x*diff_lr*gamma**i for i, x in enumerate(xs)]
-        targets = [target] * num_groups
-        scheduler = CyclicLR(init_optimizer, base_lr=base_lr, max_lr=max_lr,
-                             step_size_up=4, mode='exp_range', gamma=gamma)
-        self._test_cycle_lr(init_optimizer, scheduler, targets)
-
-    def test_exp_range_mode_step_size_up_down(self, init_optimizer, num_groups):
-        base_lr, max_lr = 1, 5
-        diff_lr = max_lr - base_lr
-        gamma = 0.9
-        xs = ([0, 0.5, 1, 5/6, 4/6, 3/6, 2/6, 1/6, 0, 0.5, 1, 5/6, 4/6])
-        target = [base_lr + x*diff_lr*gamma**i for i, x in enumerate(xs)]
-        targets = [target] * num_groups
-        scheduler = CyclicLR(init_optimizer, base_lr=base_lr, max_lr=max_lr,
-                             step_size_up=2, step_size_down=6,
-                             mode='exp_range', gamma=gamma)
-        self._test_cycle_lr(init_optimizer, scheduler, targets)
-
-    def test_batch_idx_with_none(self, init_optimizer):
-        with pytest.warns(DeprecationWarning):
-            scheduler = CyclicLR(init_optimizer)
-        for p_group in init_optimizer.param_groups:
-            assert p_group['initial_lr']
-        scheduler.batch_step()
-        assert scheduler.last_batch_idx == 1
-
-    def test_scale_fn(self, init_optimizer):
-        def scale_fn(x):
-            return x
-        scheduler = CyclicLR(init_optimizer, scale_fn=scale_fn)
-        assert scheduler.scale_fn == scale_fn
-
-    @staticmethod
-    def _test_cycle_lr(optimizer, scheduler, targets):
-        batch_idxs = len(targets[0])
-        for batch_num in range(batch_idxs):
-            scheduler.batch_step(batch_num)
-            for param_group, target in zip(optimizer.param_groups, targets):
-                assert param_group['lr'] == pytest.approx(target[batch_num])
