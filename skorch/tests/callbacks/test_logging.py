@@ -99,6 +99,11 @@ class TestNeptune:
             max_epochs=3,
         ).fit(*data)
 
+        # 3 epochs x 2 epoch metrics = 6 calls
+        assert mock_experiment.log_metric.call_count == 6
+        assert 'valid_loss' not in [call_args[0][0]
+                    for call_args in mock_experiment.log_metric.call_args_list]
+
     def test_keys_ignored_is_string(self, neptune_logger_cls, mock_experiment):
         npt = neptune_logger_cls(mock_experiment,
                                  keys_ignored='a-key').initialize()

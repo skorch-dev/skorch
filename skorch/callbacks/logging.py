@@ -183,6 +183,8 @@ class NeptuneLogger(Callback):
             for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
                 self.experiment.log_metric(key, batch_logs[key])
 
+        self.first_batch_ = False
+
     def on_epoch_end(self, net, **kwargs):
         """Automatically log values from the last history step."""
         history = net.history
