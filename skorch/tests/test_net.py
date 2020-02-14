@@ -16,7 +16,7 @@ import sys
 from contextlib import ExitStack
 
 import numpy as np
-from packaging import version
+from distutils.version import LooseVersion
 import pytest
 from sklearn.base import clone
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -28,7 +28,6 @@ import torch
 from torch import nn
 from flaky import flaky
 
-from skorch.exceptions import NotInitializedError
 from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
 from skorch.utils import to_numpy
@@ -1535,7 +1534,7 @@ class TestNeuralNet:
     )
   ),
 )"""
-        if version.parse(torch.__version__) >= version.parse('1.2'):
+        if LooseVersion(torch.__version__) >= '1.2':
             expected = expected.replace("Softmax()", "Softmax(dim=-1)")
             expected = expected.replace("Dropout(p=0.5)",
                                         "Dropout(p=0.5, inplace=False)")
@@ -1566,7 +1565,7 @@ class TestNeuralNet:
     )
   ),
 )"""
-        if version.parse(torch.__version__) >= version.parse('1.2'):
+        if LooseVersion(torch.__version__) >= '1.2':
             expected = expected.replace("Softmax()", "Softmax(dim=-1)")
             expected = expected.replace("Dropout(p=0.5)",
                                         "Dropout(p=0.5, inplace=False)")

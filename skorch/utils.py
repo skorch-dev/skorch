@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from itertools import tee
-from packaging import version
+from distutils.version import LooseVersion
 import pathlib
 import warnings
 
@@ -23,7 +23,7 @@ from torch.utils.data.dataset import Subset
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 
-if version.parse(sklearn.__version__) >= version.parse('0.22.0'):
+if LooseVersion(sklearn.__version__) >= '0.22.0':
     from sklearn.utils import _safe_indexing as safe_indexing
 else:
     from sklearn.utils import safe_indexing
@@ -123,6 +123,17 @@ def to_numpy(X):
         X = X.detach()
 
     return X.numpy()
+
+
+def to_device(X, device):
+    """Generic function to move module output(s) to a device.
+
+    Deals with X being a torch tensor or a tuple of torch tensors.
+
+    """
+    if isinstance(X, tuple):
+        return tuple(x.to(device) for x in X)
+    return X.to(device)
 
 
 def get_dim(y):

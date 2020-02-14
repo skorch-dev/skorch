@@ -30,6 +30,7 @@ from skorch.utils import get_map_location
 from skorch.utils import is_dataset
 from skorch.utils import noop
 from skorch.utils import params_for
+from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 from skorch.utils import train_loss_score
@@ -725,42 +726,53 @@ class NeuralNet:
             'dataset_valid': dataset_valid,
         }
 
-        y_train_is_ph = uses_placeholder_y(dataset_train)
-        y_valid_is_ph = uses_placeholder_y(dataset_valid)
-
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
-            train_batch_count = 0
-            for data in self.get_iterator(dataset_train, training=True):
-                Xi, yi = unpack_data(data)
-                yi_res = yi if not y_train_is_ph else None
-                self.notify('on_batch_begin', X=Xi, y=yi_res, training=True)
-                step = self.train_step(Xi, yi, **fit_params)
-                train_batch_count += 1
-                self.history.record_batch('train_loss', step['loss'].item())
-                self.history.record_batch('train_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi_res, training=True, **step)
-            self.history.record("train_batch_count", train_batch_count)
+            self.run_single_epoch(dataset_train, training=True, prefix="train",
+                                  step_fn=self.train_step, **fit_params)
 
-            if dataset_valid is None:
-                self.notify('on_epoch_end', **on_epoch_kwargs)
-                continue
+            if dataset_valid is not None:
+                self.run_single_epoch(dataset_valid, training=False, prefix="valid",
+                                      step_fn=self.validation_step, **fit_params)
 
-            valid_batch_count = 0
-            for data in self.get_iterator(dataset_valid, training=False):
-                Xi, yi = unpack_data(data)
-                yi_res = yi if not y_valid_is_ph else None
-                self.notify('on_batch_begin', X=Xi, y=yi_res, training=False)
-                step = self.validation_step(Xi, yi, **fit_params)
-                valid_batch_count += 1
-                self.history.record_batch('valid_loss', step['loss'].item())
-                self.history.record_batch('valid_batch_size', get_len(Xi))
-                self.notify('on_batch_end', X=Xi, y=yi_res, training=False, **step)
-            self.history.record("valid_batch_count", valid_batch_count)
-
-            self.notify('on_epoch_end', **on_epoch_kwargs)
+            self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
+
+    def run_single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
+        """Compute a single epoch of train or validation.
+
+        Parameters
+        ----------
+        dataset : torch Dataset
+            The initialized dataset to loop over.
+
+        training : bool
+            Whether to set the module to train mode or not.
+
+        prefix : str
+            Prefix to use when saving to the history.
+
+        step_fn : callable
+            Function to call for each batch.
+
+        **fit_params : dict
+            Additional parameters passed to the ``step_fn``.
+        """
+        is_placeholder_y = uses_placeholder_y(dataset)
+
+        batch_count = 0
+        for data in self.get_iterator(dataset, training=training):
+            Xi, yi = unpack_data(data)
+            yi_res = yi if not is_placeholder_y else None
+            self.notify("on_batch_begin", X=Xi, y=yi_res, training=training)
+            step = step_fn(Xi, yi, **fit_params)
+            self.history.record_batch(prefix + "_loss", step["loss"].item())
+            self.history.record_batch(prefix + "_batch_size", get_len(Xi))
+            self.notify("on_batch_end", X=Xi, y=yi_res, training=training, **step)
+            batch_count += 1
+
+        self.history.record(prefix + "_batch_count", batch_count)
 
     # pylint: disable=unused-argument
     def partial_fit(self, X, y=None, classes=None, **fit_params):
@@ -911,10 +923,7 @@ class NeuralNet:
         for data in iterator:
             Xi = unpack_data(data)[0]
             yp = self.evaluation_step(Xi, training=training)
-            if isinstance(yp, tuple):
-                yield tuple(n.to(device) for n in yp)
-            else:
-                yield yp.to(device)
+            yield to_device(yp, device=device)
 
     def forward(self, X, training=False, device='cpu'):
         """Gather and concatenate the output from forward call with
@@ -1517,7 +1526,10 @@ class NeuralNet:
         """Saves the module's parameters, history, and optimizer,
         not the whole object.
 
-        To save the whole object, use pickle.
+        To save the whole object, use pickle. This is necessary when
+        you need additional learned attributes on the net, e.g. the
+        ``classes_`` attribute on
+        :class:`skorch.classifier.NeuralNetClassifier`.
 
         ``f_params`` and ``f_optimizer`` uses PyTorchs'
         :func:`~torch.save`.

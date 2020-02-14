@@ -2,8 +2,9 @@
 
 from contextlib import contextmanager
 from contextlib import suppress
-from functools import partial
 from distutils.version import LooseVersion
+from functools import partial
+import warnings
 
 import numpy as np
 import sklearn
@@ -19,6 +20,7 @@ from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 from skorch.utils import check_indexing
+from skorch.utils import to_device
 from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
 
@@ -28,10 +30,23 @@ __all__ = ['BatchScoring', 'EpochScoring']
 
 @contextmanager
 def cache_net_infer(net, use_caching, y_preds):
-    """Caching context for ``skorch.NeuralNet`` instance. Returns
-    a modified version of the net whose ``infer`` method will
-    subsequently return cached predictions. Leaving the context
-    will undo the overwrite of the ``infer`` method."""
+    """Caching context for ``skorch.NeuralNet`` instance.
+
+    Returns a modified version of the net whose ``infer`` method will
+    subsequently return cached predictions. Leaving the context will
+    undo the overwrite of the ``infer`` method.
+
+    Deprecated.
+
+    """
+
+    warnings.warn(
+        "cache_net_infer is no longer uesd to provide caching for "
+        "the scoring callbacks and will hence be removed in a "
+        "future release.",
+        DeprecationWarning,
+    )
+
     if not use_caching:
         yield net
         return
@@ -45,6 +60,36 @@ def cache_net_infer(net, use_caching, y_preds):
         # that precedes the bound method `infer`. By deleting
         # the entry from the attribute dict we undo this.
         del net.__dict__['infer']
+
+
+@contextmanager
+def _cache_net_forward_iter(net, use_caching, y_preds):
+    """Caching context for ``skorch.NeuralNet`` instance.
+
+    Returns a modified version of the net whose ``forward_iter``
+    method will subsequently return cached predictions. Leaving the
+    context will undo the overwrite of the ``forward_iter`` method.
+
+    """
+    if not use_caching:
+        yield net
+        return
+    y_preds = iter(y_preds)
+
+    # pylint: disable=unused-argument
+    def cached_forward_iter(*args, device=net.device, **kwargs):
+        for yp in y_preds:
+            yield to_device(yp, device=device)
+
+    net.forward_iter = cached_forward_iter
+    try:
+        yield net
+    finally:
+        # By setting net.forward_iter we define an attribute
+        # `forward_iter` that precedes the bound method
+        # `forward_iter`. By deleting the entry from the attribute
+        # dict we undo this.
+        del net.__dict__['forward_iter']
 
 
 def convert_sklearn_metric_function(scoring):
@@ -202,7 +247,7 @@ class BatchScoring(ScoringBase):
             return
 
         y_preds = [kwargs['y_pred']]
-        with cache_net_infer(net, self.use_caching, y_preds) as cached_net:
+        with _cache_net_forward_iter(net, self.use_caching, y_preds) as cached_net:
             # In case of y=None we will not have gathered any samples.
             # We expect the scoring function to deal with y=None.
             y = None if y is None else self.target_extractor(y)
@@ -424,7 +469,7 @@ class EpochScoring(ScoringBase):
         if X_test is None:
             return
 
-        with cache_net_infer(net, self.use_caching, y_pred) as cached_net:
+        with _cache_net_forward_iter(net, self.use_caching, y_pred) as cached_net:
             current_score = self._scoring(cached_net, X_test, y_test)
 
         self._record_score(net.history, current_score)

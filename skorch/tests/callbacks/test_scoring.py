@@ -87,8 +87,8 @@ class TestEpochScoring:
     ])
     @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
     def test_scoring_uses_best_score_when_continuing_training(
-        self, net_cls, module_cls, scoring_cls, train_split, data,
-        lower_is_better, expected, tmpdir, initial_epochs
+            self, net_cls, module_cls, scoring_cls, data,
+            lower_is_better, expected, tmpdir, initial_epochs,
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
@@ -361,7 +361,7 @@ class TestEpochScoring:
             train_split, expected_type, caching,
     ):
         score_calls = 0
-        def myscore(net, X, y=None):
+        def myscore(net, X, y=None):  # pylint: disable=unused-argument
             nonlocal score_calls
             score_calls += 1
             assert type(X) == expected_type
@@ -472,6 +472,31 @@ class TestEpochScoring:
         msg = "Dict not supported as scorer for multi-metric scoring"
         with pytest.raises(ValueError, match=msg):
                 net.fit(*data)
+
+    @pytest.mark.parametrize('use_caching, count', [(False, 1), (True, 0)])
+    def test_with_caching_get_iterator_not_called(
+            self, net_cls, module_cls, train_split, caching_scoring_cls, data,
+            use_caching, count,
+    ):
+        max_epochs = 3
+        net = net_cls(
+            module=module_cls,
+            callbacks=[
+                ('acc', caching_scoring_cls('accuracy', use_caching=use_caching)),
+            ],
+            train_split=train_split,
+            max_epochs=max_epochs,
+        )
+
+        get_iterator = net.get_iterator
+        net.get_iterator = Mock(side_effect=get_iterator)
+        net.fit(*data)
+
+        # expected count should be:
+        # max_epochs * (1 (train) + 1 (valid) + 0 or 1 (from scoring,
+        # depending on caching))
+        count_expected = max_epochs * (1 + 1 + count)
+        assert net.get_iterator.call_count == count_expected
 
     def test_subclassing_epoch_scoring(
             self, classifier_module, classifier_data):
@@ -618,8 +643,8 @@ class TestBatchScoring:
     ])
     @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
     def test_scoring_uses_best_score_when_continuing_training(
-        self, net_cls, module_cls, scoring_cls, train_split, data,
-        lower_is_better, expected, tmpdir, initial_epochs
+            self, net_cls, module_cls, scoring_cls, data,
+            lower_is_better, expected, tmpdir, initial_epochs,
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
@@ -856,7 +881,7 @@ class TestBatchScoring:
     ):
         score_calls = 0
 
-        def myscore(net, X, y=None):
+        def myscore(net, X, y=None):  # pylint: disable=unused-argument
             nonlocal score_calls
             score_calls += 1
             assert y is None
