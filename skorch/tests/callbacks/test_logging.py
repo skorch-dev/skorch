@@ -168,6 +168,26 @@ class TestNeptune:
         assert call('train_batch_size', 4) \
                not in mock_experiment.log_metric.call_args_list
 
+    def test_first_batch_flag(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            neptune_experiment_cls,
+    ):
+        npt = neptune_logger_cls(neptune_experiment_cls())
+        npt.initialize()
+        assert npt.first_batch_ is True
+
+        net = net_cls(
+            classifier_module,
+            callbacks=[npt],
+            max_epochs=1,
+        )
+
+        npt.on_batch_end(net)
+        assert npt.first_batch_ is False
 
 class TestPrintLog:
     @pytest.fixture

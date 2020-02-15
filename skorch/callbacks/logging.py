@@ -150,6 +150,13 @@ class NeptuneLogger(Callback):
       user, keys such as those starting with 'event_' or ending on
       '_best' are ignored by default.
 
+    Attributes
+    ----------
+    first_batch_ : bool
+        Helper attribute that is set to True at initialization and changes
+        to False on first batch end. Can be used when we want to log things
+        exactly once.
+
     .. _Neptune: https://www.neptune.ai
 
     """
