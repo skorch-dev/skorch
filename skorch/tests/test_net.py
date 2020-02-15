@@ -16,7 +16,7 @@ import sys
 from contextlib import ExitStack
 
 import numpy as np
-from packaging import version
+from distutils.version import LooseVersion
 import pytest
 from sklearn.base import clone
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -169,7 +169,7 @@ class TestNeuralNet:
                     "should deal with the new arguments explicitely.")
         assert e.value.args[0] == expected
 
-    def test_net_init_two_unknown_argument(self, net_cls, module_cls):
+    def test_net_init_two_unknown_arguments(self, net_cls, module_cls):
         with pytest.raises(TypeError) as e:
             net_cls(module_cls, lr=0.1, mxa_epochs=5,
                     warm_start=False, bathc_size=20)
@@ -230,6 +230,27 @@ class TestNeuralNet:
                     "Got an unexpected argument iterator_train_shuffle, "
                     "did you mean iterator_train__shuffle?")
         assert e.value.args[0] == expected
+
+    def test_net_with_new_attribute_with_name_clash(
+            self, net_cls, module_cls):
+        # This covers a bug that existed when a new "settable"
+        # argument was added whose name starts the same as the name
+        # for an existing argument
+        class MyNet(net_cls):
+            # add "optimizer_2" as a valid prefix so that it works
+            # with set_params
+            prefixes_ = net_cls.prefixes_[:] + ['optimizer_2']
+
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.optimizer_2 = torch.optim.SGD
+
+        # the following line used to raise this error: "TypeError: Got
+        # an unexpected argument optimizer_2__lr, did you mean
+        # optimizer__2__lr?" because it was erronously assumed that
+        # "optimizer_2__lr" should be dispatched to "optimizer", not
+        # "optimizer_2".
+        MyNet(module_cls, optimizer_2__lr=0.123)  # should not raise
 
     def test_fit(self, net_fit):
         # fitting does not raise anything
@@ -1534,7 +1555,7 @@ class TestNeuralNet:
     )
   ),
 )"""
-        if version.parse(torch.__version__) >= version.parse('1.2'):
+        if LooseVersion(torch.__version__) >= '1.2':
             expected = expected.replace("Softmax()", "Softmax(dim=-1)")
             expected = expected.replace("Dropout(p=0.5)",
                                         "Dropout(p=0.5, inplace=False)")
@@ -1565,7 +1586,7 @@ class TestNeuralNet:
     )
   ),
 )"""
-        if version.parse(torch.__version__) >= version.parse('1.2'):
+        if LooseVersion(torch.__version__) >= '1.2':
             expected = expected.replace("Softmax()", "Softmax(dim=-1)")
             expected = expected.replace("Dropout(p=0.5)",
                                         "Dropout(p=0.5, inplace=False)")

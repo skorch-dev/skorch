@@ -325,3 +325,32 @@ step, and the number of training batches is uneven, you should make
 sure that there is an optimization step after the last batch of each
 epoch. However, this example can serve as a starting point to
 implement your own version gradient accumulation.
+
+How can I dynamically set the input size of the PyTorch module based on the data?
+---------------------------------------------------------------------------------
+
+Typically, it's up to the user to determine the shape of the input
+data when defining the PyTorch module. This can sometimes be
+inconvenient, e.g. when the shape is only known at runtime. E.g., when
+using :class:`sklearn.feature_selection.VarianceThreshold`, you cannot
+know the number of features in advance. The best solution would be to
+set the input size dynamically.
+
+In most circumstances, this can be achieved with a few lines of code
+in skorch. Here is an example:
+
+.. code:: python
+
+    class MyNet(NeuralNetClassifier):
+        def check_data(self, X, y):
+            super().check_data(X, y)
+
+            if self.module_.input_units != X.shape[1]:
+                self.set_params(module__input_units=X.shape[1])
+                self.initialize()
+
+This assumes that your module accepts an argument called
+``input_units``, which determines the number of units of the input
+layer, and that the number of features can be determined by
+``X.shape[1]``. If those assumptions are not true for your case,
+adjust the code accordingly.
