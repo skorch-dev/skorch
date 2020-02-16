@@ -14,8 +14,7 @@ from skorch.utils import Ansi
 from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
-
-__all__ = ['EpochTimer', 'PrintLog', 'ProgressBar', 'TensorBoard']
+__all__ = ['EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar', 'TensorBoard']
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -60,6 +59,151 @@ class EpochTimer(Callback):
 
     def on_epoch_end(self, net, **kwargs):
         net.history.record('dur', time.time() - self.epoch_start_time_)
+
+
+class NeptuneLogger(Callback):
+    """Logs results from history to Neptune
+
+    Neptune is a lightweight experiment tracking tool.
+    You can read more about it here: https://neptune.ai
+
+    Use this callback to automatically log all interesting values from
+    your net's history to Neptune.
+
+    The best way to log additional information is to log directly to the
+    experiment object or subclass the ``on_*`` methods.
+
+    To monitor resource consumption install psutil
+
+    >>> pip install psutil
+
+    You can view example experiment logs here:
+    https://ui.neptune.ai/o/shared/org/skorch-integration/e/SKOR-4/logs
+
+    Examples
+    --------
+    >>> # Install neptune
+    >>> pip install neptune-client
+    >>> # Create a neptune experiment object
+    >>> import neptune
+    ...
+    ... # We are using api token for an anonymous user.
+    ... # For your projects use the token associated with your neptune.ai account
+    >>> neptune.init(api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5tbCIsImFwaV9rZXkiOiJiNzA2YmM4Zi03NmY5LTRjMmUtOTM5ZC00YmEwMzZmOTMyZTQifQ==',
+    ...              project_qualified_name='shared/skorch-integration')
+    ...
+    ... experiment = neptune.create_experiment(
+    ...                        name='skorch-basic-example',
+    ...                        params={'max_epochs': 20,
+    ...                                'lr': 0.01},
+    ...                        upload_source_files=['skorch_example.py'])
+
+    >>> # Create a neptune_logger callback
+    >>> neptune_logger = NeptuneLogger(experiment, close_after_train=False)
+
+    >>> # Pass a logger to net callbacks argument
+    >>> net = NeuralNetClassifier(
+    ...           ClassifierModule,
+    ...           max_epochs=20,
+    ...           lr=0.01,
+    ...           callbacks=[neptune_logger])
+
+    >>> # Log additional metrics after training has finished
+    >>> from sklearn.metrics import roc_auc_score
+    ... y_pred = net.predict_proba(X)
+    ... auc = roc_auc_score(y, y_pred[:, 1])
+    ...
+    ... neptune_logger.experiment.log_metric('roc_auc_score', auc)
+
+    >>> # log charts like ROC curve
+    ... from scikitplot.metrics import plot_roc
+    ... import matplotlib.pyplot as plt
+    ...
+    ... fig, ax = plt.subplots(figsize=(16, 12))
+    ... plot_roc(y, y_pred, ax=ax)
+    ... neptune_logger.experiment.log_image('roc_curve', fig)
+
+    >>> # log net object after training
+    ... net.save_params(f_params='basic_model.pkl')
+    ... neptune_logger.experiment.log_artifact('basic_model.pkl')
+
+    >>> # close experiment
+    ... neptune_logger.experiment.stop()
+
+    Parameters
+    ----------
+    experiment : neptune.experiments.Experiment
+      Instantiated ``Experiment`` class.
+
+    log_on_batch_end : bool (default=False)
+      Whether to log loss and other metrics on batch level.
+
+    close_after_train : bool (default=True)
+      Whether to close the ``Experiment`` object once training
+      finishes. Set this parameter to False if you want to continue
+      logging to the same Experiment or if you use it as a context
+      manager.
+
+    keys_ignored : str or list of str (default=None)
+      Key or list of keys that should not be logged to
+      Neptune. Note that in addition to the keys provided by the
+      user, keys such as those starting with 'event_' or ending on
+      '_best' are ignored by default.
+
+    Attributes
+    ----------
+    first_batch_ : bool
+        Helper attribute that is set to True at initialization and changes
+        to False on first batch end. Can be used when we want to log things
+        exactly once.
+
+    .. _Neptune: https://www.neptune.ai
+
+    """
+
+    def __init__(
+            self,
+            experiment,
+            log_on_batch_end=False,
+            close_after_train=True,
+            keys_ignored=None,
+    ):
+        self.experiment = experiment
+        self.log_on_batch_end = log_on_batch_end
+        self.close_after_train = close_after_train
+        self.keys_ignored = keys_ignored
+
+    def initialize(self):
+        self.first_batch_ = True
+
+        keys_ignored = self.keys_ignored
+        if isinstance(keys_ignored, str):
+            keys_ignored = [keys_ignored]
+        self.keys_ignored_ = set(keys_ignored or [])
+        self.keys_ignored_.add('batches')
+        return self
+
+    def on_batch_end(self, net, **kwargs):
+        if self.log_on_batch_end:
+            batch_logs = net.history[-1]['batches'][-1]
+
+            for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
+                self.experiment.log_metric(key, batch_logs[key])
+
+        self.first_batch_ = False
+
+    def on_epoch_end(self, net, **kwargs):
+        """Automatically log values from the last history step."""
+        history = net.history
+        epoch_logs = history[-1]
+        epoch = epoch_logs['epoch']
+
+        for key in filter_log_keys(epoch_logs.keys(), self.keys_ignored_):
+            self.experiment.log_metric(key, x=epoch, y=epoch_logs[key])
+
+    def on_train_end(self, net, **kwargs):
+        if self.close_after_train:
+            self.experiment.stop()
 
 
 class PrintLog(Callback):
@@ -283,7 +427,6 @@ class ProgressBar(Callback):
 
       >>> net.history[-1, 'batches', -1, key]
     """
-
     def __init__(
             self,
             batches_per_epoch='auto',

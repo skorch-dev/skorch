@@ -8,8 +8,8 @@ from sklearn.datasets import make_classification
 from sklearn.datasets import make_regression
 from sklearn.preprocessing import StandardScaler
 from torch import nn
-F = nn.functional
 
+F = nn.functional
 
 INFERENCE_METHODS = ['predict', 'predict_proba', 'forward', 'forward_iter']
 
@@ -25,6 +25,7 @@ def module_cls():
     This module returns the input without modifying it.
 
     """
+
     class MyModule(nn.Module):
         def __init__(self):
             super(MyModule, self).__init__()
@@ -34,6 +35,7 @@ def module_cls():
         def forward(self, X):
             X = X + 0.0 * self.dense(X)
             return X
+
     return MyModule
 
 
@@ -52,8 +54,10 @@ def classifier_module():
 @pytest.fixture(scope='module')
 def multiouput_module():
     """Return a simple classifier module class."""
+
     class MultiOutput(nn.Module):
         """Simple classification module."""
+
         def __init__(self, input_units=20):
             super(MultiOutput, self).__init__()
             self.output = nn.Linear(input_units, 2)
@@ -95,9 +99,11 @@ def multioutput_regression_data():
 @pytest.fixture
 def score55():
     """Simple scoring function."""
+
     # pylint: disable=unused-argument
     def func(est, X, y, foo=123):
         return 55
+
     func.__name__ = 'score55'
     return func
 
@@ -109,6 +115,7 @@ def train_split():
         ds_train = type(dataset)(dataset.X[:2], dataset.y[:2])
         ds_valid = type(dataset)(dataset.X[2:], dataset.y[2:])
         return ds_train, ds_valid
+
     return func
 
 
@@ -126,19 +133,29 @@ def data():
     return X, y
 
 
+neptune_installed = False
+try:
+    # pylint: disable=unused-import
+    import neptune
+
+    neptune_installed = True
+except ImportError:
+    pass
+
 pandas_installed = False
 try:
     # pylint: disable=unused-import
     import pandas
+
     pandas_installed = True
 except ImportError:
     pass
-
 
 tensorboard_installed = False
 try:
     # pylint: disable=unused-import
     import tensorboard
+
     tensorboard_installed = True
 except ImportError:
     pass

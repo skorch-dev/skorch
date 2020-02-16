@@ -3,15 +3,192 @@
 from functools import partial
 import os
 from unittest.mock import Mock
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import numpy as np
 import pytest
 import torch
 from torch import nn
 
+from skorch.tests.conftest import neptune_installed
 from skorch.tests.conftest import tensorboard_installed
 
+
+@pytest.mark.skipif(
+    not neptune_installed, reason='neptune is not installed')
+class TestNeptune:
+    @pytest.fixture
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def data(self, classifier_data):
+        X, y = classifier_data
+        # accelerate training since we don't care for the loss
+        X, y = X[:40], y[:40]
+        return X, y
+
+    @pytest.fixture
+    def neptune_logger_cls(self):
+        from skorch.callbacks import NeptuneLogger
+        return NeptuneLogger
+
+    @pytest.fixture
+    def neptune_experiment_cls(self):
+        import neptune
+        neptune.init(project_qualified_name="tests/dry-run",
+                     backend=neptune.OfflineBackend())
+        return neptune.create_experiment
+
+    @pytest.fixture
+    def mock_experiment(self, neptune_experiment_cls):
+        mock = Mock(spec=neptune_experiment_cls)
+        mock.log_metric = Mock()
+        mock.stop = Mock()
+        return mock
+
+    @pytest.fixture
+    def net_fitted(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            mock_experiment,
+    ):
+        return net_cls(
+            classifier_module,
+            callbacks=[neptune_logger_cls(mock_experiment)],
+            max_epochs=3,
+        ).fit(*data)
+
+    def test_experiment_closed_automatically(self, net_fitted, mock_experiment):
+        assert mock_experiment.stop.call_count == 1
+
+    def test_experiment_not_closed(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            mock_experiment,
+    ):
+        net_cls(
+            classifier_module,
+            callbacks=[
+                neptune_logger_cls(mock_experiment, close_after_train=False)],
+            max_epochs=2,
+        ).fit(*data)
+        assert mock_experiment.stop.call_count == 0
+
+    def test_ignore_keys(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            mock_experiment,
+    ):
+        # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
+        # this should not cause a problem
+        npt = neptune_logger_cls(
+            mock_experiment, keys_ignored=['dur', 'valid_loss', 'unknown'])
+        net_cls(
+            classifier_module,
+            callbacks=[npt],
+            max_epochs=3,
+        ).fit(*data)
+
+        # 3 epochs x 2 epoch metrics = 6 calls
+        assert mock_experiment.log_metric.call_count == 6
+        call_args = [args[0][0] for args in mock_experiment.log_metric.call_args_list]
+        assert 'valid_loss' not in call_args
+
+    def test_keys_ignored_is_string(self, neptune_logger_cls, mock_experiment):
+        npt = neptune_logger_cls(
+            mock_experiment, keys_ignored='a-key').initialize()
+        expected = {'a-key', 'batches'}
+        assert npt.keys_ignored_ == expected
+
+    def test_fit_with_real_experiment(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            neptune_experiment_cls,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[neptune_logger_cls(neptune_experiment_cls())],
+            max_epochs=5,
+        )
+        net.fit(*data)
+
+    def test_log_on_batch_level_on(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            mock_experiment,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[neptune_logger_cls(mock_experiment, log_on_batch_end=True)],
+            max_epochs=5,
+            batch_size=4,
+            train_split=False
+        )
+        net.fit(*data)
+
+        # 5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls
+        assert mock_experiment.log_metric.call_count == 110
+        mock_experiment.log_metric.assert_any_call('train_batch_size', 4)
+
+    def test_log_on_batch_level_off(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            mock_experiment,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[neptune_logger_cls(mock_experiment, log_on_batch_end=False)],
+            max_epochs=5,
+            batch_size=4,
+            train_split=False
+        )
+        net.fit(*data)
+
+        # 5 epochs x 2 epoch metrics = 10 calls
+        assert mock_experiment.log_metric.call_count == 10
+        call_args_list = mock_experiment.log_metric.call_args_list
+        assert call('train_batch_size', 4) not in call_args_list
+
+    def test_first_batch_flag(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            neptune_experiment_cls,
+    ):
+        npt = neptune_logger_cls(neptune_experiment_cls())
+        npt.initialize()
+        assert npt.first_batch_ is True
+
+        net = net_cls(
+            classifier_module,
+            callbacks=[npt],
+            max_epochs=1,
+        )
+
+        npt.on_batch_end(net)
+        assert npt.first_batch_ is False
 
 class TestPrintLog:
     @pytest.fixture
@@ -42,6 +219,7 @@ class TestPrintLog:
         class OddEpochCallback(Callback):
             def on_epoch_end(self, net, **kwargs):
                 net.history[-1]['event_odd'] = bool(len(net.history) % 2)
+
         return OddEpochCallback().initialize()
 
     @pytest.fixture
@@ -174,8 +352,8 @@ class TestPrintLog:
 
         odd_row = print_log.sink.call_args_list[2][0][0].split()
         even_row = print_log.sink.call_args_list[3][0][0].split()
-        assert len(odd_row) == 6   # odd row has entries in every column
-        assert odd_row[4] == '+'   # including '+' sign for the 'event_odd'
+        assert len(odd_row) == 6  # odd row has entries in every column
+        assert odd_row[4] == '+'  # including '+' sign for the 'event_odd'
         assert len(even_row) == 5  # even row does not have 'event_odd' entry
 
     def test_witout_valid_data(
@@ -501,7 +679,7 @@ class TestTensorBoard:
         X, y = data
 
         # create a dictionary with unordered keys
-        X_dict = {k: X[:, i:i+4] for k, i in zip('cebad', range(0, X.shape[1], 4))}
+        X_dict = {k: X[:, i:i + 4] for k, i in zip('cebad', range(0, X.shape[1], 4))}
 
         class MyModule(MLPModule):
             # use different order for args here
