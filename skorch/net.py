@@ -283,16 +283,19 @@ class NeuralNet:
         return self._default_callbacks
 
     def notify(self, method_name, **cb_kwargs):
-        """Call the callback method specified in ``method_name`` with
-        parameters specified in ``cb_kwargs``.
+        """Call the callback method specified in ``method_name``, as well as
+        the method on the net itself, with parameters specified in
+        ``cb_kwargs``.
 
         Method names can be one of:
-        * on_train_begin
-        * on_train_end
-        * on_epoch_begin
-        * on_epoch_end
-        * on_batch_begin
-        * on_batch_end
+
+        * ``on_train_begin``
+        * ``on_train_end``
+        * ``on_epoch_begin``
+        * ``on_epoch_end``
+        * ``on_batch_begin``
+        * ``on_batch_end``
+        * ``on_grad_computed``
 
         """
         getattr(self, method_name)(self, **cb_kwargs)
