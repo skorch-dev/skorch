@@ -10,7 +10,8 @@ import pytest
 import torch
 from torch import nn
 
-from skorch.tests.conftest import neptune_installed, tensorboard_installed
+from skorch.tests.conftest import neptune_installed
+from skorch.tests.conftest import tensorboard_installed
 
 
 @pytest.mark.skipif(
@@ -101,12 +102,12 @@ class TestNeptune:
 
         # 3 epochs x 2 epoch metrics = 6 calls
         assert mock_experiment.log_metric.call_count == 6
-        assert 'valid_loss' not in [call_args[0][0]
-                    for call_args in mock_experiment.log_metric.call_args_list]
+        call_args = [args[0][0] for args in mock_experiment.log_metric.call_args_list]
+        assert 'valid_loss' not in call_args
 
     def test_keys_ignored_is_string(self, neptune_logger_cls, mock_experiment):
-        npt = neptune_logger_cls(mock_experiment,
-                                 keys_ignored='a-key').initialize()
+        npt = neptune_logger_cls(
+            mock_experiment, keys_ignored='a-key').initialize()
         expected = {'a-key', 'batches'}
         assert npt.keys_ignored_ == expected
 
@@ -165,8 +166,8 @@ class TestNeptune:
 
         # 5 epochs x 2 epoch metrics = 10 calls
         assert mock_experiment.log_metric.call_count == 10
-        assert call('train_batch_size', 4) \
-               not in mock_experiment.log_metric.call_args_list
+        call_args_list = mock_experiment.log_metric.call_args_list
+        assert call('train_batch_size', 4) not in call_args_list
 
     def test_first_batch_flag(
             self,
