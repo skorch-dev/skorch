@@ -341,14 +341,14 @@ in skorch. Here is an example:
 
 .. code:: python
 
-    class Resize(skorch.callbacks.Callback):
+    class InputShapeSetter(skorch.callbacks.Callback):
         def on_train_begin(self, net, X, y):
             net.set_params(module__input_dim=X.shape[1])
 
 
     net = skorch.NeuralNetClassifier(
         ClassifierModule,
-        callbacks=[Resize()],
+        callbacks=[InputShapeSetter()],
     )
 
 This assumes that your module accepts an argument called
