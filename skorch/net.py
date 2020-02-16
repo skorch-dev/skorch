@@ -188,6 +188,29 @@ class NeuralNet:
 
     cuda_dependent_attributes_ = ['module_', 'optimizer_', 'criterion_']
 
+    def __setattr__(self, name, attr):
+        # TODO: add explanation
+
+        # if it's a known attribute or not a torch module/optimizer
+        # instance or class, just setattr as usual
+        is_known = (name.endswith('_') or (name in self.prefixes_))
+        is_torch_mod_or_opt = (
+            isinstance(attr, (torch.optim.Optimizer, torch.nn.Module))
+            or (
+                isinstance(attr, type)
+                and issubclass(attr, (torch.optim.Optimizer, torch.nn.Module))
+            )
+        )
+        if is_known or not is_torch_mod_or_opt:
+            super().__setattr__(name, attr)
+            return
+
+        # copy the lists to avoid mutation
+        self.prefixes_ = self.prefixes_[:] + [name]
+        self.cuda_dependent_attributes_ = (
+            self.cuda_dependent_attributes_[:] + [name + '_'])
+        super().__setattr__(name, attr)
+
     # pylint: disable=too-many-arguments
     def __init__(
             self,
@@ -1241,12 +1264,24 @@ class NeuralNet:
 
         return iterator(dataset, **kwargs)
 
+    def get_params_for(self, prefix):
+        """TODO: document well
+
+        Notes
+        -----
+        For optimizers, use ``self.get_params_for_optimizer`` instead.
+
+        """
+        return self._get_params_for(prefix)
+
     def _get_params_for(self, prefix):
         return params_for(prefix, self.__dict__)
 
-    def _get_params_for_optimizer(self, prefix, named_parameters):
-        """Parse kwargs configuration for the optimizer identified by
-        the given prefix. Supports param group assignment using wildcards:
+    def get_params_for_optimizer(self, prefix, named_parameters):
+        """Use this to fetch the init parameters for an optimizer
+
+        Parse kwargs configuration for the optimizer identified by the
+        given prefix. Supports param group assignment using wildcards:
 
             optimizer__lr=0.05,
             optimizer__param_groups=[
@@ -1255,7 +1290,19 @@ class NeuralNet:
             ]
 
         The first positional argument are the param groups.
+
+        Parameters
+        ----------
+        TODO
+
+        Returns
+        -------
+        TODO
+
         """
+        return self._get_params_for_optimizer(prefix, named_parameters)
+
+    def _get_params_for_optimizer(self, prefix, named_parameters):
         kwargs = self._get_params_for(prefix)
         params = list(named_parameters)
         pgroups = []
