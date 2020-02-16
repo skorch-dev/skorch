@@ -21,11 +21,9 @@ from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 from skorch.utils import check_indexing
 from skorch.utils import to_device
-from skorch.utils import train_loss_score
-from skorch.utils import valid_loss_score
 
 
-__all__ = ['BatchScoring', 'EpochScoring']
+__all__ = ['BatchScoring', 'EpochScoring', 'PassthroughScoring']
 
 
 @contextmanager
@@ -243,9 +241,6 @@ class BatchScoring(ScoringBase):
         if training != self.on_train:
             return
 
-        if self.scoring in [train_loss_score, valid_loss_score]:
-            return
-
         y_preds = [kwargs['y_pred']]
         with _cache_net_forward_iter(net, self.use_caching, y_preds) as cached_net:
             # In case of y=None we will not have gathered any samples.
@@ -271,7 +266,7 @@ class BatchScoring(ScoringBase):
     # pylint: disable=unused-argument
     def on_epoch_end(self, net, **kwargs):
         history = net.history
-        try:
+        try:  # don't raise if there is no valid data
             history[-1, 'batches', :, self.name_]
         except KeyError:
             return
@@ -476,3 +471,54 @@ class EpochScoring(ScoringBase):
 
     def on_train_end(self, *args, **kwargs):
         self._initialize_cache()
+
+
+class PassthroughScoring(Callback):
+    """TODO"""
+    def __init__(
+            self,
+            name,
+            lower_is_better=True,
+            on_train=False,
+    ):
+        self.name = name
+        self.lower_is_better = lower_is_better
+        self.on_train = on_train
+
+    def initialize(self):
+        self.best_score_ = np.inf if self.lower_is_better else -np.inf
+
+    def _is_best_score(self, current_score):
+        if self.lower_is_better is None:
+            return None
+        if self.lower_is_better:
+            return current_score < self.best_score_
+        return current_score > self.best_score_
+
+    def get_avg_score(self, history):
+        if self.on_train:
+            bs_key = 'train_batch_size'
+        else:
+            bs_key = 'valid_batch_size'
+
+        weights, scores = list(zip(
+            *history[-1, 'batches', :, [bs_key, self.name]]))
+        score_avg = np.average(scores, weights=weights)
+        return score_avg
+
+    # pylint: disable=unused-argument,arguments-differ
+    def on_epoch_end(self, net, **kwargs):
+        history = net.history
+        try:  # don't raise if there is no valid data
+            history[-1, 'batches', :, self.name]
+        except KeyError:
+            return
+
+        score_avg = self.get_avg_score(history)
+        is_best = self._is_best_score(score_avg)
+        if is_best:
+            self.best_score_ = score_avg
+
+        history.record(self.name, score_avg)
+        if is_best is not None:
+            history.record(self.name + '_best', bool(is_best))

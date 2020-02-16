@@ -561,7 +561,10 @@ class TestBatchScoring:
 
     @pytest.fixture
     def train_loss(self, scoring_cls):
-        from skorch.utils import train_loss_score
+        # pylint: disable=unused-argument
+        def train_loss_score(net, X=None, y=None):
+            return net.history[-1, 'batches', -1, 'train_loss']
+
         return scoring_cls(
             train_loss_score,
             name='train_loss',
@@ -570,7 +573,10 @@ class TestBatchScoring:
 
     @pytest.fixture
     def valid_loss(self, scoring_cls):
-        from skorch.utils import valid_loss_score
+        # pylint: disable=unused-argument
+        def valid_loss_score(net, X=None, y=None):
+            return net.history[-1, 'batches', -1, 'valid_loss']
+
         return scoring_cls(
             valid_loss_score,
             name='valid_loss',

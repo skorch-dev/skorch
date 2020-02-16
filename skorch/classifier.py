@@ -11,14 +11,11 @@ from skorch import NeuralNet
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
 from skorch.callbacks import EpochScoring
-from skorch.callbacks import BatchScoring
+from skorch.callbacks import PassthroughScoring
 from skorch.dataset import CVSplit
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
-from skorch.utils import noop
 from skorch.utils import to_numpy
-from skorch.utils import train_loss_score
-from skorch.utils import valid_loss_score
 
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks
@@ -82,16 +79,12 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
     def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', BatchScoring(
-                train_loss_score,
+            ('train_loss', PassthroughScoring(
                 name='train_loss',
                 on_train=True,
-                target_extractor=noop,
             )),
-            ('valid_loss', BatchScoring(
-                valid_loss_score,
+            ('valid_loss', PassthroughScoring(
                 name='valid_loss',
-                target_extractor=noop,
             )),
             ('valid_acc', EpochScoring(
                 'accuracy',
@@ -273,16 +266,12 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
     def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', BatchScoring(
-                train_loss_score,
+            ('train_loss', PassthroughScoring(
                 name='train_loss',
                 on_train=True,
-                target_extractor=noop,
             )),
-            ('valid_loss', BatchScoring(
-                valid_loss_score,
+            ('valid_loss', PassthroughScoring(
                 name='valid_loss',
-                target_extractor=noop,
             )),
             ('valid_acc', EpochScoring(
                 'accuracy',
