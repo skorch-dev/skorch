@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from itertools import tee
-from packaging import version
+from distutils.version import LooseVersion
 import pathlib
 import warnings
 
@@ -23,7 +23,7 @@ from torch.utils.data.dataset import Subset
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 
-if version.parse(sklearn.__version__) >= version.parse('0.22.0'):
+if LooseVersion(sklearn.__version__) >= '0.22.0':
     from sklearn.utils import _safe_indexing as safe_indexing
 else:
     from sklearn.utils import safe_indexing

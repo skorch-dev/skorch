@@ -2,12 +2,18 @@
 
 from contextlib import contextmanager
 from contextlib import suppress
+from distutils.version import LooseVersion
 from functools import partial
 import warnings
 
 import numpy as np
-from sklearn.metrics.scorer import (
-    check_scoring, _BaseScorer, make_scorer)
+import sklearn
+from sklearn.metrics import make_scorer, check_scoring
+
+if LooseVersion(sklearn.__version__) >= '0.22':
+    from sklearn.metrics._scorer import _BaseScorer
+else:
+    from sklearn.metrics.scorer import _BaseScorer
 
 from skorch.utils import data_from_dataset
 from skorch.utils import is_skorch_dataset
