@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `NeptuneLogger` callback for logging experiment metadata to neptune.ai
+- Add DataFrameTransformer, an sklearn compatible transformer that helps working with pandas DataFrames by transforming the DataFrame into a representation that works well with neural networks (#507)
+
 ### Changed
 
 - When using caching in scoring callbacks, no longer uselessly iterate over the data; this can save time if iteration is slow (#552, #557)
@@ -16,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Make skorch compatible with sklearn 0.22
+- Fixed a bug that could occur when a new "settable" (via `set_params`) attribute was added to `NeuralNet` whose name starts the same as an existing attribute's name
 
 ## [0.7.0] - 2019-11-29
 

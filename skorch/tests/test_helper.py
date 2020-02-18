@@ -3,16 +3,24 @@ import pickle
 
 import numpy as np
 import pytest
-import torch
 from sklearn.datasets import make_classification
+from sklearn.pipeline import Pipeline
+import torch
+from torch import nn
+
+from skorch.tests.conftest import pandas_installed
+
+
+def assert_dicts_equal(d0, d1):
+    assert d0.keys() == d1.keys()
+    for key in d0.keys():
+        val0, val1 = d0[key], d1[key]
+
+        np.testing.assert_allclose(val0, val1)
+        assert val0.dtype == val1.dtype
 
 
 class TestSliceDict:
-    def assert_dicts_equal(self, d0, d1):
-        assert d0.keys() == d1.keys()
-        for key in d0.keys():
-            assert np.allclose(d0[key], d1[key])
-
     @pytest.fixture
     def data(self):
         X, y = make_classification(100, 20, n_informative=10, random_state=0)
@@ -114,21 +122,21 @@ class TestSliceDict:
     ])
     def test_get_item_slice(self, sldict_cls, sldict, sl, expected):
         sliced = sldict[sl]
-        self.assert_dicts_equal(sliced, sldict_cls(**expected))
+        assert_dicts_equal(sliced, sldict_cls(**expected))
 
     def test_slice_list(self, sldict, sldict_cls):
         result = sldict[[0, 2]]
         expected = sldict_cls(
             f0=np.array([0, 2]),
             f1=np.array([[0, 1, 2], [6, 7, 8]]))
-        self.assert_dicts_equal(result, expected)
+        assert_dicts_equal(result, expected)
 
     def test_slice_mask(self, sldict, sldict_cls):
         result = sldict[np.array([1, 0, 1, 0]).astype(bool)]
         expected = sldict_cls(
             f0=np.array([0, 2]),
             f1=np.array([[0, 1, 2], [6, 7, 8]]))
-        self.assert_dicts_equal(result, expected)
+        assert_dicts_equal(result, expected)
 
     def test_slice_int(self, sldict):
         with pytest.raises(ValueError) as exc:
@@ -146,7 +154,7 @@ class TestSliceDict:
         loc.update({'array': np.array, 'SliceDict': sldict_cls})
         # pylint: disable=eval-used
         result = eval(str(sldict), globals(), loc)
-        self.assert_dicts_equal(result, sldict)
+        assert_dicts_equal(result, sldict)
 
     def test_iter_over_keys(self, sldict):
         found_keys = {key for key in sldict}
@@ -474,3 +482,230 @@ class TestPredefinedSplit():
 
         # does not raise
         pickle.dumps(train_split)
+
+
+class TestDataFrameTransformer:
+    @pytest.fixture
+    def transformer_cls(self):
+        from skorch.helper import DataFrameTransformer
+        return DataFrameTransformer
+
+    @pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
+    @pytest.fixture
+    def df(self):
+        """DataFrame containing float, int, category types"""
+        import pandas as pd
+
+        df = pd.DataFrame({
+            'col_floats': [0.1, 0.2, 0.3],
+            'col_ints': [11, 11, 10],
+            'col_cats': ['a', 'b', 'a'],
+        })
+        df['col_cats'] = df['col_cats'].astype('category')
+        return df
+
+    def test_fit_transform_defaults(self, transformer_cls, df):
+        expected = {
+            'X': np.asarray([
+                [0.1, 11.0],
+                [0.2, 11.0],
+                [0.3, 10.0],
+            ]).astype(np.float32),
+            'col_cats': np.asarray([0, 1, 0]),
+        }
+        Xt = transformer_cls().fit_transform(df)
+        assert_dicts_equal(Xt, expected)
+
+    def test_fit_and_transform_defaults(self, transformer_cls, df):
+        expected = {
+            'X': np.asarray([
+                [0.1, 11.0],
+                [0.2, 11.0],
+                [0.3, 10.0],
+            ]).astype(np.float32),
+            'col_cats': np.asarray([0, 1, 0]),
+        }
+        Xt = transformer_cls().fit(df).transform(df)
+        assert_dicts_equal(Xt, expected)
+
+    def test_fit_transform_defaults_two_categoricals(
+            self, transformer_cls, df):
+        expected = {
+            'X': np.asarray([
+                [0.1, 11.0],
+                [0.2, 11.0],
+                [0.3, 10.0],
+            ]).astype(np.float32),
+            'col_cats': np.asarray([0, 1, 0]),
+            'col_foo': np.asarray([1, 1, 0]),
+        }
+        df = df.assign(col_foo=df['col_ints'].astype('category'))
+        Xt = transformer_cls().fit_transform(df)
+        assert_dicts_equal(Xt, expected)
+
+    def test_fit_transform_int_as_categorical(self, transformer_cls, df):
+        expected = {
+            'X': np.asarray([0.1, 0.2, 0.3]).astype(np.float32).reshape(-1, 1),
+            'col_ints': np.asarray([1, 1, 0]),
+            'col_cats': np.asarray([0, 1, 0]),
+        }
+        Xt = transformer_cls(treat_int_as_categorical=True).fit_transform(df)
+        assert_dicts_equal(Xt, expected)
+
+    def test_fit_transform_no_X(self, transformer_cls, df):
+        df = df[['col_ints', 'col_cats']]  # no float type present
+        expected = {
+            'col_ints': np.asarray([1, 1, 0]),
+            'col_cats': np.asarray([0, 1, 0]),
+        }
+        Xt = transformer_cls(treat_int_as_categorical=True).fit_transform(df)
+        assert_dicts_equal(Xt, expected)
+
+    @pytest.mark.parametrize('data', [
+        np.array([object, object, object]),
+        np.array(['foo', 'bar', 'baz']),
+    ])
+    def test_invalid_dtype_raises(self, transformer_cls, df, data):
+        df = df.assign(invalid=data)
+        with pytest.raises(TypeError) as exc:
+            transformer_cls().fit_transform(df)
+
+        msg = exc.value.args[0]
+        expected = ("The following columns have dtypes that cannot be "
+                    "interpreted as numerical dtypes: invalid (object)")
+        assert msg == expected
+
+    def test_two_invalid_dtypes_raises(self, transformer_cls, df):
+        df = df.assign(
+            invalid0=np.array([object, object, object]),
+            invalid1=np.array(['foo', 'bar', 'baz']),
+        )
+        with pytest.raises(TypeError) as exc:
+            transformer_cls().fit_transform(df)
+
+        msg = exc.value.args[0]
+        expected = ("The following columns have dtypes that cannot be "
+                    "interpreted as numerical dtypes: invalid0 (object), "
+                    "invalid1 (object)")
+        assert msg == expected
+
+    @pytest.mark.parametrize('dtype', [np.float16, np.float32, np.float64])
+    def test_set_float_dtype(self, transformer_cls, df, dtype):
+        Xt = transformer_cls(float_dtype=dtype).fit_transform(df)
+        assert Xt['X'].dtype == dtype
+
+    @pytest.mark.parametrize('dtype', [np.int16, np.int32, np.int64])
+    def test_set_int_dtype(self, transformer_cls, df, dtype):
+        Xt = transformer_cls(
+            treat_int_as_categorical=True, int_dtype=dtype).fit_transform(df)
+        assert Xt['col_cats'].dtype == dtype
+        assert Xt['col_ints'].dtype == dtype
+
+    def test_leave_float_dtype_as_in_df(self, transformer_cls, df):
+        # None -> don't cast
+        Xt = transformer_cls(float_dtype=None).fit_transform(df)
+        assert Xt['X'].dtype == np.float64
+
+    def test_leave_int_dtype_as_in_df(self, transformer_cls, df):
+        # None -> don't cast
+        # pandas will use the lowest precision int that is capable to
+        # encode the categories; since we only have 2 values, that is
+        # int8 here
+        Xt = transformer_cls(int_dtype=None).fit_transform(df)
+        assert Xt['col_cats'].dtype == np.int8
+
+    def test_column_named_X_present(self, transformer_cls, df):
+        df = df.assign(X=df['col_cats'])
+        with pytest.raises(ValueError) as exc:
+            transformer_cls().fit(df)
+
+        msg = exc.value.args[0]
+        expected = ("DataFrame contains a column named 'X', which clashes "
+                    "with the name chosen for cardinal features; consider "
+                    "renaming that column.")
+        assert msg == expected
+
+    @pytest.fixture
+    def module_cls(self):
+        """Simple module with embedding and linear layers"""
+        # pylint: disable=missing-docstring
+        class MyModule(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.reset_params()
+
+            def reset_params(self):
+                self.embedding = nn.Embedding(2, 10)
+                self.linear = nn.Linear(2, 10)
+                self.out = nn.Linear(20, 2)
+                self.nonlin = nn.Softmax(dim=-1)
+
+            # pylint: disable=arguments-differ
+            def forward(self, X, col_cats):
+                X_lin = self.linear(X)
+                X_cat = self.embedding(col_cats)
+                X_concat = torch.cat((X_lin, X_cat), dim=1)
+                return self.nonlin(self.out(X_concat))
+
+        return MyModule
+
+    @pytest.fixture
+    def net(self, module_cls):
+        from skorch import NeuralNetClassifier
+        net = NeuralNetClassifier(
+            module_cls,
+            train_split=None,
+            max_epochs=3,
+        )
+        return net
+
+    @pytest.fixture
+    def pipe(self, transformer_cls, net):
+        pipe = Pipeline([
+            ('transform', transformer_cls()),
+            ('net', net),
+        ])
+        return pipe
+
+    def test_fit_and_predict_with_pipeline(self, pipe, df):
+        y = np.asarray([0, 0, 1])
+        pipe.fit(df, y)
+
+        y_proba = pipe.predict_proba(df)
+        assert y_proba.shape == (len(df), 2)
+
+        y_pred = pipe.predict(df)
+        assert y_pred.shape == (len(df),)
+
+    def test_describe_signature_default_df(self, transformer_cls, df):
+        result = transformer_cls().describe_signature(df)
+        expected = {
+            'X': {"dtype": torch.float32, "input_units": 2},
+            'col_cats': {"dtype": torch.int64, "input_units": 2},
+        }
+        assert result == expected
+
+    def test_describe_signature_non_default_df(self, transformer_cls, df):
+        # replace float column with integer having 3 unique units
+        df = df.assign(col_floats=[1, 2, 0])
+
+        result = transformer_cls(
+            treat_int_as_categorical=True).describe_signature(df)
+        expected = {
+            'col_floats': {"dtype": torch.int64, "input_units": 3},
+            'col_ints': {"dtype": torch.int64, "input_units": 2},
+            'col_cats': {"dtype": torch.int64, "input_units": 2},
+        }
+        assert result == expected
+
+    def test_describe_signature_other_dtypes(self, transformer_cls, df):
+        transformer = transformer_cls(
+            float_dtype=np.float16,
+            int_dtype=np.int32,
+        )
+        result = transformer.describe_signature(df)
+        expected = {
+            'X': {"dtype": torch.float16, "input_units": 2},
+            'col_cats': {"dtype": torch.int32, "input_units": 2},
+        }
+        assert result == expected

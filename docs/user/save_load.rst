@@ -8,10 +8,10 @@ General approach
 ----------------
 
 skorch provides several ways to persist your model. First it is
-possible to store the model using Python's ``pickle`` function. This
-saves the whole model, including hyperparameters. This is useful when
-you don't want to initialize your model before loading its parameters,
-or when your :class:`.NeuralNet` is part of an sklearn
+possible to store the model using Python's :mod:`pickle`
+function. This saves the whole model, including hyperparameters. This
+is useful when you don't want to initialize your model before loading
+its parameters, or when your :class:`.NeuralNet` is part of an sklearn
 :class:`~sklearn.pipeline.Pipeline`:
 
 .. code:: python
@@ -100,6 +100,16 @@ feature can be used to continue training:
 .. note:: In order to use this feature, the history
     must only contain JSON encodable Python data structures.
     Numpy and PyTorch types should not be in the history.
+
+
+.. note:: :meth:`~skorch.net.NeuralNet.save_params` does not store
+    learned attributes on the net. E.g.,
+    :class:`skorch.classifier.NeuralNetClassifier` remembers the
+    classes it encountered during training in the ``classes_``
+    attribute. This attribute will be missing after
+    :meth:`~skorch.net.NeuralNet.load_params`. Therefore, if you need
+    it, you should :func:`pickle.dump` the whole net.
+
 
 Using callbacks
 ---------------

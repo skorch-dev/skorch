@@ -13,7 +13,7 @@ from .scoring import *
 from .training import *
 from .lr_scheduler import *
 
-__all__ = ['Callback', 'EpochTimer', 'PrintLog', 'ProgressBar',
+__all__ = ['Callback', 'EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar',
            'LRScheduler', 'WarmRestartLR', 'GradientNormClipping',
            'BatchScoring', 'EpochScoring', 'Checkpoint', 'EarlyStopping',
            'Freezer', 'Unfreezer', 'Initializer', 'ParamMapper',
