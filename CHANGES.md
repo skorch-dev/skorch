@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `WandbLogger` callback for logging to Weights & Biases (#607)
 - Added `None` option to `device` which leaves the device(s) unmodified (#600)
 - Add `PassthroughScoring`, a scoring callback that just calculates the average score of a metric determined at batch level and then writes it to the epoch level (#595)
+- Unify predict_proba from NeuralNetClassifier and NeuralNetBinaryClassifier and (optionally) apply a transform when using CrossEntropyLoss or BCEWithLogitsLoss (#572)
 
 ### Changed
 

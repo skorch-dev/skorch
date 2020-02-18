@@ -141,6 +141,7 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
         # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
 
+    # pylint: disable=missing-docstring
     def predict_proba(self, X):
         """Where applicable, return probability estimates for
         samples.
@@ -174,7 +175,11 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
         """
         # Only the docstring changed from parent.
         # pylint: disable=useless-super-delegation
-        return super().predict_proba(X)
+        y_proba = super().predict_proba(X)
+        self.check_is_fitted(attributes=['criterion_'])
+        if isinstance(self.criterion_, torch.nn.CrossEntropyLoss):
+            y_proba = torch.softmax(torch.tensor(y_proba), -1).numpy()
+        return y_proba
 
     def predict(self, X):
         """Where applicable, return class labels for samples in X.
@@ -394,16 +399,9 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
         y_proba : numpy ndarray
 
         """
-        y_probas = []
+        y_proba = super().predict_proba(X)
         self.check_is_fitted(attributes=['criterion_'])
-        bce_logits_loss = isinstance(
-            self.criterion_, torch.nn.BCEWithLogitsLoss)
-
-        for yp in self.forward_iter(X, training=False):
-            yp = yp[0] if isinstance(yp, tuple) else yp
-            if bce_logits_loss:
-                yp = torch.sigmoid(yp)
-            y_probas.append(to_numpy(yp))
-        y_proba = np.concatenate(y_probas, 0)
+        if isinstance(self.criterion_, torch.nn.BCEWithLogitsLoss):
+            y_proba = torch.sigmoid(torch.tensor(y_proba)).numpy()
         y_proba = np.stack((1 - y_proba, y_proba), axis=1)
         return y_proba
