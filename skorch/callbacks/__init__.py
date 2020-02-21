@@ -17,4 +17,4 @@ __all__ = ['Callback', 'EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar',
            'LRScheduler', 'WarmRestartLR', 'GradientNormClipping',
            'BatchScoring', 'EpochScoring', 'Checkpoint', 'EarlyStopping',
            'Freezer', 'Unfreezer', 'Initializer', 'ParamMapper',
-           'LoadInitState', 'TrainEndCheckpoint']
+           'LoadInitState', 'TrainEndCheckpoint', 'PassthroughScoring']

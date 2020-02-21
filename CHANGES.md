@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `NeptuneLogger` callback for logging experiment metadata to neptune.ai
-- Add DataFrameTransformer, an sklearn compatible transformer that helps working with pandas DataFrames by transforming the DataFrame into a representation that works well with neural networks (#507)
+- Add `DataFrameTransformer`, an sklearn compatible transformer that helps working with pandas DataFrames by transforming the DataFrame into a representation that works well with neural networks (#507)
+- Add `PassthroughScoring`, a scoring callback that just calculates the average score of a metric determined at batch level and then writes it to the epoch level
 
 ### Changed
 

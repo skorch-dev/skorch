@@ -474,7 +474,30 @@ class EpochScoring(ScoringBase):
 
 
 class PassthroughScoring(Callback):
-    """TODO"""
+    """Creates scores on epoch level based on batch level scores
+
+    This callback doesn't calculate any new scores but instead passes
+    through a score that was created on the batch level. Based on that
+    score, an average across the batch is created (honoring the batch
+    size) and recorded in the history for the given epoch.
+
+    Use this callback when there already is a score calculated on the
+    batch level. If that score has yet to be calculated, use
+    :class:`.BatchScoring` instead.
+
+    Parameters
+    ----------
+    name : str
+      Name of the score recorded on a batch level in the history.
+
+    lower_is_better : bool (default=True)
+      Whether lower (e.g. log loss) or higher (e.g. accuracy) scores
+      are better.
+
+    on_train : bool (default=False)
+      Whether this should be called during train or validation.
+
+    """
     def __init__(
             self,
             name,
@@ -487,6 +510,7 @@ class PassthroughScoring(Callback):
 
     def initialize(self):
         self.best_score_ = np.inf if self.lower_is_better else -np.inf
+        return self
 
     def _is_best_score(self, current_score):
         if self.lower_is_better is None:
