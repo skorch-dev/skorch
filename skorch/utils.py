@@ -80,7 +80,7 @@ def to_tensor(X, device, accept_sparse=False):
     to_tensor_ = partial(to_tensor, device=device)
 
     if is_torch_data_type(X):
-        return X.to(device)
+        return to_device(X, device)
     if isinstance(X, dict):
         return {key: to_tensor_(val) for key, val in X.items()}
     if isinstance(X, (list, tuple)):
@@ -126,12 +126,33 @@ def to_numpy(X):
 
 
 def to_device(X, device):
-    """Generic function to move module output(s) to a device.
+    """Generic function to modify the device type of the tensor(s)/module inputted.
 
-    Deals with X being a torch tensor or a tuple of torch tensors.
+    Parameters
+    ----------
+    X : input data
+        Deals with X being a:
+
+         * torch tensor
+         * tuple of torch tensors
+         * PackSequence instance
+         * torch.nn.Module
+
+    device : str, torch.device
+        The compute device to be used. If device="auto" it is set to
+        "cuda" if available otherwise "cpu". If device=None, return
+        the input unmodified
 
     """
-    if isinstance(X, tuple):
+    if device is None:
+        return X
+
+    if device == "auto":
+        use_cuda = torch.cuda.is_available()
+        device = "cuda" if use_cuda else "cpu"
+
+    # PackedSequence class inherits from a namedtuple
+    if isinstance(X, tuple) & (type(X) != PackedSequence):
         return tuple(x.to(device) for x in X)
     return X.to(device)
 

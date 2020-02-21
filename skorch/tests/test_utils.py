@@ -149,40 +149,94 @@ class TestToDevice:
     def x_tup(self):
         return torch.zeros(3), torch.ones((4, 5))
 
+    @pytest.fixture
+    def x_pad_seq(self):
+        input = torch.zeros((5, 3)).float()
+        length = torch.as_tensor([2, 2, 1])
+        return pack_padded_sequence(input,length )
+
+    def check_device_type(self, tensor, device_input, prev_device):
+        """assert expected device type conditioned on the input argument for `to_device`"""
+        if None is device_input:
+            assert tensor.device.type == prev_device
+
+        elif device_input == "auto":
+            expected = 'cuda' if torch.cuda.is_available() else 'cpu'
+            assert tensor.device.type == expected
+
+        else:
+            assert tensor.device.type == device_input
+
+
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),
         ('cpu', 'cuda'),
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
+        (None, None),
+        ('auto', 'auto'),
     ])
     def test_check_device_torch_tensor(self, to_device, x, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
 
+        prev_device = None
+        if None in (device_from, device_to):
+            prev_device = x.device.type
+
         x = to_device(x, device=device_from)
-        assert x.device.type == device_from
+        self.check_device_type(x, device_from, prev_device)
 
         x = to_device(x, device=device_to)
-        assert x.device.type == device_to
+        self.check_device_type(x, device_to, prev_device)
 
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),
         ('cpu', 'cuda'),
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
+        (None, None),
+        ('auto', 'auto'),
     ])
     def test_check_device_tuple_torch_tensor(
-            self, to_device, x, device_from, device_to):
+            self, to_device, x_tup, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
 
-        x = to_device(x, device=device_from)
-        for xi in x:
-            assert xi.device.type == device_from
+        prev_device = [None for _ in range(len(x_tup))]
+        if None in (device_from, device_to):
+            prev_device = [x.device.type for x in x_tup]
 
-        x = to_device(x, device=device_to)
-        for xi in x:
-            assert xi.device.type == device_to
+        x_tup = to_device(x_tup, device=device_from)
+        for idx, xi in enumerate(x_tup):
+            self.check_device_type(xi, device_from, prev_device[idx])
+
+        x_tup = to_device(x_tup, device=device_to)
+        for idx, xi in enumerate(x_tup):
+            self.check_device_type(xi, device_to, prev_device[idx])
+
+    @pytest.mark.parametrize('device_from, device_to', [
+        ('cpu', 'cpu'),
+        ('cpu', 'cuda'),
+        ('cuda', 'cpu'),
+        ('cuda', 'cuda'),
+        (None, None),
+        ('auto', 'auto'),
+    ])
+    def test_check_device_packed_padded_sequence(
+            self, to_device, x_pad_seq, device_from, device_to):
+        if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
+            pytest.skip()
+
+        prev_device = None
+        if None in (device_from, device_to):
+            prev_device = x_pad_seq.data.device.type
+
+        x_pad_seq = to_device(x_pad_seq, device=device_from)
+        self.check_device_type(x_pad_seq.data, device_from, prev_device)
+
+        x_pad_seq = to_device(x_pad_seq, device=device_to)
+        self.check_device_type(x_pad_seq.data, device_to, prev_device)
 
 
 class TestDuplicateItems:
