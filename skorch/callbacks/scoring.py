@@ -197,12 +197,13 @@ class BatchScoring(ScoringBase):
     average score is the best score yet and that information is also
     stored in the history.
 
-    In contrast to ``EpochScoring``, this callback determines the
-    score for each batch and then averages the score at the end of the
-    epoch. This can be disadvantageous for some scores if the batch
-    size is small -- e.g. area under the ROC will return incorrect
-    scores in this case. Therefore, it is recommnded to use
-    ``EpochScoring`` unless you really need the scores for each batch.
+    In contrast to :class:`.EpochScoring`, this callback determines
+    the score for each batch and then averages the score at the end of
+    the epoch. This can be disadvantageous for some scores if the
+    batch size is small -- e.g. area under the ROC will return
+    incorrect scores in this case. Therefore, it is recommnded to use
+    :class:`.EpochScoring` unless you really need the scores for each
+    batch.
 
     If ``y`` is None, the ``scoring`` function with signature (model, X, y)
     must be able to handle ``X`` as a ``Tensor`` and ``y=None``.
@@ -218,7 +219,7 @@ class BatchScoring(ScoringBase):
 
     lower_is_better : bool (default=True)
       Whether lower (e.g. log loss) or higher (e.g. accuracy) scores
-      are better
+      are better.
 
     on_train : bool (default=False)
       Whether this should be called during train or validation.
@@ -234,6 +235,7 @@ class BatchScoring(ScoringBase):
       Re-use the model's prediction for computing the loss to calculate
       the score. Turning this off will result in an additional inference
       step for each batch.
+
     """
     # pylint: disable=unused-argument,arguments-differ
 
