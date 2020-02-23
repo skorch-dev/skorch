@@ -74,10 +74,10 @@ class TestEpochScoring:
             max_epochs=5,
             train_split=train_split,
         )
-        net.fit(*data)
+        with patch.object(net, 'score', side_effect=[10, 8, 6, 11, 7]):
+            net.fit(*data)
 
         result = net.history[:, 'score']
-        # these values are the hard-coded side_effects from net.score
         expected = [10, 8, 6, 11, 7]
         assert result == expected
 
@@ -104,15 +104,17 @@ class TestEpochScoring:
             # to load best score for this scorer.
             train_split=None,
         )
-        net.fit(*data)
 
-        history_fn = tmpdir.mkdir('skorch').join('history.json')
-        net.save_params(f_history=str(history_fn))
+        with patch.object(net, 'score', side_effect=[10, 8, 6, 11, 7]):
+            net.fit(*data)
 
-        net.initialize()
-        net.load_params(f_history=str(history_fn))
-        net.max_epochs = 5 - initial_epochs
-        net.partial_fit(*data)
+            history_fn = tmpdir.mkdir('skorch').join('history.json')
+            net.save_params(f_history=str(history_fn))
+
+            net.initialize()
+            net.load_params(f_history=str(history_fn))
+            net.max_epochs = 5 - initial_epochs
+            net.partial_fit(*data)
 
         is_best = net.history[:, 'score_best']
         assert is_best == expected
@@ -135,7 +137,9 @@ class TestEpochScoring:
             train_split=train_split,
             max_epochs=5,
         )
-        net.fit(*data)
+
+        with patch.object(net, 'score', side_effect=[10, 8, 6, 11, 7]):
+            net.fit(*data)
 
         if lower_is_better is not None:
             is_best = net.history[:, 'score_best']
@@ -660,15 +664,17 @@ class TestBatchScoring:
             # to load best score for this scorer.
             train_split=None,
         )
-        net.fit(*data)
 
-        history_fn = tmpdir.mkdir('skorch').join('history.json')
-        net.save_params(f_history=str(history_fn))
+        with patch.object(net, 'score', side_effect=[10, 8, 6, 11, 7]):
+            net.fit(*data)
 
-        net.max_epochs = 5 - initial_epochs
-        net.initialize()
-        net.load_params(f_history=str(history_fn))
-        net.partial_fit(*data)
+            history_fn = tmpdir.mkdir('skorch').join('history.json')
+            net.save_params(f_history=str(history_fn))
+
+            net.max_epochs = 5 - initial_epochs
+            net.initialize()
+            net.load_params(f_history=str(history_fn))
+            net.partial_fit(*data)
 
         is_best = net.history[:, 'score_best']
         assert is_best == expected
@@ -691,7 +697,8 @@ class TestBatchScoring:
             train_split=train_split,
             max_epochs=5,
         )
-        net.fit(*data)
+        with patch.object(net, 'score', side_effect=[10, 8, 6, 11, 7]):
+            net.fit(*data)
 
         if lower_is_better is not None:
             is_best = net.history[:, 'score_best']

@@ -70,9 +70,9 @@ class TestNeuralNet:
         y_pred = net_fit.predict(X)
         assert np.allclose(np.argmax(y_proba, 1), y_pred, rtol=1e-5)
 
-    def test_score(self, net, data):
+    def test_score(self, net_fit, data):
         X, y = data
-        accuracy = net.score(X, y)
+        accuracy = net_fit.score(X, y)
         assert 0. <= accuracy <= 1.
 
     # classifier-specific test
@@ -265,9 +265,9 @@ class TestNeuralNetBinaryClassifier:
         y_pred_actual = net.predict(X)
         assert np.allclose(y_pred_exp, y_pred_actual)
 
-    def test_score(self, net, data):
+    def test_score(self, net_fit, data):
         X, y = data
-        accuracy = net.score(X, y)
+        accuracy = net_fit.score(X, y)
         assert 0. <= accuracy <= 1.
 
     def test_target_2d_raises(self, net, data):
