@@ -842,7 +842,7 @@ class TestCVSplit:
         with pytest.raises(ValueError) as exc:
             cv_split_cls(5, stratified=True)(data, y)
 
-        expected = "Stratified CV requires explicitely passing a suitable y."
+        expected = "Stratified CV requires explicitly passing a suitable y."
         assert exc.value.args[0] == expected
 
     def test_y_dict_does_not_raise(self, cv_split_cls, data):
@@ -866,7 +866,7 @@ class TestCVSplit:
         with pytest.raises(ValueError) as exc:
             cv_split_cls(cv, stratified=True)(data, None)
 
-        expected = "Stratified CV requires explicitely passing a suitable y."
+        expected = "Stratified CV requires explicitly passing a suitable y."
         assert exc.value.args[0] == expected
 
     def test_shuffle_split_reproducible_with_random_state(

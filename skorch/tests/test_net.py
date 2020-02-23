@@ -166,7 +166,7 @@ class TestNeuralNet:
         expected = ("__init__() got unexpected argument(s) unknown_arg. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
-                    "should deal with the new arguments explicitely.")
+                    "should deal with the new arguments explicitly.")
         assert e.value.args[0] == expected
 
     def test_net_init_two_unknown_arguments(self, net_cls, module_cls):
@@ -178,7 +178,7 @@ class TestNeuralNet:
                     "bathc_size, mxa_epochs. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
-                    "should deal with the new arguments explicitely.")
+                    "should deal with the new arguments explicitly.")
         assert e.value.args[0] == expected
 
     @pytest.mark.parametrize('name, suggestion', [
@@ -226,7 +226,7 @@ class TestNeuralNet:
         expected = ("__init__() got unexpected argument(s) foobar. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
-                    "should deal with the new arguments explicitely.\n"
+                    "should deal with the new arguments explicitly.\n"
                     "Got an unexpected argument iterator_train_shuffle, "
                     "did you mean iterator_train__shuffle?")
         assert e.value.args[0] == expected
@@ -1769,7 +1769,7 @@ class TestNeuralNet:
         with pytest.raises(ValueError) as exc:
             net.fit(ds, None)
 
-        msg = "Stratified CV requires explicitely passing a suitable y."
+        msg = "Stratified CV requires explicitly passing a suitable y."
         assert exc.value.args[0] == msg
 
     @pytest.fixture

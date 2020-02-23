@@ -1361,7 +1361,7 @@ class NeuralNet:
             tmpl = ("__init__() got unexpected argument(s) {}. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
-                    "should deal with the new arguments explicitely.")
+                    "should deal with the new arguments explicitly.")
             msg = tmpl.format(', '.join(sorted(unexpected_kwargs)))
             msgs.append(msg)
 
