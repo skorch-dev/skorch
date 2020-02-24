@@ -2337,6 +2337,138 @@ class TestNeuralNet:
         calls_zero_grad = mock_optimizer.zero_grad.call_count
         assert calls_total == calls_step == calls_zero_grad
 
+    def test_setattr_module(self, net_cls, module_cls):
+        net = net_cls(module_cls)
+        assert 'mymodule' not in net.prefixes_
+        assert 'mymodule' not in net.cuda_dependent_attributes_
+
+        class MyNet(net_cls):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.mymodule = module_cls
+
+        net = MyNet(module_cls)
+        assert 'mymodule' in net.prefixes_
+        assert 'mymodule_' in net.cuda_dependent_attributes_
+
+        del net.mymodule
+        assert 'mymodule' not in net.prefixes_
+        assert 'mymodule_' not in net.cuda_dependent_attributes_
+
+    def test_setattr_module_instance(self, net_cls, module_cls):
+        net = net_cls(module_cls)
+        assert 'mymodule' not in net.prefixes_
+        assert 'mymodule' not in net.cuda_dependent_attributes_
+
+        class MyNet(net_cls):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.mymodule = module_cls()
+
+        net = MyNet(module_cls)
+        assert 'mymodule' in net.prefixes_
+        assert 'mymodule_' in net.cuda_dependent_attributes_
+
+        del net.mymodule
+        assert 'mymodule' not in net.prefixes_
+        assert 'mymodule_' not in net.cuda_dependent_attributes_
+
+    def test_setattr_optimizer(self, net_cls, module_cls):
+        net = net_cls(module_cls)
+        assert 'myoptimizer' not in net.prefixes_
+        assert 'myoptimizer' not in net.cuda_dependent_attributes_
+
+        class MyNet(net_cls):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.myoptimizer = torch.optim.SGD
+
+        net = MyNet(module_cls)
+        assert 'myoptimizer' in net.prefixes_
+        assert 'myoptimizer_' in net.cuda_dependent_attributes_
+
+        del net.myoptimizer
+        assert 'myoptimizer' not in net.prefixes_
+        assert 'myoptimizer_' not in net.cuda_dependent_attributes_
+
+    def test_setattr_ending_in_underscore(self, net_cls, module_cls):
+        # attributes whose name ends in underscore should not be
+        # registered
+        class MyNet(net_cls):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.mymodule_ = module_cls
+
+        net = MyNet(module_cls)
+        assert 'mymodule' not in net.prefixes_
+        assert 'mymodule_' not in net.prefixes_
+        assert 'mymodule_' not in net.cuda_dependent_attributes_
+
+    def test_setattr_no_duplicates(self, net_cls, module_cls):
+        # the 'module' attribute is set twice but that shouldn't lead
+        # to duplicates in prefixes_ or cuda_dependent_attributes_
+        class MyNet(net_cls):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.module = module_cls
+
+        net = MyNet(module_cls)
+        assert net.prefixes_.count('module') == 1
+        assert net.cuda_dependent_attributes_.count('module_') == 1
+
+    def test_setattr_non_torch_attribute(self, net_cls, module_cls):
+        # attributes that are not torch modules or optimizers should
+        # not be registered
+        class MyNet(net_cls):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.num = 123
+
+        net = MyNet(module_cls)
+        assert 'num' not in net.prefixes_
+        assert 'num_' not in net.cuda_dependent_attributes_
+
+    def test_setattr_does_not_modify_class_attribute(self, net_cls, module_cls):
+        net = net_cls(module_cls)
+        assert 'mymodule' not in net.prefixes_
+        assert 'mymodule' not in net.cuda_dependent_attributes_
+
+        class MyNet(net_cls):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.mymodule = module_cls
+
+        net = MyNet(module_cls)
+        assert 'mymodule' in net.prefixes_
+        assert 'mymodule_' in net.cuda_dependent_attributes_
+
+        assert 'mymodule' not in net_cls.prefixes_
+        assert 'mymodule_' not in net_cls.cuda_dependent_attributes_
+
+    def test_set_params_on_custom_module(self, net_cls, module_cls):
+        # set_params requires the prefixes_ attribute to be correctly
+        # set, which is what is tested here
+        class MyNet(net_cls):
+            def __init__(self, *args, mymodule=module_cls, **kwargs):
+                self.mymodule = mymodule
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self, *args, **kwargs):
+                super().initialize_module(*args, **kwargs)
+
+                params = self._get_params_for('mymodule')
+                self.mymodule_ = self.mymodule(**params)
+
+                return self
+
+        net = MyNet(module_cls, mymodule__hidden_units=77).initialize()
+        hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
+        assert hidden_units == 77
+
+        net.set_params(mymodule__hidden_units=99)
+        hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
+        assert hidden_units == 99
+
 
 class TestNetSparseInput:
     @pytest.fixture(scope='module')
@@ -2390,140 +2522,3 @@ class TestNetSparseInput:
         score_end = net.history[-1]['train_loss']
 
         assert score_start > 1.25 * score_end
-
-    @pytest.fixture(scope='module')
-    def mymodule(self):
-        from skorch.toy import MLPModule
-        return MLPModule
-
-    def test_setattr_module(self, net_cls, mymodule):
-        net = net_cls(mymodule)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule' not in net.cuda_dependent_attributes_
-
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = mymodule
-
-        net = MyNet(mymodule)
-        assert 'mymodule' in net.prefixes_
-        assert 'mymodule_' in net.cuda_dependent_attributes_
-
-        del net.mymodule
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule_' not in net.cuda_dependent_attributes_
-
-    def test_setattr_module_instance(self, net_cls, mymodule):
-        net = net_cls(mymodule)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule' not in net.cuda_dependent_attributes_
-
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = mymodule()
-
-        net = MyNet(mymodule)
-        assert 'mymodule' in net.prefixes_
-        assert 'mymodule_' in net.cuda_dependent_attributes_
-
-        del net.mymodule
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule_' not in net.cuda_dependent_attributes_
-
-    def test_setattr_optimizer(self, net_cls, mymodule):
-        net = net_cls(mymodule)
-        assert 'myoptimizer' not in net.prefixes_
-        assert 'myoptimizer' not in net.cuda_dependent_attributes_
-
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.myoptimizer = torch.optim.SGD
-
-        net = MyNet(mymodule)
-        assert 'myoptimizer' in net.prefixes_
-        assert 'myoptimizer_' in net.cuda_dependent_attributes_
-
-        del net.myoptimizer
-        assert 'myoptimizer' not in net.prefixes_
-        assert 'myoptimizer_' not in net.cuda_dependent_attributes_
-
-    def test_setattr_ending_in_underscore(self, net_cls, mymodule):
-        # attributes whose name ends in underscore should not be
-        # registered
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule_ = mymodule
-
-        net = MyNet(mymodule)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule_' not in net.prefixes_
-        assert 'mymodule_' not in net.cuda_dependent_attributes_
-
-    def test_setattr_no_duplicates(self, net_cls, mymodule):
-        # the 'module' attribute is set twice but that shouldn't lead
-        # to duplicates in prefixes_ or cuda_dependent_attributes_
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.module = mymodule
-
-        net = MyNet(mymodule)
-        assert net.prefixes_.count('module') == 1
-        assert net.cuda_dependent_attributes_.count('module_') == 1
-
-    def test_setattr_non_torch_attribute(self, net_cls, mymodule):
-        # attributes that are not torch modules or optimizers should
-        # not be registered
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.num = 123
-
-        net = MyNet(mymodule)
-        assert 'num' not in net.prefixes_
-        assert 'num_' not in net.cuda_dependent_attributes_
-
-    def test_setattr_does_not_modify_class_attribute(self, net_cls, mymodule):
-        net = net_cls(mymodule)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule' not in net.cuda_dependent_attributes_
-
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = mymodule
-
-        net = MyNet(mymodule)
-        assert 'mymodule' in net.prefixes_
-        assert 'mymodule_' in net.cuda_dependent_attributes_
-
-        assert 'mymodule' not in net_cls.prefixes_
-        assert 'mymodule_' not in net_cls.cuda_dependent_attributes_
-
-    def test_set_params_on_custom_module(self, net_cls, mymodule):
-        # set_params requires the prefixes_ attribute to be correctly
-        # set, which is what is tested here
-        class MyNet(net_cls):
-            def __init__(self, *args, mymodule=mymodule, **kwargs):
-                self.mymodule = mymodule
-                super().__init__(*args, **kwargs)
-
-            def initialize_module(self, *args, **kwargs):
-                super().initialize_module(*args, **kwargs)
-
-                params = self._get_params_for('mymodule')
-                self.mymodule_ = self.mymodule(**params)
-
-                return self
-
-        net = MyNet(mymodule, mymodule__hidden_units=77).initialize()
-        hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
-        assert hidden_units == 77
-
-        net.set_params(mymodule__hidden_units=99)
-        hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
-        assert hidden_units == 99

@@ -37,6 +37,16 @@ from skorch.utils import train_loss_score
 from skorch.utils import valid_loss_score
 
 
+PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
+"""Special names that mark pytorch components.
+
+These special names are used to recognize whether an attribute that is
+being set in the net should be added to prefixes_ and
+cuda_dependent_attributes_
+
+"""
+
+
 # pylint: disable=too-many-instance-attributes
 class NeuralNet:
     # pylint: disable=anomalous-backslash-in-string
@@ -1588,17 +1598,15 @@ class NeuralNet:
         ``cuda_dependent_attributes_`` automatically.
 
         """
-        # if it's a known attribute or not a torch module/optimizer
-        # instance or class, just setattr as usual
-        is_known = (name.endswith('_') or (name in self.prefixes_))
-        is_torch_mod_or_opt = (
-            isinstance(attr, (torch.optim.Optimizer, torch.nn.Module))
-            or (
-                isinstance(attr, type)
-                and issubclass(attr, (torch.optim.Optimizer, torch.nn.Module))
-            )
-        )
-        if is_known or not is_torch_mod_or_opt:
+        # if it's a
+        # 1. known attribute or
+        # 2. special param like module__num_units or
+        # 3. not a torch module/optimizer instance or class
+        # just setattr as usual
+        is_known = name.endswith('_') or (name in self.prefixes_)
+        is_special_param = '__' in name
+        is_torch_mod_or_opt = any(c in name for c in PYTORCH_COMPONENTS)
+        if is_known or is_special_param or not is_torch_mod_or_opt:
             super().__setattr__(name, attr)
             return
 
