@@ -89,7 +89,7 @@ class NeptuneLogger(Callback):
     ...
     ... # We are using api token for an anonymous user.
     ... # For your projects use the token associated with your neptune.ai account
-    >>> neptune.init(api_token='AUTONOMOUS',
+    >>> neptune.init(api_token='ANONYMOUS',
     ...              project_qualified_name='shared/skorch-integration')
     ...
     ... experiment = neptune.create_experiment(
