@@ -98,7 +98,7 @@ Another advantage of skorch is that you can perform an sklearn
     print(gs.best_score_, gs.best_params_)
 
 
-Whats next?
------------
+What's next?
+------------
 
 Please visit the :ref:`tutorials` page to explore additional examples on using skorch!

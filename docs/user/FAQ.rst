@@ -341,16 +341,19 @@ in skorch. Here is an example:
 
 .. code:: python
 
-    class MyNet(NeuralNetClassifier):
-        def check_data(self, X, y):
-            super().check_data(X, y)
+    class InputShapeSetter(skorch.callbacks.Callback):
+        def on_train_begin(self, net, X, y):
+            net.set_params(module__input_dim=X.shape[1])
 
-            if self.module_.input_units != X.shape[1]:
-                self.set_params(module__input_units=X.shape[1])
-                self.initialize()
+
+    net = skorch.NeuralNetClassifier(
+        ClassifierModule,
+        callbacks=[InputShapeSetter()],
+    )
 
 This assumes that your module accepts an argument called
 ``input_units``, which determines the number of units of the input
 layer, and that the number of features can be determined by
 ``X.shape[1]``. If those assumptions are not true for your case,
-adjust the code accordingly.
+adjust the code accordingly. A fully working example can be found
+on `stackoverflow <https://stackoverflow.com/a/60170023/1643939>`_.
