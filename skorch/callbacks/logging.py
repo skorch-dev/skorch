@@ -78,7 +78,7 @@ class NeptuneLogger(Callback):
     >>> pip install psutil
 
     You can view example experiment logs here:
-    https://ui.neptune.ai/o/shared/org/skorch-integration/e/SKOR-4/logs
+    https://ui.neptune.ai/o/shared/org/skorch-integration/e/SKOR-13/charts
 
     Examples
     --------
@@ -89,7 +89,7 @@ class NeptuneLogger(Callback):
     ...
     ... # We are using api token for an anonymous user.
     ... # For your projects use the token associated with your neptune.ai account
-    >>> neptune.init(api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5tbCIsImFwaV9rZXkiOiJiNzA2YmM4Zi03NmY5LTRjMmUtOTM5ZC00YmEwMzZmOTMyZTQifQ==',
+    >>> neptune.init(api_token='ANONYMOUS',
     ...              project_qualified_name='shared/skorch-integration')
     ...
     ... experiment = neptune.create_experiment(
