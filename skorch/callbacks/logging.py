@@ -5,6 +5,7 @@ import time
 from contextlib import suppress
 from numbers import Number
 from itertools import cycle
+from pathlib import Path
 
 import numpy as np
 import tqdm
@@ -14,7 +15,8 @@ from skorch.utils import Ansi
 from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
-__all__ = ['EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar', 'TensorBoard']
+__all__ = ['EpochTimer', 'NeptuneLogger', 'WandbLogger', 'PrintLog', 'ProgressBar',
+           'TensorBoard']
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -204,6 +206,80 @@ class NeptuneLogger(Callback):
     def on_train_end(self, net, **kwargs):
         if self.close_after_train:
             self.experiment.stop()
+
+class WandbLogger(Callback):
+    """Logs best model and metrics to `Weights & Biases <https://docs.wandb.com/>`_
+
+    "Use this callback to automatically log best trained model and all metrics from
+    your net's history to Weights & Biases after each epoch.
+
+    Examples
+    --------
+    >>> import wandb
+    >>> from skorch.callbacks import WandbLogger
+    >>> wandb.init()
+    >>> wandb.config.update({"learning rate": 1e-3, "batch size": 32})  # optional
+    >>> net = NeuralNet(..., callbacks=[WandbLogger()])
+    >>> net.fit(X, y)
+
+    Parameters
+    ----------
+    save_model : bool (default=True)
+      Saves best trained model.
+
+    keys_ignored : str or list of str (default=None)
+      Key or list of keys that should not be logged to
+      tensorboard. Note that in addition to the keys provided by the
+      user, keys such as those starting with 'event_' or ending on
+      '_best' are ignored by default.
+    """
+
+    # Record if watch has been called previously (even in another instance)
+    _watch_called = False
+
+    def __init__(
+            self,
+            save_model=True,
+            keys_ignored=None,
+    ):
+        try:
+            import wandb
+        except ImportError:
+            raise ImportError('Could not import wandb')
+        if wandb.run is None:
+            raise ValueError('You must call wandb.init() before WandbCallback()')
+
+        self.save_model = save_model
+        self.keys_ignored = keys_ignored
+        self.model_path = Path(wandb.run.dir) / 'best_model.pth'
+
+    def initialize(self):
+        keys_ignored = self.keys_ignored
+        if isinstance(keys_ignored, str):
+            keys_ignored = [keys_ignored]
+        self.keys_ignored_ = set(keys_ignored or [])
+        self.keys_ignored_.add('batches')
+        return self
+
+    def on_train_begin(self, net, **kwargs):
+        """Log model topology and add a hook for gradients"""
+        import wandb
+        if not WandbLogger._watch_called:
+            WandbLogger._watch_called = True
+            wandb.watch(net.module_)
+
+    def on_epoch_end(self, net, **kwargs):
+        """Automatically log values from the last history step."""
+        import wandb
+        hist = net.history[-1]
+        keys_kept = filter_log_keys(hist, keys_ignored=self.keys_ignored_)
+        logged_vals = dict((k, hist[k]) for k in keys_kept if k in hist)
+        wandb.log(logged_vals)
+
+        # save best model
+        if self.save_model and hist['valid_loss_best']:
+            with self.model_path.open('wb') as model_file:
+                net.save_params(f_params=model_file)
 
 
 class PrintLog(Callback):
