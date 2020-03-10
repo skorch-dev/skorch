@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `NeptuneLogger` callback for logging experiment metadata to neptune.ai
 - Add DataFrameTransformer, an sklearn compatible transformer that helps working with pandas DataFrames by transforming the DataFrame into a representation that works well with neural networks (#507)
+- Added `WandbLogger` callback for logging to Weights & Biases
 
 ### Changed
 
