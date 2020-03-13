@@ -217,13 +217,16 @@ class WandbLogger(Callback):
     --------
     >>> import wandb
     >>> from skorch.callbacks import WandbLogger
-    >>> wandb.init()
+    >>> wandb_run = wandb.init()
     >>> wandb.config.update({"learning rate": 1e-3, "batch size": 32})  # optional
-    >>> net = NeuralNet(..., callbacks=[WandbLogger()])
+    >>> net = NeuralNet(..., callbacks=[WandbLogger(wandb_run)])
     >>> net.fit(X, y)
 
     Parameters
     ----------
+    wandb_run : wandb.wandb_run.Run
+      wandb Run used to log data.
+
     save_model : bool (default=True)
       Saves best trained model.
 
@@ -239,19 +242,14 @@ class WandbLogger(Callback):
 
     def __init__(
             self,
+            wandb_run,
             save_model=True,
             keys_ignored=None,
     ):
-        try:
-            import wandb
-        except ImportError:
-            raise ImportError('Could not import wandb')
-        if wandb.run is None:
-            raise ValueError('You must call wandb.init() before WandbCallback()')
-
+        self.wandb_run = wandb_run
         self.save_model = save_model
         self.keys_ignored = keys_ignored
-        self.model_path = Path(wandb.run.dir) / 'best_model.pth'
+        self.model_path = Path(wandb_run.dir) / 'best_model.pth'
 
     def initialize(self):
         keys_ignored = self.keys_ignored
@@ -263,18 +261,16 @@ class WandbLogger(Callback):
 
     def on_train_begin(self, net, **kwargs):
         """Log model topology and add a hook for gradients"""
-        import wandb
         if not WandbLogger._watch_called:
             WandbLogger._watch_called = True
-            wandb.watch(net.module_)
+            self.wandb_run.watch(net.module_)
 
     def on_epoch_end(self, net, **kwargs):
         """Automatically log values from the last history step."""
-        import wandb
         hist = net.history[-1]
         keys_kept = filter_log_keys(hist, keys_ignored=self.keys_ignored_)
         logged_vals = dict((k, hist[k]) for k in keys_kept if k in hist)
-        wandb.log(logged_vals)
+        self.wandb_run.log(logged_vals)
 
         # save best model
         if self.save_model and hist['valid_loss_best']:
