@@ -210,15 +210,21 @@ class NeptuneLogger(Callback):
 class WandbLogger(Callback):
     """Logs best model and metrics to `Weights & Biases <https://docs.wandb.com/>`_
 
-    "Use this callback to automatically log best trained model and all metrics from
-    your net's history to Weights & Biases after each epoch.
+    Use this callback to automatically log best trained model, all metrics from
+    your net's history, model topology and computer resources to Weights & Biases
+    after each epoch.
+
+    See `example run <https://app.wandb.ai/borisd13/skorch/runs/s20or4ct/overview?workspace=user-borisd13>`_
 
     Examples
     --------
+    >>> # Install wandb
+    ... pip install wandb
     >>> import wandb
     >>> from skorch.callbacks import WandbLogger
     >>> wandb_run = wandb.init()
-    >>> wandb.config.update({"learning rate": 1e-3, "batch size": 32})  # optional
+    >>> # Log hyper-parameters (optional)
+    ... wandb.config.update({"learning rate": 1e-3, "batch size": 32})
     >>> net = NeuralNet(..., callbacks=[WandbLogger(wandb_run)])
     >>> net.fit(X, y)
 
@@ -228,7 +234,7 @@ class WandbLogger(Callback):
       wandb Run used to log data.
 
     save_model : bool (default=True)
-      Saves best trained model.
+      Whether to save a checkpoint of the best model.
 
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be logged to
@@ -266,7 +272,7 @@ class WandbLogger(Callback):
             self.wandb_run.watch(net.module_)
 
     def on_epoch_end(self, net, **kwargs):
-        """Automatically log values from the last history step."""
+        """Log values from the last history step and save best model"""
         hist = net.history[-1]
         keys_kept = filter_log_keys(hist, keys_ignored=self.keys_ignored_)
         logged_vals = dict((k, hist[k]) for k in keys_kept if k in hist)
