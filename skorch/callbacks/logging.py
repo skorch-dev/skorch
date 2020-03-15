@@ -214,17 +214,22 @@ class WandbLogger(Callback):
     your net's history, model topology and computer resources to Weights & Biases
     after each epoch.
 
-    See `example run <https://app.wandb.ai/borisd13/skorch/runs/s20or4ct/overview?workspace=user-borisd13>`_
+    See `example run
+    <https://app.wandb.ai/borisd13/skorch/runs/s20or4ct/overview?workspace=user-borisd13>`_
 
     Examples
     --------
     >>> # Install wandb
     ... pip install wandb
+
     >>> import wandb
     >>> from skorch.callbacks import WandbLogger
-    >>> wandb_run = wandb.init()
+
+    >>> # Create a wandb Run
+    ... wandb_run = wandb.init()
     >>> # Log hyper-parameters (optional)
     ... wandb.config.update({"learning rate": 1e-3, "batch size": 32})
+
     >>> net = NeuralNet(..., callbacks=[WandbLogger(wandb_run)])
     >>> net.fit(X, y)
 
