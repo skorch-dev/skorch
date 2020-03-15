@@ -260,7 +260,6 @@ class WandbLogger(Callback):
         self.wandb_run = wandb_run
         self.save_model = save_model
         self.keys_ignored = keys_ignored
-        self.model_path = Path(wandb_run.dir) / 'best_model.pth'
 
     def initialize(self):
         keys_ignored = self.keys_ignored
@@ -280,12 +279,13 @@ class WandbLogger(Callback):
         """Log values from the last history step and save best model"""
         hist = net.history[-1]
         keys_kept = filter_log_keys(hist, keys_ignored=self.keys_ignored_)
-        logged_vals = dict((k, hist[k]) for k in keys_kept if k in hist)
+        logged_vals = {k: hist[k] for k in keys_kept if k in hist}
         self.wandb_run.log(logged_vals)
 
         # save best model
         if self.save_model and hist['valid_loss_best']:
-            with self.model_path.open('wb') as model_file:
+            model_path = Path(self.wandb_run.dir) / 'best_model.pth'
+            with model_path.open('wb') as model_file:
                 net.save_params(f_params=model_file)
 
 
