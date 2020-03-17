@@ -248,9 +248,6 @@ class WandbLogger(Callback):
       '_best' are ignored by default.
     """
 
-    # Record if watch has been called previously (even in another instance)
-    _watch_called = False
-
     def __init__(
             self,
             wandb_run,
@@ -271,9 +268,7 @@ class WandbLogger(Callback):
 
     def on_train_begin(self, net, **kwargs):
         """Log model topology and add a hook for gradients"""
-        if not WandbLogger._watch_called:
-            WandbLogger._watch_called = True
-            self.wandb_run.watch(net.module_)
+        self.wandb_run.watch(net.module_)
 
     def on_epoch_end(self, net, **kwargs):
         """Log values from the last history step and save best model"""
