@@ -227,6 +227,9 @@ class WandbLogger(Callback):
 
     >>> # Create a wandb Run
     ... wandb_run = wandb.init()
+    >>> # Alternative: Create a wandb Run without having a W&B account
+    ... wandb_run = wandb.init(anonymous="allow)
+
     >>> # Log hyper-parameters (optional)
     ... wandb.config.update({"learning rate": 1e-3, "batch size": 32})
 
@@ -239,7 +242,8 @@ class WandbLogger(Callback):
       wandb Run used to log data.
 
     save_model : bool (default=True)
-      Whether to save a checkpoint of the best model.
+      Whether to save a checkpoint of the best model and upload it
+      to your Run on W&B servers.
 
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be logged to
