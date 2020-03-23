@@ -278,7 +278,7 @@ class WandbLogger(Callback):
         """Log values from the last history step and save best model"""
         hist = net.history[-1]
         keys_kept = filter_log_keys(hist, keys_ignored=self.keys_ignored_)
-        logged_vals = {k: hist[k] for k in keys_kept if k in hist}
+        logged_vals = {k: hist[k] for k in keys_kept}
         self.wandb_run.log(logged_vals)
 
         # save best model
