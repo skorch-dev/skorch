@@ -214,6 +214,8 @@ class WandbLogger(Callback):
     your net's history, model topology and computer resources to Weights & Biases
     after each epoch.
 
+    Every file saved in `wandb_run.dir` is automatically logged to W&B servers.
+
     See `example run
     <https://app.wandb.ai/borisd13/skorch/runs/s20or4ct/overview?workspace=user-borisd13>`_
 
@@ -231,7 +233,7 @@ class WandbLogger(Callback):
     ... wandb_run = wandb.init(anonymous="allow)
 
     >>> # Log hyper-parameters (optional)
-    ... wandb.config.update({"learning rate": 1e-3, "batch size": 32})
+    ... wandb_run.config.update({"learning rate": 1e-3, "batch size": 32})
 
     >>> net = NeuralNet(..., callbacks=[WandbLogger(wandb_run)])
     >>> net.fit(X, y)

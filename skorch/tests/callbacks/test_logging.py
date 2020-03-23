@@ -226,21 +226,6 @@ class TestWandb:
         mock.dir = '.'
         return mock
 
-    @pytest.fixture
-    def net_fitted(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            wandb_logger_cls,
-            mock_run,
-    ):
-        return net_cls(
-            classifier_module,
-            callbacks=[wandb_logger_cls(mock_run)],
-            max_epochs=3,
-        ).fit(*data)
-
     def test_ignore_keys(
             self,
             net_cls,
