@@ -151,9 +151,9 @@ class TestToDevice:
 
     @pytest.fixture
     def x_pad_seq(self):
-        input = torch.zeros((5, 3)).float()
+        value = torch.zeros((5, 3)).float()
         length = torch.as_tensor([2, 2, 1])
-        return pack_padded_sequence(input,length )
+        return pack_padded_sequence(value, length)
 
     def check_device_type(self, tensor, device_input, prev_device):
         """assert expected device type conditioned on the input argument for `to_device`"""
@@ -203,17 +203,17 @@ class TestToDevice:
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
 
-        prev_device = [None for _ in range(len(x_tup))]
+        prev_devices = [None for _ in range(len(x_tup))]
         if None in (device_from, device_to):
-            prev_device = [x.device.type for x in x_tup]
+            prev_devices = [x.device.type for x in x_tup]
 
         x_tup = to_device(x_tup, device=device_from)
-        for idx, xi in enumerate(x_tup):
-            self.check_device_type(xi, device_from, prev_device[idx])
+        for xi, prev_d in zip(x_tup, prev_devices):
+            self.check_device_type(xi, device_from, prev_d)
 
         x_tup = to_device(x_tup, device=device_to)
-        for idx, xi in enumerate(x_tup):
-            self.check_device_type(xi, device_to, prev_device[idx])
+        for xi, prev_d in zip(x_tup, prev_devices):
+            self.check_device_type(xi, device_to, prev_d)
 
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),

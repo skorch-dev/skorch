@@ -126,7 +126,7 @@ def to_numpy(X):
 
 
 def to_device(X, device):
-    """Generic function to modify the device type of the tensor(s)/module inputted.
+    """Generic function to modify the device type of the tensor(s) or module.
 
     Parameters
     ----------
@@ -152,7 +152,7 @@ def to_device(X, device):
         device = "cuda" if use_cuda else "cpu"
 
     # PackedSequence class inherits from a namedtuple
-    if isinstance(X, tuple) & (type(X) != PackedSequence):
+    if isinstance(X, tuple) and (type(X) != PackedSequence):
         return tuple(x.to(device) for x in X)
     return X.to(device)
 
