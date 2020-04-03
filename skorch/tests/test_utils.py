@@ -160,13 +160,8 @@ class TestToDevice:
         if None is device_input:
             assert tensor.device.type == prev_device
 
-        elif device_input == "auto":
-            expected = 'cuda' if torch.cuda.is_available() else 'cpu'
-            assert tensor.device.type == expected
-
         else:
             assert tensor.device.type == device_input
-
 
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),
@@ -174,7 +169,6 @@ class TestToDevice:
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
         (None, None),
-        ('auto', 'auto'),
     ])
     def test_check_device_torch_tensor(self, to_device, x, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
@@ -196,7 +190,6 @@ class TestToDevice:
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
         (None, None),
-        ('auto', 'auto'),
     ])
     def test_check_device_tuple_torch_tensor(
             self, to_device, x_tup, device_from, device_to):
@@ -221,7 +214,6 @@ class TestToDevice:
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
         (None, None),
-        ('auto', 'auto'),
     ])
     def test_check_device_packed_padded_sequence(
             self, to_device, x_pad_seq, device_from, device_to):

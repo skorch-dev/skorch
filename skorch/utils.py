@@ -139,17 +139,12 @@ def to_device(X, device):
          * torch.nn.Module
 
     device : str, torch.device
-        The compute device to be used. If device="auto" it is set to
-        "cuda" if available otherwise "cpu". If device=None, return
-        the input unmodified
+        The compute device to be used. If device=None, return the input
+        unmodified
 
     """
     if device is None:
         return X
-
-    if device == "auto":
-        use_cuda = torch.cuda.is_available()
-        device = "cuda" if use_cuda else "cpu"
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, tuple) and (type(X) != PackedSequence):
@@ -503,6 +498,9 @@ def get_map_location(target_device, fallback_device='cpu'):
     """Determine the location to map loaded data (e.g., weights)
     for a given target device (e.g. 'cuda').
     """
+    if target_device is None:
+        target_device = fallback_device
+
     map_location = torch.device(target_device)
 
     # The user wants to use CUDA but there is no CUDA device

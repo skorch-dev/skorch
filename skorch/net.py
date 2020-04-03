@@ -156,9 +156,8 @@ class NeuralNet:
     device : str, torch.device (default='cpu')
       The compute device to be used. If set to 'cuda', data in torch
       tensors will be pushed to cuda tensors before being sent to the
-      module. If set to 'auto', 'cuda' will be selected if available,
-      otherwise the default will be used. If set to None, then
-      all compute devices will be left unmodified.
+      module. If set to None, then all compute devices will be left
+      unmodified.
 
     Attributes
     ----------
