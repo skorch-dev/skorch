@@ -33,5 +33,6 @@ __all__ = [
     'TrainEndCheckpoint',
     'TensorBoard',
     'Unfreezer',
+    'WandbLogger',
     'WarmRestartLR',
 ]

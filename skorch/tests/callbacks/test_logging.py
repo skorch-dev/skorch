@@ -11,6 +11,7 @@ import torch
 from torch import nn
 
 from skorch.tests.conftest import neptune_installed
+from skorch.tests.conftest import wandb_installed
 from skorch.tests.conftest import tensorboard_installed
 
 
@@ -189,6 +190,86 @@ class TestNeptune:
 
         npt.on_batch_end(net)
         assert npt.first_batch_ is False
+
+@pytest.mark.skipif(
+    not wandb_installed, reason='wandb is not installed')
+class TestWandb:
+    @pytest.fixture
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def data(self, classifier_data):
+        X, y = classifier_data
+        # accelerate training since we don't care for the loss
+        X, y = X[:40], y[:40]
+        return X, y
+
+    @pytest.fixture
+    def wandb_logger_cls(self):
+        from skorch.callbacks import WandbLogger
+        return WandbLogger
+
+    @pytest.fixture
+    def wandb_run_cls(self):
+        import wandb
+        os.environ['WANDB_MODE'] = 'dryrun' # run offline
+        with wandb.init(anonymous="allow") as run:
+            return run
+
+    @pytest.fixture
+    def mock_run(self):
+        mock = Mock()
+        mock.log = Mock()
+        mock.watch = Mock()
+        mock.dir = '.'
+        return mock
+
+    def test_ignore_keys(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            wandb_logger_cls,
+            mock_run,
+    ):
+        # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
+        # this should not cause a problem
+        wandb_cb = wandb_logger_cls(
+            mock_run, keys_ignored=['dur', 'valid_loss', 'unknown'])
+        net_cls(
+            classifier_module,
+            callbacks=[wandb_cb],
+            max_epochs=3,
+        ).fit(*data)
+
+        # 3 epochs = 3 calls
+        assert mock_run.log.call_count == 3
+        assert mock_run.watch.call_count == 1
+        call_args = [args[0][0] for args in mock_run.log.call_args_list]
+        assert 'valid_loss' not in call_args
+
+    def test_keys_ignored_is_string(self, wandb_logger_cls, mock_run):
+        wandb_cb = wandb_logger_cls(
+            mock_run, keys_ignored='a-key').initialize()
+        expected = {'a-key', 'batches'}
+        assert wandb_cb.keys_ignored_ == expected
+
+    def test_fit_with_real_experiment(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            wandb_logger_cls,
+            wandb_run_cls,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[wandb_logger_cls(wandb_run_cls)],
+            max_epochs=5,
+        )
+        net.fit(*data)
 
 class TestPrintLog:
     @pytest.fixture
