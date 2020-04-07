@@ -5,6 +5,7 @@ import time
 from contextlib import suppress
 from numbers import Number
 from itertools import cycle
+from pathlib import Path
 
 import numpy as np
 import tqdm
@@ -14,7 +15,8 @@ from skorch.utils import Ansi
 from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
-__all__ = ['EpochTimer', 'NeptuneLogger', 'PrintLog', 'ProgressBar', 'TensorBoard']
+__all__ = ['EpochTimer', 'NeptuneLogger', 'WandbLogger', 'PrintLog', 'ProgressBar',
+           'TensorBoard']
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -78,7 +80,7 @@ class NeptuneLogger(Callback):
     >>> pip install psutil
 
     You can view example experiment logs here:
-    https://ui.neptune.ai/o/shared/org/skorch-integration/e/SKOR-4/logs
+    https://ui.neptune.ai/o/shared/org/skorch-integration/e/SKOR-13/charts
 
     Examples
     --------
@@ -89,7 +91,7 @@ class NeptuneLogger(Callback):
     ...
     ... # We are using api token for an anonymous user.
     ... # For your projects use the token associated with your neptune.ai account
-    >>> neptune.init(api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5tbCIsImFwaV9rZXkiOiJiNzA2YmM4Zi03NmY5LTRjMmUtOTM5ZC00YmEwMzZmOTMyZTQifQ==',
+    >>> neptune.init(api_token='ANONYMOUS',
     ...              project_qualified_name='shared/skorch-integration')
     ...
     ... experiment = neptune.create_experiment(
@@ -204,6 +206,88 @@ class NeptuneLogger(Callback):
     def on_train_end(self, net, **kwargs):
         if self.close_after_train:
             self.experiment.stop()
+
+class WandbLogger(Callback):
+    """Logs best model and metrics to `Weights & Biases <https://docs.wandb.com/>`_
+
+    Use this callback to automatically log best trained model, all metrics from
+    your net's history, model topology and computer resources to Weights & Biases
+    after each epoch.
+
+    Every file saved in `wandb_run.dir` is automatically logged to W&B servers.
+
+    See `example run
+    <https://app.wandb.ai/borisd13/skorch/runs/s20or4ct/overview?workspace=user-borisd13>`_
+
+    Examples
+    --------
+    >>> # Install wandb
+    ... pip install wandb
+
+    >>> import wandb
+    >>> from skorch.callbacks import WandbLogger
+
+    >>> # Create a wandb Run
+    ... wandb_run = wandb.init()
+    >>> # Alternative: Create a wandb Run without having a W&B account
+    ... wandb_run = wandb.init(anonymous="allow)
+
+    >>> # Log hyper-parameters (optional)
+    ... wandb_run.config.update({"learning rate": 1e-3, "batch size": 32})
+
+    >>> net = NeuralNet(..., callbacks=[WandbLogger(wandb_run)])
+    >>> net.fit(X, y)
+
+    Parameters
+    ----------
+    wandb_run : wandb.wandb_run.Run
+      wandb Run used to log data.
+
+    save_model : bool (default=True)
+      Whether to save a checkpoint of the best model and upload it
+      to your Run on W&B servers.
+
+    keys_ignored : str or list of str (default=None)
+      Key or list of keys that should not be logged to
+      tensorboard. Note that in addition to the keys provided by the
+      user, keys such as those starting with 'event_' or ending on
+      '_best' are ignored by default.
+    """
+
+    def __init__(
+            self,
+            wandb_run,
+            save_model=True,
+            keys_ignored=None,
+    ):
+        self.wandb_run = wandb_run
+        self.save_model = save_model
+        self.keys_ignored = keys_ignored
+
+    def initialize(self):
+        keys_ignored = self.keys_ignored
+        if isinstance(keys_ignored, str):
+            keys_ignored = [keys_ignored]
+        self.keys_ignored_ = set(keys_ignored or [])
+        self.keys_ignored_.add('batches')
+        return self
+
+    def on_train_begin(self, net, **kwargs):
+        """Log model topology and add a hook for gradients"""
+        self.wandb_run.watch(net.module_)
+
+    def on_epoch_end(self, net, **kwargs):
+        """Log values from the last history step and save best model"""
+        hist = net.history[-1]
+        keys_kept = filter_log_keys(hist, keys_ignored=self.keys_ignored_)
+        logged_vals = {k: hist[k] for k in keys_kept}
+        self.wandb_run.log(logged_vals)
+
+        # save best model
+        if self.save_model and hist['valid_loss_best']:
+            model_path = Path(self.wandb_run.dir) / 'best_model.pth'
+            with model_path.open('wb') as model_file:
+                net.save_params(f_params=model_file)
 
 
 class PrintLog(Callback):

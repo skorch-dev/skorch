@@ -6,6 +6,9 @@ python:
   - "3.5"
 env:
   - PYTORCH_VERSION="1.1.0"
+  - PYTORCH_VERSION="1.2.0"
+  - PYTORCH_VERSION="1.3.1"
+  - PYTORCH_VERSION="1.4.0"
 
 cache:
   apt: true
@@ -32,6 +35,6 @@ install:
   - pip install -r requirements.txt
   - pip install -r requirements-dev.txt
   - python setup.py install
-  - conda install -c pytorch pytorch-cpu==${PYTORCH_VERSION}
+  - conda install -c pytorch pytorch==${PYTORCH_VERSION}
 script:
   - pytest

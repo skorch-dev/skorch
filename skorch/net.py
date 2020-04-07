@@ -153,7 +153,8 @@ class NeuralNet:
     device : str, torch.device (default='cpu')
       The compute device to be used. If set to 'cuda', data in torch
       tensors will be pushed to cuda tensors before being sent to the
-      module.
+      module. If set to None, then all compute devices will be left
+      unmodified.
 
     Attributes
     ----------
@@ -424,7 +425,7 @@ class NeuralNet:
         criterion_params = self._get_params_for('criterion')
         self.criterion_ = self.criterion(**criterion_params)
         if isinstance(self.criterion_, torch.nn.Module):
-            self.criterion_ = self.criterion_.to(self.device)
+            self.criterion_ = to_device(self.criterion_, self.device)
         return self
 
     def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
@@ -465,7 +466,7 @@ class NeuralNet:
 
             module = module(**kwargs)
 
-        self.module_ = module.to(self.device)
+        self.module_ = to_device(module, self.device)
         return self
 
     def _is_virtual_param(self, key):
