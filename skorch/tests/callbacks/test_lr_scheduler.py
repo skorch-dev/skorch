@@ -200,7 +200,7 @@ class TestLRCallbacks:
             callbacks=[('scheduler', scheduler)]
         )
         net.fit(*classifier_data)
-        assert all(net.history[:, 'event_lr'] == lrs)
+        assert np.all(net.history[:, 'event_lr'] == lrs)
 
     def test_lr_scheduler_record_batch_step(self, classifier_module, classifier_data):
         X, y = classifier_data
@@ -217,7 +217,7 @@ class TestLRCallbacks:
         net.fit(X, y)
         new_lrs = scheduler.simulate(net.history[-1,'train_batch_count'], initial_lr=123.)
 
-        assert all(net.history[-1, 'batches', :, 'event_lr'] == new_lrs)
+        assert np.all(net.history[-1, 'batches', :, 'event_lr'] == new_lrs)
 
 
 class TestReduceLROnPlateau:

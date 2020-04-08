@@ -52,6 +52,10 @@ class LRScheduler(Callback):
       argument and is expected to return the score (float) used to
       determine the learning rate adjustment.
 
+    event_name: str, (default='event_lr')
+      Name of event to be placed in history when the scheduler takes a step.
+      Pass ``None`` to disable placing events in history.
+
     kwargs
       Additional arguments passed to the lr scheduler.
 
