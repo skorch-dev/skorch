@@ -12,6 +12,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
+
 try:
     from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
 except ImportError:
@@ -20,9 +21,7 @@ except ImportError:
 from torch.optim.optimizer import Optimizer
 from skorch.callbacks import Callback
 
-
 __all__ = ['LRScheduler', 'WarmRestartLR']
-
 
 
 def _check_lr(name, optimizer, lr):
@@ -58,9 +57,10 @@ class LRScheduler(Callback):
 
     """
 
-    def __init__(self, policy='WarmRestartLR', monitor='train_loss', **kwargs):
+    def __init__(self, policy='WarmRestartLR', monitor='train_loss', event_name="event_lr", **kwargs):
         self.policy = policy
         self.monitor = monitor
+        self.event_name = event_name
         vars(self).update(kwargs)
 
     def simulate(self, steps, initial_lr):
@@ -92,7 +92,7 @@ class LRScheduler(Callback):
             step = sch.step
         lrs = []
         for _ in range(steps):
-            opt.step() # suppress warning about .step call order
+            opt.step()  # suppress warning about .step call order
             lrs.append(opt.param_groups[0]['lr'])
             step()
 
@@ -114,7 +114,7 @@ class LRScheduler(Callback):
         # These are the parameters that are passed to the
         # scheduler. Parameters that don't belong there must be
         # excluded.
-        excluded = ('policy', 'monitor')
+        excluded = ('policy', 'monitor', 'event_name')
         kwargs = {key: val for key, val in vars(self).items()
                   if not (key in excluded or key.endswith('_'))}
         return kwargs
@@ -143,29 +143,27 @@ class LRScheduler(Callback):
                     else:
                         score = np.inf
             self.lr_scheduler_.step(score, epoch)
+            # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
             self.lr_scheduler_.step(epoch)
+            if self.event_name is not None:
+                net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
 
     def on_batch_end(self, net, training, **kwargs):
-        if (
-                training and
-                hasattr(self.lr_scheduler_, 'batch_step') and
-                callable(self.lr_scheduler_.batch_step)
-        ):
-            self.lr_scheduler_.batch_step(self.batch_idx_)
-
+        if not training:
+            return
         if TorchCyclicLR and isinstance(self.lr_scheduler_, TorchCyclicLR):
             self.lr_scheduler_.step(self.batch_idx_)
-
-        if training:
-            self.batch_idx_ += 1
+            if self.event_name is not None:
+                net.history.record_batch(self.event_name, self.lr_scheduler_.get_last_lr()[0])
+        self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
         """Return scheduler, based on indicated policy, with appropriate
         parameters.
         """
         if policy not in [ReduceLROnPlateau] and \
-           'last_epoch' not in scheduler_kwargs:
+                'last_epoch' not in scheduler_kwargs:
             last_epoch = len(net.history) - 1
             scheduler_kwargs['last_epoch'] = last_epoch
 
@@ -218,7 +216,7 @@ class WarmRestartLR(_LRScheduler):
             base_period=10,
             period_mult=2,
             last_epoch=-1
-        ):
+    ):
         self.min_lr = _check_lr('min_lr', optimizer, min_lr)
         self.max_lr = _check_lr('max_lr', optimizer, max_lr)
         self.base_period = base_period
@@ -226,7 +224,7 @@ class WarmRestartLR(_LRScheduler):
         super(WarmRestartLR, self).__init__(optimizer, last_epoch)
 
     def _get_current_lr(self, min_lr, max_lr, period, epoch):
-        return min_lr + 0.5*(max_lr-min_lr)*(1+ np.cos(epoch * np.pi/period))
+        return min_lr + 0.5 * (max_lr - min_lr) * (1 + np.cos(epoch * np.pi / period))
 
     def get_lr(self):
         epoch_idx = float(self.last_epoch)
