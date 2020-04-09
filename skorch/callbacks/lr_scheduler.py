@@ -55,6 +55,7 @@ class LRScheduler(Callback):
     event_name: str, (default='event_lr')
       Name of event to be placed in history when the scheduler takes a step.
       Pass ``None`` to disable placing events in history.
+      **Note:** This feature works only for pytorch version >=1.4
 
     kwargs
       Additional arguments passed to the lr scheduler.
@@ -150,7 +151,7 @@ class LRScheduler(Callback):
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
             self.lr_scheduler_.step(epoch)
-            if self.event_name is not None:
+            if self.event_name is not None and hasattr(self.lr_scheduler_,"get_last_lr"):
                 net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
 
     def on_batch_end(self, net, training, **kwargs):
@@ -158,7 +159,7 @@ class LRScheduler(Callback):
             return
         if TorchCyclicLR and isinstance(self.lr_scheduler_, TorchCyclicLR):
             self.lr_scheduler_.step(self.batch_idx_)
-            if self.event_name is not None:
+            if self.event_name is not None and hasattr(self.lr_scheduler_,"get_last_lr"):
                 net.history.record_batch(self.event_name, self.lr_scheduler_.get_last_lr()[0])
         self.batch_idx_ += 1
 
