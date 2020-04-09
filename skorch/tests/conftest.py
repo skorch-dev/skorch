@@ -142,6 +142,15 @@ try:
 except ImportError:
     pass
 
+wandb_installed = False
+try:
+    # pylint: disable=unused-import
+    import wandb
+
+    wandb_installed = True
+except ImportError:
+    pass
+
 pandas_installed = False
 try:
     # pylint: disable=unused-import

@@ -34,6 +34,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 from sklearn.utils import shuffle
+from skorch.utils import to_device
 from skorch import NeuralNetClassifier
 from skorch.callbacks import EpochScoring
 import torch
@@ -141,7 +142,7 @@ def train_torch(
         lr,
         max_epochs,
 ):
-    model.to(device)
+    model = to_device(model, device)
 
     idx_train, idx_valid = next(iter(StratifiedKFold(
         5, random_state=0).split(np.arange(len(X)), y)))
@@ -191,7 +192,7 @@ def train_step(model, dataset, device, criterion, batch_size, optimizer):
     batch_sizes = []
     tic = time.time()
     for Xi, yi in torch.utils.data.DataLoader(dataset, batch_size=batch_size):
-        Xi, yi = Xi.to(device), yi.to(device)
+        Xi, yi = to_device(Xi, device), to_device(yi, device)
         optimizer.zero_grad()
         y_pred = model(Xi)
         y_pred = torch.log(y_pred)
@@ -221,7 +222,7 @@ def valid_step(model, dataset, device, criterion, batch_size):
         for Xi, yi in torch.utils.data.DataLoader(
                 dataset, batch_size=batch_size,
         ):
-            Xi, yi = Xi.to(device), yi.to(device)
+            Xi, yi = to_device(Xi, device), to_device(yi, device)
             y_pred = model(Xi)
             y_pred = torch.log(y_pred)
             loss = criterion(y_pred, yi)

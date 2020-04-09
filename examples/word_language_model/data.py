@@ -1,5 +1,7 @@
 import os
 
+from skorch.utils import to_device
+
 import torch
 from torch.autograd import Variable
 
@@ -70,7 +72,7 @@ class Loader:
         data = data.narrow(0, 0, nbatch * bsz)
         # Evenly divide the data across the bsz batches.
         data = data.view(bsz, -1).t().contiguous()
-        return data.to(self.device)
+        return to_device(data, self.device)
 
     def get_batch(self, i):
         seq_len = min(self.bptt, len(self.batches) - 1 - i)
