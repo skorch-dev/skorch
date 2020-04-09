@@ -1468,11 +1468,9 @@ class TestNeuralNet:
         net.fit(*data)
         assert side_effect == [123]
 
-    @pytest.mark.skip
     @pytest.mark.xfail
     def test_net_initialized_with_initalized_dataset(
             self, net_cls, module_cls, data, dataset_cls):
-        # TODO: What to do of this test now??
         net = net_cls(
             module_cls,
             dataset=dataset_cls(*data),
