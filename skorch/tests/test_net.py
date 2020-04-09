@@ -1468,7 +1468,7 @@ class TestNeuralNet:
         net.fit(*data)
         assert side_effect == [123]
 
-    @pytest.mark.xfail
+    @pytest.mark.xfail(raises=ValueError)
     def test_net_initialized_with_initalized_dataset(
             self, net_cls, module_cls, data, dataset_cls):
         net = net_cls(
