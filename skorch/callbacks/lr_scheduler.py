@@ -91,15 +91,11 @@ class LRScheduler(Callback):
         policy_cls = self._get_policy_cls()
         sch = policy_cls(opt, **self.kwargs)
 
-        if hasattr(sch, 'batch_step') and callable(sch.batch_step):
-            step = sch.batch_step
-        else:
-            step = sch.step
         lrs = []
         for _ in range(steps):
             opt.step()  # suppress warning about .step call order
             lrs.append(opt.param_groups[0]['lr'])
-            step()
+            sch.step()
 
         return np.array(lrs)
 
@@ -151,7 +147,7 @@ class LRScheduler(Callback):
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
             self.lr_scheduler_.step(epoch)
-            if self.event_name is not None and hasattr(self.lr_scheduler_,"get_last_lr"):
+            if self.event_name is not None and hasattr(self.lr_scheduler_, "get_last_lr"):
                 net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
 
     def on_batch_end(self, net, training, **kwargs):
@@ -159,7 +155,7 @@ class LRScheduler(Callback):
             return
         if TorchCyclicLR and isinstance(self.lr_scheduler_, TorchCyclicLR):
             self.lr_scheduler_.step(self.batch_idx_)
-            if self.event_name is not None and hasattr(self.lr_scheduler_,"get_last_lr"):
+            if self.event_name is not None and hasattr(self.lr_scheduler_, "get_last_lr"):
                 net.history.record_batch(self.event_name, self.lr_scheduler_.get_last_lr()[0])
         self.batch_idx_ += 1
 
