@@ -28,6 +28,7 @@ __all__ = [
     'LoadInitState',
     'NeptuneLogger',
     'ParamMapper',
+    'PassthroughScoring',
     'PrintLog',
     'ProgressBar',
     'TrainEndCheckpoint',

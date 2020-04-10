@@ -21,11 +21,9 @@ from skorch.utils import to_numpy
 from skorch.callbacks import Callback
 from skorch.utils import check_indexing
 from skorch.utils import to_device
-from skorch.utils import train_loss_score
-from skorch.utils import valid_loss_score
 
 
-__all__ = ['BatchScoring', 'EpochScoring']
+__all__ = ['BatchScoring', 'EpochScoring', 'PassthroughScoring']
 
 
 @contextmanager
@@ -199,12 +197,13 @@ class BatchScoring(ScoringBase):
     average score is the best score yet and that information is also
     stored in the history.
 
-    In contrast to ``EpochScoring``, this callback determines the
-    score for each batch and then averages the score at the end of the
-    epoch. This can be disadvantageous for some scores if the batch
-    size is small -- e.g. area under the ROC will return incorrect
-    scores in this case. Therefore, it is recommnded to use
-    ``EpochScoring`` unless you really need the scores for each batch.
+    In contrast to :class:`.EpochScoring`, this callback determines
+    the score for each batch and then averages the score at the end of
+    the epoch. This can be disadvantageous for some scores if the
+    batch size is small -- e.g. area under the ROC will return
+    incorrect scores in this case. Therefore, it is recommnded to use
+    :class:`.EpochScoring` unless you really need the scores for each
+    batch.
 
     If ``y`` is None, the ``scoring`` function with signature (model, X, y)
     must be able to handle ``X`` as a ``Tensor`` and ``y=None``.
@@ -220,7 +219,7 @@ class BatchScoring(ScoringBase):
 
     lower_is_better : bool (default=True)
       Whether lower (e.g. log loss) or higher (e.g. accuracy) scores
-      are better
+      are better.
 
     on_train : bool (default=False)
       Whether this should be called during train or validation.
@@ -236,14 +235,12 @@ class BatchScoring(ScoringBase):
       Re-use the model's prediction for computing the loss to calculate
       the score. Turning this off will result in an additional inference
       step for each batch.
+
     """
     # pylint: disable=unused-argument,arguments-differ
 
     def on_batch_end(self, net, X, y, training, **kwargs):
         if training != self.on_train:
-            return
-
-        if self.scoring in [train_loss_score, valid_loss_score]:
             return
 
         y_preds = [kwargs['y_pred']]
@@ -271,7 +268,7 @@ class BatchScoring(ScoringBase):
     # pylint: disable=unused-argument
     def on_epoch_end(self, net, **kwargs):
         history = net.history
-        try:
+        try:  # don't raise if there is no valid data
             history[-1, 'batches', :, self.name_]
         except KeyError:
             return
@@ -476,3 +473,78 @@ class EpochScoring(ScoringBase):
 
     def on_train_end(self, *args, **kwargs):
         self._initialize_cache()
+
+
+class PassthroughScoring(Callback):
+    """Creates scores on epoch level based on batch level scores
+
+    This callback doesn't calculate any new scores but instead passes
+    through a score that was created on the batch level. Based on that
+    score, an average across the batch is created (honoring the batch
+    size) and recorded in the history for the given epoch.
+
+    Use this callback when there already is a score calculated on the
+    batch level. If that score has yet to be calculated, use
+    :class:`.BatchScoring` instead.
+
+    Parameters
+    ----------
+    name : str
+      Name of the score recorded on a batch level in the history.
+
+    lower_is_better : bool (default=True)
+      Whether lower (e.g. log loss) or higher (e.g. accuracy) scores
+      are better.
+
+    on_train : bool (default=False)
+      Whether this should be called during train or validation.
+
+    """
+    def __init__(
+            self,
+            name,
+            lower_is_better=True,
+            on_train=False,
+    ):
+        self.name = name
+        self.lower_is_better = lower_is_better
+        self.on_train = on_train
+
+    def initialize(self):
+        self.best_score_ = np.inf if self.lower_is_better else -np.inf
+        return self
+
+    def _is_best_score(self, current_score):
+        if self.lower_is_better is None:
+            return None
+        if self.lower_is_better:
+            return current_score < self.best_score_
+        return current_score > self.best_score_
+
+    def get_avg_score(self, history):
+        if self.on_train:
+            bs_key = 'train_batch_size'
+        else:
+            bs_key = 'valid_batch_size'
+
+        weights, scores = list(zip(
+            *history[-1, 'batches', :, [bs_key, self.name]]))
+        score_avg = np.average(scores, weights=weights)
+        return score_avg
+
+    # pylint: disable=unused-argument,arguments-differ
+    def on_epoch_end(self, net, **kwargs):
+        history = net.history
+        try:  # don't raise if there is no valid data
+            history[-1, 'batches', :, self.name]
+        except KeyError:
+            return
+
+        score_avg = self.get_avg_score(history)
+        is_best = self._is_best_score(score_avg)
+        if is_best:
+            self.best_score_ = score_avg
+
+        history.record(self.name, score_avg)
+        if is_best is not None:
+            history.record(self.name + '_best', bool(is_best))

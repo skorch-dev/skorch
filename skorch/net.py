@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
-from skorch.callbacks import BatchScoring
+from skorch.callbacks import PassthroughScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
@@ -28,13 +28,10 @@ from skorch.utils import check_is_fitted
 from skorch.utils import duplicate_items
 from skorch.utils import get_map_location
 from skorch.utils import is_dataset
-from skorch.utils import noop
 from skorch.utils import params_for
 from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import train_loss_score
-from skorch.utils import valid_loss_score
 
 
 # pylint: disable=too-many-instance-attributes
@@ -250,16 +247,12 @@ class NeuralNet:
     def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', BatchScoring(
-                train_loss_score,
+            ('train_loss', PassthroughScoring(
                 name='train_loss',
                 on_train=True,
-                target_extractor=noop,
             )),
-            ('valid_loss', BatchScoring(
-                valid_loss_score,
+            ('valid_loss', PassthroughScoring(
                 name='valid_loss',
-                target_extractor=noop,
             )),
             ('print_log', PrintLog()),
         ]
