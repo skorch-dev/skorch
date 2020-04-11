@@ -187,7 +187,7 @@ If you want to help developing, run:
     conda env create
     source activate skorch
     # install pytorch version for your system (see below)
-    conda install -c conda-forge --file requirements-dev.txt
+    pip install -r requirements-dev.txt
     python setup.py develop
 
     py.test  # unit tests
@@ -205,7 +205,7 @@ If you just want to use skorch, use:
     # create and activate a virtual environment
     pip install -r requirements.txt
     # install pytorch version for your system (see below)
-    python setup.py install
+    pip install .
 
 If you want to help developing, run:
 
@@ -217,7 +217,7 @@ If you want to help developing, run:
     pip install -r requirements.txt
     # install pytorch version for your system (see below)
     pip install -r requirements-dev.txt
-    python setup.py develop
+    pip install -e .
 
     py.test  # unit tests
     pylint skorch  # static code checks
@@ -225,6 +225,7 @@ If you want to help developing, run:
 PyTorch
 =======
 
+TODO: UPDATE
 PyTorch is not covered by the dependencies, since the PyTorch version
 you need is dependent on your system. For installation instructions
 for PyTorch, visit the `PyTorch website

@@ -1,36 +1,29 @@
 name: skorch
 channels:
+  - pytorch
   - defaults
 dependencies:
   - _libgcc_mutex=0.1
   - blas=1.0
-  - ca-certificates=2019.5.15
-  - certifi=2019.6.16
-  - intel-openmp=2019.4
-  - joblib=0.13.2
-  - libedit=3.1.20181209
-  - libffi=3.2.1
-  - mkl=2019.4
-  - mkl-service=2.0.2
-  - mkl_fft=1.0.12
-  - mkl_random=1.0.2
-  - ncurses=6.1
-  - numpy=1.16.4
-  - numpy-base=1.16.4
-  - openssl=1.1.1c
-  - pip=10.0.1
-  - python=3.7.4
-  - readline=7.0
-  - scikit-learn=0.21.2
-  - scipy=1.3.0
-  - setuptools=41.0.1
-  - six=1.12.0
-  - sqlite=3.29.0
+  - joblib=0.14.1
+  - ncurses=6.2
+  - ninja=1.9.0
+  - numpy=1.18.1
+  - numpy-base=1.18.1
+  - openssl=1.1.1f
+  - pip=20.0.2
+  - python=3.7.7
+  - pytorch=1.4.0
+  - readline=8.0
+  - scikit-learn=0.22.1
+  - scipy=1.4.1
+  - setuptools=46.1.3
+  - six=1.14.0
+  - sqlite=3.31.1
   - tabulate=0.8.3
-  - tensorboard=1.14.0
   - tk=8.6.8
-  - tqdm=4.32.1
-  - wheel=0.33.4
+  - tqdm=4.44.1
+  - wheel=0.34.2
   - xz=5.2.4
   - zlib=1.2.11
 
