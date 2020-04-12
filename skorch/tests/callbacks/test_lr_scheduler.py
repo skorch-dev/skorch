@@ -189,7 +189,11 @@ class TestLRCallbacks:
     @pytest.mark.parametrize('policy,kwargs', [
         (StepLR, {'gamma': 0.9, 'step_size': 1})
     ])
-    def test_lr_scheduler_record_epoch_step(self, classifier_module, classifier_data, policy, kwargs):
+    def test_lr_scheduler_record_epoch_step(self,
+                                            classifier_module,
+                                            classifier_data,
+                                            policy,
+                                            kwargs):
         epochs = 3
         scheduler = LRScheduler(policy, **kwargs)
         lrs = scheduler.simulate(epochs, initial_lr=123.)
@@ -216,7 +220,8 @@ class TestLRCallbacks:
             callbacks=[('scheduler', scheduler)]
         )
         net.fit(X, y)
-        new_lrs = scheduler.simulate(net.history[-1, 'train_batch_count'], initial_lr=123.)
+        new_lrs = scheduler.simulate(net.history[-1, 'train_batch_count'],
+                                     initial_lr=123.)
         if hasattr(scheduler.lr_scheduler_, "get_last_lr"):
             assert np.all(net.history[-1, 'batches', :, 'event_lr'] == new_lrs)
 

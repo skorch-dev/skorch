@@ -62,7 +62,11 @@ class LRScheduler(Callback):
 
     """
 
-    def __init__(self, policy='WarmRestartLR', monitor='train_loss', event_name="event_lr", **kwargs):
+    def __init__(self,
+                 policy='WarmRestartLR',
+                 monitor='train_loss',
+                 event_name="event_lr",
+                 **kwargs):
         self.policy = policy
         self.monitor = monitor
         self.event_name = event_name
@@ -147,7 +151,8 @@ class LRScheduler(Callback):
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
             self.lr_scheduler_.step(epoch)
-            if self.event_name is not None and hasattr(self.lr_scheduler_, "get_last_lr"):
+            if self.event_name is not None and hasattr(self.lr_scheduler_,
+                                                       "get_last_lr"):
                 net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
 
     def on_batch_end(self, net, training, **kwargs):
@@ -155,8 +160,10 @@ class LRScheduler(Callback):
             return
         if TorchCyclicLR and isinstance(self.lr_scheduler_, TorchCyclicLR):
             self.lr_scheduler_.step(self.batch_idx_)
-            if self.event_name is not None and hasattr(self.lr_scheduler_, "get_last_lr"):
-                net.history.record_batch(self.event_name, self.lr_scheduler_.get_last_lr()[0])
+            if self.event_name is not None and hasattr(self.lr_scheduler_,
+                                                       "get_last_lr"):
+                net.history.record_batch(self.event_name,
+                                         self.lr_scheduler_.get_last_lr()[0])
         self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
