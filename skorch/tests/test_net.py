@@ -1450,9 +1450,8 @@ class TestNeuralNet:
         # does not raise
         net.fit(X, y)
 
-    @pytest.mark.parametrize('use_caching', [True, False])
     def test_net_initialized_with_custom_dataset_args(
-            self, net_cls, module_cls, data, dataset_cls, use_caching):
+            self, net_cls, module_cls, data, dataset_cls):
         side_effect = []
 
         class MyDataset(dataset_cls):
@@ -1465,20 +1464,11 @@ class TestNeuralNet:
             dataset=MyDataset,
             dataset__foo=123,
             max_epochs=1,
-            callbacks__train_loss__use_caching=use_caching,
-            callbacks__valid_loss__use_caching=use_caching,
-            callbacks__valid_acc__use_caching=use_caching,
         )
         net.fit(*data)
+        assert side_effect == [123]
 
-        if not use_caching:
-            # train/valid split, scoring predict
-            assert side_effect == [123, 123]
-        else:
-            # train/valid split
-            assert side_effect == [123]
-
-    @pytest.mark.xfail
+    @pytest.mark.xfail(raises=ValueError)
     def test_net_initialized_with_initalized_dataset(
             self, net_cls, module_cls, data, dataset_cls):
         net = net_cls(

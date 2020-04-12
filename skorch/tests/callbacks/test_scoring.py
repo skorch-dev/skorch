@@ -932,3 +932,131 @@ class TestBatchScoring:
         # the bug, the cache would be exhausted early because of the
         # train split, and we would get back less.
         assert len(y_pred) == len(X)
+
+
+class TestPassthrougScoring:
+    @pytest.fixture
+    def scoring_cls(self, request):
+        from skorch.callbacks import PassthroughScoring
+        return PassthroughScoring
+
+    @pytest.fixture
+    def train_loss(self, scoring_cls):
+        # use train batch size to stand in for batch-level scores
+        return scoring_cls(name='train_batch_size', on_train=True)
+
+    @pytest.fixture
+    def valid_loss(self, scoring_cls):
+        # use valid batch size to stand in for batch-level scores
+        return scoring_cls(name='valid_batch_size')
+
+    @pytest.fixture
+    def net(self, classifier_module, train_loss, valid_loss, classifier_data):
+        from skorch import NeuralNetClassifier
+        net = NeuralNetClassifier(
+            classifier_module,
+            batch_size=10,
+            # use train and valid batch size to stand in for
+            # batch-level scores
+            callbacks=[train_loss, valid_loss],
+            max_epochs=2)
+
+        X, y = classifier_data
+        n = 75
+        # n=75 with a 4/5 train/valid split -> 60/15 samples; with a
+        # batch size of 10, that leads to train batch sizes of
+        # [10,10,10,10] and valid batch sizes of [10,5]; all labels
+        # are set to 0 to ensure that the stratified split is exactly
+        # equal to the desired split
+        y = np.zeros_like(y)
+        return net.fit(X[:n], y[:n])
+
+    @pytest.fixture
+    def history(self, net):
+        return net.history
+
+    @pytest.fixture
+    def history_empty(self):
+        from skorch.history import History
+        return History()
+
+    def test_correct_train_pass_through_scores(self, history):
+        # train: average of [10,10,10,10,10] is 10
+        train_scores = history[:, 'train_batch_size']
+        assert np.allclose(train_scores, 10.0)
+
+    def test_correct_valid_pass_through_scores(self, history):
+        # valid: average of [10,5] with weights also being [10,5] =
+        # (10*10 + 5*5)/15
+        expected = (10 * 10 + 5 * 5) / 15  # 8.333..
+        valid_losses = history[:, 'valid_batch_size']
+        assert np.allclose(valid_losses, [expected, expected])
+
+    def test_missing_entry_in_epoch(self, scoring_cls, history_empty):
+        """We skip one entry in history_empty. This batch should simply be
+        ignored.
+
+        """
+        history_empty.new_epoch()
+        history_empty.new_batch()
+        history_empty.record_batch('score', 10)
+        history_empty.record_batch('train_batch_size', 10)
+
+        history_empty.new_batch()
+        # this score is ignored since it has no associated batch size
+        history_empty.record_batch('score', 20)
+
+        net = Mock(history=history_empty)
+        cb = scoring_cls(name='score', on_train=True).initialize()
+        cb.on_epoch_end(net)
+
+        train_score = history_empty[-1, 'score']
+        assert np.isclose(train_score, 10.0)
+
+    @pytest.mark.parametrize('lower_is_better, expected', [
+        (True, [True, True, True, False, False]),
+        (False, [True, False, False, True, False]),
+        (None, []),
+    ])
+    def test_lower_is_better_is_honored(
+            self, net_cls, module_cls, scoring_cls, train_split, data,
+            history_empty, lower_is_better, expected,
+    ):
+        # results in expected patterns of True and False
+        scores = [10, 8, 6, 11, 7]
+
+        cb = scoring_cls(
+            name='score',
+            lower_is_better=lower_is_better,
+        ).initialize()
+
+        net = Mock(history=history_empty)
+        for score in scores:
+            history_empty.new_epoch()
+            history_empty.new_batch()
+            history_empty.record_batch('score', score)
+            history_empty.record_batch('valid_batch_size', 55)  # doesn't matter
+            cb.on_epoch_end(net)
+
+        if lower_is_better is not None:
+            is_best = history_empty[:, 'score_best']
+            assert is_best == expected
+        else:
+            # if lower_is_better==None, don't write score
+            with pytest.raises(KeyError):
+                # pylint: disable=pointless-statement
+                history_empty[:, 'score_best']
+
+    def test_no_error_when_no_valid_data(
+            self, net_cls, module_cls, scoring_cls, data,
+    ):
+        # we set the name to 'valid_batch_size' but disable
+        # train/valid split -- there should be no error
+        net = net_cls(
+            module_cls,
+            callbacks=[scoring_cls(name='valid_batch_size')],
+            max_epochs=1,
+            train_split=None,
+        )
+        # does not raise
+        net.fit(*data)

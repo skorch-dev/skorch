@@ -142,14 +142,14 @@ compare the performance once with and once without the callback.
 Scoring
 -------
 
-skorch provides two scoring callbacks by default,
+skorch provides two callbacks that calculate scores by default,
 :class:`.EpochScoring` and :class:`.BatchScoring`. They work basically
 in the same way, except that :class:`.EpochScoring` calculates scores
 after each epoch and :class:`.BatchScoring` after each batch. Use the
 former if averaging of batch-wise scores is imprecise (say for AUC
 score) and the latter if you are very tight for memory.
 
-In general, the scoring callbacks are useful when the default scores
+In general, these scoring callbacks are useful when the default scores
 determined by the :class:`.NeuralNet` are not enough. They allow you
 to easily add new metrics to be logged during training. For an example
 of how to add a new score to your model, look `at this notebook
@@ -198,6 +198,26 @@ should be a function or callable that is applied to the target before
 it is passed to the scoring function. The main reason why we need this
 is that sometimes, the target is not of a form expected by sklearn and
 we need to process it before passing it on.
+
+On top of the two described scoring callbacks, skorch also provides
+:class:`.PassthroughScoring`. This callback does not actually
+calculate any new scores. Instead it uses an existing score that is
+calculated for each batch (the train loss, for example) and determines
+the average of this score, which is then written to the epoch level of
+the net's ``history``. This is very useful if the score was already
+calculated and logged on the batch level and you're only interested to
+see the averaged score on the epoch level.
+
+For this callback, you only need to provide the ``name`` of the score
+in the ``history``. Moreover, you may again specify if
+``lower_is_better`` and if the score should be calculated ``on_train``
+or not.
+
+.. note:: Both :class:`.BatchScoring` and :class:`.PassthroughScoring`
+           honor the batch size when calculating the average. This can
+           make a difference when not all batch sizes are equal, which
+           is typically the case because the last batch of an epoch
+           contains fewer samples than the rest.
 
 
 Checkpoint
