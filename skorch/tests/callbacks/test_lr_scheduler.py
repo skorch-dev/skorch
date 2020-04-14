@@ -220,8 +220,10 @@ class TestLRCallbacks:
             callbacks=[('scheduler', scheduler)]
         )
         net.fit(X, y)
-        new_lrs = scheduler.simulate(net.history[-1, 'train_batch_count'],
-                                     initial_lr=123.)
+        new_lrs = scheduler.simulate(
+            net.history[-1, 'train_batch_count'],
+            initial_lr=123.,
+        )
         if hasattr(scheduler.lr_scheduler_, "get_last_lr"):
             assert np.all(net.history[-1, 'batches', :, 'event_lr'] == new_lrs)
 
