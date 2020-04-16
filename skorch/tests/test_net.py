@@ -34,7 +34,6 @@ from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
 
 
-torch.manual_seed(0)
 ACCURACY_EXPECTED = 0.65
 
 
