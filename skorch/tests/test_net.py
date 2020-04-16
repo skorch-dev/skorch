@@ -88,10 +88,21 @@ class TestNeuralNet:
         ])
 
     @pytest.fixture(scope='module')
-    def net_fit(self, net, data):
-        # Careful, don't call additional fits on this, since that would have
-        # side effects on other tests.
+    def net_fit(self, net_cls, module_cls, dummy_callback, data):
+        # Careful, don't call additional fits or set_params on this,
+        # since that would have side effects on other tests.
         X, y = data
+
+        # We need a new instance of the net and cannot reuse the net
+        # fixture, because otherwise fixture net and net_fit refer to
+        # the same object; also, we cannot clone(net) because this
+        # will result in the dummy_callback not being the mock anymore
+        net = net_cls(
+            module_cls,
+            callbacks=[('dummy', dummy_callback)],
+            max_epochs=10,
+            lr=0.1,
+        )
         return net.fit(X, y)
 
     @pytest.fixture
