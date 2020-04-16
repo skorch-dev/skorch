@@ -1,29 +1,39 @@
 name: skorch
 channels:
-  - pytorch
   - defaults
+  - pytorch
+  - conda-forge
 dependencies:
   - _libgcc_mutex=0.1
   - blas=1.0
+  - fire=0.3.1
+  - flaky=3.6.1
+  - future=0.18.2
   - joblib=0.14.1
-  - ncurses=6.2
-  - ninja=1.9.0
+  - jupyter=1.0.0
+  - matplotlib=3.1.3
+  - neptune-client=0.4.110
   - numpy=1.18.1
   - numpy-base=1.18.1
-  - openssl=1.1.1f
+  - numpydoc=0.9.2
+  - openpyxl=3.0.3
+  - pandas=1.0.3
+  - pillow=5.3.0
   - pip=20.0.2
+  - pylint=2.4.4
+  - pytest=5.4.1
+  - pytest-cov=2.8.1
   - python=3.7.7
   - pytorch=1.4.0
-  - readline=8.0
   - scikit-learn=0.22.1
   - scipy=1.4.1
   - setuptools=46.1.3
   - six=1.14.0
-  - sqlite=3.31.1
+  - sphinx=3.0.1
+  - sphinx_rtd_theme=0.4.3
   - tabulate=0.8.3
-  - tk=8.6.8
+  - tensorboard=1.15.0
   - tqdm=4.44.1
   - wheel=0.34.2
-  - xz=5.2.4
-  - zlib=1.2.11
-
+  - pip:
+    - wandb>=0.8.30

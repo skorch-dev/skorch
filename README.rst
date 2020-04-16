@@ -192,7 +192,6 @@ If you want to help developing, run:
     cd skorch
     conda env create
     source activate skorch
-    pip install -r requirements-dev.txt
     pip install -e .
 
     py.test  # unit tests
