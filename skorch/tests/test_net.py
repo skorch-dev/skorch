@@ -1269,23 +1269,13 @@ class TestNeuralNet:
         net.initialize()
         net.get_params()
 
-    @pytest.mark.new_get_params_behavior
-    @pytest.mark.xfail(strict=True)
     def test_get_params_no_learned_params(self, net_fit):
-        # TODO: This test should fail for now but should succeed once
-        # we change the behavior of get_params to be more in line with
-        # sklearn. At that point, remove the decorators.
         params = net_fit.get_params()
         params_learned = set(filter(lambda x: x.endswith('_'), params))
         assert not params_learned
 
-    @pytest.mark.new_get_params_behavior
-    @pytest.mark.xfail(strict=True)
     def test_clone_results_in_uninitialized_net(
             self, net_fit, data):
-        # TODO: This test should fail for now but should succeed once
-        # we change the behavior of get_params to be more in line with
-        # sklearn. At that point, remove the decorators.
         X, y = data
         accuracy = accuracy_score(net_fit.predict(X), y)
         assert accuracy > ACCURACY_EXPECTED  # make sure net has learned
@@ -1298,7 +1288,6 @@ class TestNeuralNet:
 
         assert not net_cloned.history
 
-    @pytest.mark.new_get_params_behavior
     def test_clone_copies_parameters(self, net_cls, module_cls):
         kwargs = dict(
             module__hidden_units=20,
