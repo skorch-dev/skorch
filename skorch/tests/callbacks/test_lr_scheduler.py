@@ -1,9 +1,10 @@
 """Tests for lr_scheduler.py"""
-
+from distutils.version import LooseVersion
 from unittest.mock import Mock
 
 import numpy as np
 import pytest
+import torch
 from sklearn.base import clone
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -189,6 +190,10 @@ class TestLRCallbacks:
     @pytest.mark.parametrize('policy,kwargs', [
         (StepLR, {'gamma': 0.9, 'step_size': 1})
     ])
+    @pytest.mark.skipif(
+        LooseVersion(torch.__version__) < '1.4',
+        reason="Feature isn't supported with this torch version."
+    )
     def test_lr_scheduler_record_epoch_step(self,
                                             classifier_module,
                                             classifier_data,
@@ -204,9 +209,12 @@ class TestLRCallbacks:
             callbacks=[('scheduler', scheduler)]
         )
         net.fit(*classifier_data)
-        if hasattr(scheduler.lr_scheduler_, "get_last_lr"):
-            assert np.all(net.history[:, 'event_lr'] == lrs)
+        assert np.all(net.history[:, 'event_lr'] == lrs)
 
+    @pytest.mark.skipif(
+        LooseVersion(torch.__version__) < '1.4',
+        reason="Feature isn't supported with this torch version."
+    )
     def test_lr_scheduler_record_batch_step(self, classifier_module, classifier_data):
         X, y = classifier_data
         batch_size = 128
@@ -224,8 +232,7 @@ class TestLRCallbacks:
             net.history[-1, 'train_batch_count'],
             initial_lr=123.,
         )
-        if hasattr(scheduler.lr_scheduler_, "get_last_lr"):
-            assert np.all(net.history[-1, 'batches', :, 'event_lr'] == new_lrs)
+        assert np.all(net.history[-1, 'batches', :, 'event_lr'] == new_lrs)
 
 
 class TestReduceLROnPlateau:
