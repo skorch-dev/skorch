@@ -298,7 +298,8 @@ class TestPrintLog:
     def odd_epoch_callback(self):
         from skorch.callbacks import Callback
         class OddEpochCallback(Callback):
-            def on_epoch_end(self, net, **kwargs):
+            def on_epoch_end(
+                    self, net, dataset_train=None, dataset_valid=None, **kwargs):
                 net.history[-1]['event_odd'] = bool(len(net.history) % 2)
 
         return OddEpochCallback().initialize()

@@ -119,7 +119,7 @@ class LRScheduler(Callback):
                   if not (key in excluded or key.endswith('_'))}
         return kwargs
 
-    def on_train_begin(self, net, **kwargs):
+    def on_train_begin(self, net, X=None, y=None, **kwargs):
         if net.history:
             try:
                 self.batch_idx_ = sum(net.history[:, 'train_batch_count'])
@@ -129,7 +129,7 @@ class LRScheduler(Callback):
             net, self.policy_, **self.kwargs
         )
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         epoch = len(net.history) - 1
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             if callable(self.monitor):
@@ -146,7 +146,7 @@ class LRScheduler(Callback):
         else:
             self.lr_scheduler_.step(epoch)
 
-    def on_batch_end(self, net, training, **kwargs):
+    def on_batch_end(self, net, X=None, y=None, training=None, **kwargs):
         if (
                 training and
                 hasattr(self.lr_scheduler_, 'batch_step') and

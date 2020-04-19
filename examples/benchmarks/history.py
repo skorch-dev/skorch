@@ -24,7 +24,7 @@ side_effects = []
 
 
 class TriggerKeyError(Callback):
-    def on_batch_end(self, net, **kwargs):
+    def on_batch_end(self, net, *args, **kwargs):
         try:
             net.history[-1, 'batches', -1, 'foobar']
         except Exception as e:
@@ -32,7 +32,7 @@ class TriggerKeyError(Callback):
 
 
 class PrintMemory(Callback):
-    def on_batch_end(self, net, **kwargs):
+    def on_batch_end(self, net, *args, **kwargs):
         side_effects.append((
             torch.cuda.memory_allocated() / 1e6,
             torch.cuda.memory_cached() / 1e6

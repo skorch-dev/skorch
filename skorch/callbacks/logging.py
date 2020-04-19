@@ -56,10 +56,10 @@ class EpochTimer(Callback):
 
         self.epoch_start_time_ = None
 
-    def on_epoch_begin(self, net, **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         self.epoch_start_time_ = time.time()
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         net.history.record('dur', time.time() - self.epoch_start_time_)
 
 
@@ -185,7 +185,7 @@ class NeptuneLogger(Callback):
         self.keys_ignored_.add('batches')
         return self
 
-    def on_batch_end(self, net, **kwargs):
+    def on_batch_end(self, net, X=None, y=None, training=None, **kwargs):
         if self.log_on_batch_end:
             batch_logs = net.history[-1]['batches'][-1]
 
@@ -194,7 +194,7 @@ class NeptuneLogger(Callback):
 
         self.first_batch_ = False
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         """Automatically log values from the last history step."""
         history = net.history
         epoch_logs = history[-1]
@@ -203,7 +203,7 @@ class NeptuneLogger(Callback):
         for key in filter_log_keys(epoch_logs.keys(), self.keys_ignored_):
             self.experiment.log_metric(key, x=epoch, y=epoch_logs[key])
 
-    def on_train_end(self, net, **kwargs):
+    def on_train_end(self, net, X=None, y=None, **kwargs):
         if self.close_after_train:
             self.experiment.stop()
 
@@ -272,11 +272,11 @@ class WandbLogger(Callback):
         self.keys_ignored_.add('batches')
         return self
 
-    def on_train_begin(self, net, **kwargs):
+    def on_train_begin(self, net, X=None, y=None, **kwargs):
         """Log model topology and add a hook for gradients"""
         self.wandb_run.watch(net.module_)
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         """Log values from the last history step and save best model"""
         hist = net.history[-1]
         keys_kept = filter_log_keys(hist, keys_ignored=self.keys_ignored_)
@@ -450,7 +450,7 @@ class PrintLog(Callback):
             self.sink(text)
 
     # pylint: disable=unused-argument
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         data = net.history[-1]
         verbose = net.verbose
         tabulated = self.table(data)
@@ -555,7 +555,7 @@ class ProgressBar(Callback):
         return postfix
 
     # pylint: disable=attribute-defined-outside-init
-    def on_batch_end(self, net, **kwargs):
+    def on_batch_end(self, net, X=None, y=None, training=None, **kwargs):
         self.pbar.set_postfix(self._get_postfix_dict(net), refresh=False)
         self.pbar.update()
 
@@ -580,7 +580,7 @@ class ProgressBar(Callback):
         else:
             self.pbar = tqdm.tqdm(total=batches_per_epoch, leave=False)
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         self.pbar.close()
 
 
@@ -615,7 +615,7 @@ class TensorBoard(Callback):
     ...     return module.hidden.bias
 
     >>> class MyTensorBoard(TensorBoard):
-    ...     def on_epoch_end(self, net, **kwargs):
+    ...     def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
     ...         bias = extract_bias(net.module_)
     ...         epoch = net.history[-1, 'epoch']
     ...         self.writer.add_histogram('bias', bias, global_step=epoch)
@@ -671,7 +671,7 @@ class TensorBoard(Callback):
         self.keys_ignored_.add('batches')
         return self
 
-    def on_batch_end(self, net, **kwargs):
+    def on_batch_end(self, net, X=None, y=None, training=None, **kwargs):
         self.first_batch_ = False
 
     def add_scalar_maybe(self, history, key, tag, global_step=None):
@@ -708,7 +708,7 @@ class TensorBoard(Callback):
                 global_step=global_step,
             )
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         """Automatically log values from the last history step."""
         history = net.history
         hist = history[-1]
@@ -718,6 +718,6 @@ class TensorBoard(Callback):
             tag = self.key_mapper(key)
             self.add_scalar_maybe(history, key=key, tag=tag, global_step=epoch)
 
-    def on_train_end(self, net, **kwargs):
+    def on_train_end(self, net, X=None, y=None, **kwargs):
         if self.close_after_train:
             self.writer.close()

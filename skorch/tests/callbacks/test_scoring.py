@@ -326,12 +326,6 @@ class TestEpochScoring:
         def myscore(net, X, y=None):
             nonlocal score_calls
             score_calls += 1
-            assert y is None
-
-            # In case we use caching X is a dataset. We need to
-            # extract X ourselves.
-            if dict(net.callbacks_)['EpochScoring'].use_caching:
-                return np.mean(X.X)
             return np.mean(X)
 
         # pylint: disable=unused-argument
@@ -377,12 +371,17 @@ class TestEpochScoring:
         net.fit(*input_data)
         assert score_calls == max_epochs
 
+    @pytest.mark.parametrize('caching', [False, True])
     def test_net_input_is_scoring_input(
-            self, net_cls, module_cls, scoring_cls, data,
+            self, net_cls, module_cls, scoring_cls, data, caching,
     ):
         # Make sure that whatever data type is put in the network is
-        # received at the scoring side as well. For the caching case
-        # we only receive datasets.
+        # received at the scoring side as well:
+        #   * If input is a numpy array, scoring gets numpy array
+        #   * If input is a skorch Dataset with X being a numpy array,
+        #     scoring gets a numpy array
+        #   * If input is a torch Dataset, scoring gets a torch Dataset
+        #     or a Subset, depending on the train split
         import skorch
         from skorch.dataset import CVSplit
         import torch.utils.data.dataset
@@ -402,23 +401,17 @@ class TestEpochScoring:
 
         table = [
             # Test a split where type(input) == type(output) is guaranteed
-            (data, rawsplit, np.ndarray, False),
-            (data, rawsplit, skorch.dataset.Dataset, True),
-            ((MyTorchDataset(*data), None), rawsplit, MyTorchDataset, False),
-            ((MyTorchDataset(*data), None), rawsplit, MyTorchDataset, True),
-            ((MySkorchDataset(*data), None), rawsplit, np.ndarray, False),
-            ((MySkorchDataset(*data), None), rawsplit, MySkorchDataset, True),
+            (data, rawsplit, np.ndarray),
+            ((MySkorchDataset(*data), None), rawsplit, np.ndarray),
+            ((MyTorchDataset(*data), None), rawsplit, MyTorchDataset),
 
             # Test a split that splits datasets using torch Subset
-            (data, cvsplit, np.ndarray, False),
-            (data, cvsplit, Subset, True),
-            ((MyTorchDataset(*data), None), cvsplit, Subset, False),
-            ((MyTorchDataset(*data), None), cvsplit, Subset, True),
-            ((MySkorchDataset(*data), None), cvsplit, np.ndarray, False),
-            ((MySkorchDataset(*data), None), cvsplit, Subset, True),
+            (data, cvsplit, np.ndarray),
+            ((MySkorchDataset(*data), None), cvsplit, np.ndarray),
+            ((MyTorchDataset(*data), None), cvsplit, Subset),
         ]
 
-        for input_data, train_split, expected_type, caching in table:
+        for input_data, train_split, expected_type in table:
             self.net_input_is_scoring_input(
                 net_cls,
                 module_cls,
@@ -426,7 +419,8 @@ class TestEpochScoring:
                 input_data,
                 train_split,
                 expected_type,
-                caching)
+                caching=caching,
+            )
 
     def test_multiple_scorings_share_cache(
             self, net_cls, module_cls, train_split, caching_scoring_cls, data,
@@ -884,6 +878,9 @@ class TestBatchScoring:
         def myscore(net, X, y=None):  # pylint: disable=unused-argument
             nonlocal score_calls
             score_calls += 1
+            # FIXME: this fails for now because we don't treat
+            # placeholder y any special anymore; through the skorch
+            # Dataset, y=None becomes a tensor of 0s.
             assert y is None
             return X.mean().data.item()
 

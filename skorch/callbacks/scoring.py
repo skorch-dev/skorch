@@ -238,7 +238,6 @@ class BatchScoring(ScoringBase):
 
     """
     # pylint: disable=unused-argument,arguments-differ
-
     def on_batch_end(self, net, X, y, training, **kwargs):
         if training != self.on_train:
             return
@@ -266,7 +265,7 @@ class BatchScoring(ScoringBase):
         return score_avg
 
     # pylint: disable=unused-argument
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         history = net.history
         try:  # don't raise if there is no valid data
             history[-1, 'batches', :, self.name_]
@@ -362,12 +361,12 @@ class EpochScoring(ScoringBase):
         return self
 
     # pylint: disable=arguments-differ,unused-argument
-    def on_epoch_begin(self, net, dataset_train, dataset_valid, **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         self._initialize_cache()
 
     # pylint: disable=arguments-differ
     def on_batch_end(
-            self, net, y, y_pred, training, **kwargs):
+            self, net, X, y, y_pred, training, **kwargs):
         if not self.use_caching or training != self.on_train:
             return
 
@@ -416,15 +415,6 @@ class EpochScoring(ScoringBase):
         """
         dataset = dataset_train if self.on_train else dataset_valid
 
-        if self.use_caching:
-            X_test = dataset
-            y_pred = self.y_preds_
-            y_test = [self.target_extractor(y) for y in self.y_trues_]
-            # In case of y=None we will not have gathered any samples.
-            # We expect the scoring function to deal with y_test=None.
-            y_test = np.concatenate(y_test) if y_test else None
-            return X_test, y_test, y_pred
-
         if is_skorch_dataset(dataset):
             X_test, y_test = data_from_dataset(
                 dataset,
@@ -433,6 +423,14 @@ class EpochScoring(ScoringBase):
             )
         else:
             X_test, y_test = dataset, None
+
+        if self.use_caching:
+            y_pred = self.y_preds_
+            y_test = [self.target_extractor(y) for y in self.y_trues_]
+            # In case of y=None we will not have gathered any samples.
+            # We expect the scoring function to deal with y_test=None.
+            y_test = np.concatenate(y_test) if y_test else None
+            return X_test, y_test, y_pred
 
         if y_test is not None:
             # We allow y_test to be None but the scoring function has
@@ -455,7 +453,6 @@ class EpochScoring(ScoringBase):
         if is_best:
             self.best_score_ = current_score
 
-    # pylint: disable=unused-argument,arguments-differ
     def on_epoch_end(
             self,
             net,
@@ -471,7 +468,7 @@ class EpochScoring(ScoringBase):
 
         self._record_score(net.history, current_score)
 
-    def on_train_end(self, *args, **kwargs):
+    def on_train_end(self, net, X=None, y=None, **kwargs):
         self._initialize_cache()
 
 
@@ -533,7 +530,7 @@ class PassthroughScoring(Callback):
         return score_avg
 
     # pylint: disable=unused-argument,arguments-differ
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         history = net.history
         try:  # don't raise if there is no valid data
             history[-1, 'batches', :, self.name]

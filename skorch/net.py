@@ -34,6 +34,51 @@ from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 
 
+def notify_decorator(method_name, **extra_kwargs):
+    from functools import wraps
+    def decorator(fn):
+
+        @wraps(fn)
+        def wrapper(net, *args, **kwargs):
+            nonlocal extra_kwargs
+            if kwargs:
+                extra_kwargs = extra_kwargs.copy()
+                extra_kwargs.update(**kwargs)
+
+            net.notify('on_{}_begin'.format(method_name), *args, **extra_kwargs)
+            out = fn(net, *args, **kwargs)
+
+            if isinstance(out, dict):
+                extra_kwargs = extra_kwargs.copy()
+                extra_kwargs.update(out)
+
+            net.notify('on_{}_end'.format(method_name), *args, **extra_kwargs)
+            return out
+
+        return wrapper
+    return decorator
+
+
+def interruptible(fn):
+    from functools import wraps
+
+    @wraps(fn)
+    def wrapper(net, *args, **kwargs):
+        try:
+            fn(net, *args, **kwargs)
+        except KeyboardInterrupt:
+            pass
+        return net
+    return wrapper
+
+
+# class _NeuralNetMeta:
+#     def __new__(cls, cls_name, args, kwargs):
+#         net = super().__new__(cls_name, args, kwargs)
+#         net.partial_fit = notify_decorator(net, 'train')
+#         return net
+
+
 # pylint: disable=too-many-instance-attributes
 class NeuralNet:
     # pylint: disable=anomalous-backslash-in-string
@@ -260,7 +305,7 @@ class NeuralNet:
     def get_default_callbacks(self):
         return self._default_callbacks
 
-    def notify(self, method_name, **cb_kwargs):
+    def notify(self, method_name, *cb_args, **cb_kwargs):
         """Call the callback method specified in ``method_name`` with
         parameters specified in ``cb_kwargs``.
 
@@ -273,43 +318,37 @@ class NeuralNet:
         * on_batch_end
 
         """
-        getattr(self, method_name)(self, **cb_kwargs)
+        getattr(self, method_name)(*cb_args, **cb_kwargs)
         for _, cb in self.callbacks_:
-            getattr(cb, method_name)(self, **cb_kwargs)
+            getattr(cb, method_name)(self, *cb_args, **cb_kwargs)
 
     # pylint: disable=unused-argument
-    def on_train_begin(self, net,
-                       X=None, y=None, **kwargs):
+    def on_train_begin(self, X=None, y=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_train_end(self, net,
-                     X=None, y=None, **kwargs):
+    def on_train_end(self, X=None, y=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_epoch_begin(self, net,
-                       dataset_train=None, dataset_valid=None, **kwargs):
+    def on_epoch_begin(
+            self, dataset_train=None, dataset_valid=None, **kwargs):
         self.history.new_epoch()
         self.history.record('epoch', len(self.history))
 
     # pylint: disable=unused-argument
-    def on_epoch_end(self, net,
-                     dataset_train=None, dataset_valid=None, **kwargs):
+    def on_epoch_end(self, dataset_train=None, dataset_valid=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_batch_begin(self, net,
-                       Xi=None, yi=None, training=False, **kwargs):
+    def on_batch_begin(self, Xi=None, yi=None, training=False, **kwargs):
         self.history.new_batch()
 
-    def on_batch_end(self, net,
-                     Xi=None, yi=None, training=False, **kwargs):
+    def on_batch_end(self, Xi=None, yi=None, training=False, **kwargs):
         pass
 
-    def on_grad_computed(self, net, named_parameters,
-                         Xi=None, yi=None,
-                         training=False, **kwargs):
+    def on_grad_computed(
+            self, named_parameters, Xi=None, yi=None, training=False, **kwargs):
         pass
 
     def _yield_callbacks(self):
@@ -546,6 +585,7 @@ class NeuralNet:
     def check_data(self, X, y=None):
         pass
 
+    @notify_decorator('batch', training=False)
     def validation_step(self, Xi, yi, **fit_params):
         """Perform a forward step using batched data and return the
         resulting loss.
@@ -570,6 +610,9 @@ class NeuralNet:
         with torch.no_grad():
             y_pred = self.infer(Xi, **fit_params)
             loss = self.get_loss(y_pred, yi, X=Xi, training=False)
+
+        self.history.record_batch("valid_batch_size", get_len(Xi))
+        self.history.record_batch("valid_loss", loss.item())
         return {
             'loss': loss,
             'y_pred': y_pred,
@@ -627,6 +670,7 @@ class NeuralNet:
         """
         return FirstStepAccumulator()
 
+    @notify_decorator('batch', training=True)
     def train_step(self, Xi, yi, **fit_params):
         """Prepares a loss function callable and pass it to the optimizer,
         hence performing one optimization step.
@@ -655,9 +699,12 @@ class NeuralNet:
         def step_fn():
             step = self.train_step_single(Xi, yi, **fit_params)
             step_accumulator.store_step(step)
+            self.history.record_batch("train_loss", step["loss"].item())
+            self.history.record_batch("train_batch_size", get_len(Xi))
             return step['loss']
         self.optimizer_.step(step_fn)
         self.optimizer_.zero_grad()
+
         return step_accumulator.get_step()
 
     def evaluation_step(self, Xi, training=False):
@@ -674,6 +721,8 @@ class NeuralNet:
             self.module_.train(training)
             return self.infer(Xi)
 
+    @notify_decorator('train')
+    @interruptible
     def fit_loop(self, X, y=None, epochs=None, **fit_params):
         """The proper fit loop.
 
@@ -715,22 +764,28 @@ class NeuralNet:
 
         dataset_train, dataset_valid = self.get_split_datasets(
             X, y, **fit_params)
-        on_epoch_kwargs = {
-            'dataset_train': dataset_train,
-            'dataset_valid': dataset_valid,
-        }
-
         for _ in range(epochs):
-            self.notify('on_epoch_begin', **on_epoch_kwargs)
+            self.fit_epoch(
+                dataset_train=dataset_train, dataset_valid=dataset_valid, **fit_params)
+        return self
 
-            self.run_single_epoch(dataset_train, training=True, prefix="train",
-                                  step_fn=self.train_step, **fit_params)
+    @notify_decorator('epoch')
+    def fit_epoch(self, dataset_train, dataset_valid, **fit_params):
+        self.run_single_epoch(
+            dataset_train,
+            training=True,
+            prefix='train',
+            step_fn=self.train_step,
+            **fit_params)
 
-            if dataset_valid is not None:
-                self.run_single_epoch(dataset_valid, training=False, prefix="valid",
-                                      step_fn=self.validation_step, **fit_params)
+        if dataset_valid is not None:
+            self.run_single_epoch(
+                dataset_valid,
+                training=False,
+                prefix='valid',
+                step_fn=self.validation_step,
+                **fit_params)
 
-            self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
 
     def run_single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
@@ -745,28 +800,24 @@ class NeuralNet:
             Whether to set the module to train mode or not.
 
         prefix : str
-            Prefix to use when saving to the history.
+            Prefix to use when saving to the history, e.g. "train" or
+            "valid".
 
         step_fn : callable
             Function to call for each batch.
 
         **fit_params : dict
             Additional parameters passed to the ``step_fn``.
-        """
-        is_placeholder_y = uses_placeholder_y(dataset)
 
+        """
         batch_count = 0
         for data in self.get_iterator(dataset, training=training):
             Xi, yi = unpack_data(data)
-            yi_res = yi if not is_placeholder_y else None
-            self.notify("on_batch_begin", X=Xi, y=yi_res, training=training)
-            step = step_fn(Xi, yi, **fit_params)
-            self.history.record_batch(prefix + "_loss", step["loss"].item())
-            self.history.record_batch(prefix + "_batch_size", get_len(Xi))
-            self.notify("on_batch_end", X=Xi, y=yi_res, training=training, **step)
+            step_fn(Xi, yi, **fit_params)
             batch_count += 1
 
         self.history.record(prefix + "_batch_count", batch_count)
+        return self
 
     # pylint: disable=unused-argument
     def partial_fit(self, X, y=None, classes=None, **fit_params):
@@ -797,7 +848,7 @@ class NeuralNet:
           a Dataset that contains the target, ``y`` may be set to
           None.
 
-        classes : array, sahpe (n_classes,)
+        classes : array, shape (n_classes,)
           Solely for sklearn compatibility, currently unused.
 
         **fit_params : dict
@@ -808,13 +859,7 @@ class NeuralNet:
         if not self.initialized_:
             self.initialize()
 
-        self.notify('on_train_begin', X=X, y=y)
-        try:
-            self.fit_loop(X, y, **fit_params)
-        except KeyboardInterrupt:
-            pass
-        self.notify('on_train_end', X=X, y=y)
-        return self
+        return self.fit_loop(X, y, **fit_params)
 
     def fit(self, X, y=None, **fit_params):
         """Initialize and fit the module.

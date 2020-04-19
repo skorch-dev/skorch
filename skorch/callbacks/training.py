@@ -150,7 +150,7 @@ class Checkpoint(Callback):
             os.makedirs(self.dirname, exist_ok=True)
         return self
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         if "{}_best".format(self.monitor) in net.history[-1]:
             warnings.warn(
                 "Checkpoint monitor parameter is set to '{0}' and the history "
@@ -336,14 +336,14 @@ class EarlyStopping(Callback):
         self.sink = sink
 
     # pylint: disable=arguments-differ
-    def on_train_begin(self, net, **kwargs):
+    def on_train_begin(self, net, X=None, y=None, **kwargs):
         if self.threshold_mode not in ['rel', 'abs']:
             raise ValueError("Invalid threshold mode: '{}'"
                              .format(self.threshold_mode))
         self.misses_ = 0
         self.dynamic_threshold_ = np.inf if self.lower_is_better else -np.inf
 
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         current_score = net.history[-1, self.monitor]
         if not self._is_score_improved(current_score):
             self.misses_ += 1
@@ -501,7 +501,7 @@ class ParamMapper(Callback):
     def _epoch_at(self, net, epoch=1):
         return len(net.history) == epoch
 
-    def on_epoch_begin(self, net, **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         params = self.named_parameters(net)
         params = self.filter_parameters(self.patterns, params)
         map_fn = self.schedule(net)
@@ -585,8 +585,8 @@ class LoadInitState(Callback):
         self.did_load_ = False
         return self
 
-    def on_train_begin(self, net,
-                       X=None, y=None, **kwargs):
+    def on_train_begin(
+            self, net, X=None, y=None, **kwargs):
         if not self.did_load_:
             self.did_load_ = True
             with suppress(Exception):
@@ -688,7 +688,7 @@ class TrainEndCheckpoint(Callback):
             sink=self.sink)
         self.checkpoint_.initialize()
 
-    def on_train_end(self, net, **kwargs):
+    def on_train_end(self, net, X=None, y=None, **kwargs):
         self.checkpoint_.save_model(net)
         self.checkpoint_._sink("Final checkpoint triggered", net.verbose)
 

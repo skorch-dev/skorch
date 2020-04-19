@@ -34,12 +34,12 @@ ntokens = len(corpus.dictionary)
 device = 'cuda' if args.cuda else 'cpu'
 
 class LRAnnealing(skorch.callbacks.Callback):
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, *args, **kwargs):
         if not net.history[-1]['valid_loss_best']:
             net.lr /= 4.0
 
 class ExamplePrinter(skorch.callbacks.Callback):
-    def on_epoch_end(self, net, **kwargs):
+    def on_epoch_end(self, net, *args, **kwargs):
         seed_sentence = "the meaning of"
         indices = [corpus.dictionary.word2idx[n] for n in seed_sentence.split()]
         indices = skorch.utils.to_tensor(

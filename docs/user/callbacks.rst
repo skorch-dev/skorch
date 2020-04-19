@@ -29,8 +29,8 @@ In general, remember this:
   provided by the parent class (see below).
 * As argument, the methods first get the :class:`.NeuralNet` instance,
   and, where appropriate, the local data (e.g. the data from the
-  current batch). The method should also have :code:`**kwargs` in the
-  signature for potentially unused arguments.
+  current batch). The method should also have :code:`*args, **kwargs`
+  in the signature for potentially unused arguments.
 
 Callback methods to override
 ----------------------------

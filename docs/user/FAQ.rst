@@ -342,7 +342,7 @@ in skorch. Here is an example:
 .. code:: python
 
     class InputShapeSetter(skorch.callbacks.Callback):
-        def on_train_begin(self, net, X, y):
+        def on_train_begin(self, net, X, y, **kwargs):
             net.set_params(module__input_dim=X.shape[1])
 
 
