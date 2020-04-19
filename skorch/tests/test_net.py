@@ -2299,8 +2299,6 @@ class TestNeuralNet:
                 # because only every nth step is optimized
                 return loss / self.acc_steps
 
-            # Possible FIXME: make it unnecessary to decorate manually
-            @notify_decorator('batch', training=True)
             def train_step(self, Xi, yi, **fit_params):
                 """Perform gradient accumulation
 

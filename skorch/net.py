@@ -3,6 +3,7 @@
 import fnmatch
 from itertools import chain
 from collections import OrderedDict
+from functools import wraps
 import tempfile
 import warnings
 
@@ -18,7 +19,6 @@ from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
 from skorch.dataset import unpack_data
-from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.history import History
 from skorch.setter import optimizer_setter
@@ -35,9 +35,8 @@ from skorch.utils import to_tensor
 
 
 def notify_decorator(method_name, **extra_kwargs):
-    from functools import wraps
+    """TODO"""
     def decorator(fn):
-
         @wraps(fn)
         def wrapper(net, *args, **kwargs):
             nonlocal extra_kwargs
@@ -60,8 +59,7 @@ def notify_decorator(method_name, **extra_kwargs):
 
 
 def interruptible(fn):
-    from functools import wraps
-
+    """TODO"""
     @wraps(fn)
     def wrapper(net, *args, **kwargs):
         try:
@@ -72,15 +70,48 @@ def interruptible(fn):
     return wrapper
 
 
-# class _NeuralNetMeta:
-#     def __new__(cls, cls_name, args, kwargs):
-#         net = super().__new__(cls_name, args, kwargs)
-#         net.partial_fit = notify_decorator(net, 'train')
-#         return net
+def avoid_notify_decorator(fn):
+    """TODO"""
+    fn.__auto_decorate = False
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        fn(*args, **kwargs)
+    return wrapper
+
+
+def _decorate_notify(attrs, method_name, event_name, **kwargs):
+    """TODO
+
+    Catching ``KeyError`` is important because when a subclass is
+    created, ``attrs`` only contains the attributes specific to that
+    subclass. We can thus skip decorating, given that the methods of
+    the parent class are already decorated.
+
+    """
+    try:
+        fn = attrs[method_name]
+        if not getattr(fn, '__auto_decorate', True):
+            return
+        fn.__auto_decorate = False  # prevent double-decoration
+        decorated = notify_decorator(event_name, **kwargs)(fn)
+        attrs[method_name] = decorated
+    except KeyError:
+        pass
+
+
+class _NeuralNetMeta(type):
+    """TODO"""
+    def __new__(cls, name, bases, attrs):
+        _decorate_notify(attrs, 'fit_loop', 'train')
+        _decorate_notify(attrs, 'fit_epoch', 'epoch')
+        _decorate_notify(attrs, 'validation_step', 'batch', training=False)
+        _decorate_notify(attrs, 'train_step', 'batch', training=True)
+        net = super().__new__(cls, name, bases, attrs)
+        return net
 
 
 # pylint: disable=too-many-instance-attributes
-class NeuralNet:
+class NeuralNet(metaclass=_NeuralNetMeta):
     # pylint: disable=anomalous-backslash-in-string
     """NeuralNet base class.
 
@@ -585,7 +616,6 @@ class NeuralNet:
     def check_data(self, X, y=None):
         pass
 
-    @notify_decorator('batch', training=False)
     def validation_step(self, Xi, yi, **fit_params):
         """Perform a forward step using batched data and return the
         resulting loss.
@@ -670,7 +700,6 @@ class NeuralNet:
         """
         return FirstStepAccumulator()
 
-    @notify_decorator('batch', training=True)
     def train_step(self, Xi, yi, **fit_params):
         """Prepares a loss function callable and pass it to the optimizer,
         hence performing one optimization step.
@@ -721,7 +750,6 @@ class NeuralNet:
             self.module_.train(training)
             return self.infer(Xi)
 
-    @notify_decorator('train')
     @interruptible
     def fit_loop(self, X, y=None, epochs=None, **fit_params):
         """The proper fit loop.
@@ -769,7 +797,6 @@ class NeuralNet:
                 dataset_train=dataset_train, dataset_valid=dataset_valid, **fit_params)
         return self
 
-    @notify_decorator('epoch')
     def fit_epoch(self, dataset_train, dataset_valid, **fit_params):
         self.run_single_epoch(
             dataset_train,
