@@ -1,5 +1,5 @@
 """Contains custom skorch Dataset and CVSplit."""
-
+import warnings
 from functools import partial
 from numbers import Number
 
@@ -261,6 +261,16 @@ class CVSplit:
         if isinstance(cv, Number) and (cv <= 0):
             raise ValueError("Numbers less than 0 are not allowed for cv "
                              "but CVSplit got {}".format(cv))
+
+        if not self._is_float(cv) and random_state is not None:
+            # TODO: raise a ValueError instead of a warning
+            warnings.warn(
+                "Setting a random_state has no effect since cv is not a float. "
+                "This will raise an error in a future. You should leave "
+                "random_state to its default (None), or set cv to a float value.",
+                FutureWarning
+            )
+
         self.cv = cv
 
     def _is_stratified(self, cv):
