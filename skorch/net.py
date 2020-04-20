@@ -674,6 +674,10 @@ class NeuralNet(metaclass=_NeuralNetMeta):
           Additional parameters passed to the ``forward`` method of
           the module and to the ``self.train_split`` call.
 
+        Returns
+        -------
+        TODO
+
         """
         self.module_.train()
         y_pred = self.infer(Xi, **fit_params)
@@ -795,11 +799,14 @@ class NeuralNet(metaclass=_NeuralNetMeta):
         dataset_train, dataset_valid = self.get_split_datasets(
             X, y, **fit_params)
         for _ in range(epochs):
-            self.fit_epoch(
-                dataset_train=dataset_train, dataset_valid=dataset_valid, **fit_params)
+            self._fit_epoch(
+                dataset_train=dataset_train,
+                dataset_valid=dataset_valid,
+                **fit_params)
         return self
 
-    def fit_epoch(self, dataset_train, dataset_valid, **fit_params):
+    def _fit_epoch(self, dataset_train, dataset_valid, **fit_params):
+        """TODO"""
         self.run_single_epoch(
             dataset_train,
             training=True,
@@ -808,7 +815,7 @@ class NeuralNet(metaclass=_NeuralNetMeta):
             **fit_params)
 
         if dataset_valid is not None:
-            self.run_single_epoch(
+            self._run_single_epoch(
                 dataset_valid,
                 training=False,
                 prefix='valid',
@@ -817,7 +824,7 @@ class NeuralNet(metaclass=_NeuralNetMeta):
 
         return self
 
-    def run_single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
+    def _run_single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
         """Compute a single epoch of train or validation.
 
         Parameters
