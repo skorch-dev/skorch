@@ -380,10 +380,10 @@ class NeuralNet(metaclass=_NeuralNetMeta):
         pass
 
     # pylint: disable=unused-argument
-    def on_batch_begin(self, Xi=None, yi=None, training=False, **kwargs):
+    def on_batch_begin(self, Xi=None, yi=None, training=None, **kwargs):
         self.history.new_batch()
 
-    def on_batch_end(self, Xi=None, yi=None, training=False, **kwargs):
+    def on_batch_end(self, Xi=None, yi=None, training=None, **kwargs):
         pass
 
     def on_grad_computed(
