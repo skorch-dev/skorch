@@ -1109,6 +1109,10 @@ class NeuralNet:
 
         """
         y_true = to_tensor(y_true, device=self.device)
+
+        if isinstance(self.criterion_, torch.nn.Module):
+            self.criterion_.train(training)
+
         return self.criterion_(y_pred, y_true)
 
     def get_dataset(self, X, y=None):
