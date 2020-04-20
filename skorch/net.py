@@ -44,14 +44,19 @@ def notify_decorator(method_name, **extra_kwargs):
                 extra_kwargs = extra_kwargs.copy()
                 extra_kwargs.update(**kwargs)
 
-            net.notify('on_{}_begin'.format(method_name), *args, **extra_kwargs)
+            if method_name != 'on_grad_computed':
+                net.notify('on_{}_begin'.format(method_name), *args, **extra_kwargs)
+
             out = fn(net, *args, **kwargs)
 
             if isinstance(out, dict):
                 extra_kwargs = extra_kwargs.copy()
                 extra_kwargs.update(out)
 
-            net.notify('on_{}_end'.format(method_name), *args, **extra_kwargs)
+            if method_name != 'on_grad_computed':
+                net.notify('on_{}_end'.format(method_name), *args, **extra_kwargs)
+            else:
+                net.notify(method_name, *args, **extra_kwargs)
             return out
 
         return wrapper
@@ -379,7 +384,7 @@ class NeuralNet(metaclass=_NeuralNetMeta):
         pass
 
     def on_grad_computed(
-            self, named_parameters, Xi=None, yi=None, training=False, **kwargs):
+            self, Xi=None, yi=None, training=None, named_parameters=None, **kwargs):
         pass
 
     def _yield_callbacks(self):
@@ -672,16 +677,10 @@ class NeuralNet(metaclass=_NeuralNetMeta):
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
 
-        self.notify(
-            'on_grad_computed',
-            named_parameters=TeeGenerator(self.module_.named_parameters()),
-            X=Xi,
-            y=yi
-        )
-
         return {
             'loss': loss,
             'y_pred': y_pred,
+            'named_parameters': TeeGenerator(self.module_.named_parameters()),
             }
 
     def get_train_step_accumulator(self):

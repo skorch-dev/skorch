@@ -37,9 +37,15 @@ class GradientNormClipping(Callback):
         self.gradient_clip_value = gradient_clip_value
         self.gradient_clip_norm_type = gradient_clip_norm_type
 
-    def on_grad_computed(self, _, named_parameters, **kwargs):
+    def on_grad_computed(
+            self, net, X=None, y=None, training=None, named_parameters=None, **kwargs):
         if self.gradient_clip_value is None:
             return
+
+        if named_parameters is None:
+            raise TypeError(
+                "{} requires 'named_parameters' to be provided to on_grad_computed"
+                .format(self.__class__.__name__))
 
         clip_grad_norm_(
             (p for _, p in named_parameters),
