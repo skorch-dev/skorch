@@ -95,22 +95,25 @@ def _decorate_notify(attrs, method_name, event_name, **kwargs):
     """
     try:
         fn = attrs[method_name]
-        if not getattr(fn, '__auto_decorate', True):
-            return
-        fn.__auto_decorate = False  # prevent double-decoration
-        decorated = notify_decorator(event_name, **kwargs)(fn)
-        attrs[method_name] = decorated
     except KeyError:
-        pass
+        return
+
+    if not getattr(fn, '__auto_decorate', True):
+        return
+
+    fn.__auto_decorate = False  # prevent double-decoration
+    decorated = notify_decorator(event_name, **kwargs)(fn)
+    attrs[method_name] = decorated
 
 
 class _NeuralNetMeta(type):
     """TODO"""
     def __new__(cls, name, bases, attrs):
         _decorate_notify(attrs, 'fit_loop', 'train')
-        _decorate_notify(attrs, 'fit_epoch', 'epoch')
+        _decorate_notify(attrs, '_fit_epoch', 'epoch')
         _decorate_notify(attrs, 'validation_step', 'batch', training=False)
         _decorate_notify(attrs, 'train_step', 'batch', training=True)
+        _decorate_notify(attrs, 'train_step_single', 'on_grad_computed')
         net = super().__new__(cls, name, bases, attrs)
         return net
 
