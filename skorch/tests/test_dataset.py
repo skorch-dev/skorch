@@ -916,7 +916,7 @@ class TestCVSplit:
             ([[]], {}, False),
             ([[]], {"random_state": 0}, True),
         ])
-    def test_ctor_random_state_warning(
+    def test_random_state_not_used_warning(
             self, cv_split_cls, args, kwargs, expect_warning):
         with pytest.warns(None) as record:
             cv_split_cls(*args, **kwargs)
