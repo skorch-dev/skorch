@@ -32,7 +32,7 @@ class TestLRCallbacks:
     @pytest.mark.parametrize('policy', [TorchCyclicLR])
     def test_simulate_lrs_batch_step(self, policy):
         lr_sch = LRScheduler(
-            policy, base_lr=1, max_lr=5, step_size_up=4)
+            policy, base_lr=1, max_lr=5, step_size_up=4, step_every='batch')
         lrs = lr_sch.simulate(11, 1)
         expected = np.array([1, 2, 3, 4, 5, 4, 3, 2, 1, 2, 3])
         assert np.allclose(expected, lrs)
@@ -97,7 +97,7 @@ class TestLRCallbacks:
         assert lr_policy.lr_scheduler_.last_epoch == max_epochs - 1
 
     @pytest.mark.parametrize('policy, kwargs', [
-        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3}),
+        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3, 'step_every': 'batch'}),
     ])
     def test_lr_callback_batch_steps_correctly(
             self,
@@ -126,7 +126,7 @@ class TestLRCallbacks:
         assert lr_policy.batch_idx_ == expected
 
     @pytest.mark.parametrize('policy, kwargs', [
-        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3}),
+        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3, 'step_every': 'batch'}),
     ])
     def test_lr_callback_batch_steps_correctly_fallback(
             self,
@@ -177,7 +177,8 @@ class TestLRCallbacks:
         clone(scheduler)  # does not raise
 
     def test_lr_scheduler_set_params(self, classifier_module, classifier_data):
-        scheduler = LRScheduler(TorchCyclicLR, base_lr=123, max_lr=999)
+        scheduler = LRScheduler(
+            TorchCyclicLR, base_lr=123, max_lr=999, step_every='batch')
         net = NeuralNetClassifier(
             classifier_module,
             max_epochs=0,
@@ -205,7 +206,7 @@ class TestLRCallbacks:
         net = NeuralNetClassifier(
             classifier_module,
             max_epochs=epochs,
-            lr=123,
+            lr=123.,
             callbacks=[('scheduler', scheduler)]
         )
         net.fit(*classifier_data)
@@ -219,7 +220,13 @@ class TestLRCallbacks:
         X, y = classifier_data
         batch_size = 128
 
-        scheduler = LRScheduler(TorchCyclicLR, base_lr=1, max_lr=5, step_size_up=4)
+        scheduler = LRScheduler(
+            TorchCyclicLR,
+            base_lr=1,
+            max_lr=5,
+            step_size_up=4,
+            step_every='batch'
+        )
         net = NeuralNetClassifier(
             classifier_module,
             max_epochs=1,

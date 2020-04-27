@@ -57,6 +57,10 @@ class LRScheduler(Callback):
       Pass ``None`` to disable placing events in history.
       **Note:** This feature works only for pytorch version >=1.4
 
+    step_every: str, (default='epoch'_
+      Value for when to apply the learning scheduler step. Can be either 'batch' or
+      'epoch'.
+
     kwargs
       Additional arguments passed to the lr scheduler.
 
@@ -66,10 +70,12 @@ class LRScheduler(Callback):
                  policy='WarmRestartLR',
                  monitor='train_loss',
                  event_name="event_lr",
+                 step_every='epoch',
                  **kwargs):
         self.policy = policy
         self.monitor = monitor
         self.event_name = event_name
+        self.step_every = step_every
         vars(self).update(kwargs)
 
     def simulate(self, steps, initial_lr):
@@ -119,7 +125,7 @@ class LRScheduler(Callback):
         # These are the parameters that are passed to the
         # scheduler. Parameters that don't belong there must be
         # excluded.
-        excluded = ('policy', 'monitor', 'event_name')
+        excluded = ('policy', 'monitor', 'event_name', 'step_every')
         kwargs = {key: val for key, val in vars(self).items()
                   if not (key in excluded or key.endswith('_'))}
         return kwargs
@@ -135,6 +141,8 @@ class LRScheduler(Callback):
         )
 
     def on_epoch_end(self, net, **kwargs):
+        if not self.step_every == 'epoch':
+            return
         epoch = len(net.history) - 1
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             if callable(self.monitor):
@@ -150,20 +158,19 @@ class LRScheduler(Callback):
             self.lr_scheduler_.step(score, epoch)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
-            self.lr_scheduler_.step(epoch)
             if self.event_name is not None and hasattr(
                     self.lr_scheduler_, "get_last_lr"):
                 net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
+            self.lr_scheduler_.step()
 
     def on_batch_end(self, net, training, **kwargs):
-        if not training:
+        if not training or not self.step_every == 'batch':
             return
-        if TorchCyclicLR and isinstance(self.lr_scheduler_, TorchCyclicLR):
-            self.lr_scheduler_.step(self.batch_idx_)
-            if self.event_name is not None and hasattr(
-                    self.lr_scheduler_, "get_last_lr"):
-                net.history.record_batch(self.event_name,
-                                         self.lr_scheduler_.get_last_lr()[0])
+        if self.event_name is not None and hasattr(
+                self.lr_scheduler_, "get_last_lr"):
+            net.history.record_batch(self.event_name,
+                                     self.lr_scheduler_.get_last_lr()[0])
+        self.lr_scheduler_.step()
         self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
