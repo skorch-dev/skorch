@@ -94,7 +94,7 @@ class TestLRCallbacks:
         )
         net.fit(X, y)
         # pylint: disable=protected-access
-        assert lr_policy.lr_scheduler_.last_epoch == max_epochs - 1
+        assert lr_policy.lr_scheduler_.last_epoch == max_epochs
 
     @pytest.mark.parametrize('policy, kwargs', [
         (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3, 'step_every': 'batch'}),
