@@ -1363,14 +1363,6 @@ class NeuralNet:
         return self._get_params_for_optimizer(prefix, named_parameters)
 
     def _get_param_names(self):
-        return (k for k in self.__dict__.keys() if k != 'history_')
-
-    def _get_param_names_new(self):
-        # TODO: This will be the new behavior for _get_param_names in
-        # a future release. This is to make get_params work as in
-        # sklearn, i.e. not returning "learned" attributes (ending on
-        # '_'). Once the transition period has passed, remove the old
-        # code and use the new one instead.
         return (k for k in self.__dict__ if not k.endswith('_'))
 
     def _get_params_callbacks(self, deep=True):

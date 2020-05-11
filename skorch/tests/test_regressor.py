@@ -13,9 +13,6 @@ import torch
 from skorch.tests.conftest import INFERENCE_METHODS
 
 
-torch.manual_seed(0)
-
-
 class TestNeuralNetRegressor:
     @pytest.fixture(scope='module')
     def data(self, regression_data):
