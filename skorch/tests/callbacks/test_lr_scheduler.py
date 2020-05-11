@@ -1,9 +1,10 @@
 """Tests for lr_scheduler.py"""
-
+from distutils.version import LooseVersion
 from unittest.mock import Mock
 
 import numpy as np
 import pytest
+import torch
 from sklearn.base import clone
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -159,7 +160,7 @@ class TestLRCallbacks:
 
         # 80% of sample used for training by default
         total_iterations_partial_fit_run = (
-            0.8 * total_iterations_per_epoch * max_epochs)
+                0.8 * total_iterations_per_epoch * max_epochs)
 
         # called fit AND partial_fit
         total_iterations = (total_iterations_fit_run +
@@ -185,6 +186,53 @@ class TestLRCallbacks:
         net.set_params(callbacks__scheduler__base_lr=456)
         net.fit(*classifier_data)  # we need to trigger on_train_begin
         assert net.callbacks[0][1].lr_scheduler_.base_lrs[0] == 456
+
+    @pytest.mark.parametrize('policy,kwargs', [
+        (StepLR, {'gamma': 0.9, 'step_size': 1})
+    ])
+    @pytest.mark.skipif(
+        LooseVersion(torch.__version__) < '1.4',
+        reason="Feature isn't supported with this torch version."
+    )
+    def test_lr_scheduler_record_epoch_step(self,
+                                            classifier_module,
+                                            classifier_data,
+                                            policy,
+                                            kwargs):
+        epochs = 3
+        scheduler = LRScheduler(policy, **kwargs)
+        lrs = scheduler.simulate(epochs, initial_lr=123.)
+        net = NeuralNetClassifier(
+            classifier_module,
+            max_epochs=epochs,
+            lr=123,
+            callbacks=[('scheduler', scheduler)]
+        )
+        net.fit(*classifier_data)
+        assert np.all(net.history[:, 'event_lr'] == lrs)
+
+    @pytest.mark.skipif(
+        LooseVersion(torch.__version__) < '1.4',
+        reason="Feature isn't supported with this torch version."
+    )
+    def test_lr_scheduler_record_batch_step(self, classifier_module, classifier_data):
+        X, y = classifier_data
+        batch_size = 128
+
+        scheduler = LRScheduler(TorchCyclicLR, base_lr=1, max_lr=5, step_size_up=4)
+        net = NeuralNetClassifier(
+            classifier_module,
+            max_epochs=1,
+            lr=123.,
+            batch_size=batch_size,
+            callbacks=[('scheduler', scheduler)]
+        )
+        net.fit(X, y)
+        new_lrs = scheduler.simulate(
+            net.history[-1, 'train_batch_count'],
+            initial_lr=123.,
+        )
+        assert np.all(net.history[-1, 'batches', :, 'event_lr'] == new_lrs)
 
 
 class TestReduceLROnPlateau:
@@ -267,14 +315,14 @@ class TestWarmRestartLR():
             optimizer, min_lr, max_lr, base_period, period_mult
         )
         for epoch in range(epochs):
-            optimizer.step() # suppress warning about .step call order
+            optimizer.step()  # suppress warning about .step call order
             scheduler.step(epoch)
             for param_group, target in zip(optimizer.param_groups, targets):
                 assert param_group['lr'] == pytest.approx(target[epoch])
 
     def _single_period_targets(self, epochs, min_lr, max_lr, period):
         targets = 1 + np.cos(np.arange(epochs) * np.pi / period)
-        targets = min_lr + 0.5 * (max_lr-min_lr) * targets
+        targets = min_lr + 0.5 * (max_lr - min_lr) * targets
         return targets.tolist()
 
     # pylint: disable=missing-docstring
@@ -284,7 +332,7 @@ class TestWarmRestartLR():
         current_period = base_period
         targets = list()
         while remaining_epochs > 0:
-            period_epochs = min(remaining_epochs, current_period+1)
+            period_epochs = min(remaining_epochs, current_period + 1)
             remaining_epochs -= period_epochs
             targets += self._single_period_targets(
                 period_epochs, min_lr, max_lr, current_period
