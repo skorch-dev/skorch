@@ -34,7 +34,6 @@ from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
 
 
-torch.manual_seed(0)
 ACCURACY_EXPECTED = 0.65
 
 
@@ -89,10 +88,21 @@ class TestNeuralNet:
         ])
 
     @pytest.fixture(scope='module')
-    def net_fit(self, net, data):
-        # Careful, don't call additional fits on this, since that would have
-        # side effects on other tests.
+    def net_fit(self, net_cls, module_cls, dummy_callback, data):
+        # Careful, don't call additional fits or set_params on this,
+        # since that would have side effects on other tests.
         X, y = data
+
+        # We need a new instance of the net and cannot reuse the net
+        # fixture, because otherwise fixture net and net_fit refer to
+        # the same object; also, we cannot clone(net) because this
+        # will result in the dummy_callback not being the mock anymore
+        net = net_cls(
+            module_cls,
+            callbacks=[('dummy', dummy_callback)],
+            max_epochs=10,
+            lr=0.1,
+        )
         return net.fit(X, y)
 
     @pytest.fixture
@@ -1269,23 +1279,13 @@ class TestNeuralNet:
         net.initialize()
         net.get_params()
 
-    @pytest.mark.new_get_params_behavior
-    @pytest.mark.xfail(strict=True)
     def test_get_params_no_learned_params(self, net_fit):
-        # TODO: This test should fail for now but should succeed once
-        # we change the behavior of get_params to be more in line with
-        # sklearn. At that point, remove the decorators.
         params = net_fit.get_params()
         params_learned = set(filter(lambda x: x.endswith('_'), params))
         assert not params_learned
 
-    @pytest.mark.new_get_params_behavior
-    @pytest.mark.xfail(strict=True)
     def test_clone_results_in_uninitialized_net(
             self, net_fit, data):
-        # TODO: This test should fail for now but should succeed once
-        # we change the behavior of get_params to be more in line with
-        # sklearn. At that point, remove the decorators.
         X, y = data
         accuracy = accuracy_score(net_fit.predict(X), y)
         assert accuracy > ACCURACY_EXPECTED  # make sure net has learned
@@ -1298,7 +1298,6 @@ class TestNeuralNet:
 
         assert not net_cloned.history
 
-    @pytest.mark.new_get_params_behavior
     def test_clone_copies_parameters(self, net_cls, module_cls):
         kwargs = dict(
             module__hidden_units=20,
@@ -1450,9 +1449,8 @@ class TestNeuralNet:
         # does not raise
         net.fit(X, y)
 
-    @pytest.mark.parametrize('use_caching', [True, False])
     def test_net_initialized_with_custom_dataset_args(
-            self, net_cls, module_cls, data, dataset_cls, use_caching):
+            self, net_cls, module_cls, data, dataset_cls):
         side_effect = []
 
         class MyDataset(dataset_cls):
@@ -1465,20 +1463,11 @@ class TestNeuralNet:
             dataset=MyDataset,
             dataset__foo=123,
             max_epochs=1,
-            callbacks__train_loss__use_caching=use_caching,
-            callbacks__valid_loss__use_caching=use_caching,
-            callbacks__valid_acc__use_caching=use_caching,
         )
         net.fit(*data)
+        assert side_effect == [123]
 
-        if not use_caching:
-            # train/valid split, scoring predict
-            assert side_effect == [123, 123]
-        else:
-            # train/valid split
-            assert side_effect == [123]
-
-    @pytest.mark.xfail
+    @pytest.mark.xfail(raises=ValueError)
     def test_net_initialized_with_initalized_dataset(
             self, net_cls, module_cls, data, dataset_cls):
         net = net_cls(

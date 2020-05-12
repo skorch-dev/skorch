@@ -16,9 +16,6 @@ from torch import nn
 from skorch.tests.conftest import INFERENCE_METHODS
 
 
-torch.manual_seed(0)
-
-
 class TestNeuralNet:
     @pytest.fixture(scope='module')
     def data(self, classifier_data):

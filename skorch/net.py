@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
-from skorch.callbacks import BatchScoring
+from skorch.callbacks import PassthroughScoring
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
@@ -28,13 +28,10 @@ from skorch.utils import check_is_fitted
 from skorch.utils import duplicate_items
 from skorch.utils import get_map_location
 from skorch.utils import is_dataset
-from skorch.utils import noop
 from skorch.utils import params_for
 from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import train_loss_score
-from skorch.utils import valid_loss_score
 
 
 PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
@@ -166,7 +163,8 @@ class NeuralNet:
     device : str, torch.device (default='cpu')
       The compute device to be used. If set to 'cuda', data in torch
       tensors will be pushed to cuda tensors before being sent to the
-      module.
+      module. If set to None, then all compute devices will be left
+      unmodified.
 
     Attributes
     ----------
@@ -259,16 +257,12 @@ class NeuralNet:
     def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', BatchScoring(
-                train_loss_score,
+            ('train_loss', PassthroughScoring(
                 name='train_loss',
                 on_train=True,
-                target_extractor=noop,
             )),
-            ('valid_loss', BatchScoring(
-                valid_loss_score,
+            ('valid_loss', PassthroughScoring(
                 name='valid_loss',
-                target_extractor=noop,
             )),
             ('print_log', PrintLog()),
         ]
@@ -419,7 +413,7 @@ class NeuralNet:
 
             # below: check for callback params
             # don't set a parameter for non-existing callback
-            params = self._get_params_for('callbacks__{}'.format(name))
+            params = self.get_params_for('callbacks__{}'.format(name))
             if (cb is None) and params:
                 raise ValueError("Trying to set a parameter for callback {} "
                                  "which does not exist.".format(name))
@@ -438,10 +432,10 @@ class NeuralNet:
 
     def initialize_criterion(self):
         """Initializes the criterion."""
-        criterion_params = self._get_params_for('criterion')
+        criterion_params = self.get_params_for('criterion')
         self.criterion_ = self.criterion(**criterion_params)
         if isinstance(self.criterion_, torch.nn.Module):
-            self.criterion_ = self.criterion_.to(self.device)
+            self.criterion_ = to_device(self.criterion_, self.device)
         return self
 
     def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
@@ -468,7 +462,7 @@ class NeuralNet:
         reset.
 
         """
-        kwargs = self._get_params_for('module')
+        kwargs = self.get_params_for('module')
         module = self.module
         is_initialized = isinstance(module, torch.nn.Module)
 
@@ -482,7 +476,7 @@ class NeuralNet:
 
             module = module(**kwargs)
 
-        self.module_ = module.to(self.device)
+        self.module_ = to_device(module, self.device)
         return self
 
     def _is_virtual_param(self, key):
@@ -522,7 +516,7 @@ class NeuralNet:
           about the parameters that caused the re-initialization.
 
         """
-        args, kwargs = self._get_params_for_optimizer(
+        args, kwargs = self.get_params_for_optimizer(
             'optimizer', self.module_.named_parameters())
 
         if self.initialized_ and self.verbose:
@@ -1157,7 +1151,7 @@ class NeuralNet:
         dataset = self.dataset
         is_initialized = not callable(dataset)
 
-        kwargs = self._get_params_for('dataset')
+        kwargs = self.get_params_for('dataset')
         if kwargs and is_initialized:
             raise TypeError("Trying to pass an initialized Dataset while "
                             "passing Dataset arguments ({}) is not "
@@ -1244,10 +1238,10 @@ class NeuralNet:
 
         """
         if training:
-            kwargs = self._get_params_for('iterator_train')
+            kwargs = self.get_params_for('iterator_train')
             iterator = self.iterator_train
         else:
-            kwargs = self._get_params_for('iterator_valid')
+            kwargs = self.get_params_for('iterator_valid')
             iterator = self.iterator_valid
 
         if 'batch_size' not in kwargs:
@@ -1261,19 +1255,48 @@ class NeuralNet:
     def _get_params_for(self, prefix):
         return params_for(prefix, self.__dict__)
 
-    def _get_params_for_optimizer(self, prefix, named_parameters):
-        """Parse kwargs configuration for the optimizer identified by
-        the given prefix. Supports param group assignment using wildcards:
+    def get_params_for(self, prefix):
+        """Collect and return init parameters for an attribute.
 
-            optimizer__lr=0.05,
-            optimizer__param_groups=[
-                ('rnn*.period', {'lr': 0.3, 'momentum': 0}),
-                ('rnn0', {'lr': 0.1}),
-            ]
+        Attributes could be, for instance, pytorch modules, criteria,
+        or data loaders (for optimizers, use
+        :meth:`.get_params_for_optimizer` instead). Use the returned
+        arguments to initialize the given attribute like this:
 
-        The first positional argument are the param groups.
+        .. code:: python
+
+            # inside initialize_module method
+            kwargs = self.get_params_for('module')
+            self.module_ = self.module(**kwargs)
+
+        Proceed analogously for the criterion etc.
+
+        The reason to use this method is so that it's possible to
+        change the init parameters with :meth:`.set_params`, which
+        in turn makes grid search and other similar things work.
+
+        Note that in general, as a user, you never have to deal with
+        this method because :meth:`.initialize_module` etc. are
+        already taking care of this. You only need to deal with this
+        if you override :meth:`.initialize_module` (or similar
+        methods) because you have some custom code that requires it.
+
+        Parameters
+        ----------
+        prefix : str
+          The name of the attribute whose arguments should be
+          returned. E.g. for the module, it should be ``'module'``.
+
+        Returns
+        -------
+        kwargs : dict
+          Keyword arguments to be used as init parameters.
+
         """
-        kwargs = self._get_params_for(prefix)
+        return self._get_params_for(prefix)
+
+    def _get_params_for_optimizer(self, prefix, named_parameters):
+        kwargs = self.get_params_for(prefix)
         params = list(named_parameters)
         pgroups = []
 
@@ -1289,15 +1312,67 @@ class NeuralNet:
 
         return [pgroups], kwargs
 
-    def _get_param_names(self):
-        return (k for k in self.__dict__.keys() if k != 'history_')
+    def get_params_for_optimizer(self, prefix, named_parameters):
+        """Collect and return init parameters for an optimizer.
 
-    def _get_param_names_new(self):
-        # TODO: This will be the new behavior for _get_param_names in
-        # a future release. This is to make get_params work as in
-        # sklearn, i.e. not returning "learned" attributes (ending on
-        # '_'). Once the transition period has passed, remove the old
-        # code and use the new one instead.
+        Parse kwargs configuration for the optimizer identified by
+        the given prefix. Supports param group assignment using wildcards:
+
+        .. code:: python
+
+            optimizer__lr=0.05,
+            optimizer__param_groups=[
+                ('rnn*.period', {'lr': 0.3, 'momentum': 0}),
+                ('rnn0', {'lr': 0.1}),
+            ]
+
+        Generally, use this method like this:
+
+        .. code:: python
+
+            # inside initialize_optimizer method
+            named_params = self.module_.named_parameters()
+            pgroups, kwargs = self.get_params_for_optimizer('optimizer', named_params)
+            if 'lr' not in kwargs:
+                kwargs['lr'] = self.lr
+            self.optimizer_ = self.optimizer(*pgroups, **kwargs)
+
+        The reason to use this method is so that it's possible to
+        change the init parameters with :meth:`.set_params`, which
+        in turn makes grid search and other similar things work.
+
+        Note that in general, as a user, you never have to deal with
+        this method because :meth:`.initialize_optimizer` is already
+        taking care of this. You only need to deal with this if you
+        override :meth:`.initialize_optimizer` because you have some
+        custom code that requires it.
+
+        Parameters
+        ----------
+        prefix : str
+          The name of the optimizer whose arguments should be
+          returned. Typically, this should just be
+          ``'optimizer'``. There can be exceptions, however, e.g. if
+          you want to use more than one optimizer.
+
+        named_parameters : iterator
+          Iterator over the parameters of the module that is intended
+          to be optimized. It's the return value of
+          ``my_module.named_parameters()``.
+
+        Returns
+        -------
+        pgroups : list
+          List of parameter groups.
+
+        kwargs : dict
+          All other parameters for this optimizer, e.g. the learning
+          rate.
+
+        """
+        return self._get_params_for_optimizer(prefix, named_parameters)
+
+    def _get_param_names(self):
         return (k for k in self.__dict__ if not k.endswith('_'))
 
     def _get_params_callbacks(self, deep=True):

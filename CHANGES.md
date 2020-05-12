@@ -9,18 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `NeptuneLogger` callback for logging experiment metadata to neptune.ai
-- Add DataFrameTransformer, an sklearn compatible transformer that helps working with pandas DataFrames by transforming the DataFrame into a representation that works well with neural networks (#507)
+- Added the `event_name` argument for `LRScheduler` for optional recording of LR changes inside `net.history`. NOTE: Supported only in Pytorch>=1.4
 - Make it easier to add custom modules or optimizers to a neural net class by automatically registering them where necessary and by making them available to set_params
 
 ### Changed
 
-- When using caching in scoring callbacks, no longer uselessly iterate over the data; this can save time if iteration is slow (#552, #557)
+- Removed support for schedulers with a `batch_step()` method in `LRScheduler`. 
+- Raise `FutureWarning` in `CVSplit` when `random_state` is not used. Will raise an exception in a future (#620)
+- The behavior of method `net.get_params` changed to make it more consistent with sklearn: it will no longer return "learned" attributes like `module_`; therefore, functions like `sklearn.base.clone`, when called with a fitted net, will no longer return a fitted net but instead an uninitialized net; if you want a copy of a fitted net, use `copy.deepcopy` instead;`net.get_params` is used under the hood by many sklearn functions and classes, such as `GridSearchCV`, whose behavior may thus be affected by the change. (#521, #527)
 
 ### Fixed
 
-- Make skorch compatible with sklearn 0.22
-- Fixed a bug that could occur when a new "settable" (via `set_params`) attribute was added to `NeuralNet` whose name starts the same as an existing attribute's name
+- Fixed a bug where `CyclicLR` scheduler would update during both training and validation rather than just during training.
+
+## [0.8.0] - 2019-04-11
+
+### Added
+
+- Added `NeptuneLogger` callback for logging experiment metadata to neptune.ai (#586)
+- Add `DataFrameTransformer`, an sklearn compatible transformer that helps working with pandas DataFrames by transforming the DataFrame into a representation that works well with neural networks (#507)
+- Added `WandbLogger` callback for logging to Weights & Biases (#607)
+- Added `None` option to `device` which leaves the device(s) unmodified (#600)
+- Add `PassthroughScoring`, a scoring callback that just calculates the average score of a metric determined at batch level and then writes it to the epoch level (#595)
+
+### Changed
+
+- When using caching in scoring callbacks, no longer uselessly iterate over the data; this can save time if iteration is slow (#552, #557)
+- Cleaned up duplicate code in the `fit_loop` (#564)
+
+### Fixed
+
+- Make skorch compatible with sklearn 0.22 (#571, #573, #575)
+- Fixed a bug that could occur when a new "settable" (via `set_params`) attribute was added to `NeuralNet` whose name starts the same as an existing attribute's name (#590)
 
 ## [0.7.0] - 2019-11-29
 
@@ -170,8 +190,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the net was configured to use the CPU (#354, #358)
 
 
-[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.8.0...HEAD
 [0.4.0]: https://github.com/skorch-dev/skorch/compare/v0.3.0...v0.4.0
 [0.5.0]: https://github.com/skorch-dev/skorch/compare/v0.4.0...v0.5.0
 [0.6.0]: https://github.com/skorch-dev/skorch/compare/v0.5.0...v0.6.0
 [0.7.0]: https://github.com/skorch-dev/skorch/compare/v0.6.0...v0.7.0
+[0.8.0]: https://github.com/skorch-dev/skorch/compare/v0.7.0...v0.8.0

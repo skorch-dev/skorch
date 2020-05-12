@@ -7,6 +7,7 @@ import pytest
 from sklearn.datasets import make_classification
 from sklearn.datasets import make_regression
 from sklearn.preprocessing import StandardScaler
+import torch
 from torch import nn
 
 F = nn.functional
@@ -17,6 +18,14 @@ INFERENCE_METHODS = ['predict', 'predict_proba', 'forward', 'forward_iter']
 ###################
 # shared fixtures #
 ###################
+
+
+@pytest.fixture(autouse=True)
+def seeds_fixed():
+    torch.manual_seed(0)
+    torch.cuda.manual_seed(0)
+    np.random.seed(0)
+
 
 @pytest.fixture
 def module_cls():
@@ -138,6 +147,15 @@ try:
     import neptune
 
     neptune_installed = True
+except ImportError:
+    pass
+
+wandb_installed = False
+try:
+    # pylint: disable=unused-import
+    import wandb
+
+    wandb_installed = True
 except ImportError:
     pass
 

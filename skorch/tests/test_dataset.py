@@ -905,3 +905,30 @@ class TestCVSplit:
         assert np.allclose(y[:n], y_train)
         assert np.allclose(X[n:], X_valid)
         assert np.allclose(y[n:], y_valid)
+
+    @pytest.mark.parametrize(
+        'args, kwargs, expect_warning',
+        [
+            ([], {}, False),
+            ([], {"random_state": 0}, True),
+            ([10], {"random_state": 0}, True),
+            ([0.7], {"random_state": 0}, False),
+            ([[]], {}, False),
+            ([[]], {"random_state": 0}, True),
+        ])
+    def test_random_state_not_used_warning(
+            self, cv_split_cls, args, kwargs, expect_warning):
+        with pytest.warns(None) as record:
+            cv_split_cls(*args, **kwargs)
+
+        if expect_warning:
+            assert len(record) == 1
+            warning = record[0].message
+            assert isinstance(warning, FutureWarning)
+            assert warning.args[0] == (
+                "Setting a random_state has no effect since cv is not a float. "
+                "This will raise an error in a future. You should leave "
+                "random_state to its default (None), or set cv to a float value."
+            )
+        else:
+            assert not record
