@@ -1618,7 +1618,13 @@ class NeuralNet:
         """Add attribute name to prefixes_ and
         cuda_dependent_attributes_.
 
-        Takes care of not mutating the lists.
+        The first is to take care that the attribute works correctly
+        with set_params, e.g. when it comes to re-initialization.
+
+        The second is to make sure that nets trained with CUDA can be
+        loaded without CUDA.
+
+        This method takes care of not mutating the lists.
 
         Parameters
         ----------
@@ -1646,7 +1652,11 @@ class NeuralNet:
         """Remove attribute name from prefixes_ and
         cuda_dependent_attributes_.
 
-        Takes care of not mutating the lists.
+        Use this to remove PyTorch components that are not needed
+        anymore. This is mostly a clean up job, so as to not leave
+        unnecessary prefixes or cuda-dependent attributes.
+
+        This method takes care of not mutating the lists.
 
         Parameters
         ----------
@@ -1673,19 +1683,19 @@ class NeuralNet:
         ``cuda_dependent_attributes_`` automatically.
 
         """
-        # if it's a
+        # If it's a
         # 1. known attribute or
         # 2. special param like module__num_units or
         # 3. not a torch module/optimizer instance or class
-        # just setattr as usual
+        # just setattr as usual.
+        # For a discussion why we chose this implementation, see here:
+        # https://github.com/skorch-dev/skorch/pull/597
         is_known = name.endswith('_') or (name in self.prefixes_)
         is_special_param = '__' in name
-        is_torch_mod_or_opt = any(c in name for c in PYTORCH_COMPONENTS)
-        if is_known or is_special_param or not is_torch_mod_or_opt:
-            super().__setattr__(name, attr)
-            return
+        is_torch_component = any(c in name for c in PYTORCH_COMPONENTS)
 
-        self._register_attribute(name)
+        if not (is_known or is_special_param) and is_torch_component:
+            self._register_attribute(name)
         super().__setattr__(name, attr)
 
     def __delattr__(self, name):

@@ -480,7 +480,7 @@ so:
    retrieve the arguments for the constructor.
 3. The attribute name should contain the substring ``"module"`` if
    it's a module, ``"criterion"`` if a criterion, and ``"optimizer"``
-   if an optimizer. This so so that skorch knows if a change in
+   if an optimizer. This way, skorch knows if a change in
    parameters (say, because :meth:`.set_params` was called) should
    trigger re-initialization.
 
