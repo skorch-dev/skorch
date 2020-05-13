@@ -2445,7 +2445,7 @@ class TestNeuralNet:
             def initialize_module(self, *args, **kwargs):
                 super().initialize_module(*args, **kwargs)
 
-                params = self._get_params_for('mymodule')
+                params = self.get_params_for('mymodule')
                 self.mymodule_ = self.mymodule(**params)
 
                 return self
