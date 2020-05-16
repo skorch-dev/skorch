@@ -652,12 +652,14 @@ class NeuralNet:
 
         """
         step_accumulator = self.get_train_step_accumulator()
+
         def step_fn():
+            self.optimizer_.zero_grad()
             step = self.train_step_single(Xi, yi, **fit_params)
             step_accumulator.store_step(step)
             return step['loss']
+
         self.optimizer_.step(step_fn)
-        self.optimizer_.zero_grad()
         return step_accumulator.get_step()
 
     def evaluation_step(self, Xi, training=False):
