@@ -1300,7 +1300,8 @@ class NeuralNet:
         if params:
             pgroups.append({'params': [p for _, p in params]})
 
-        return [pgroups], kwargs
+        args = (pgroups,)
+        return args, kwargs
 
     def get_params_for_optimizer(self, prefix, named_parameters):
         """Collect and return init parameters for an optimizer.
@@ -1352,15 +1353,17 @@ class NeuralNet:
 
         Returns
         -------
-        pgroups : list
-          List of parameter groups.
+        args : tuple
+          All positional arguments for this optimizer (right now only
+          one, the parameter groups).
 
         kwargs : dict
           All other parameters for this optimizer, e.g. the learning
           rate.
 
         """
-        return self._get_params_for_optimizer(prefix, named_parameters)
+        args, kwargs = self._get_params_for_optimizer(prefix, named_parameters)
+        return args, kwargs
 
     def _get_param_names(self):
         return (k for k in self.__dict__ if not k.endswith('_'))
