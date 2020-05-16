@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When using caching in scoring callbacks, no longer uselessly iterate over the data; this can save time if iteration is slow (#552, #557)
 - Cleaned up duplicate code in the `fit_loop` (#564)
 
+### Future Changes
+
+- WARNING: In release 0.10.0 of skorch, Python 3.5 support will be officially dropped (#634)
+
 ### Fixed
 
 - Make skorch compatible with sklearn 0.22 (#571, #573, #575)
