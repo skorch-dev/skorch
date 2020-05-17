@@ -34,7 +34,7 @@ from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 
 
-PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
+_PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
 """Special names that mark pytorch components.
 
 These special names are used to recognize whether an attribute that is
@@ -1692,7 +1692,7 @@ class NeuralNet:
         # https://github.com/skorch-dev/skorch/pull/597
         is_known = name.endswith('_') or (name in self.prefixes_)
         is_special_param = '__' in name
-        is_torch_component = any(c in name for c in PYTORCH_COMPONENTS)
+        is_torch_component = any(c in name for c in _PYTORCH_COMPONENTS)
 
         if not (is_known or is_special_param) and is_torch_component:
             self._register_attribute(name)
