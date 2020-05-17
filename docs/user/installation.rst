@@ -84,7 +84,7 @@ If you want to help developing, run:
     py.test  # unit tests
     pylint skorch  # static code checks
 
-pytorch
+PyTorch
 ~~~~~~~
 
 PyTorch is not covered by the dependencies, since the PyTorch
