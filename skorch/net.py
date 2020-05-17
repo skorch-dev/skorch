@@ -1669,7 +1669,7 @@ class NeuralNet:
         """
         # copy the lists to avoid mutation
         if prefixes:
-            self.prefixes_ = [p for p in self.prefixes_[:] if p != name]
+            self.prefixes_ = [p for p in self.prefixes_ if p != name]
 
         if cuda_dependent_attributes:
             self.cuda_dependent_attributes_ = [
