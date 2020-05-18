@@ -158,19 +158,20 @@ class LRScheduler(Callback):
             if callable(self.monitor):
                 score = self.monitor(net)
             else:
-                if epoch:
-                    score = net.history[-2, self.monitor]
-                else:
-                    if self.lr_scheduler_.mode == 'max':
-                        score = -np.inf
-                    else:
-                        score = np.inf
+                if self.lr_scheduler_.mode == 'max':
+                    score = -np.inf
+                elif self.lr_scheduler_.mode == 'min':
+                    score = np.inf
+                elif epoch:
+                    score = net.history[-1, self.monitor]
+
             self.lr_scheduler_.step(score, epoch)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
             if self.event_name is not None and hasattr(
                     self.lr_scheduler_, "get_last_lr"):
-                net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
+                net.history.record(self.event_name,
+                                   self.lr_scheduler_.get_last_lr()[0])
             self.lr_scheduler_.step(epoch)
 
     def on_batch_end(self, net, training, **kwargs):
@@ -249,7 +250,8 @@ class WarmRestartLR(_LRScheduler):
         super(WarmRestartLR, self).__init__(optimizer, last_epoch)
 
     def _get_current_lr(self, min_lr, max_lr, period, epoch):
-        return min_lr + 0.5 * (max_lr - min_lr) * (1 + np.cos(epoch * np.pi / period))
+        return min_lr + 0.5 * (max_lr - min_lr) * (
+                1 + np.cos(epoch * np.pi / period))
 
     def get_lr(self):
         epoch_idx = float(self.last_epoch)
