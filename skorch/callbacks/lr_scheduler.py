@@ -3,6 +3,8 @@
 import sys
 
 # pylint: disable=unused-import
+import warnings
+
 import numpy as np
 import torch
 from torch.optim.lr_scheduler import _LRScheduler
@@ -57,9 +59,9 @@ class LRScheduler(Callback):
       Pass ``None`` to disable placing events in history.
       **Note:** This feature works only for pytorch version >=1.4
 
-    step_every: str, (default='epoch'_
-      Value for when to apply the learning scheduler step. Can be either 'batch' or
-      'epoch'.
+    step_every: str, (default='epoch')
+      Value for when to apply the learning scheduler step. Can be either 'batch'
+       or 'epoch'.
 
     kwargs
       Additional arguments passed to the lr scheduler.
@@ -77,6 +79,14 @@ class LRScheduler(Callback):
         self.event_name = event_name
         self.step_every = step_every
         vars(self).update(kwargs)
+        if policy == TorchCyclicLR or policy == "TorchCyclicLR":
+            warnings.warn(
+                "The LRScheduler callback makes a step "
+                "every epoch by default from now on. To have the cyclic lr "
+                "scheduler update every batch, "
+                "set step_every='batch'",
+                DeprecationWarning,
+            )
 
     def simulate(self, steps, initial_lr):
         """
