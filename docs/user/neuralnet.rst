@@ -430,9 +430,10 @@ Subclassing NeuralNet
 ---------------------
 
 Apart from the :class:`.NeuralNet` base class, we provide
-:class:`.NeuralNetClassifier` and :class:`.NeuralNetRegressor` for
-typical classification and regressions tasks. They should work as
-drop-in replacements for sklearn classifiers and regressors.
+:class:`.NeuralNetClassifier`, :class:`.NeuralNetBinaryClassifier`,
+and :class:`.NeuralNetRegressor` for typical classification, binary
+classification, and regressions tasks. They should work as drop-in
+replacements for sklearn classifiers and regressors.
 
 The :class:`.NeuralNet` class is a little less opinionated about the
 incoming data, e.g. it does not determine a loss function by default.
@@ -442,9 +443,9 @@ case, you would typically subclass from :class:`.NeuralNet`.
 skorch aims at making subclassing as easy as possible, so that it
 doesn't stand in your way. For instance, all components (``module``,
 ``optimizer``, etc.) have their own initialization method
-(``initialize_module``, ``initialize_optimizer``, etc.). That way, if
-you want to modify the initialization of a component, you can easily
-do so.
+(:meth:`.initialize_module`, :meth:`.initialize_optimizer`,
+etc.). That way, if you want to modify the initialization of a
+component, you can easily do so.
 
 Additonally, :class:`.NeuralNet` has a couple of ``get_*`` methods for
 when a component is retrieved repeatedly. E.g.,
@@ -467,3 +468,79 @@ total loss:
 
 .. note:: This example also regularizes the biases, which you typically
     don't need to do.
+
+It is possible to add your own criterion, module, or optimizer to your
+customized neural net class. You should follow a few rules when you do
+so:
+
+1. Set this attribute inside the corresponding method. E.g., when
+   setting an optimizer, use :meth:`.initialize_optimizer` for that.
+2. Inside the initialization method, use :meth:`.get_params_for` (or,
+   if dealing with an optimizer, :meth:`.get_params_for_optimizer`) to
+   retrieve the arguments for the constructor.
+3. The attribute name should contain the substring ``"module"`` if
+   it's a module, ``"criterion"`` if a criterion, and ``"optimizer"``
+   if an optimizer. This way, skorch knows if a change in
+   parameters (say, because :meth:`.set_params` was called) should
+   trigger re-initialization.
+
+When you follow these rules, you will make sure that your added
+components are amenable to :meth:`.set_params` and hence to things
+like grid search.
+
+Here is an example of how this could look like in practice:
+
+.. code:: python
+
+    class MyNet(NeuralNet):
+        def initialize_criterion(self, *args, **kwargs):
+            super().initialize_criterion(*args, **kwargs)
+
+            # add an additional criterion
+            params = self.get_params_for('other_criterion')
+            self.other_criterion_ = nn.BCELoss(**params)
+            return self
+
+        def initialize_module(self, *args, **kwargs):
+            super().initialize_module(*args, **kwargs)
+
+            # add an additional module called 'mymodule'
+            params = self.get_params_for('mymodule')
+            self.mymodule_ = MyModule(**params)
+            return self
+
+        def initialize_optimizer(self, *args, **kwargs):
+            super().initialize_optimizer(*args, **kwargs)
+
+            # add an additional optimizer called 'optimizer2' that is
+            # responsible for 'mymodule'
+            named_params = self.mymodule_.named_parameters()
+            pgroups, params = self.get_params_for_optimizer('optimizer2', named_params)
+            self.optimizer2_ = torch.optim.SGD(*pgroups, **params)
+            return self
+
+        ...  # additional changes
+
+
+    net = MyNet(
+        ...,
+        other_criterion__reduction='sum',
+        mymodule__num_units=123,
+        optimizer2__lr=0.1,
+    )
+    net.fit(X, y)
+
+    # set_params works
+    net.set_params(optimizer2__lr=0.05)
+    net.partial_fit(X, y)
+
+    # grid search et al. works
+    search = GridSearchCV(net, {'mymodule__num_units': [10, 50, 100]}, ...)
+    search.fit(X, y)
+
+In this example, a new criterion, a new module, and a new optimizer
+were added. Of course, additional changes should be made to the net so
+that those new components are actually being used for something, but
+this example should illustrate how to start. Since the rules outlined
+above are being followed, we can use grid search on our customly
+defined components.

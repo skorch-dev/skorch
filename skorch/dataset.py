@@ -312,7 +312,7 @@ class CVSplit:
 
     def __call__(self, dataset, y=None, groups=None):
         bad_y_error = ValueError(
-            "Stratified CV requires explicitely passing a suitable y.")
+            "Stratified CV requires explicitly passing a suitable y.")
         if (y is None) and self.stratified:
             raise bad_y_error
 

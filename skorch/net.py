@@ -34,6 +34,16 @@ from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 
 
+_PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
+"""Special names that mark pytorch components.
+
+These special names are used to recognize whether an attribute that is
+being set in the net should be added to prefixes_ and
+cuda_dependent_attributes_
+
+"""
+
+
 # pylint: disable=too-many-instance-attributes
 class NeuralNet:
     # pylint: disable=anomalous-backslash-in-string
@@ -1436,7 +1446,7 @@ class NeuralNet:
             tmpl = ("__init__() got unexpected argument(s) {}. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
-                    "should deal with the new arguments explicitely.")
+                    "should deal with the new arguments explicitly.")
             msg = tmpl.format(', '.join(sorted(unexpected_kwargs)))
             msgs.append(msg)
 
@@ -1497,17 +1507,17 @@ class NeuralNet:
             self.initialize_callbacks()
             self._set_params_callback(**cb_params)
 
-        if any(key.startswith('criterion') for key in special_params):
+        if any('criterion' in key.split('__', 1)[0] for key in special_params):
             self.initialize_criterion()
 
         module_triggers_optimizer_reinit = False
-        if any(key.startswith('module') for key in special_params):
+        if any('module' in key.split('__', 1)[0] for key in special_params):
             self.initialize_module()
             module_triggers_optimizer_reinit = True
 
         optimizer_changed = (
-            any(key.startswith('optimizer') for key in special_params) or
-            'lr' in normal_params
+            any('optimizer' in key.split('__', 1)[0] for key in special_params)
+            or 'lr' in normal_params
         )
         if module_triggers_optimizer_reinit or optimizer_changed:
             # Model selectors such as GridSearchCV will set the
@@ -1598,6 +1608,100 @@ class NeuralNet:
         state.pop('__cuda_dependent_attributes__')
 
         self.__dict__.update(state)
+
+    def _register_attribute(
+            self,
+            name,
+            prefixes=True,
+            cuda_dependent_attributes=True,
+    ):
+        """Add attribute name to prefixes_ and
+        cuda_dependent_attributes_.
+
+        The first is to take care that the attribute works correctly
+        with set_params, e.g. when it comes to re-initialization.
+
+        The second is to make sure that nets trained with CUDA can be
+        loaded without CUDA.
+
+        This method takes care of not mutating the lists.
+
+        Parameters
+        ----------
+        prefixes : bool (default=True)
+          Whether to add to prefixes_.
+
+        cuda_dependent_attributes : bool (default=True)
+          Whether to add to cuda_dependent_attributes_.
+
+        """
+        # copy the lists to avoid mutation
+        if prefixes:
+            self.prefixes_ = self.prefixes_[:] + [name]
+
+        if cuda_dependent_attributes:
+            self.cuda_dependent_attributes_ = (
+                self.cuda_dependent_attributes_[:] + [name + '_'])
+
+    def _unregister_attribute(
+            self,
+            name,
+            prefixes=True,
+            cuda_dependent_attributes=True,
+    ):
+        """Remove attribute name from prefixes_ and
+        cuda_dependent_attributes_.
+
+        Use this to remove PyTorch components that are not needed
+        anymore. This is mostly a clean up job, so as to not leave
+        unnecessary prefixes or cuda-dependent attributes.
+
+        This method takes care of not mutating the lists.
+
+        Parameters
+        ----------
+        prefixes : bool (default=True)
+          Whether to remove from prefixes_.
+
+        cuda_dependent_attributes : bool (default=True)
+          Whether to remove from cuda_dependent_attributes_.
+
+        """
+        # copy the lists to avoid mutation
+        if prefixes:
+            self.prefixes_ = [p for p in self.prefixes_ if p != name]
+
+        if cuda_dependent_attributes:
+            self.cuda_dependent_attributes_ = [
+                a for a in self.cuda_dependent_attributes_ if a != name + '_']
+
+    def __setattr__(self, name, attr):
+        """Set an attribute on the net
+
+        When a custom net with additional torch modules or optimizers
+        is created, those attributes are added to ``prefixes_`` and
+        ``cuda_dependent_attributes_`` automatically.
+
+        """
+        # If it's a
+        # 1. known attribute or
+        # 2. special param like module__num_units or
+        # 3. not a torch module/optimizer instance or class
+        # just setattr as usual.
+        # For a discussion why we chose this implementation, see here:
+        # https://github.com/skorch-dev/skorch/pull/597
+        is_known = name.endswith('_') or (name in self.prefixes_)
+        is_special_param = '__' in name
+        is_torch_component = any(c in name for c in _PYTORCH_COMPONENTS)
+
+        if not (is_known or is_special_param) and is_torch_component:
+            self._register_attribute(name)
+        super().__setattr__(name, attr)
+
+    def __delattr__(self, name):
+        # take extra precautions to undo the changes made in __setattr__
+        self._unregister_attribute(name)
+        super().__delattr__(name)
 
     def save_params(
             self, f_params=None, f_optimizer=None, f_history=None):

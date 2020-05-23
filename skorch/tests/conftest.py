@@ -131,7 +131,6 @@ def train_split():
 @pytest.fixture
 def net_cls():
     from skorch import NeuralNetRegressor
-    NeuralNetRegressor.score = Mock(side_effect=[10, 8, 6, 11, 7])
     return NeuralNetRegressor
 
 
