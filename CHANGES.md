@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added the `event_name` argument for `LRScheduler` for optional recording of LR changes inside `net.history`. NOTE: Supported only in Pytorch>=1.4
+- Added the `step_every` argument for `LRScheduler` to set whether the scheduler step should be taken on every epoch or on every batch.
 
 ### Changed
 
 - Removed support for schedulers with a `batch_step()` method in `LRScheduler`. 
 - Raise `FutureWarning` in `CVSplit` when `random_state` is not used. Will raise an exception in a future (#620)
+- Raise `FutureWarning` when using `CyclicLR` scheduler, because the default behavior has changed from taking a step every batch to taking a step every epoch.
 
 ### Fixed
 
