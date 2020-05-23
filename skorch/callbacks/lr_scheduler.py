@@ -79,14 +79,6 @@ class LRScheduler(Callback):
         self.event_name = event_name
         self.step_every = step_every
         vars(self).update(kwargs)
-        if policy == TorchCyclicLR or policy == "TorchCyclicLR":
-            warnings.warn(
-                "The LRScheduler callback makes a step "
-                "every epoch by default from now on. To have the cyclic lr "
-                "scheduler update every batch, "
-                "set step_every='batch'",
-                DeprecationWarning,
-            )
 
     def simulate(self, steps, initial_lr):
         """
@@ -123,6 +115,15 @@ class LRScheduler(Callback):
         self.policy_ = self._get_policy_cls()
         self.lr_scheduler_ = None
         self.batch_idx_ = 0
+        # TODO: Remove this warning on 0.10 release
+        if self.policy_ == TorchCyclicLR or self.policy_ == "TorchCyclicLR":
+            warnings.warn(
+                "The LRScheduler now makes a step every epoch by default. "
+                "To have the cyclic lr scheduler update "
+                "every batch set step_every='batch'",
+                FutureWarning
+            )
+
         return self
 
     def _get_policy_cls(self):
