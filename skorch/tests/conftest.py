@@ -7,6 +7,7 @@ import pytest
 from sklearn.datasets import make_classification
 from sklearn.datasets import make_regression
 from sklearn.preprocessing import StandardScaler
+import torch
 from torch import nn
 
 F = nn.functional
@@ -17,6 +18,14 @@ INFERENCE_METHODS = ['predict', 'predict_proba', 'forward', 'forward_iter']
 ###################
 # shared fixtures #
 ###################
+
+
+@pytest.fixture(autouse=True)
+def seeds_fixed():
+    torch.manual_seed(0)
+    torch.cuda.manual_seed(0)
+    np.random.seed(0)
+
 
 @pytest.fixture
 def module_cls():
@@ -122,7 +131,6 @@ def train_split():
 @pytest.fixture
 def net_cls():
     from skorch import NeuralNetRegressor
-    NeuralNetRegressor.score = Mock(side_effect=[10, 8, 6, 11, 7])
     return NeuralNetRegressor
 
 

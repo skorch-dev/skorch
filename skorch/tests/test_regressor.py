@@ -13,9 +13,6 @@ import torch
 from skorch.tests.conftest import INFERENCE_METHODS
 
 
-torch.manual_seed(0)
-
-
 class TestNeuralNetRegressor:
     @pytest.fixture(scope='module')
     def data(self, regression_data):
@@ -119,9 +116,9 @@ class TestNeuralNetRegressor:
         # predict and predict_proba should be identical for regression
         assert np.allclose(y_pred, y_proba, atol=1e-6)
 
-    def test_score(self, net, data):
+    def test_score(self, net_fit, data):
         X, y = data
-        r2_score = net.score(X, y)
+        r2_score = net_fit.score(X, y)
         assert r2_score <= 1.
 
     def test_multioutput_score(self, multioutput_net, multioutput_regression_data):
