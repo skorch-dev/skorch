@@ -162,7 +162,7 @@ class LRScheduler(Callback):
                     score = -np.inf
                 elif self.lr_scheduler_.mode == 'min':
                     score = np.inf
-                elif epoch:
+                else:
                     score = net.history[-1, self.monitor]
 
             self.lr_scheduler_.step(score, epoch)
