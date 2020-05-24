@@ -241,6 +241,32 @@ class TestLRCallbacks:
         )
         assert np.all(net.history[-1, 'batches', :, 'event_lr'] == new_lrs)
 
+    @pytest.mark.parametrize('policy, kwargs', [
+        (TorchCyclicLR, {'base_lr': 123, 'max_lr': 999})
+    ])
+    def test_cyclic_lr_with_epoch_step_warning(self,
+                                               classifier_module,
+                                               classifier_data,
+                                               policy,
+                                               kwargs):
+        with pytest.warns(None) as record:
+            scheduler = LRScheduler(
+                policy, **kwargs)
+            net = NeuralNetClassifier(
+                classifier_module,
+                max_epochs=0,
+                callbacks=[('scheduler', scheduler)],
+            )
+            net.initialize()
+        assert len(record) == 1
+        warning = record[0].message
+        assert isinstance(warning, FutureWarning)
+        assert warning.args[0] == (
+            "The LRScheduler now makes a step every epoch by default. "
+            "To have the cyclic lr scheduler update "
+            "every batch set step_every='batch'"
+        )
+
 
 class TestReduceLROnPlateau:
 
