@@ -116,8 +116,8 @@ class LRScheduler(Callback):
         self.lr_scheduler_ = None
         self.batch_idx_ = 0
         # TODO: Remove this warning on 0.10 release
-        if self.policy_ == TorchCyclicLR or self.policy_ == "TorchCyclicLR" \
-                and self.step_every == 'epoch':
+        if (self.policy_ == TorchCyclicLR or self.policy_ == "TorchCyclicLR"
+                and self.step_every == 'epoch'):
             warnings.warn(
                 "The LRScheduler now makes a step every epoch by default. "
                 "To have the cyclic lr scheduler update "
