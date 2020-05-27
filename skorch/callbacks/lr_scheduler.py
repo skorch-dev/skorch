@@ -3,6 +3,8 @@
 import sys
 
 # pylint: disable=unused-import
+import warnings
+
 import numpy as np
 import torch
 from torch.optim.lr_scheduler import _LRScheduler
@@ -57,6 +59,10 @@ class LRScheduler(Callback):
       Pass ``None`` to disable placing events in history.
       **Note:** This feature works only for pytorch version >=1.4
 
+    step_every: str, (default='epoch')
+      Value for when to apply the learning scheduler step. Can be either 'batch'
+       or 'epoch'.
+
     kwargs
       Additional arguments passed to the lr scheduler.
 
@@ -66,10 +72,12 @@ class LRScheduler(Callback):
                  policy='WarmRestartLR',
                  monitor='train_loss',
                  event_name="event_lr",
+                 step_every='epoch',
                  **kwargs):
         self.policy = policy
         self.monitor = monitor
         self.event_name = event_name
+        self.step_every = step_every
         vars(self).update(kwargs)
 
     def simulate(self, steps, initial_lr):
@@ -107,6 +115,16 @@ class LRScheduler(Callback):
         self.policy_ = self._get_policy_cls()
         self.lr_scheduler_ = None
         self.batch_idx_ = 0
+        # TODO: Remove this warning on 0.10 release
+        if (self.policy_ == TorchCyclicLR or self.policy_ == "TorchCyclicLR"
+                and self.step_every == 'epoch'):
+            warnings.warn(
+                "The LRScheduler now makes a step every epoch by default. "
+                "To have the cyclic lr scheduler update "
+                "every batch set step_every='batch'",
+                FutureWarning
+            )
+
         return self
 
     def _get_policy_cls(self):
@@ -119,7 +137,7 @@ class LRScheduler(Callback):
         # These are the parameters that are passed to the
         # scheduler. Parameters that don't belong there must be
         # excluded.
-        excluded = ('policy', 'monitor', 'event_name')
+        excluded = ('policy', 'monitor', 'event_name', 'step_every')
         kwargs = {key: val for key, val in vars(self).items()
                   if not (key in excluded or key.endswith('_'))}
         return kwargs
@@ -135,35 +153,37 @@ class LRScheduler(Callback):
         )
 
     def on_epoch_end(self, net, **kwargs):
-        epoch = len(net.history) - 1
+        if not self.step_every == 'epoch':
+            return
+        epoch = len(net.history)
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             if callable(self.monitor):
                 score = self.monitor(net)
             else:
-                if epoch:
-                    score = net.history[-2, self.monitor]
+                if self.lr_scheduler_.mode == 'max':
+                    score = -np.inf
+                elif self.lr_scheduler_.mode == 'min':
+                    score = np.inf
                 else:
-                    if self.lr_scheduler_.mode == 'max':
-                        score = -np.inf
-                    else:
-                        score = np.inf
+                    score = net.history[-1, self.monitor]
+
             self.lr_scheduler_.step(score, epoch)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
-            self.lr_scheduler_.step(epoch)
             if self.event_name is not None and hasattr(
                     self.lr_scheduler_, "get_last_lr"):
-                net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
+                net.history.record(self.event_name,
+                                   self.lr_scheduler_.get_last_lr()[0])
+            self.lr_scheduler_.step(epoch)
 
     def on_batch_end(self, net, training, **kwargs):
-        if not training:
+        if not training or not self.step_every == 'batch':
             return
-        if TorchCyclicLR and isinstance(self.lr_scheduler_, TorchCyclicLR):
-            self.lr_scheduler_.step(self.batch_idx_)
-            if self.event_name is not None and hasattr(
-                    self.lr_scheduler_, "get_last_lr"):
-                net.history.record_batch(self.event_name,
-                                         self.lr_scheduler_.get_last_lr()[0])
+        if self.event_name is not None and hasattr(
+                self.lr_scheduler_, "get_last_lr"):
+            net.history.record_batch(self.event_name,
+                                     self.lr_scheduler_.get_last_lr()[0])
+        self.lr_scheduler_.step()
         self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
@@ -232,7 +252,8 @@ class WarmRestartLR(_LRScheduler):
         super(WarmRestartLR, self).__init__(optimizer, last_epoch)
 
     def _get_current_lr(self, min_lr, max_lr, period, epoch):
-        return min_lr + 0.5 * (max_lr - min_lr) * (1 + np.cos(epoch * np.pi / period))
+        return min_lr + 0.5 * (max_lr - min_lr) * (
+                1 + np.cos(epoch * np.pi / period))
 
     def get_lr(self):
         epoch_idx = float(self.last_epoch)
