@@ -401,13 +401,16 @@ class TestEpochScoring:
         class MySkorchDataset(skorch.dataset.Dataset):
             pass
 
-        rawsplit = lambda ds, _: (ds, ds)
+        rawsplit = lambda ds: (ds, ds)
         cvsplit = CVSplit(2, random_state=0)
+
+        def split_ignore_y(ds, y):
+            return rawsplit(ds)
 
         table = [
             # Test a split where type(input) == type(output) is guaranteed
-            (data, rawsplit, np.ndarray, False),
-            (data, rawsplit, skorch.dataset.Dataset, True),
+            (data, split_ignore_y, np.ndarray, False),
+            (data, split_ignore_y, skorch.dataset.Dataset, True),
             ((MyTorchDataset(*data), None), rawsplit, MyTorchDataset, False),
             ((MyTorchDataset(*data), None), rawsplit, MyTorchDataset, True),
             ((MySkorchDataset(*data), None), rawsplit, np.ndarray, False),

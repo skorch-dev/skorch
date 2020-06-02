@@ -475,7 +475,7 @@ class FirstStepAccumulator:
         return self.step
 
 
-def _make_split(X, y, valid_ds, **kwargs):
+def _make_split(X, valid_ds, **kwargs):
     """Used by ``predefined_split`` to allow for pickling"""
     return X, valid_ds
 
