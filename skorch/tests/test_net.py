@@ -2271,6 +2271,38 @@ class TestNeuralNet:
         assert net.optimizer_.param_groups[0]['lr'] == lr_pgroup_0_new
         assert net.optimizer_.param_groups[1]['lr'] == lr_pgroup_1_new
 
+    def test_criterion_training_set_correctly(self, net_cls, module_cls, data):
+        # check that criterion's training attribute is set correctly
+
+        X, y = data[0][:50], data[1][:50]  # don't need all the data
+        side_effect = []
+
+        class MyCriterion(nn.NLLLoss):
+            """Criterion that records its training attribute"""
+            def forward(self, *args, **kwargs):
+                side_effect.append(self.training)
+                return super().forward(*args, **kwargs)
+
+        net = net_cls(module_cls, criterion=MyCriterion, max_epochs=1)
+        net.fit(X, y)
+
+        # called once with training=True for train step, once with
+        # training=False for validation step
+        assert side_effect == [True, False]
+
+        net.partial_fit(X, y)
+        # same logic as before
+        assert side_effect == [True, False, True, False]
+
+    def test_criterion_is_not_a_torch_module(self, net_cls, module_cls, data):
+        X, y = data[0][:50], data[1][:50]  # don't need all the data
+
+        def my_criterion():
+            return torch.nn.functional.nll_loss
+
+        net = net_cls(module_cls, criterion=my_criterion, max_epochs=1)
+        net.fit(X, y)  # does not raise
+
     @pytest.mark.parametrize('acc_steps', [1, 2, 3, 5, 10])
     def test_gradient_accumulation(self, net_cls, module_cls, data, acc_steps):
         # Test if gradient accumulation technique is possible,
