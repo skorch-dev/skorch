@@ -2138,13 +2138,21 @@ class TestNeuralNet:
         assert net.history[:, "train_batch_count"] == [train_batch_count]
         assert net.history[:, "valid_batch_count"] == [valid_batch_count]
 
+    @flaky(max_runs=3)
     def test_fit_lbfgs_optimizer(self, net_cls, module_cls, data):
         X, y = data
         net = net_cls(
             module_cls,
             optimizer=torch.optim.LBFGS,
-            batch_size=len(X))
+            lr=1.0,
+            batch_size=-1,
+        )
         net.fit(X, y)
+
+        last_epoch = net.history[-1]
+        assert last_epoch['train_loss'] < 1.0
+        assert last_epoch['valid_loss'] < 1.0
+        assert last_epoch['valid_acc'] > 0.75
 
     def test_accumulator_that_returns_last_value(
             self, net_cls, module_cls, data):
