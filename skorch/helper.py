@@ -248,12 +248,12 @@ class SliceDataset(Sequence):
 
 
 def predefined_split(dataset):
-    """Uses ``dataset`` for validiation in ``NeutralNet``.
+    """Uses ``dataset`` for validiation in :class:`.NeuralNet`.
 
     Examples
     --------
     >>> valid_ds = skorch.Dataset(X, y)
-    >>> net = NeutralNet(..., train_split=predefined_split(valid_ds))
+    >>> net = NeuralNet(..., train_split=predefined_split(valid_ds))
 
     Parameters
     ----------
