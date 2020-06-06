@@ -11,7 +11,7 @@ The following are examples and notebooks on how to use skorch.
 
 * `Benchmarks skorch vs pure PyTorch <https://github.com/skorch-dev/skorch/blob/master/examples/benchmarks/mnist.py>`_ - Compares the performance of skorch and using pure PyTorch on MNIST.
 
-* `Transfer Learning with skorch <https://github.com/skorch-dev/skorch/blob/master/notebooks/Transfer_Learning.ipynb>`_ - Train a neutral network using transfer learning with skorch. `Run in Google Colab 💻 <https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/Transfer_Learning.ipynb>`_
+* `Transfer Learning with skorch <https://github.com/skorch-dev/skorch/blob/master/notebooks/Transfer_Learning.ipynb>`_ - Train a neural network using transfer learning with skorch. `Run in Google Colab 💻 <https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/Transfer_Learning.ipynb>`_
 
 * `Image Segmentation with UNets <https://github.com/skorch-dev/skorch/blob/master/examples/nuclei_image_segmentation>`_ - Use transfer learning to train a UNet model for image segmentation.
 

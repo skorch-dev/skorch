@@ -300,5 +300,5 @@ load this checkpoint to predict with it:
 
     y_pred = net.predict(X)
 
-In this case, it is important to initialize the neutral net before
+In this case, it is important to initialize the neural net before
 running :meth:`.NeuralNet.load_params`.
