@@ -6,10 +6,10 @@ Should not have any dependency on other skorch packages.
 
 from collections.abc import Sequence
 from contextlib import contextmanager
+from distutils.version import LooseVersion
 from enum import Enum
 from functools import partial
 from itertools import tee
-from distutils.version import LooseVersion
 import pathlib
 import warnings
 
