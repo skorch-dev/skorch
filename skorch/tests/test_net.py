@@ -2490,6 +2490,36 @@ class TestNeuralNet:
         hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 99
 
+    @pytest.mark.parametrize("needs_y, train_split, raises", [
+        (False, None, ExitStack()),  # ExitStack = does not raise
+        (True, None, ExitStack()),
+        (False, lambda x: (x, x), ExitStack()),
+        (True, lambda x, y: (x, x), ExitStack()),
+        (True, lambda x: (x, x), pytest.raises(TypeError)),  # Raises an error
+    ])
+    def test_train_split_with_nans(self, needs_y, train_split, raises):
+        from skorch.net import NeuralNet
+        from skorch.toy import MLPModule
+
+        class UnsupervisedLoss(torch.nn.NLLLoss):
+            def forward(self, y_pred, _):
+                return y_pred.mean()
+
+        n_samples, n_features = 128, 10
+        X = np.random.rand(n_samples, n_features).astype(np.float32)
+        y = np.random.binomial(n=1, p=0.5, size=n_samples) if needs_y else None
+
+        net = NeuralNet(
+            MLPModule,
+            module__input_units=n_features,
+            max_epochs=2,
+            criterion=UnsupervisedLoss,
+            train_split=train_split,
+        )
+        with raises:
+            net.fit(X, y)
+            assert net.predict(X) is not None
+
 
 class TestNetSparseInput:
     @pytest.fixture(scope='module')
