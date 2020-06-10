@@ -1212,12 +1212,16 @@ class NeuralNet:
 
         """
         dataset = self.get_dataset(X, y)
-        if self.train_split:
-            dataset_train, dataset_valid = self.train_split(
-                dataset, y, **fit_params)
-        else:
-            dataset_train, dataset_valid = dataset, None
-        return dataset_train, dataset_valid
+        if not self.train_split:
+            return dataset, None
+
+        # After a change in (#646),
+        # `y` is no longer passed to `self.train_split` if it is `None`.
+        # To revert to the previous behavior, remove the following two lines:
+        if y is None:
+            return self.train_split(dataset, **fit_params)
+
+        return self.train_split(dataset, y, **fit_params)
 
     def get_iterator(self, dataset, training=False):
         """Get an iterator that allows to loop over the batches of the

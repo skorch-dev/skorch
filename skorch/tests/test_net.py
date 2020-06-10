@@ -2498,6 +2498,48 @@ class TestNeuralNet:
         hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 99
 
+    @pytest.mark.parametrize("needs_y, train_split, raises", [
+        (False, None, ExitStack()),  # ExitStack = does not raise
+        (True, None, ExitStack()),
+        (False, "default", ExitStack()),  # Default parameters for NeuralNet
+        (True, "default", ExitStack()),  # Default parameters for NeuralNet
+        (False, lambda x: (x, x), ExitStack()),  # Earlier this was not allowed
+        (True, lambda x, y: (x, x), ExitStack()),  # Works for custom split
+        (True, lambda x: (x, x), pytest.raises(TypeError)),  # Raises an error
+    ])
+    def test_passes_y_to_train_split_when_not_none(
+            self, needs_y, train_split, raises):
+        from skorch.net import NeuralNet
+        from skorch.toy import MLPModule
+
+        # By default, `train_split=CVSplit(5)` in the `NeuralNet` definition
+        kwargs = {} if train_split == 'default' else {
+            'train_split': train_split}
+
+        # Dummy loss that ignores y_true
+        class UnsupervisedLoss(torch.nn.NLLLoss):
+            def forward(self, y_pred, _):
+                return y_pred.mean()
+
+        # Generate the dummy dataset
+        n_samples, n_features = 128, 10
+        X = np.random.rand(n_samples, n_features).astype(np.float32)
+        y = np.random.binomial(n=1, p=0.5, size=n_samples) if needs_y else None
+
+        # The `NeuralNetClassifier` or `NeuralNetRegressor` always require `y`
+        # Only `NeuralNet` can transfer `y=None` to `train_split` method.
+        net = NeuralNet(
+            MLPModule,  # Any model, it's not important here
+            module__input_units=n_features,
+            max_epochs=2,  # Run train loop twice to detect possible errors
+            criterion=UnsupervisedLoss,
+            **kwargs,
+        )
+
+        # Check if the code should fail or not
+        with raises:
+            net.fit(X, y)
+
 
 class TestNetSparseInput:
     @pytest.fixture(scope='module')
