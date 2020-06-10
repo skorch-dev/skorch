@@ -2505,9 +2505,8 @@ class TestNeuralNet:
         from skorch.toy import MLPModule
 
         # By default, `train_split=CVSplit(5)` in the `NeuralNet` definition
-        if train_split == "default":
-            from skorch.dataset import CVSplit
-            train_split = CVSplit(5)
+        kwargs = {} if train_split == 'default' else {
+            'train_split': train_split}
 
         # Dummy loss that ignores y_true
         class UnsupervisedLoss(torch.nn.NLLLoss):
@@ -2520,13 +2519,13 @@ class TestNeuralNet:
         y = np.random.binomial(n=1, p=0.5, size=n_samples) if needs_y else None
 
         # The `NeuralNetClassifier` or `NeuralNetRegressor` always require `y`
-        # Only `NeuralNet`can transfer `y=None` to `tran_split` method.
+        # Only `NeuralNet` can transfer `y=None` to `train_split` method.
         net = NeuralNet(
             MLPModule,  # Any model, it's not important here
             module__input_units=n_features,
             max_epochs=2,  # Run train loop twice to detect possible errors
             criterion=UnsupervisedLoss,
-            train_split=train_split,
+            **kwargs,
         )
 
         # Check if the code should fail or not
