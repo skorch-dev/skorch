@@ -1,5 +1,8 @@
 """skorch base imports"""
 
+import sys
+import warnings
+
 import pkg_resources
 from pkg_resources import parse_version
 
@@ -12,6 +15,15 @@ from . import callbacks
 
 
 MIN_TORCH_VERSION = '1.1.0'
+
+
+# TODO: remove in skorch 0.10.0
+if sys.version_info < (3, 6):
+    warnings.warn(
+        "Official support for Python 3.5 will be dropped starting from "
+        "skorch version 0.10.0",
+        FutureWarning,
+    )
 
 try:
     # pylint: disable=wrong-import-position
