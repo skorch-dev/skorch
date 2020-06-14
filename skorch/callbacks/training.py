@@ -24,6 +24,8 @@ __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
 class Checkpoint(Callback):
     """Save the model during training if the given metric improved.
 
+    TODO: ADJUST
+
     This callback works by default in conjunction with the validation
     scoring callback since it creates a ``valid_loss_best`` value
     in the history which the callback uses to determine if this
@@ -126,22 +128,26 @@ class Checkpoint(Callback):
             monitor='valid_loss_best',
             f_params='params.pt',
             f_optimizer='optimizer.pt',
+            f_criterion='criterion.pt',
             f_history='history.json',
             f_pickle=None,
             fn_prefix='',
             dirname='',
             event_name='event_cp',
             sink=noop,
+            **kwargs
     ):
         self.monitor = monitor
         self.f_params = f_params
         self.f_optimizer = f_optimizer
+        self.f_criterion = f_criterion
         self.f_history = f_history
         self.f_pickle = f_pickle
         self.fn_prefix = fn_prefix
         self.dirname = dirname
         self.event_name = event_name
         self.sink = sink
+        vars(self).update(_validate_f_arguments(self, kwargs))
         self._validate_filenames()
 
     def initialize(self):
@@ -597,6 +603,8 @@ class TrainEndCheckpoint(Callback):
     """Saves the model parameters, optimizer state, and history at the end of
     training. The default ``fn_prefix`` is 'train_end_'.
 
+    TODO: ADJUST
+
     Examples
     --------
 
@@ -661,31 +669,36 @@ class TrainEndCheckpoint(Callback):
             self,
             f_params='params.pt',
             f_optimizer='optimizer.pt',
+            f_criterion='criterion.pt',
             f_history='history.json',
             f_pickle=None,
             fn_prefix='train_end_',
             dirname='',
             sink=noop,
+            **kwargs
     ):
         self.f_params = f_params
         self.f_optimizer = f_optimizer
+        self.f_criterion = f_criterion
         self.f_history = f_history
         self.f_pickle = f_pickle
         self.fn_prefix = fn_prefix
         self.dirname = dirname
         self.sink = sink
+        vars(self).update(_validate_f_arguments(self, kwargs))
+
+    def f_kwargs(self):
+        return {name: getattr(self, name) for name in dir(self) if name.startswith('f_')}
 
     def initialize(self):
         self.checkpoint_ = Checkpoint(
             monitor=None,
-            f_params=self.f_params,
-            f_optimizer=self.f_optimizer,
-            f_history=self.f_history,
-            f_pickle=self.f_pickle,
             fn_prefix=self.fn_prefix,
             dirname=self.dirname,
             event_name=None,
-            sink=self.sink)
+            sink=self.sink,
+            **self.f_kwargs()
+        )
         self.checkpoint_.initialize()
 
     def on_train_end(self, net, **kwargs):

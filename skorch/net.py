@@ -1717,7 +1717,12 @@ class NeuralNet:
         super().__delattr__(name)
 
     def save_params(
-            self, f_params=None, f_optimizer=None, f_history=None):
+            self,
+            f_params=None,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+            **kwargs):
         """Saves the module's parameters, history, and optimizer,
         not the whole object.
 
@@ -1728,6 +1733,8 @@ class NeuralNet:
 
         ``f_params`` and ``f_optimizer`` uses PyTorchs'
         :func:`~torch.save`.
+
+        TODO: ADJUST
 
         Parameters
         ----------
@@ -1744,12 +1751,12 @@ class NeuralNet:
         --------
         >>> before = NeuralNetClassifier(mymodule)
         >>> before.save_params(f_params='model.pkl',
-        >>>                    f_optimizer='optimizer.pkl',
-        >>>                    f_history='history.json')
+        ...                    f_optimizer='optimizer.pkl',
+        ...                    f_history='history.json')
         >>> after = NeuralNetClassifier(mymodule).initialize()
         >>> after.load_params(f_params='model.pkl',
-        >>>                   f_optimizer='optimizer.pkl',
-        >>>                   f_history='history.json')
+        ...                   f_optimizer='optimizer.pkl',
+        ...                   f_history='history.json')
 
         """
         if f_params is not None:
@@ -1789,10 +1796,17 @@ class NeuralNet:
         return requested_device
 
     def load_params(
-            self, f_params=None, f_optimizer=None, f_history=None,
-            checkpoint=None):
+            self,
+            f_params=None,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+            checkpoint=None,
+            **kwargs):
         """Loads the the module's parameters, history, and optimizer,
         not the whole object.
+
+        TODO: ADJUST
 
         To save and load the whole object, use pickle.
 
