@@ -1718,12 +1718,12 @@ class NeuralNet:
         super().__delattr__(name)
 
     def _get_module(self, name, msg):
-        """Return the PyTorch module attribute with the given name
+        """Return the PyTorch module with the given name
 
         If a module with such a name doesn't exist, also check the
         name without trailing underscore.
 
-        raises
+        Raises
         ------
         AttributeError
           If no module with the given name could be found, with a
@@ -1755,7 +1755,7 @@ class NeuralNet:
         ``classes_`` attribute on
         :class:`skorch.classifier.NeuralNetClassifier`.
 
-        ``f_params``, ``f_optimizer``, etc. use PyTorchs'
+        ``f_params``, ``f_optimizer``, etc. use PyTorch's
         :func:`~torch.save`.
 
         If you've created a custom module, e.g. ``net.mymodule_``, you
@@ -1850,7 +1850,7 @@ class NeuralNet:
 
         To save and load the whole object, use pickle.
 
-        ``f_params``, ``f_optimizer``, etc. uses PyTorchs'
+        ``f_params``, ``f_optimizer``, etc. uses PyTorch's
         :func:`~torch.load`.
 
         If you've created a custom module, e.g. ``net.mymodule_``, you
@@ -1907,11 +1907,9 @@ class NeuralNet:
             if val:
                 kwargs_full[key] = val
 
-        kwargs_module, kwargs_other = _check_f_arguments(
-            'load_params',
-            **kwargs_full)
+        kwargs_module, kwargs_other = _check_f_arguments('load_params', **kwargs_full)
 
-        if not kwargs_module and not kwargs_other and not checkpoint:
+        if not kwargs_module and not kwargs_other:
             print("Nothing to load")
             return
 

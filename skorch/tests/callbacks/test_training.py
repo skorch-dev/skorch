@@ -367,9 +367,9 @@ class TestCheckpoint:
     ):
         # checkpointing custom modules works
         from skorch import NeuralNetRegressor
-        from skorch.toy import make_regressor
 
         class MyNet(NeuralNetRegressor):
+            """Net with custom module"""
             def __init__(self, *args, mymodule=module_cls, **kwargs):
                 self.mymodule = mymodule
                 super().__init__(*args, **kwargs)
