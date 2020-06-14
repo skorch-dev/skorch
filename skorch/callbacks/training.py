@@ -11,6 +11,7 @@ from itertools import product
 import numpy as np
 from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
+from skorch.utils import _check_f_arguments
 from skorch.utils import noop
 from skorch.utils import open_file_like
 from skorch.utils import freeze_parameter
@@ -23,8 +24,6 @@ __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
 
 class Checkpoint(Callback):
     """Save the model during training if the given metric improved.
-
-    TODO: ADJUST
 
     This callback works by default in conjunction with the validation
     scoring callback since it creates a ``valid_loss_best`` value
@@ -39,8 +38,12 @@ class Checkpoint(Callback):
 
       - model parameters (see ``f_params`` parameter);
       - optimizer state (see ``f_optimizer`` parameter);
+      - criterion state (see ``f_criterion`` parameter);
       - training history (see ``f_history`` parameter);
       - entire model object (see ``f_pickle`` parameter).
+
+    If you've created a custom module, e.g. ``net.mymodule_``, you
+    can save that as well by passing ``f_mymodule``.
 
     You can implement your own save protocol by subclassing
     ``Checkpoint`` and overriding :func:`~Checkpoint.save_model`.
@@ -89,6 +92,13 @@ class Checkpoint(Callback):
 
     f_optimizer : file-like object, str, None (default='optimizer.pt')
       File path to the file or file-like object where the optimizer
+      state should be saved. Pass ``None`` to disable saving
+      model parameters.
+
+      Supports the same format specifiers as ``f_params``.
+
+    f_criterion : file-like object, str, None (default='criterion.pt')
+      File path to the file or file-like object where the criterion
       state should be saved. Pass ``None`` to disable saving
       model parameters.
 
@@ -147,8 +157,16 @@ class Checkpoint(Callback):
         self.dirname = dirname
         self.event_name = event_name
         self.sink = sink
-        vars(self).update(_validate_f_arguments(self, kwargs))
+        self._check_kwargs(kwargs)
+        vars(self).update(**kwargs)
         self._validate_filenames()
+
+    def _check_kwargs(self, kwargs):
+        for key in kwargs:
+            if not key.startswith('f_'):
+                raise TypeError(
+                    "{cls_name} got an unexpected argument '{key}', did you mean "
+                    "'f_{key}'?".format(cls_name=self.__class__.__name__, key=key))
 
     def initialize(self):
         self._validate_filenames()
@@ -185,6 +203,10 @@ class Checkpoint(Callback):
                 len(net.history) + 1
             ), net.verbose)
 
+    def _f_kwargs(self):
+        return {key: getattr(self, key) for key in dir(self)
+                if key.startswith('f_') and (key != 'f_history_')}
+
     def save_model(self, net):
         """Save the model.
 
@@ -192,23 +214,31 @@ class Checkpoint(Callback):
 
           - model parameters;
           - optimizer state;
+          - criterion state;
           - training history;
+          - custom modules;
           - entire model object.
+
         """
-        if self.f_params is not None:
-            f = self._format_target(net, self.f_params, -1)
-            self._save_params(f, net, "f_params", "model parameters")
+        kwargs_module, kwargs_other = _check_f_arguments(
+            self.__class__.__name__, **self._f_kwargs())
 
-        if self.f_optimizer is not None:
-            f = self._format_target(net, self.f_optimizer, -1)
-            self._save_params(f, net, "f_optimizer", "optimizer state")
+        for key, val in kwargs_module.items():
+            if val is None:
+                continue
 
-        if self.f_history is not None:
+            f = self._format_target(net, val, -1)
+            key = key[:-1]  # remove trailing '_'
+            self._save_params(f, net, 'f_' + key, key + " state")
+
+        f_history = kwargs_other.get('f_history')
+        if f_history is not None:
             f = self.f_history_
             self._save_params(f, net, "f_history", "history")
 
-        if self.f_pickle:
-            f_pickle = self._format_target(net, self.f_pickle, -1)
+        f_pickle = kwargs_other.get('f_pickle')
+        if f_pickle:
+            f_pickle = self._format_target(net, f_pickle, -1)
             with open_file_like(f_pickle, 'wb') as f:
                 pickle.dump(net, f)
 
@@ -232,12 +262,9 @@ class Checkpoint(Callback):
             for i, v in enumerate(net.history[:, self.event_name]):
                 if v:
                     idx = i
-        return {
-            "f_params": self._format_target(net, self.f_params, idx),
-            "f_optimizer": self._format_target(net, self.f_optimizer, idx),
-            "f_history": self.f_history_,
-            "f_pickle": self._format_target(net, self.f_pickle, idx)
-        }
+
+        return {key: self._format_target(net, val, idx) for key, val
+                in self._f_kwargs().items()}
 
     def _save_params(self, f, net, f_name, log_name):
         try:
@@ -267,18 +294,15 @@ class Checkpoint(Callback):
         conjunction with dirname.
 
         """
+        _check_f_arguments(self.__class__.__name__, **self._f_kwargs())
+
         if not self.dirname:
             return
 
         def _is_truthy_and_not_str(f):
             return f and not isinstance(f, str)
 
-        if (
-                _is_truthy_and_not_str(self.f_optimizer) or
-                _is_truthy_and_not_str(self.f_params) or
-                _is_truthy_and_not_str(self.f_history) or
-                _is_truthy_and_not_str(self.f_pickle)
-        ):
+        if any(_is_truthy_and_not_str(val) for val in self._f_kwargs().values()):
             raise SkorchException(
                 'dirname can only be used when f_* are strings')
 
@@ -603,8 +627,6 @@ class TrainEndCheckpoint(Callback):
     """Saves the model parameters, optimizer state, and history at the end of
     training. The default ``fn_prefix`` is 'train_end_'.
 
-    TODO: ADJUST
-
     Examples
     --------
 
@@ -641,6 +663,13 @@ class TrainEndCheckpoint(Callback):
 
       Supports the same format specifiers as ``f_params``.
 
+    f_criterion : file-like object, str, None (default='criterion.pt')
+      File path to the file or file-like object where the criterion
+      state should be saved. Pass ``None`` to disable saving
+      model parameters.
+
+      Supports the same format specifiers as ``f_params``.
+
     f_history : file-like object, str, None (default='history.json')
       File path to the file or file-like object where the model
       training history should be saved. Pass ``None`` to disable
@@ -664,6 +693,7 @@ class TrainEndCheckpoint(Callback):
       The target that the information about created checkpoints is
       sent to. This can be a logger or ``print`` function (to send to
       stdout). By default the output is discarded.
+
     """
     def __init__(
             self,
@@ -685,10 +715,12 @@ class TrainEndCheckpoint(Callback):
         self.fn_prefix = fn_prefix
         self.dirname = dirname
         self.sink = sink
-        vars(self).update(_validate_f_arguments(self, kwargs))
+        Checkpoint._check_kwargs(self, kwargs)
+        vars(self).update(**kwargs)
 
-    def f_kwargs(self):
-        return {name: getattr(self, name) for name in dir(self) if name.startswith('f_')}
+    def _f_kwargs(self):
+        return {name: getattr(self, name) for name in dir(self)
+                if name.startswith('f_')}
 
     def initialize(self):
         self.checkpoint_ = Checkpoint(
@@ -697,7 +729,7 @@ class TrainEndCheckpoint(Callback):
             dirname=self.dirname,
             event_name=None,
             sink=self.sink,
-            **self.f_kwargs()
+            **self._f_kwargs()
         )
         self.checkpoint_.initialize()
 

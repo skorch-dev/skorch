@@ -530,7 +530,6 @@ def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
                "'initialize' or 'fit' with appropriate arguments "
                "before using this method.")
 
-
     if not isinstance(attributes, (list, tuple)):
         attributes = [attributes]
 
@@ -550,3 +549,59 @@ class TeeGenerator:
     def __iter__(self):
         self.gen, it = tee(self.gen)
         yield from it
+
+
+def _check_f_arguments(caller_name, **kwargs):
+    """Check file name arguments and return them
+
+    This is used for checking if arguments to, e.g., ``save_params``
+    are correct.
+
+    Parameters
+    ----------
+    caller_name : str
+      Name of caller, is only required for the error message.
+
+    kwargs : dict
+      Keyword arguments that are intended to be checked.
+
+    Returns
+    -------
+    kwargs_module : dict
+      Keyword arguments for saving/loading modules.
+
+    kwargs_other : dict
+      Keyword arguments for saving/loading everything else.
+
+    Raises
+    ------
+    TypeError
+      There are two possibilities for arguments to be
+      incorrect. First, if they're not called 'f_*'. Second, if both
+      'f_params' and 'f_module' are passed, since those designate the
+      same thing.
+
+    """
+    if kwargs.get('f_params') and kwargs.get('f_module'):
+        raise TypeError("{} called with both f_params and f_module, please choose one"
+                        .format(caller_name))
+
+    kwargs_module = {}
+    kwargs_other = {}
+    keys_other = {'f_history', 'f_pickle'}
+    for key, val in kwargs.items():
+        if not key.startswith('f_'):
+            raise TypeError(
+                "{name} got an unexpected argument '{key}', did you mean 'f_{key}'?"
+                .format(name=caller_name, key=key))
+
+        if val is None:
+            continue
+        if key in keys_other:
+            kwargs_other[key] = val
+        else:
+            # strip 'f_' prefix and attach '_', and normalize 'params' to 'module'
+            # e.g. 'f_optimizer' becomes 'optimizer_', 'f_params' becomes 'module_'
+            key = 'module_' if key == 'f_params' else key[2:] + '_'
+            kwargs_module[key] = val
+    return kwargs_module, kwargs_other
