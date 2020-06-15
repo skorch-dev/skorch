@@ -29,7 +29,7 @@ allow for that.
 Overall, skorch aims at being as flexible as PyTorch while
 having a clean interface as sklearn.
 
-If you use Skorch, please use this BibTeX entry:
+If you use skorch, please use this BibTeX entry:
 
 .. code:: bibtex
 
