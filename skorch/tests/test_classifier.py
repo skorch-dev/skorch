@@ -71,6 +71,12 @@ class TestNeuralNet:
         X, y = data
         accuracy = net_fit.score(X, y)
         assert 0. <= accuracy <= 1.
+    def test_check_data_accepts_dataloader(self, net, data):
+        from skorch.dataset import Dataset
+
+        X, y = data
+        dataset = Dataset(X, y)
+        assert net.check_data(dataset, y=None) is None
 
     # classifier-specific test
     def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
