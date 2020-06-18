@@ -71,7 +71,8 @@ class TestNeuralNet:
         X, y = data
         accuracy = net_fit.score(X, y)
         assert 0. <= accuracy <= 1.
-    def test_check_data_accepts_dataloader(self, net, data):
+
+    def test_check_data_accepts_skorch_dataset(self, net, data):
         from skorch.dataset import Dataset
 
         X, y = data
