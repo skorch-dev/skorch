@@ -72,15 +72,6 @@ class TestNeuralNet:
         accuracy = net_fit.score(X, y)
         assert 0. <= accuracy <= 1.
 
-    def test_fit_with_dataset_and_y_none(self, net_cls, module_cls, data):
-        from skorch.dataset import Dataset
-
-        # deactivate train split since it requires y
-        net = net_cls(module_cls, train_split=False, max_epochs=1)
-        X, y = data
-        dataset = Dataset(X, y)
-        assert net.fit(dataset, y=None)
-
     # classifier-specific test
     def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
         net = net_cls(module_cls, criterion=nn.NLLLoss, max_epochs=1)
@@ -275,6 +266,15 @@ class TestNeuralNetBinaryClassifier:
         X, y = data
         accuracy = net_fit.score(X, y)
         assert 0. <= accuracy <= 1.
+
+    def test_fit_with_dataset_and_y_none(self, net_cls, module_cls, data):
+        from skorch.dataset import Dataset
+
+        # deactivate train split since it requires y
+        net = net_cls(module_cls, train_split=False, max_epochs=1)
+        X, y = data
+        dataset = Dataset(X, y)
+        assert net.fit(dataset, y=None)
 
     def test_target_2d_raises(self, net, data):
         X, y = data
