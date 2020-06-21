@@ -288,7 +288,7 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
     # pylint: disable=signature-differs
     def check_data(self, X, y):
         super().check_data(X, y)
-        if get_dim(y) != 1:
+        if (not is_dataset(X)) and (get_dim(y) != 1):
             raise ValueError("The target data should be 1-dimensional.")
 
     def infer(self, x, **fit_params):
