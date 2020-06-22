@@ -110,6 +110,9 @@ def to_numpy(X):
     if isinstance(X, np.ndarray):
         return X
 
+    if isinstance(X, dict):
+        return {key: to_numpy(val) for key, val in X.items()}
+
     if is_pandas_ndframe(X):
         return X.values
 
@@ -145,6 +148,9 @@ def to_device(X, device):
     """
     if device is None:
         return X
+
+    if isinstance(X, dict):
+        return {key: val.to(device) for key, val in X.items()}
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, tuple) and (type(X) != PackedSequence):
