@@ -155,6 +155,10 @@ class TestToDevice:
         length = torch.as_tensor([2, 2, 1])
         return pack_padded_sequence(value, length)
 
+    @pytest.fixture
+    def x_list(self):
+        return [torch.zeros(3), torch.ones(2, 4)]
+
     def check_device_type(self, tensor, device_input, prev_device):
         """assert expected device type conditioned on the input argument for `to_device`"""
         if None is device_input:
@@ -229,6 +233,32 @@ class TestToDevice:
 
         x_pad_seq = to_device(x_pad_seq, device=device_to)
         self.check_device_type(x_pad_seq.data, device_to, prev_device)
+
+    @pytest.mark.parametrize('device_from, device_to', [
+        ('cpu', 'cpu'),
+        ('cpu', 'cuda'),
+        ('cuda', 'cpu'),
+        ('cuda', 'cuda'),
+        (None, None),
+    ])
+    def test_nested_data(self, to_device, x_list, device_from, device_to):
+        # Sometimes data is nested because it would need to be padded so its
+        # easier to return a list of tensors with different shapes.
+        # to_device should honor this.
+        if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
+            pytest.skip()
+
+        prev_devices = [None for _ in range(len(x_list))]
+        if None in (device_from, device_to):
+            prev_devices = [x.device.type for x in x_list]
+
+        x_list = to_device(x_list, device=device_from)
+        for xi, prev_d in zip(x_list, prev_devices):
+            self.check_device_type(xi, device_from, prev_d)
+
+        x_list = to_device(x_list, device=device_to)
+        for xi, prev_d in zip(x_list, prev_devices):
+            self.check_device_type(xi, device_to, prev_d)
 
 
 class TestDuplicateItems:
