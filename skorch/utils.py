@@ -113,6 +113,9 @@ def to_numpy(X):
     if is_pandas_ndframe(X):
         return X.values
 
+    if isinstance(X, (tuple, list)):
+        return type(X)(to_numpy(x) for x in X)
+
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a numpy array.")
 

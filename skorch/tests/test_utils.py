@@ -135,6 +135,46 @@ class TestToTensor:
         assert exc.value.args[0] == msg
 
 
+class TestToNumpy:
+    @pytest.fixture
+    def to_numpy(self):
+        from skorch.utils import to_numpy
+        return to_numpy
+
+    @pytest.fixture
+    def x_tensor(self):
+        return torch.zeros(3, 4)
+
+    @pytest.fixture
+    def x_tuple(self):
+        return torch.ones(3), torch.zeros(3, 4)
+
+    @pytest.fixture
+    def x_list(self):
+        return [torch.ones(3), torch.zeros(3, 4)]
+
+    def compare_array_to_tensor(self, x_numpy, x_tensor):
+        assert isinstance(x_tensor, torch.Tensor)
+        assert isinstance(x_numpy, np.ndarray)
+        assert x_numpy.shape == x_tensor.shape
+        for a, b in zip(x_numpy.flatten(), x_tensor.flatten()):
+            assert np.isclose(a, b.item())
+
+    def test_tensor(self, to_numpy, x_tensor):
+        x_numpy = to_numpy(x_tensor)
+        self.compare_array_to_tensor(x_numpy, x_tensor)
+
+    def test_list(self, to_numpy, x_list):
+        x_numpy = to_numpy(x_list)
+        for entry_numpy, entry_torch in zip(x_numpy, x_list):
+            self.compare_array_to_tensor(entry_numpy, entry_torch)
+
+    def test_tuple(self, to_numpy, x_tuple):
+        x_numpy = to_numpy(x_tuple)
+        for entry_numpy, entry_torch in zip(x_numpy, x_tuple):
+            self.compare_array_to_tensor(entry_numpy, entry_torch)
+
+
 class TestToDevice:
     @pytest.fixture
     def to_device(self):
