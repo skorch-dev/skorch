@@ -150,6 +150,13 @@ class TestToDevice:
         return torch.zeros(3), torch.ones((4, 5))
 
     @pytest.fixture
+    def x_dict(self):
+        return {
+            'x': torch.zeros(3),
+            'y': torch.ones((4, 5))
+        }
+    
+    @pytest.fixture
     def x_pad_seq(self):
         value = torch.zeros((5, 3)).float()
         length = torch.as_tensor([2, 2, 1])
@@ -207,7 +214,31 @@ class TestToDevice:
         x_tup = to_device(x_tup, device=device_to)
         for xi, prev_d in zip(x_tup, prev_devices):
             self.check_device_type(xi, device_to, prev_d)
+            
+    @pytest.mark.parametrize('device_from, device_to', [
+        ('cpu', 'cpu'),
+        ('cpu', 'cuda'),
+        ('cuda', 'cpu'),
+        ('cuda', 'cuda'),
+        (None, None),
+    ])
+    def test_check_device_dict_torch_tensor(
+            self, to_device, x_dict, device_from, device_to):
+        if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
+            pytest.skip()
 
+        prev_devices = [None for _ in range(len(list(x_dict.keys())))]
+        if None in (device_from, device_to):
+            prev_devices = [x.device.type for x in x_dict.values()]
+
+        x_dict = to_device(x_dict, device=device_from)
+        for xi, prev_d in zip(x_dict.values(), prev_devices):
+            self.check_device_type(xi, device_from, prev_d)
+
+        x_dict = to_device(x_dict, device=device_to)
+        for xi, prev_d in zip(x_dict.values(), prev_devices):
+            self.check_device_type(xi, device_to, prev_d)
+            
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),
         ('cpu', 'cuda'),
