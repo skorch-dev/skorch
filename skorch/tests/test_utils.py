@@ -253,10 +253,14 @@ class TestToDevice:
             prev_devices = [x.device.type for x in x_list]
 
         x_list = to_device(x_list, device=device_from)
+        assert isinstance(x_list, list)
+
         for xi, prev_d in zip(x_list, prev_devices):
             self.check_device_type(xi, device_from, prev_d)
 
         x_list = to_device(x_list, device=device_to)
+        assert isinstance(x_list, list)
+
         for xi, prev_d in zip(x_list, prev_devices):
             self.check_device_type(xi, device_to, prev_d)
 
