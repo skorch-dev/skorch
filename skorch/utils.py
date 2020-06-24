@@ -154,7 +154,7 @@ def to_device(X, device):
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, tuple) and (type(X) != PackedSequence):
-        return tuple(to_device(x) for x in X)
+        return tuple(x.to(device) for x in X)
     return X.to(device)
 
 
