@@ -150,11 +150,11 @@ def to_device(X, device):
         return X
 
     if isinstance(X, dict):
-        return {key: val.to(device) for key, val in X.items()}
+        return {key: to_device(val) for key, val in X.items()}
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, tuple) and (type(X) != PackedSequence):
-        return tuple(x.to(device) for x in X)
+        return tuple(to_device(x) for x in X)
     return X.to(device)
 
 
