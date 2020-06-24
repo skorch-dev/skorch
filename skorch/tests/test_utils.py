@@ -242,7 +242,7 @@ class TestToDevice:
         (None, None),
     ])
     def test_nested_data(self, to_device, x_list, device_from, device_to):
-        # Sometimes data is nested because it would need to be padded so its
+        # Sometimes data is nested because it would need to be padded so it's
         # easier to return a list of tensors with different shapes.
         # to_device should honor this.
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
