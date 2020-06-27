@@ -152,6 +152,8 @@ class NeuralNet:
       ``net.set_params(callbacks__print_log__keys_ignored=['epoch',
       'train_loss'])``).
 
+    predict_nonlinearity : TODO
+
     warm_start : bool (default=False)
       Whether each fit call should lead to a re-initialization of the
       module (cold start) or whether the module should be trained
@@ -213,6 +215,7 @@ class NeuralNet:
             dataset=Dataset,
             train_split=CVSplit(5),
             callbacks=None,
+            predict_nonlinearity='auto',
             warm_start=False,
             verbose=1,
             device='cpu',
@@ -229,6 +232,7 @@ class NeuralNet:
         self.dataset = dataset
         self.train_split = train_split
         self.callbacks = callbacks
+        self.predict_nonlinearity = predict_nonlinearity
         self.warm_start = warm_start
         self.verbose = verbose
         self.device = device

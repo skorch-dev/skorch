@@ -538,6 +538,16 @@ def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
         raise NotInitializedError(msg % {'name': type(estimator).__name__})
 
 
+def _identity(x):
+    """Return input as is, the identity operation"""
+    return x
+
+
+def _infer_predict_nonlinearty(net):
+    """TODO"""
+    return _identity
+
+
 class TeeGenerator:
     """Stores a generator and calls ``tee`` on it to create new generators
     when ``TeeGenerator`` is iterated over to let you iterate over the given

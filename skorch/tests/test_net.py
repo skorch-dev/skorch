@@ -2540,6 +2540,92 @@ class TestNeuralNet:
         with raises:
             net.fit(X, y)
 
+    def test_predict_nonlinearity_called_with_predict(
+            self, net_cls, module_cls, data):
+        side_effect = []
+        def nonlin(X):
+            side_effect.append(X)
+            return np.zeros_like(X)
+
+        X, y = data[0][:200], data[1][:200]
+        net = net_cls(
+            module_cls, max_epochs=1, predict_nonlinearity=nonlin).initialize()
+
+        # don't want callbacks to trigger side effects
+        net.callbacks_ = []
+        net.partial_fit(X, y)
+        assert not side_effect
+
+        # 2 calls, since batch size == 128 and n == 200
+        y_proba = net.predict(X)
+        assert len(side_effect) == 2
+        assert side_effect[0].shape == (128, 2)
+        assert side_effect[1].shape == (72, 2)
+        assert (y_proba == 0).all()
+
+        net.predict(X)
+        assert len(side_effect) == 4
+
+    def test_predict_nonlinearity_called_with_predict_proba(
+            self, net_cls, module_cls, data):
+        side_effect = []
+        def nonlin(X):
+            side_effect.append(X)
+            return np.zeros_like(X)
+
+        X, y = data[0][:200], data[1][:200]
+        net = net_cls(
+            module_cls, max_epochs=1, predict_nonlinearity=nonlin).initialize()
+
+        net.callbacks_ = []
+        # don't want callbacks to trigger side effects
+        net.partial_fit(X, y)
+        assert not side_effect
+
+        # 2 calls, since batch size == 128 and n == 200
+        y_proba = net.predict_proba(X)
+        assert len(side_effect) == 2
+        assert side_effect[0].shape == (128, 2)
+        assert side_effect[1].shape == (72, 2)
+        assert (y_proba == 0).all()
+
+        net.predict_proba(X)
+        assert len(side_effect) == 4
+
+    def test_predict_nonlinearity_none(
+            self, net_cls, module_cls, data):
+        # even though we have CrossEntropyLoss, we don't want the
+        # output from predict_proba to be modified, since we set
+        # predict_nonlinearity to None
+        X = data[0][:200]
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            criterion=nn.CrossEntropyLoss,
+            predict_nonlinearity=None,
+        ).initialize()
+
+        rv = np.random.random((20, 5))
+        net.forward_iter = lambda *args, **kwargs: (torch.as_tensor(rv) for _ in range(2))
+
+        # 2 batches, mock return value hs shape 20,5 thus y_proba has
+        # shape 40,5
+        y_proba = net.predict_proba(X)
+        assert y_proba.shape == (40, 5)
+        assert np.allclose(y_proba[:20], rv)
+        assert np.allclose(y_proba[20:], rv)
+
+    def test_predict_nonlinearity_type_error(self, net_cls, module_cls):
+        # if predict_nonlinearity is not callable, raise a TypeError
+        net = net_cls(module_cls, predict_nonlinearity=123).initialize()
+
+        msg = "predict_nonlinearity has to be a callable, 'auto' or None"
+        with pytest.raises(TypeError, match=msg):
+            net.predict(np.zeros((3, 3)))
+
+        with pytest.raises(TypeError, match=msg):
+            net.predict_proba(np.zeros((3, 3)))
+
 
 class TestNetSparseInput:
     @pytest.fixture(scope='module')
