@@ -291,7 +291,7 @@ class TestNeuralNetBinaryClassifier:
 
         # we need to add a custom nonlinearity, otherwise the output won't be 2d
         def nonlin(x):
-            return torch.stack((1 - x, x), axis=1)
+            return torch.stack((1 - x, x), 1)
 
         net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss,
                       predict_nonlinearity=nonlin)
