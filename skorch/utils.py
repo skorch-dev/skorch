@@ -138,6 +138,7 @@ def to_device(X, device):
 
          * torch tensor
          * tuple of torch tensors
+         * dict of torch tensors
          * PackSequence instance
          * torch.nn.Module
 
