@@ -565,7 +565,7 @@ def _sigmoid_then_2d(x):
 
     """
     prob = torch.sigmoid(x)
-    y_proba = torch.stack((1 - prob, prob), axis=1)
+    y_proba = torch.stack((1 - prob, prob), 1)
     return y_proba
 
 
