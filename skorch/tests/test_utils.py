@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import PackedSequence
 from torch.nn.utils.rnn import pack_padded_sequence
 
 from skorch.tests.conftest import pandas_installed
-
+from copy import deepcopy
 
 class TestToTensor:
     @pytest.fixture
@@ -223,21 +223,25 @@ class TestToDevice:
         (None, None),
     ])
     def test_check_device_dict_torch_tensor(
-            self, to_device, x_dict, device_from, device_to):
+        self, to_device, x_dict, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
 
-        prev_devices = [None for _ in range(len(list(x_dict.keys())))]
+        original_x_dict = deepcopy(x_dict)
+
+        prev_devices=[None for _ in range(len(list(x_dict.keys())))]
         if None in (device_from, device_to):
             prev_devices = [x.device.type for x in x_dict.values()]
 
-        x_dict = to_device(x_dict, device=device_from)
-        for xi, prev_d in zip(x_dict.values(), prev_devices):
+        new_x_dict = to_device(x_dict, device=device_from)
+        for xi, prev_d in zip(new_x_dict.values(), prev_devices):
             self.check_device_type(xi, device_from, prev_d)
 
-        x_dict = to_device(x_dict, device=device_to)
-        for xi, prev_d in zip(x_dict.values(), prev_devices):
+        new_x_dict = to_device(new_x_dict, device=device_to)
+        for xi, prev_d in zip(new_x_dict.values(), prev_devices):
             self.check_device_type(xi, device_to, prev_d)
+
+        assert x_dict == original_x_dict
             
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),
