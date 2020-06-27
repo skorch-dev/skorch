@@ -17,6 +17,8 @@ import numpy as np
 from scipy import sparse
 import sklearn
 import torch
+from torch.nn import BCEWithLogitsLoss
+from torch.nn import CrossEntropyLoss
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
 
@@ -543,8 +545,50 @@ def _identity(x):
     return x
 
 
+def _sigmoid_then_2d(x):
+    """Transform 1-dim logits to valid y_proba
+
+    Sigmoid is applied to x to transform it to probabilities. Then
+    concatenate the probabilities with 1 - these probabilities to
+    return a correctly formed ``y_proba``.
+
+    Parameters
+    ----------
+    x : torch.tensor
+      A 1 dimensional float torch tensor containing raw logits.
+
+    Returns
+    -------
+    y_proba : torch.tensor
+      A 2 dimensional float tensor of probabilities that sum up to 1
+      on axis 1.
+
+    """
+    prob = torch.sigmoid(x)
+    y_proba = torch.stack((1 - prob, prob), axis=1)
+    return y_proba
+
+
 def _infer_predict_nonlinearty(net):
-    """TODO"""
+    """Infers the correct nonlinearity to apply for this net
+
+    The nonlinearity is applied only when calling
+    :func:`~skorch.classifier.NeuralNetClassifier.predict` or
+    :func:`~skorch.classifier.NeuralNetClassifier.predict_proba`.
+
+    """
+    # Implementation: At the moment, this function "dispatches" only
+    # based on the criterion, not the class of the net. We still pass
+    # the whole net as input in case we want to modify this at a
+    # future point in time.
+    criterion = net.criterion_
+
+    if isinstance(criterion, CrossEntropyLoss):
+        return partial(torch.softmax, dim=-1)
+
+    if isinstance(criterion, BCEWithLogitsLoss):
+        return _sigmoid_then_2d
+
     return _identity
 
 
