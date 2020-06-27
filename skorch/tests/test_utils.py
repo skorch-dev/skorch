@@ -223,7 +223,7 @@ class TestToDevice:
         (None, None),
     ])
     def test_check_device_dict_torch_tensor(
-        self, to_device, x_dict, device_from, device_to):
+            self, to_device, x_dict, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
 
