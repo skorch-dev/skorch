@@ -241,7 +241,9 @@ class TestToDevice:
         for xi, prev_d in zip(new_x_dict.values(), prev_devices):
             self.check_device_type(xi, device_to, prev_d)
 
-        assert x_dict == original_x_dict
+        assert x_dict.keys() == original_x_dict.keys()
+        for k in x_dict:
+            assert np.allclose(x_dict[k], original_x_dict[k])
             
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),
