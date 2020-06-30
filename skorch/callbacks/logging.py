@@ -556,8 +556,8 @@ class ProgressBar(Callback):
 
     # pylint: disable=attribute-defined-outside-init
     def on_batch_end(self, net, **kwargs):
-        self.pbar.set_postfix(self._get_postfix_dict(net), refresh=False)
-        self.pbar.update()
+        self.pbar_.set_postfix(self._get_postfix_dict(net), refresh=False)
+        self.pbar_.update()
 
     # pylint: disable=attribute-defined-outside-init, arguments-differ
     def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
@@ -576,12 +576,19 @@ class ProgressBar(Callback):
                 batches_per_epoch = len(net.history[-2, 'batches'])
 
         if self._use_notebook():
-            self.pbar = tqdm.tqdm_notebook(total=batches_per_epoch, leave=False)
+            self.pbar_ = tqdm.tqdm_notebook(total=batches_per_epoch, leave=False)
         else:
-            self.pbar = tqdm.tqdm(total=batches_per_epoch, leave=False)
+            self.pbar_ = tqdm.tqdm(total=batches_per_epoch, leave=False)
 
     def on_epoch_end(self, net, **kwargs):
-        self.pbar.close()
+        self.pbar_.close()
+
+    def __getstate__(self):
+        # don't save away the temporary pbar_ object which gets created on
+        # epoch begin anew anyway. This avoids pickling errors with tqdm.
+        state = self.__dict__.copy()
+        del state['pbar_']
+        return state
 
 
 def rename_tensorboard_key(key):
