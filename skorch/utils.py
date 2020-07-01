@@ -104,6 +104,10 @@ def to_tensor(X, device, accept_sparse=False):
 def to_numpy(X):
     """Generic function to convert a pytorch tensor to numpy.
 
+    This function tries to unpack the tensor(s) from supported
+    data structures (e.g., dicts, lists, etc.) but doesn't go
+    beyond.
+
     Returns X when it already is a numpy array.
 
     """
