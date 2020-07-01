@@ -541,6 +541,20 @@ class TestProgressBar:
         for i, total in enumerate(expected_total):
             assert tqdm_mock.call_args_list[i][1]['total'] == total
 
+    def test_pickle(self, net_cls, progressbar_cls, data):
+        # pickling was an issue since TQDM progress bar instances cannot
+        # be pickled. Test pickling and restoration.
+        import pickle
+
+        net = net_cls(callbacks=[
+            progressbar_cls(),
+        ])
+        net.fit(*data)
+        dump = pickle.dumps(net)
+
+        net = pickle.loads(dump)
+        net.fit(*data)
+
 
 @pytest.mark.skipif(
     not tensorboard_installed, reason='tensorboard is not installed')

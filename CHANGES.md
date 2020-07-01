@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed a bug where `CyclicLR` scheduler would update during both training and validation rather than just during training.
 - Fixed a bug introduced by moving the `optimizer.zero_grad()` call outside of the train step function, making it incompatible with LBFGS and other optimizers that call the train step several times per batch (#636)
+- Fixed pickling of the `ProgressBar` callback (#656)
 
 ## [0.8.0] - 2019-04-11
 
