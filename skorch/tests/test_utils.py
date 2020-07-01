@@ -153,6 +153,10 @@ class TestToNumpy:
     def x_list(self):
         return [torch.ones(3), torch.zeros(3, 4)]
 
+    @pytest.fixture
+    def x_dict(self):
+        return {'a': torch.ones(3), 'b': (torch.zeros(2), torch.zeros(3))}
+
     def compare_array_to_tensor(self, x_numpy, x_tensor):
         assert isinstance(x_tensor, torch.Tensor)
         assert isinstance(x_numpy, np.ndarray)
@@ -173,6 +177,25 @@ class TestToNumpy:
         x_numpy = to_numpy(x_tuple)
         for entry_numpy, entry_torch in zip(x_numpy, x_tuple):
             self.compare_array_to_tensor(entry_numpy, entry_torch)
+
+    def test_dict(self, to_numpy, x_dict):
+        x_numpy = to_numpy(x_dict)
+        self.compare_array_to_tensor(x_numpy['a'], x_dict['a'])
+        self.compare_array_to_tensor(x_numpy['b'][0], x_dict['b'][0])
+        self.compare_array_to_tensor(x_numpy['b'][1], x_dict['b'][1])
+
+    @pytest.mark.parametrize('x_invalid', [
+        1,
+        [1,2,3],
+        (1,2,3),
+        {'a': 1},
+    ])
+    def test_invalid_inputs(self, to_numpy, x_invalid):
+        " Inputs that are invalid for the scope of to_numpy. "
+        with pytest.raises(TypeError) as e:
+            to_numpy(x_invalid)
+        expected = "Cannot convert this data type to a numpy array."
+        assert e.value.args[0] == expected
 
 
 class TestToDevice:
@@ -195,7 +218,7 @@ class TestToDevice:
             'x': torch.zeros(3),
             'y': torch.ones((4, 5))
         }
-    
+
     @pytest.fixture
     def x_pad_seq(self):
         value = torch.zeros((5, 3)).float()
@@ -258,7 +281,7 @@ class TestToDevice:
         x_tup = to_device(x_tup, device=device_to)
         for xi, prev_d in zip(x_tup, prev_devices):
             self.check_device_type(xi, device_to, prev_d)
-            
+
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),
         ('cpu', 'cuda'),
@@ -288,7 +311,7 @@ class TestToDevice:
         assert x_dict.keys() == original_x_dict.keys()
         for k in x_dict:
             assert np.allclose(x_dict[k], original_x_dict[k])
-            
+
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),
         ('cpu', 'cuda'),

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raise `FutureWarning` when using `CyclicLR` scheduler, because the default behavior has changed from taking a step every batch to taking a step every epoch. (#626)
 - Set train/validation on criterion if it's a PyTorch module (#621)
 - Don't pass `y=None` to `NeuralNet.train_split` to enable the direct use of split functions without positional `y` in their signatures. This is useful when working with unsupervised data (#605).
+- `to_numpy` is now able to unpack dicts and lists/tuples (#657, #658)
 
 ### Fixed
 
