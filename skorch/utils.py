@@ -104,6 +104,10 @@ def to_tensor(X, device, accept_sparse=False):
 def to_numpy(X):
     """Generic function to convert a pytorch tensor to numpy.
 
+    This function tries to unpack the tensor(s) from supported
+    data structures (e.g., dicts, lists, etc.) but doesn't go
+    beyond.
+
     Returns X when it already is a numpy array.
 
     """
@@ -115,6 +119,9 @@ def to_numpy(X):
 
     if is_pandas_ndframe(X):
         return X.values
+
+    if isinstance(X, (tuple, list)):
+        return type(X)(to_numpy(x) for x in X)
 
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a numpy array.")
@@ -154,8 +161,8 @@ def to_device(X, device):
         return {key: to_device(val,device) for key, val in X.items()}
 
     # PackedSequence class inherits from a namedtuple
-    if isinstance(X, tuple) and (type(X) != PackedSequence):
-        return tuple(x.to(device) for x in X)
+    if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):
+        return type(X)(to_device(x, device) for x in X)
     return X.to(device)
 
 
