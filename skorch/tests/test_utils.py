@@ -191,7 +191,7 @@ class TestToNumpy:
         {'a': 1},
     ])
     def test_invalid_inputs(self, to_numpy, x_invalid):
-        " Inputs that are invalid for the scope of to_numpy. "
+        # Inputs that are invalid for the scope of to_numpy.
         with pytest.raises(TypeError) as e:
             to_numpy(x_invalid)
         expected = "Cannot convert this data type to a numpy array."
