@@ -2,11 +2,10 @@
 set -e
 
 PYTORCH_VERSION=${PYTORCH_VERSION:-""}
-PYTHON_VERSION="3.6"
+PYTHON_VERSION="3.7"
 TWINE_VERSION="1.12.1"
 CONDA_ENV="skorch-deploy"
 CONDA_ENV_YML="environment.yml"
-DEV_REQ="requirements-dev.txt"
 
 if [[ $# -gt 1 ]] || [[ $1 != "live" && $1 != "stage" ]]; then
 	echo "Usage $0 [live|stage]" >&2
@@ -41,7 +40,6 @@ remove_env() {
 trap remove_env EXIT
 
 source activate $CONDA_ENV
-conda install -q -y "--file=${DEV_REQ}"
 conda install -q -y "twine==${TWINE_VERSION}"
 conda install -c pytorch -y "pytorch==${PYTORCH_VERSION}"
 python setup.py install

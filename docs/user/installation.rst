@@ -37,8 +37,7 @@ If you just want to use skorch, use:
     cd skorch
     conda env create
     source activate skorch
-    # install pytorch version for your system (see below)
-    python setup.py install
+    pip install .
 
 If you want to help developing, run:
 
@@ -48,9 +47,7 @@ If you want to help developing, run:
     cd skorch
     conda env create
     source activate skorch
-    # install pytorch version for your system (see below)
-    conda install -c conda-forge --file requirements-dev.txt
-    python setup.py develop
+    pip install -e .
 
     py.test  # unit tests
     pylint skorch  # static code checks
@@ -67,7 +64,7 @@ If you just want to use skorch, use:
     # create and activate a virtual environment
     pip install -r requirements.txt
     # install pytorch version for your system (see below)
-    python setup.py install
+    pip install .
 
 If you want to help developing, run:
 
@@ -79,7 +76,7 @@ If you want to help developing, run:
     pip install -r requirements.txt
     # install pytorch version for your system (see below)
     pip install -r requirements-dev.txt
-    python setup.py develop
+    pip install -e .
 
     py.test  # unit tests
     pylint skorch  # static code checks
@@ -87,16 +84,22 @@ If you want to help developing, run:
 PyTorch
 ~~~~~~~
 
-PyTorch is not covered by the dependencies, since the PyTorch
-version you need is dependent on your system. For installation
-instructions for PyTorch, visit the `pytorch website
-<http://pytorch.org/>`__.
+PyTorch is not covered by the dependencies, since the PyTorch version
+you need is dependent on your OS and device. For installation
+instructions for PyTorch, visit the `PyTorch website
+<http://pytorch.org/>`__. skorch officially supports the following
+PyTorch versions:
 
-In general, this should work:
+- 1.1.0
+- 1.2.0
+- 1.3.1
+- 1.4.0
+
+In general, this should work (assuming CUDA 9):
 
 .. code:: bash
 
     # using conda:
-    conda install pytorch cuda80 -c soumith
+    conda install pytorch cudatoolkit=9 -c pytorch
     # using pip
-    pip install http://download.pytorch.org/whl/cu80/torch-0.2.0.post3-cp36-cp36m-manylinux1_x86_64.whl
+    pip install torch
