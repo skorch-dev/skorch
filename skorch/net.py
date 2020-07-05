@@ -166,7 +166,7 @@ class NeuralNet:
       PyTorch tensor, and return the transformed PyTorch tensor.
 
       This can be useful, e.g., when
-      :func:`~skorch.classifier.NeuralNetClassifier.predict_proba`
+      :func:`~skorch.NeuralNetClassifier.predict_proba`
       should return probabilities but a criterion is used that does
       not expect probabilities. In that case, the module can return
       whatever is required by the criterion and the
