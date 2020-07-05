@@ -2587,7 +2587,7 @@ class TestNeuralNet:
         assert len(side_effect) == 2
         assert side_effect[0].shape == (128, 2)
         assert side_effect[1].shape == (72, 2)
-        assert (y_proba == 0).all()
+        assert np.allclose(y_proba, 0)
 
         net.predict_proba(X)
         assert len(side_effect) == 4
