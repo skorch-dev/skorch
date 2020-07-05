@@ -159,7 +159,9 @@ class NeuralNet:
       'auto', infers the correct nonlinearity based on the criterion
       (softmax for :class:`~torch.nn.CrossEntropyLoss` and sigmoid for
       :class:`~torch.nn.BCEWithLogitsLoss`). If it cannot be inferred
-      or if the parameter is None, just use the identity function.
+      or if the parameter is None, just use the identity
+      function. Don't pass a lambda function if you want the net to be
+      pickleable.
 
       In case a callable is passed, it should accept the output of the
       module (the first output if there is more than one), which is a
