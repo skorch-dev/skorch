@@ -723,7 +723,7 @@ class TestInferPredictNonlinearity:
         X = 10 * X - 5.0  # random values from -5 to 5
         out = fn(X).numpy()
         assert out.shape == (20, 2)  # output should be 2-dim
-        assert np.allclose(out.sum(1), 1.0)
+        assert np.allclose(out.sum(axis=1), 1.0)
         assert ((0 <= out) & (out <= 1.0)).all()
 
     def test_infer_neural_net_regressor_default(
