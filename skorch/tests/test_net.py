@@ -2608,7 +2608,7 @@ class TestNeuralNet:
         rv = np.random.random((20, 5))
         net.forward_iter = lambda *args, **kwargs: (torch.as_tensor(rv) for _ in range(2))
 
-        # 2 batches, mock return value hs shape 20,5 thus y_proba has
+        # 2 batches, mock return value has shape 20,5 thus y_proba has
         # shape 40,5
         y_proba = net.predict_proba(X)
         assert y_proba.shape == (40, 5)
