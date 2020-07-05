@@ -710,7 +710,7 @@ class TestInferPredictNonlinearity:
 
         X = torch.rand((20, 5))
         out = fn(X).numpy()
-        assert np.allclose(out.sum(1), 1.0)
+        assert np.allclose(out.sum(axis=1), 1.0)
         assert ((0 <= out) & (out <= 1.0)).all()
 
     def test_infer_neural_binary_net_classifier_default(
