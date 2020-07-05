@@ -1041,7 +1041,7 @@ class NeuralNet:
             return self.module_(**x_dict)
         return self.module_(x, **fit_params)
 
-    def get_predict_nonlinearity(self):
+    def _get_predict_nonlinearity(self):
         """Return the nonlinearity to be applied to the prediction
 
         This can be useful, e.g., when
@@ -1066,7 +1066,6 @@ class NeuralNet:
         Returns
         -------
         nonlin : callable
-
           A callable that takes a single argument, which is a PyTorch
           tensor, and returns a PyTorch tensor.
 
@@ -1112,7 +1111,7 @@ class NeuralNet:
         y_proba : numpy ndarray
 
         """
-        nonlin = self.get_predict_nonlinearity()
+        nonlin = self._get_predict_nonlinearity()
         y_probas = []
         for yp in self.forward_iter(X, training=False):
             yp = yp[0] if isinstance(yp, tuple) else yp
