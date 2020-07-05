@@ -22,12 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raise `FutureWarning` when using `CyclicLR` scheduler, because the default behavior has changed from taking a step every batch to taking a step every epoch. (#626)
 - Set train/validation on criterion if it's a PyTorch module (#621)
 - Don't pass `y=None` to `NeuralNet.train_split` to enable the direct use of split functions without positional `y` in their signatures. This is useful when working with unsupervised data (#605).
+- `to_numpy` is now able to unpack dicts and lists/tuples (#657, #658)
 - When using `CrossEntropyLoss`, softmax is now automatically applied to the output when calling `predict` or `predict_proba`
 
 ### Fixed
 
 - Fixed a bug where `CyclicLR` scheduler would update during both training and validation rather than just during training.
 - Fixed a bug introduced by moving the `optimizer.zero_grad()` call outside of the train step function, making it incompatible with LBFGS and other optimizers that call the train step several times per batch (#636)
+- Fixed pickling of the `ProgressBar` callback (#656)
 
 ## [0.8.0] - 2019-04-11
 

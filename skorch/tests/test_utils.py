@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import PackedSequence
 from torch.nn.utils.rnn import pack_padded_sequence
 
 from skorch.tests.conftest import pandas_installed
-
+from copy import deepcopy
 
 class TestToTensor:
     @pytest.fixture
@@ -135,6 +135,69 @@ class TestToTensor:
         assert exc.value.args[0] == msg
 
 
+class TestToNumpy:
+    @pytest.fixture
+    def to_numpy(self):
+        from skorch.utils import to_numpy
+        return to_numpy
+
+    @pytest.fixture
+    def x_tensor(self):
+        return torch.zeros(3, 4)
+
+    @pytest.fixture
+    def x_tuple(self):
+        return torch.ones(3), torch.zeros(3, 4)
+
+    @pytest.fixture
+    def x_list(self):
+        return [torch.ones(3), torch.zeros(3, 4)]
+
+    @pytest.fixture
+    def x_dict(self):
+        return {'a': torch.ones(3), 'b': (torch.zeros(2), torch.zeros(3))}
+
+    def compare_array_to_tensor(self, x_numpy, x_tensor):
+        assert isinstance(x_tensor, torch.Tensor)
+        assert isinstance(x_numpy, np.ndarray)
+        assert x_numpy.shape == x_tensor.shape
+        for a, b in zip(x_numpy.flatten(), x_tensor.flatten()):
+            assert np.isclose(a, b.item())
+
+    def test_tensor(self, to_numpy, x_tensor):
+        x_numpy = to_numpy(x_tensor)
+        self.compare_array_to_tensor(x_numpy, x_tensor)
+
+    def test_list(self, to_numpy, x_list):
+        x_numpy = to_numpy(x_list)
+        for entry_numpy, entry_torch in zip(x_numpy, x_list):
+            self.compare_array_to_tensor(entry_numpy, entry_torch)
+
+    def test_tuple(self, to_numpy, x_tuple):
+        x_numpy = to_numpy(x_tuple)
+        for entry_numpy, entry_torch in zip(x_numpy, x_tuple):
+            self.compare_array_to_tensor(entry_numpy, entry_torch)
+
+    def test_dict(self, to_numpy, x_dict):
+        x_numpy = to_numpy(x_dict)
+        self.compare_array_to_tensor(x_numpy['a'], x_dict['a'])
+        self.compare_array_to_tensor(x_numpy['b'][0], x_dict['b'][0])
+        self.compare_array_to_tensor(x_numpy['b'][1], x_dict['b'][1])
+
+    @pytest.mark.parametrize('x_invalid', [
+        1,
+        [1,2,3],
+        (1,2,3),
+        {'a': 1},
+    ])
+    def test_invalid_inputs(self, to_numpy, x_invalid):
+        # Inputs that are invalid for the scope of to_numpy.
+        with pytest.raises(TypeError) as e:
+            to_numpy(x_invalid)
+        expected = "Cannot convert this data type to a numpy array."
+        assert e.value.args[0] == expected
+
+
 class TestToDevice:
     @pytest.fixture
     def to_device(self):
@@ -150,10 +213,21 @@ class TestToDevice:
         return torch.zeros(3), torch.ones((4, 5))
 
     @pytest.fixture
+    def x_dict(self):
+        return {
+            'x': torch.zeros(3),
+            'y': torch.ones((4, 5))
+        }
+
+    @pytest.fixture
     def x_pad_seq(self):
         value = torch.zeros((5, 3)).float()
         length = torch.as_tensor([2, 2, 1])
         return pack_padded_sequence(value, length)
+
+    @pytest.fixture
+    def x_list(self):
+        return [torch.zeros(3), torch.ones(2, 4)]
 
     def check_device_type(self, tensor, device_input, prev_device):
         """assert expected device type conditioned on the input argument for `to_device`"""
@@ -215,6 +289,36 @@ class TestToDevice:
         ('cuda', 'cuda'),
         (None, None),
     ])
+    def test_check_device_dict_torch_tensor(
+            self, to_device, x_dict, device_from, device_to):
+        if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
+            pytest.skip()
+
+        original_x_dict = deepcopy(x_dict)
+
+        prev_devices=[None for _ in range(len(list(x_dict.keys())))]
+        if None in (device_from, device_to):
+            prev_devices = [x.device.type for x in x_dict.values()]
+
+        new_x_dict = to_device(x_dict, device=device_from)
+        for xi, prev_d in zip(new_x_dict.values(), prev_devices):
+            self.check_device_type(xi, device_from, prev_d)
+
+        new_x_dict = to_device(new_x_dict, device=device_to)
+        for xi, prev_d in zip(new_x_dict.values(), prev_devices):
+            self.check_device_type(xi, device_to, prev_d)
+
+        assert x_dict.keys() == original_x_dict.keys()
+        for k in x_dict:
+            assert np.allclose(x_dict[k], original_x_dict[k])
+
+    @pytest.mark.parametrize('device_from, device_to', [
+        ('cpu', 'cpu'),
+        ('cpu', 'cuda'),
+        ('cuda', 'cpu'),
+        ('cuda', 'cuda'),
+        (None, None),
+    ])
     def test_check_device_packed_padded_sequence(
             self, to_device, x_pad_seq, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
@@ -229,6 +333,36 @@ class TestToDevice:
 
         x_pad_seq = to_device(x_pad_seq, device=device_to)
         self.check_device_type(x_pad_seq.data, device_to, prev_device)
+
+    @pytest.mark.parametrize('device_from, device_to', [
+        ('cpu', 'cpu'),
+        ('cpu', 'cuda'),
+        ('cuda', 'cpu'),
+        ('cuda', 'cuda'),
+        (None, None),
+    ])
+    def test_nested_data(self, to_device, x_list, device_from, device_to):
+        # Sometimes data is nested because it would need to be padded so it's
+        # easier to return a list of tensors with different shapes.
+        # to_device should honor this.
+        if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
+            pytest.skip()
+
+        prev_devices = [None for _ in range(len(x_list))]
+        if None in (device_from, device_to):
+            prev_devices = [x.device.type for x in x_list]
+
+        x_list = to_device(x_list, device=device_from)
+        assert isinstance(x_list, list)
+
+        for xi, prev_d in zip(x_list, prev_devices):
+            self.check_device_type(xi, device_from, prev_d)
+
+        x_list = to_device(x_list, device=device_to)
+        assert isinstance(x_list, list)
+
+        for xi, prev_d in zip(x_list, prev_devices):
+            self.check_device_type(xi, device_to, prev_d)
 
 
 class TestDuplicateItems:
