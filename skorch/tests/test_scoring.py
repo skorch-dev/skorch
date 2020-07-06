@@ -19,7 +19,7 @@ class Test_ScoreAccumulator:
             target = torch.randint(2, size=(50,))
             return pred, target
         if data_type == "rgr":
-            target = torch.arange(15) + torch.randn(15)
+            target = torch.rand(15)
             pred = target + torch.randn(target.size(0))
             return pred, target
         raise ValueError("Unrecognized data type")

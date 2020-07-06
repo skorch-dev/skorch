@@ -34,10 +34,6 @@ class _CriterionAccumulator:
         }
 
     def __call__(self, input, target):
-        # if not isinstance(input, torch.Tensor):
-        #     input = to_tensor(input, "cpu")
-        # if not isinstance(target, torch.Tensor):
-        #     target = to_tensor(target, "cpu")
         loss = self.criterion(input, target)
 
         batch_size = target.size(0)
