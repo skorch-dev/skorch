@@ -1,10 +1,7 @@
 import pytest
 import numpy as np
 import torch
-from sklearn.base import clone
 from torch import nn
-
-# from skorch.scoring import _CriterionAccumulator, loss_scoring
 
 
 class Test_ScoreAccumulator:

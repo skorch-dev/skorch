@@ -1,13 +1,6 @@
-from collections import defaultdict
 import numpy as np
-import torch
-from torch import nn, optim
-from torch.utils.data import DataLoader, TensorDataset
-
 from skorch.net import NeuralNet
-from skorch.callbacks import PassthroughScoring
 from skorch.dataset import unpack_data
-from skorch.utils import to_tensor
 
 
 class _CriterionAccumulator:
