@@ -544,29 +544,10 @@ class TeeGenerator:
     generator more than once.
 
     """
+
     def __init__(self, gen):
         self.gen = gen
 
     def __iter__(self):
         self.gen, it = tee(self.gen)
         yield from it
-
-
-def loss_scoring(net: skorch.NeuralNet, X, y=None, **fit_params):
-    from skorch.history import History
-    from skorch.dataset import get_len, unpack_data, uses_placeholder_y
-
-    net.check_data(X, y)
-    dataset = net.get_dataset(X, y)
-    history = History()
-    is_placeholder_y = uses_placeholder_y(dataset)
-    batch_count = 0
-    for data in net.get_iterator(dataset, training=False):
-        Xi, yi = unpack_data(data)
-        yi_res = yi if not is_placeholder_y else None
-        step = net.validation_step(Xi, yi, **fit_params)
-        history.record_batch("score" + "_loss", step["loss"].item())
-        history.record_batch("score" + "_batch_size", get_len(Xi))
-        batch_count += 1
-    history.record("score" + "_batch_count", batch_count)
-    return history
