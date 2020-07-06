@@ -838,7 +838,7 @@ class TestInferPredictNonlinearity:
 
     def test_infer_neural_net_classifier_crossentropy_loss(
             self, infer_predict_nonlinearity, net_clf_cls, module_cls):
-        # CrossEntropyLoss should return valid probabilities
+        # CrossEntropyLoss criteron: nonlinearity should return valid probabilities
         net = net_clf_cls(module_cls, criterion=torch.nn.CrossEntropyLoss).initialize()
         fn = infer_predict_nonlinearity(net)
 
