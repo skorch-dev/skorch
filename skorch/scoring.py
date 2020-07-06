@@ -22,9 +22,9 @@ class _CriterionAccumulator:
         """
         self.criterion = criterion
         reduction = self._get_reduction()
-        assert reduction in ["mean", "sum", "none"], (
-            f"Expected reduction to be one of 'mean', 'sum' or "
-            f"'none' but got {reduction}."
+        assert reduction in ["mean", "sum", "none",], (
+            "Expected reduction to be one of 'mean', 'sum' "
+            + "or 'none' but got {reduction}.".format(reduction=reduction)
         )
         self.log = {"loss": [], "batch_size": []}
         self._reduce = {

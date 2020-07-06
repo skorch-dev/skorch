@@ -34,7 +34,9 @@ class Test_ScoreAccumulator:
             return nn.CrossEntropyLoss
         if data_type == "rgr":
             return nn.MSELoss
-        raise ValueError(f"data_type not recognized: {data_type}.")
+        raise ValueError(
+            "data_type not recognized: {data_type}.".format(data_type=data_type)
+        )
 
     @pytest.fixture(scope="module")
     def accumulator(self, criterion_fn, reduction):
