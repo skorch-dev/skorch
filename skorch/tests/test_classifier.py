@@ -289,7 +289,9 @@ class TestNeuralNetBinaryClassifier:
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch, "sigmoid", mock)
 
-        # we need to add a custom nonlinearity, otherwise the output won't be 2d
+        # add a custom nonlinearity - note that the output must return
+        # a 2d array from a 1d vector to conform to the required
+        # y_proba
         def nonlin(x):
             return torch.stack((1 - x, x), 1)
 

@@ -564,7 +564,9 @@ def _sigmoid_then_2d(x):
 
     Sigmoid is applied to x to transform it to probabilities. Then
     concatenate the probabilities with 1 - these probabilities to
-    return a correctly formed ``y_proba``.
+    return a correctly formed ``y_proba``. This is required for
+    sklearn, which expects probabilities to be 2d arrays whose sum
+    along axis 1 is 1.0.
 
     Parameters
     ----------

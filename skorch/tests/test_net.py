@@ -2595,7 +2595,7 @@ class TestNeuralNet:
     def test_predict_nonlinearity_none(
             self, net_cls, module_cls, data):
         # even though we have CrossEntropyLoss, we don't want the
-        # output from predict_proba to be modified, since we set
+        # output from predict_proba to be modified, thus we set
         # predict_nonlinearity to None
         X = data[0][:200]
         net = net_cls(
