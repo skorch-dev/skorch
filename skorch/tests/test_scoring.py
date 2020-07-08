@@ -1,66 +1,19 @@
 import pytest
 import numpy as np
 import torch
-from torch import nn
-
-
-class Test_ScoreAccumulator:
-    @pytest.fixture(scope="module", params=["rgr", "clf"])
-    def data_type(self, request):
-        return request.param
-
-    @pytest.fixture(scope="module")
-    def output_data(self, data_type):
-        if data_type == "clf":
-            pred = torch.softmax(torch.randn(50, 2), dim=1)
-            target = torch.randint(2, size=(50,))
-            return pred, target
-        if data_type == "rgr":
-            target = torch.rand(15)
-            pred = target + torch.randn(target.size(0))
-            return pred, target
-        raise ValueError("Unrecognized data type")
-
-    @pytest.fixture(scope="module", params=["mean", "sum", "none"])
-    def reduction(self, request):
-        return request.param
-
-    @pytest.fixture(scope="module")
-    def criterion_fn(self, data_type):
-        if data_type == "clf":
-            return nn.CrossEntropyLoss
-        if data_type == "rgr":
-            return nn.MSELoss
-        raise ValueError(
-            "data_type not recognized: {data_type}.".format(data_type=data_type)
-        )
-
-    @pytest.fixture(scope="module")
-    def accumulator(self, criterion_fn, reduction):
-        from skorch.scoring import _CriterionAccumulator
-
-        criterion = criterion_fn(reduction=reduction)
-        return _CriterionAccumulator(criterion)
-
-    def test_accumulate(self, accumulator, output_data):
-        pred, target = output_data
-        accumulator(pred, target)
-
-    def test_reduce(self, accumulator, output_data):
-        pred, target = output_data
-        accumulator(pred, target)
-        accumulator(pred, target)
-        output = accumulator.reduce()
-        if accumulator._get_reduction() == "none":
-            assert isinstance(output, np.ndarray)
-        else:
-            assert np.isscalar(output)
 
 
 class TestLossScoring:
     @pytest.fixture(scope="module")
     def data(self, classifier_data):
         return classifier_data
+
+    @pytest.fixture(scope="module")
+    def val_data(self, classifier_data):
+        X_train, y_train = classifier_data
+        X_val = np.random.randn(3, X_train.shape[1]).astype("float32")
+        y_val = np.random.randint(2, size=(3,))
+        return X_val, y_val
 
     @pytest.fixture(scope="module")
     def net_cls(self):
@@ -97,7 +50,7 @@ class TestLossScoring:
 
     @pytest.fixture(scope="module")
     def scored_net(self, scored_net_cls, module_cls):
-        return scored_net_cls(module_cls, lr=0.1)
+        return scored_net_cls(module_cls, lr=0.01)
 
     @pytest.fixture(scope="module")
     def scored_net_fit(self, scored_net, data):
@@ -127,3 +80,12 @@ class TestLossScoring:
         X, y = data
         score_value = loss_scoring_fn(net_fit, X, y)
         assert np.isscalar(score_value)
+
+    def test_scored_net_matches_criterion_value(self, scored_net_fit, val_data):
+        X_val, y_val = val_data
+        score_value = scored_net_fit.score(X_val, y_val)
+        criterion = scored_net_fit.criterion_
+        y_val = torch.as_tensor(y_val).long()
+        y_val_proba = torch.as_tensor(scored_net_fit.predict_proba(X_val))
+        loss_value = criterion(y_val_proba, y_val)
+        assert score_value == loss_value.item()
