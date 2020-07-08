@@ -35,6 +35,8 @@ def loss_scoring(net: NeuralNet, X, y=None):
     ...     net, {'lr': [1e-2, 1e-3], 'batch_size': [8, 16]}
     ... )
     >>> grid_searcher.fit(X, y)
+    >>> best_net = grid_searcher.best_estimator_
+    >>> print(best_net.score(X, y))
 
     Parameters
     ----------
