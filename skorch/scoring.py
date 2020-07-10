@@ -55,7 +55,7 @@ def loss_scoring(net: NeuralNet, X, y=None):
     for data in iterator:
         Xi, yi = unpack_data(data)
         yp = net.evaluation_step(Xi, training=False)
-        loss = net.criterion_(yp, yi)
+        loss = net.get_loss(yp, yi)
         if reduction == "none":
             loss_value = loss.detach().cpu().numpy()
         else:
