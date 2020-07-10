@@ -3,7 +3,7 @@ from skorch.net import NeuralNet
 from skorch.dataset import unpack_data
 
 
-def loss_scoring(net: NeuralNet, X, y=None):
+def loss_scoring(net: NeuralNet, X, y=None, sample_weight=None):
     """Calculate score using the criterion of the net
     
     Use the exact same logic as during model training to calculate the score.
@@ -38,6 +38,9 @@ def loss_scoring(net: NeuralNet, X, y=None):
         The same data types as for ``X`` are supported. If your X is a Dataset
         that contains the target, ``y`` may be set to None.
 
+    sample_weight : array-like of shape (n_samples,)
+        Sample weights.
+
     Returns
     -------
     loss_value : float32 or np.ndarray
@@ -46,12 +49,21 @@ def loss_scoring(net: NeuralNet, X, y=None):
         this function returns a ``np.ndarray`` object.
 
     """
+    if sample_weight is not None:
+        raise NotImplementedError(
+            "sample_weight for loss_scoring is not yet supported."
+        )
+
     net.check_is_fitted()
 
     dataset = net.get_dataset(X, y)
     iterator = net.get_iterator(dataset, training=False)
     history = {"loss": [], "batch_size": []}
     reduction = net.criterion_.reduction
+    assert reduction in ["mean", "sum", "none",], (
+        "Expected one of 'mean', 'sum' or 'none' "
+        f"for reduction but got {reduction}."
+    )
     for data in iterator:
         Xi, yi = unpack_data(data)
         yp = net.evaluation_step(Xi, training=False)
@@ -65,7 +77,6 @@ def loss_scoring(net: NeuralNet, X, y=None):
 
     if reduction == "none":
         return np.concatenate(history["loss"], 0)
-    loss_value = np.average(history["loss"], weights=history["batch_size"])
     if reduction == "sum":
-        loss_value *= len(history["batch_size"])
-    return loss_value
+        return np.sum(history["loss"])
+    return np.average(history["loss"], weights=history["batch_size"])
