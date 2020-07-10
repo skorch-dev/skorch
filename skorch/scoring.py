@@ -62,7 +62,7 @@ def loss_scoring(net: NeuralNet, X, y=None, sample_weight=None):
     reduction = net.criterion_.reduction
     assert reduction in ["mean", "sum", "none",], (
         "Expected one of 'mean', 'sum' or 'none' "
-        f"for reduction but got {reduction}."
+        "for reduction but got {reduction}.".format(reduction=reduction)
     )
     for data in iterator:
         Xi, yi = unpack_data(data)
