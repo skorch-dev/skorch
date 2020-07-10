@@ -9,13 +9,6 @@ class TestLossScoring:
         return classifier_data
 
     @pytest.fixture(scope="module")
-    def val_data(self, classifier_data):
-        X_train, y_train = classifier_data
-        X_val = np.random.randn(3, X_train.shape[1]).astype("float32")
-        y_val = np.random.randint(2, size=(3,))
-        return X_val, y_val
-
-    @pytest.fixture(scope="module")
     def net_cls(self):
         from skorch import NeuralNetClassifier
 
@@ -81,11 +74,11 @@ class TestLossScoring:
         score_value = loss_scoring_fn(net_fit, X, y)
         assert np.isscalar(score_value)
 
-    def test_scored_net_matches_criterion_value(self, scored_net_fit, val_data):
-        X_val, y_val = val_data
-        score_value = scored_net_fit.score(X_val, y_val)
+    def test_scored_net_matches_criterion_value(self, scored_net_fit, data):
+        X, y = data
+        score_value = scored_net_fit.score(X, y)
         criterion = scored_net_fit.criterion_
-        y_val = torch.as_tensor(y_val).long()
-        y_val_proba = torch.as_tensor(scored_net_fit.predict_proba(X_val))
-        loss_value = criterion(y_val_proba, y_val)
+        y = torch.as_tensor(y).long()
+        y_val_proba = torch.as_tensor(scored_net_fit.predict_proba(X))
+        loss_value = criterion(y_val_proba, y)
         assert score_value == loss_value.item()

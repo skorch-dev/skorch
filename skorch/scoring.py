@@ -42,6 +42,7 @@ def loss_scoring(net: NeuralNet, X, y=None):
     ----------
     net : skorch.NeuralNet
         A fitted Skorch :class:`.NeuralNet` object.
+
     X : input data, compatible with skorch.dataset.Dataset
         By default, you should be able to pass:
             * numpy arrays
@@ -53,6 +54,7 @@ def loss_scoring(net: NeuralNet, X, y=None):
             * a Dataset
         If this doesn't work with your data, you have to pass a
         ``Dataset`` that can deal with the data.
+
     y : target data, compatible with skorch.dataset.Dataset
         The same data types as for ``X`` are supported. If your X is a Dataset
         that contains the target, ``y`` may be set to None.
