@@ -11,31 +11,11 @@ def loss_scoring(net: NeuralNet, X, y=None):
     This function can be used to implement the ``score`` method for a
     :class:`.NeuralNet` through sub-classing. This is useful, for example, when
     combining skorch models with sklearn objects that rely on the model's
-    ``score`` method. Below is an example using GridSearchCV.
+    ``score`` method. For example:
 
     >>> class ScoredNet(skorch.NeuralNetClassifier):
-    ...     def score(self, X, y=None, lower_is_better=False):
-    ...         loss_value = loss_scoring(self, X, y)
-    ...         if lower_is_better:
-    ...             return loss_value
-    ...         return -loss_value
-    ...
-    >>> X = np.random.randn(250, 25).astype('float32')
-    >>> y = (X.dot(np.ones(25)) > 0).astype(int)
-    >>> module = nn.Sequential(
-    ...     nn.Linear(25, 25),
-    ...     nn.ReLU(),
-    ...     nn.Linear(25,
-    ...     2),
-    ...     nn.Softmax(dim=1)
-    ... )
-    >>> net = ScoredNet(module)
-    >>> grid_searcher = GridSearchCV(
-    ...     net, {'lr': [1e-2, 1e-3], 'batch_size': [8, 16]}
-    ... )
-    >>> grid_searcher.fit(X, y)
-    >>> best_net = grid_searcher.best_estimator_
-    >>> print(best_net.score(X, y))
+    ...     def score(self, X, y=None):
+    ...         return loss_scoring(self, X, y)
 
     Parameters
     ----------
