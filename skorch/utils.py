@@ -544,7 +544,6 @@ class TeeGenerator:
     generator more than once.
 
     """
-
     def __init__(self, gen):
         self.gen = gen
 
