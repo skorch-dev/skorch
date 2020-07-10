@@ -7,9 +7,6 @@ def loss_scoring(net: NeuralNet, X, y=None):
     """Calculate score using the criterion of the net
     
     Use the exact same logic as during model training to calculate the score.
-    loss_scoring(net, X, y=None)
-
-    Computes the loss of ``net`` on data (``X``, ``y``).
 
     This function can be used to implement the ``score`` method for a
     :class:`.NeuralNet` through sub-classing. This is useful, for example, when
