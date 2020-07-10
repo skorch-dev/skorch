@@ -4,7 +4,9 @@ from skorch.dataset import unpack_data
 
 
 def loss_scoring(net: NeuralNet, X, y=None):
-    """
+    """Calculate score using the criterion of the net
+    
+    Use the exact same logic as during model training to calculate the score.
     loss_scoring(net, X, y=None)
 
     Computes the loss of ``net`` on data (``X``, ``y``).
