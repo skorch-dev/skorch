@@ -383,7 +383,7 @@ a function on a trained ``net`` object.
     net = skorch.NeuralNetClassifier(module).fit(X, y)
     print(loss_scoring(net, X, y))
 
-The second example shows how to sub-class :class:`skorch.NeuralNetClassifier` to
+The second example shows how to sub-class :class:`skorch.classifier.NeuralNetClassifier` to
 implement a ``score`` method. In this example, the ``score`` method returns the
 **negative** of the loss value, because we want
 :class:`sklearn.model_selection.GridSearchCV` to return the run with **least**
