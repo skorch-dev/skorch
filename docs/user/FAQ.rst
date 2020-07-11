@@ -362,7 +362,7 @@ How do I implement a score method on the net that returns the loss?
 -------------------------------------------------------------------
 
 Sometimes, it is useful to be able to compute the loss of a net from within
-``skorch`` (*e.g.,* when a net is part of an ``sklearn`` pipeline). The function
+``skorch`` (e.g. when a net is part of an ``sklearn`` pipeline). The function
 :func:`skorch.scoring.loss_scoring` achieves this. Two examples are provided
 below. The first demonstrates how to use :func:`skorch.scoring.loss_scoring` as
 a function on a trained ``net`` object.
