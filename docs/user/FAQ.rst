@@ -357,3 +357,50 @@ layer, and that the number of features can be determined by
 ``X.shape[1]``. If those assumptions are not true for your case,
 adjust the code accordingly. A fully working example can be found
 on `stackoverflow <https://stackoverflow.com/a/60170023/1643939>`_.
+
+How do I implement a score method on the net that returns the loss?
+-------------------------------------------------------------------
+
+Sometimes, it is useful to be able to compute the loss of a net from within
+``skorch`` (e.g. when a net is part of an ``sklearn`` pipeline). The function
+:func:`skorch.scoring.loss_scoring` achieves this. Two examples are provided
+below. The first demonstrates how to use :func:`skorch.scoring.loss_scoring` as
+a function on a trained ``net`` object.
+
+.. code:: python
+
+    from skorch.scoring import loss_scoring
+
+    X = np.random.randn(250, 25).astype('float32')
+    y = (X.dot(np.ones(25)) > 0).astype(int)
+
+    module = nn.Sequential(
+        nn.Linear(25, 25),
+        nn.ReLU(),
+        nn.Linear(25, 2),
+        nn.Softmax(dim=1)
+    )
+    net = skorch.NeuralNetClassifier(module).fit(X, y)
+    print(loss_scoring(net, X, y))
+
+The second example shows how to sub-class :class:`skorch.classifier.NeuralNetClassifier` to
+implement a ``score`` method. In this example, the ``score`` method returns the
+**negative** of the loss value, because we want
+:class:`sklearn.model_selection.GridSearchCV` to return the run with **least**
+loss and :class:`sklearn.model_selection.GridSearchCV` searches for the run with
+the **greatest** score.
+
+.. code:: python
+
+    class ScoredNet(skorch.NeuralNetClassifier):
+        def score(self, X, y=None):
+            loss_value = loss_scoring(self, X, y)
+            return -loss_value
+    
+    net = ScoredNet(module)
+    grid_searcher = GridSearchCV(
+        net, {'lr': [1e-2, 1e-3], 'batch_size': [8, 16]},
+    )
+    grid_searcher.fit(X, y)
+    best_net = grid_searcher.best_estimator_
+    print(best_net.score(X, y))
