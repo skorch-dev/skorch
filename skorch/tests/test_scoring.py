@@ -101,9 +101,12 @@ class TestLossScoring:
         net = scored_net_cls(
             module_cls, lr=0.01, criterion__reduction=reduction
         ).fit(X, y)
+        net.set_params(criterion__reduction="sum")
+        loss_value = net.score(X, y)
         net.set_params(criterion__reduction="none")
         output = net.score(X, y)
         assert output.shape[0] == X.shape[0]
+        assert np.allclose(output.sum(), loss_value)
 
     def test_score_unknown_reduction_raises(
         self, loss_scoring_fn, net_fit, data
