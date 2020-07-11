@@ -110,5 +110,5 @@ class TestLossScoring:
     ):
         X, y = data
         net_fit.set_params(criterion__reduction="unk")
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="for reduction but got"):
             loss_scoring_fn(net_fit, X, y)

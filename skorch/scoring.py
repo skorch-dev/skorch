@@ -60,10 +60,11 @@ def loss_scoring(net: NeuralNet, X, y=None, sample_weight=None):
     iterator = net.get_iterator(dataset, training=False)
     history = {"loss": [], "batch_size": []}
     reduction = net.criterion_.reduction
-    assert reduction in ["mean", "sum", "none",], (
-        "Expected one of 'mean', 'sum' or 'none' "
-        "for reduction but got {reduction}.".format(reduction=reduction)
-    )
+    if reduction not in ["mean", "sum", "none"]:
+        raise ValueError(
+            "Expected one of 'mean', 'sum' or 'none' "
+            "for reduction but got {reduction}.".format(reduction=reduction)
+        )
     for data in iterator:
         Xi, yi = unpack_data(data)
         yp = net.evaluation_step(Xi, training=False)
