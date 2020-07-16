@@ -23,7 +23,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.datasets import make_classification
 import torch
 from torch import nn
 from flaky import flaky
@@ -2625,3 +2626,25 @@ def test_defaults():
 
     model = SkorchCustom(Mod, module__hidden=5)
     assert model.get_params()["module__hidden"] == 5
+
+
+def test_gridsearch_defaults():
+    class Mod(torch.nn.Module):
+        def __init__(self, features=80, hidden=3):
+            super().__init__()
+            self.l1 = torch.nn.Linear(features, hidden)
+            self.l2 = torch.nn.Linear(hidden, 1)
+
+        def forward(self, x):
+            return torch.sign(self.l2(self.l1(x)))
+
+    from skorch import NeuralNetClassifier
+
+    model = NeuralNetClassifier(Mod, max_epochs=1, criterion=nn.MSELoss)
+    params = {"module__hidden": [3, 4, 5]}
+    search = GridSearchCV(model, params)
+    X, y = make_classification(n_features=80)
+    X = X.astype("float32")
+    y = y.astype("float32")
+    search.fit(X, y)
+    assert search.best_score_ >= 0
