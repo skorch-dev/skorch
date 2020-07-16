@@ -32,6 +32,7 @@ from skorch.utils import params_for
 from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
+from skorch.utils import get_default_args
 
 
 _PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
@@ -219,6 +220,8 @@ class NeuralNet:
             **kwargs
     ):
         self.module = module
+        module_defaults = get_default_args(module.__init__)
+
         self.criterion = criterion
         self.optimizer = optimizer
         self.lr = lr
@@ -238,6 +241,12 @@ class NeuralNet:
         initialized = kwargs.pop('initialized_', False)
         virtual_params = kwargs.pop('virtual_params_', dict())
 
+        new_params = {
+            "module__" + k: v
+            for k, v in module_defaults.items()
+            if not hasattr(self, "module__" + k)
+        }
+        vars(self).update(new_params)
         kwargs = self._check_kwargs(kwargs)
         vars(self).update(kwargs)
 

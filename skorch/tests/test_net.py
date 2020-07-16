@@ -2593,3 +2593,35 @@ class TestNetSparseInput:
         score_end = net.history[-1]['train_loss']
 
         assert score_start > 1.25 * score_end
+
+def test_defaults():
+    class Mod(torch.nn.Module):
+        def __init__(self, hidden=3):
+            super().__init__()
+            self.l1 = torch.nn.Linear(1, hidden)
+            self.l2 = torch.nn.Linear(hidden, 1)
+
+        # pylint: disable=arguments-differ
+        def forward(self, x):
+            n = np.random.randint(1, 4)
+            y = self.l2(self.l1(x.float()))
+            return torch.randn(1, n, 2) + 0 * y
+
+    from skorch import NeuralNetRegressor
+    model = NeuralNetRegressor(Mod)
+    assert "module__hidden" in model.get_params()
+
+    model = NeuralNetRegressor(Mod, module__hidden=6)
+    assert model.get_params()["module__hidden"] == 6
+
+    class SkorchCustom(NeuralNetRegressor):
+        def __init__(self, module, module__hidden=4):
+            self.module__hidden = module__hidden
+            super().__init__(module)
+
+    # Test to make sure subclasses work and parameters aren't overridden
+    model = SkorchCustom(Mod)
+    assert model.get_params()["module__hidden"] == 4
+
+    model = SkorchCustom(Mod, module__hidden=5)
+    assert model.get_params()["module__hidden"] == 5

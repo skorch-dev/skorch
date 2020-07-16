@@ -4,6 +4,7 @@ Should not have any dependency on other skorch packages.
 
 """
 
+import inspect
 from collections.abc import Sequence
 from contextlib import contextmanager
 from distutils.version import LooseVersion
@@ -564,3 +565,12 @@ class TeeGenerator:
     def __iter__(self):
         self.gen, it = tee(self.gen)
         yield from it
+
+
+def get_default_args(func):
+    signature = inspect.signature(func)
+    return {
+        k: v.default
+        for k, v in signature.parameters.items()
+        if v.default is not inspect.Parameter.empty
+    }
