@@ -2644,7 +2644,6 @@ def test_gridsearch_defaults():
     params = {"module__hidden": [3, 4, 5]}
     search = GridSearchCV(model, params)
     X, y = make_classification(n_features=80)
-    X = X.astype("float32")
-    y = y.astype("float32")
+    X, y = X.astype("float32"), y.astype("float32")
     search.fit(X, y)
     assert search.best_score_ >= 0
