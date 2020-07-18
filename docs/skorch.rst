@@ -12,5 +12,6 @@ skorch
    history
    net
    regressor
+   scoring
    toy
    utils
