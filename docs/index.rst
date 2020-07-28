@@ -29,6 +29,18 @@ allow for that.
 Overall, skorch aims at being as flexible as PyTorch while
 having a clean interface as sklearn.
 
+If you use skorch, please use this BibTeX entry:
+
+.. code:: bibtex
+
+   @manual{skorch,
+     author       = {Marian Tietz and Thomas J. Fan and Daniel Nouri and Benjamin Bossan and {skorch Developers}},
+     title        = {skorch: A scikit-learn compatible neural network library that wraps PyTorch},
+     month        = jul,
+     year         = 2017,
+     url          = {https://skorch.readthedocs.io/en/stable/}
+   }
+
 
 User's Guide
 ------------

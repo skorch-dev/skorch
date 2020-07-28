@@ -267,6 +267,15 @@ class TestNeuralNetBinaryClassifier:
         accuracy = net_fit.score(X, y)
         assert 0. <= accuracy <= 1.
 
+    def test_fit_with_dataset_and_y_none(self, net_cls, module_cls, data):
+        from skorch.dataset import Dataset
+
+        # deactivate train split since it requires y
+        net = net_cls(module_cls, train_split=False, max_epochs=1)
+        X, y = data
+        dataset = Dataset(X, y)
+        assert net.fit(dataset, y=None)
+
     def test_target_2d_raises(self, net, data):
         X, y = data
         with pytest.raises(ValueError) as exc:
@@ -280,7 +289,14 @@ class TestNeuralNetBinaryClassifier:
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch, "sigmoid", mock)
 
-        net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss)
+        # add a custom nonlinearity - note that the output must return
+        # a 2d array from a 1d vector to conform to the required
+        # y_proba
+        def nonlin(x):
+            return torch.stack((1 - x, x), 1)
+
+        net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss,
+                      predict_nonlinearity=nonlin)
         X, y = data
         net.fit(X, y)
 

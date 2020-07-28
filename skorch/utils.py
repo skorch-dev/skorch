@@ -17,6 +17,8 @@ import numpy as np
 from scipy import sparse
 import sklearn
 import torch
+from torch.nn import BCEWithLogitsLoss
+from torch.nn import CrossEntropyLoss
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
 
@@ -104,14 +106,24 @@ def to_tensor(X, device, accept_sparse=False):
 def to_numpy(X):
     """Generic function to convert a pytorch tensor to numpy.
 
+    This function tries to unpack the tensor(s) from supported
+    data structures (e.g., dicts, lists, etc.) but doesn't go
+    beyond.
+
     Returns X when it already is a numpy array.
 
     """
     if isinstance(X, np.ndarray):
         return X
 
+    if isinstance(X, dict):
+        return {key: to_numpy(val) for key, val in X.items()}
+
     if is_pandas_ndframe(X):
         return X.values
+
+    if isinstance(X, (tuple, list)):
+        return type(X)(to_numpy(x) for x in X)
 
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a numpy array.")
@@ -135,6 +147,7 @@ def to_device(X, device):
 
          * torch tensor
          * tuple of torch tensors
+         * dict of torch tensors
          * PackSequence instance
          * torch.nn.Module
 
@@ -146,9 +159,12 @@ def to_device(X, device):
     if device is None:
         return X
 
+    if isinstance(X, dict):
+        return {key: to_device(val,device) for key, val in X.items()}
+
     # PackedSequence class inherits from a namedtuple
-    if isinstance(X, tuple) and (type(X) != PackedSequence):
-        return tuple(x.to(device) for x in X)
+    if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):
+        return type(X)(to_device(x, device) for x in X)
     return X.to(device)
 
 
@@ -535,6 +551,60 @@ def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
 
     if not all_or_any([hasattr(estimator, attr) for attr in attributes]):
         raise NotInitializedError(msg % {'name': type(estimator).__name__})
+
+
+def _identity(x):
+    """Return input as is, the identity operation"""
+    return x
+
+
+def _sigmoid_then_2d(x):
+    """Transform 1-dim logits to valid y_proba
+
+    Sigmoid is applied to x to transform it to probabilities. Then
+    concatenate the probabilities with 1 - these probabilities to
+    return a correctly formed ``y_proba``. This is required for
+    sklearn, which expects probabilities to be 2d arrays whose sum
+    along axis 1 is 1.0.
+
+    Parameters
+    ----------
+    x : torch.tensor
+      A 1 dimensional float torch tensor containing raw logits.
+
+    Returns
+    -------
+    y_proba : torch.tensor
+      A 2 dimensional float tensor of probabilities that sum up to 1
+      on axis 1.
+
+    """
+    prob = torch.sigmoid(x)
+    y_proba = torch.stack((1 - prob, prob), 1)
+    return y_proba
+
+
+def _infer_predict_nonlinearty(net):
+    """Infers the correct nonlinearity to apply for this net
+
+    The nonlinearity is applied only when calling
+    :func:`~skorch.classifier.NeuralNetClassifier.predict` or
+    :func:`~skorch.classifier.NeuralNetClassifier.predict_proba`.
+
+    """
+    # Implementation: At the moment, this function "dispatches" only
+    # based on the criterion, not the class of the net. We still pass
+    # the whole net as input in case we want to modify this at a
+    # future point in time.
+    criterion = net.criterion_
+
+    if isinstance(criterion, CrossEntropyLoss):
+        return partial(torch.softmax, dim=-1)
+
+    if isinstance(criterion, BCEWithLogitsLoss):
+        return _sigmoid_then_2d
+
+    return _identity
 
 
 class TeeGenerator:

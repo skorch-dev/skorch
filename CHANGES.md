@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the `event_name` argument for `LRScheduler` for optional recording of LR changes inside `net.history`. NOTE: Supported only in Pytorch>=1.4
 - Make it easier to add custom modules or optimizers to a neural net class by automatically registering them where necessary and by making them available to set_params
 - Added the `step_every` argument for `LRScheduler` to set whether the scheduler step should be taken on every epoch or on every batch.
+- Added the `scoring` module with `loss_scoring` function, which computes the net's loss (using `get_loss`) on provided input data.
+- Added a parameter `predict_nonlinearity` to `NeuralNet` which allows users to control the nonlinearity to be applied to the module output when calling `predict` and `predict_proba` (#637, #661)
 - Added the possibility to save the criterion with `save_params` and with checkpoint callbacks
 - Added the possibility to save custom modules with `save_params` and with checkpoint callbacks
 
@@ -23,11 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raise `FutureWarning` when using `CyclicLR` scheduler, because the default behavior has changed from taking a step every batch to taking a step every epoch. (#626)
 - Set train/validation on criterion if it's a PyTorch module (#621)
 - Don't pass `y=None` to `NeuralNet.train_split` to enable the direct use of split functions without positional `y` in their signatures. This is useful when working with unsupervised data (#605).
+- `to_numpy` is now able to unpack dicts and lists/tuples (#657, #658)
+- When using `CrossEntropyLoss`, softmax is now automatically applied to the output when calling `predict` or `predict_proba`
 
 ### Fixed
 
 - Fixed a bug where `CyclicLR` scheduler would update during both training and validation rather than just during training.
 - Fixed a bug introduced by moving the `optimizer.zero_grad()` call outside of the train step function, making it incompatible with LBFGS and other optimizers that call the train step several times per batch (#636)
+- Fixed pickling of the `ProgressBar` callback (#656)
 
 ## [0.8.0] - 2019-04-11
 

@@ -346,13 +346,14 @@ from the ``module``. Alternatively, you may directly call
 ``net.module_(X)``.
 
 In case of :class:`.NeuralNetClassifier`, the
-:func:`~skorch.net.NeuralNetClassifier.predict` method tries to return
-the class labels by applying the argmax over the last axis of the
-result of :func:`~skorch.net.NeuralNetClassifier.predict_proba`.
+:func:`~skorch.classifier.NeuralNetClassifier.predict` method tries to
+return the class labels by applying the argmax over the last axis of
+the result of
+:func:`~skorch.classifier.NeuralNetClassifier.predict_proba`.
 Obviously, this only makes sense if
-:func:`~skorch.net.NeuralNetClassifier.predict_proba` returns class
-probabilities. If this is not true, you should just use
-:func:`~skorch.net.NeuralNetClassifier.predict_proba`.
+:func:`~skorch.classifier.NeuralNetClassifier.predict_proba` returns
+class probabilities. If this is not true, you should just use
+:func:`~skorch.classifier.NeuralNetClassifier.predict_proba`.
 
 score(X, y)
 ^^^^^^^^^^^
