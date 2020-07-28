@@ -51,6 +51,17 @@ class TestCheckpoint:
         y = np.zeros((10, 1), dtype='float32')
         return X, y
 
+    def test_init_with_wrong_kwarg_name_raises(self, checkpoint_cls):
+        checkpoint_cls(f_foobar='foobar.pt').initialize()  # works
+        msg = "Checkpoint got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        with pytest.raises(TypeError, match=msg):
+            checkpoint_cls(foobar='foobar.pt').initialize()
+
+    def test_init_with_f_params_and_f_module_raises(self, checkpoint_cls):
+        msg = "Checkpoint called with both f_params and f_module, please choose one"
+        with pytest.raises(TypeError, match=msg):
+            checkpoint_cls(f_module='weights.pt', f_params='params.pt').initialize()
+
     def test_none_monitor_saves_always(
             self, save_params_mock, net_cls, checkpoint_cls, data):
         sink = Mock()
@@ -60,20 +71,43 @@ class TestCheckpoint:
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 3*len(net.history)
+        assert save_params_mock.call_count == 4 * len(net.history)
         assert sink.call_count == len(net.history)
         assert all((x is True) for x in net.history[:, 'event_another'])
 
     @pytest.mark.parametrize('message,files', [
-        ('Unable to save model parameters to params.pt, '
+        ('Unable to save module state to params.pt, '
          'Exception: encoding error',
-         {'f_params': 'params.pt', 'f_optimizer': None, 'f_history': None}),
+         {
+             'f_params': 'params.pt',
+             'f_optimizer': None,
+             'f_criterion': None,
+             'f_history': None,
+         }),
         ('Unable to save optimizer state to optimizer.pt, '
          'Exception: encoding error',
-         {'f_params': None, 'f_optimizer': 'optimizer.pt', 'f_history': None}),
+         {
+             'f_params': None,
+             'f_optimizer': 'optimizer.pt',
+             'f_criterion': None,
+             'f_history': None,
+         }),
+        ('Unable to save criterion state to criterion.pt, '
+         'Exception: encoding error',
+         {
+             'f_params': None,
+             'f_optimizer': None,
+             'f_criterion': 'criterion.pt',
+             'f_history': None,
+         }),
         ('Unable to save history to history.json, '
          'Exception: encoding error',
-         {'f_params': None, 'f_optimizer': None, 'f_history': 'history.json'})
+         {
+             'f_params': None,
+             'f_optimizer': None,
+             'f_criterion': None,
+             'f_history': 'history.json',
+         }),
     ])
     def test_outputs_to_sink_when_save_params_errors(
             self, save_params_mock, net_cls, checkpoint_cls, data,
@@ -93,6 +127,7 @@ class TestCheckpoint:
     @pytest.mark.parametrize('f_name, mode', [
         ('f_params', 'w'),
         ('f_optimizer', 'w'),
+        ('f_criterion', 'w'),
         ('f_history', 'w'),
         ('f_pickle', 'wb')
     ])
@@ -113,6 +148,7 @@ class TestCheckpoint:
     @pytest.mark.parametrize('f_name, mode', [
         ('f_params', 'w'),
         ('f_optimizer', 'w'),
+        ('f_criterion', 'w'),
         ('f_history', 'w'),
         ('f_pickle', 'wb')
     ])
@@ -165,26 +201,33 @@ class TestCheckpoint:
             monitor='epoch_3_scorer_best',
             f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
             f_optimizer='optimizer_{last_epoch[epoch]}_{net.max_epochs}.pt',
+            f_criterion='criterion_{last_epoch[epoch]}_{net.max_epochs}.pt',
             sink=sink)
         net = net_cls(callbacks=[
             ('my_score', scoring), cb
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 6
+        assert save_params_mock.call_count == 8
         assert cb.get_formatted_files(net) == {
             'f_params': 'model_3_10.pt',
             'f_optimizer': 'optimizer_3_10.pt',
+            'f_criterion': 'criterion_3_10.pt',
             'f_history': 'history.json',
             'f_pickle': None
         }
         save_params_mock.assert_has_calls(
-            [call(f_params='model_1_10.pt'),
-             call(f_optimizer='optimizer_1_10.pt'),
-             call(f_history='history.json'),
-             call(f_params='model_3_10.pt'),
-             call(f_optimizer='optimizer_3_10.pt'),
-             call(f_history='history.json')]
+            [
+                call(f_module='model_1_10.pt'),  # params is turned into module
+                call(f_optimizer='optimizer_1_10.pt'),
+                call(f_criterion='criterion_1_10.pt'),
+                call(f_history='history.json'),
+                call(f_module='model_3_10.pt'),  # params is turned into module
+                call(f_optimizer='optimizer_3_10.pt'),
+                call(f_criterion='criterion_3_10.pt'),
+                call(f_history='history.json'),
+            ],
+            any_order=True,
         )
         assert sink.call_count == 2
         # The first epoch will always be saved. `epoch_3_scorer` returns 1 at
@@ -197,20 +240,27 @@ class TestCheckpoint:
             net_cls, checkpoint_cls, data):
         net = net_cls(callbacks=[
             checkpoint_cls(
-                monitor=None, f_params='params.pt',
-                f_history='history.json', f_pickle='model.pkl',
-                f_optimizer='optimizer.pt'),
+                monitor=None,
+                f_params='params.pt',
+                f_pickle='model.pkl',
+                f_optimizer='optimizer.pt',
+                f_criterion='criterion.pt',
+                f_history='history.json',
+            ),
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 3*len(net.history)
+        assert save_params_mock.call_count == 4 * len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
 
-        print(save_params_mock.call_args_list)
         save_params_mock.assert_has_calls(
-            [call(f_params='params.pt'),
-             call(f_optimizer='optimizer.pt'),
-             call(f_history='history.json')] * len(net.history)
+            [
+                call(f_module='params.pt'),  # params is turned into module
+                call(f_optimizer='optimizer.pt'),
+                call(f_criterion='criterion.pt'),
+                call(f_history='history.json'),
+            ] * len(net.history),
+            any_order=True,
         )
 
     def test_save_all_targets_with_prefix(
@@ -220,20 +270,26 @@ class TestCheckpoint:
         cp = checkpoint_cls(
             monitor=None,
             f_params='params.pt',
-            f_history='history.json',
             f_pickle='model.pkl',
             f_optimizer='optimizer.pt',
-            fn_prefix="exp1_")
+            f_criterion='criterion.pt',
+            f_history='history.json',
+            fn_prefix="exp1_",
+        )
         net = net_cls(callbacks=[cp])
         net.fit(*data)
 
         assert cp.f_history_ == "exp1_history.json"
-        assert save_params_mock.call_count == 3*len(net.history)
+        assert save_params_mock.call_count == 4 * len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
         save_params_mock.assert_has_calls(
-            [call(f_params='exp1_params.pt'),
-             call(f_optimizer='exp1_optimizer.pt'),
-             call(f_history='exp1_history.json')] * len(net.history)
+            [
+                call(f_module='exp1_params.pt'),  # params is turned into module
+                call(f_optimizer='exp1_optimizer.pt'),
+                call(f_criterion='exp1_criterion.pt'),
+                call(f_history='exp1_history.json'),
+            ] * len(net.history),
+            any_order=True,
         )
 
     def test_save_all_targets_with_prefix_and_dirname(
@@ -248,6 +304,7 @@ class TestCheckpoint:
             f_history='history.json',
             f_pickle='model.pkl',
             f_optimizer='optimizer.pt',
+            f_criterion='criterion.pt',
             fn_prefix="unet_",
             dirname=str(skorch_dir))
         net = net_cls(callbacks=[cp])
@@ -255,15 +312,20 @@ class TestCheckpoint:
 
         f_params = skorch_dir.join('unet_params.pt')
         f_optimizer = skorch_dir.join('unet_optimizer.pt')
+        f_criterion = skorch_dir.join('unet_criterion.pt')
         f_history = skorch_dir.join('unet_history.json')
 
         assert cp.f_history_ == str(f_history)
-        assert save_params_mock.call_count == 3*len(net.history)
+        assert save_params_mock.call_count == 4 * len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
         save_params_mock.assert_has_calls(
-            [call(f_params=str(f_params)),
-             call(f_optimizer=str(f_optimizer)),
-             call(f_history=str(f_history))] * len(net.history)
+            [
+                call(f_module=str(f_params)),  # params is turned into module 
+                call(f_optimizer=str(f_optimizer)),
+                call(f_criterion=str(f_criterion)),
+                call(f_history=str(f_history)),
+            ] * len(net.history),
+            any_order=True,
         )
         assert skorch_dir.exists()
 
@@ -272,8 +334,13 @@ class TestCheckpoint:
             net_cls, checkpoint_cls, data):
         net = net_cls(callbacks=[
             checkpoint_cls(
-                monitor=None, f_params=None, f_optimizer=None,
-                f_history=None, f_pickle=None),
+                monitor=None,
+                f_params=None,
+                f_optimizer=None,
+                f_criterion=None,
+                f_history=None,
+                f_pickle=None,
+            ),
         ])
         net.fit(*data)
 
@@ -282,8 +349,8 @@ class TestCheckpoint:
 
     def test_warnings_when_monitor_appears_in_history(
             self, net_cls, checkpoint_cls, save_params_mock, data):
-        net = net_cls(callbacks=[
-            checkpoint_cls(monitor="valid_loss")],
+        net = net_cls(
+            callbacks=[checkpoint_cls(monitor="valid_loss")],
             max_epochs=1)
 
         exp_warn = (
@@ -293,7 +360,44 @@ class TestCheckpoint:
 
         with pytest.warns(UserWarning, match=exp_warn):
             net.fit(*data)
-        assert save_params_mock.call_count == 3
+        assert save_params_mock.call_count == 4
+
+    def test_save_custom_module(
+            self, save_params_mock, module_cls, checkpoint_cls, data,
+    ):
+        # checkpointing custom modules works
+        from skorch import NeuralNetRegressor
+
+        class MyNet(NeuralNetRegressor):
+            """Net with custom module"""
+            def __init__(self, *args, mymodule=module_cls, **kwargs):
+                self.mymodule = mymodule
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self, *args, **kwargs):
+                super().initialize_module(*args, **kwargs)
+
+                params = self.get_params_for('mymodule')
+                self.mymodule_ = self.mymodule(**params)
+
+                return self
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params=None,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+            f_mymodule='mymodule.pt',
+        )
+        net = MyNet(module_cls, callbacks=[cp])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 1 * len(net.history)
+        save_params_mock.assert_has_calls(
+            [call(f_mymodule='mymodule.pt')] * len(net.history)
+        )
+
 
 
 class TestEarlyStopping:
@@ -735,12 +839,14 @@ class TestLoadInitState:
         skorch_dir = tmpdir.mkdir('skorch')
         f_params = skorch_dir.join('params.pt')
         f_optimizer = skorch_dir.join('optimizer.pt')
+        f_criterion = skorch_dir.join('criterion.pt')
         f_history = skorch_dir.join('history.json')
 
         cp = checkpoint_cls(
             monitor=None,
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
+            f_criterion=str(f_criterion),
             f_history=str(f_history)
         )
         load_init_state = loadinitstate_cls(cp)
@@ -749,6 +855,7 @@ class TestLoadInitState:
 
         assert f_params.exists()
         assert f_optimizer.exists()
+        assert f_criterion.exists()
         assert f_history.exists()
 
         assert len(net.history) == 10
@@ -774,6 +881,8 @@ class TestLoadInitState:
             'model_epoch_{last_epoch[epoch]}.pt')
         f_optimizer = skorch_dir.join(
             'optimizer_epoch_{last_epoch[epoch]}.pt')
+        f_criterion = skorch_dir.join(
+            'criterion_epoch_{last_epoch[epoch]}.pt')
         f_history = skorch_dir.join(
             'history.json')
 
@@ -781,6 +890,7 @@ class TestLoadInitState:
             monitor='epoch_3_scorer_best',
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
+            f_criterion=str(f_criterion),
             f_history=str(f_history)
         )
         load_init_state = loadinitstate_cls(cp)
@@ -790,6 +900,7 @@ class TestLoadInitState:
 
         assert skorch_dir.join('model_epoch_3.pt').exists()
         assert skorch_dir.join('optimizer_epoch_3.pt').exists()
+        assert skorch_dir.join('criterion_epoch_3.pt').exists()
         assert skorch_dir.join('history.json').exists()
 
         assert len(net.history) == 10
@@ -848,6 +959,19 @@ class TestTrainEndCheckpoint:
         y = np.zeros((10, 1), dtype='float32')
         return X, y
 
+    def test_init_with_wrong_kwarg_name_raises(self, trainendcheckpoint_cls):
+        trainendcheckpoint_cls(f_foobar='foobar.pt').initialize()  # works
+        msg = ("TrainEndCheckpoint got an unexpected argument 'foobar', "
+               "did you mean 'f_foobar'?")
+        with pytest.raises(TypeError, match=msg):
+            trainendcheckpoint_cls(foobar='foobar.pt').initialize()
+
+    def test_init_with_f_params_and_f_module_raises(self, trainendcheckpoint_cls):
+        msg = "Checkpoint called with both f_params and f_module, please choose one"
+        with pytest.raises(TypeError, match=msg):
+            trainendcheckpoint_cls(
+                f_module='weights.pt', f_params='params.pt').initialize()
+
     def test_saves_at_end(
             self, save_params_mock, net_cls, trainendcheckpoint_cls, data):
         sink = Mock()
@@ -857,34 +981,46 @@ class TestTrainEndCheckpoint:
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 3
+        assert save_params_mock.call_count == 4
         assert sink.call_args == call("Final checkpoint triggered")
-        save_params_mock.assert_has_calls([
-            call(f_params='exp1/train_end_params.pt'),
-            call(f_optimizer='exp1/train_end_optimizer.pt'),
-            call(f_history='exp1/train_end_history.json')
-        ])
+        save_params_mock.assert_has_calls(
+            [
+                # params is turned into module
+                call(f_module='exp1/train_end_params.pt'),
+                call(f_optimizer='exp1/train_end_optimizer.pt'),
+                call(f_criterion='exp1/train_end_criterion.pt'),
+                call(f_history='exp1/train_end_history.json'),
+            ],
+            any_order=True,
+        )
 
     def test_saves_at_end_with_custom_formatting(
             self, save_params_mock, net_cls, trainendcheckpoint_cls, data):
         sink = Mock()
         net = net_cls(callbacks=[
             trainendcheckpoint_cls(
-                sink=sink, dirname='exp1',
+                sink=sink,
+                dirname='exp1',
                 f_params='model_{last_epoch[epoch]}.pt',
                 f_optimizer='optimizer_{last_epoch[epoch]}.pt',
-                fn_prefix='train_end_'
+                f_criterion='criterion_{last_epoch[epoch]}.pt',
+                fn_prefix='train_end_',
             )
         ])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 3
+        assert save_params_mock.call_count == 4
         assert sink.call_args == call("Final checkpoint triggered")
-        save_params_mock.assert_has_calls([
-            call(f_params='exp1/train_end_model_10.pt'),
-            call(f_optimizer='exp1/train_end_optimizer_10.pt'),
-            call(f_history='exp1/train_end_history.json')
-        ])
+        save_params_mock.assert_has_calls(
+            [
+                # params is turned into module
+                call(f_module='exp1/train_end_model_10.pt'),
+                call(f_optimizer='exp1/train_end_optimizer_10.pt'),
+                call(f_criterion='exp1/train_end_criterion_10.pt'),
+                call(f_history='exp1/train_end_history.json'),
+            ],
+            any_order=True,
+        )
 
     def test_cloneable(self, trainendcheckpoint_cls):
         # reproduces bug #459
@@ -914,3 +1050,36 @@ class TestTrainEndCheckpoint:
         # the same score as after the end of training of the initial
         # net should be obtained
         assert np.isclose(score_loaded, score_after)
+
+    def test_save_custom_module(
+            self, save_params_mock, module_cls, trainendcheckpoint_cls, data,
+    ):
+        # checkpointing custom modules works
+        from skorch import NeuralNetRegressor
+
+        class MyNet(NeuralNetRegressor):
+            """Net with custom module"""
+            def __init__(self, *args, mymodule=module_cls, **kwargs):
+                self.mymodule = mymodule
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self, *args, **kwargs):
+                super().initialize_module(*args, **kwargs)
+
+                params = self.get_params_for('mymodule')
+                self.mymodule_ = self.mymodule(**params)
+
+                return self
+
+        cp = trainendcheckpoint_cls(
+            f_params=None,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+            f_mymodule='mymodule.pt',
+        )
+        net = MyNet(module_cls, callbacks=[cp])
+        net.fit(*data)
+
+        assert save_params_mock.call_count == 1
+        save_params_mock.assert_has_calls([call(f_mymodule='train_end_mymodule.pt')])

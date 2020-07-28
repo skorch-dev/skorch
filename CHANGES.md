@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the `step_every` argument for `LRScheduler` to set whether the scheduler step should be taken on every epoch or on every batch.
 - Added the `scoring` module with `loss_scoring` function, which computes the net's loss (using `get_loss`) on provided input data.
 - Added a parameter `predict_nonlinearity` to `NeuralNet` which allows users to control the nonlinearity to be applied to the module output when calling `predict` and `predict_proba` (#637, #661)
+- Added the possibility to save the criterion with `save_params` and with checkpoint callbacks
+- Added the possibility to save custom modules with `save_params` and with checkpoint callbacks
 
 ### Changed
 

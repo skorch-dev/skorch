@@ -6,6 +6,7 @@ that is general to NeuralNet class.
 """
 
 import copy
+from distutils.version import LooseVersion
 from functools import partial
 import os
 from pathlib import Path
@@ -15,8 +16,8 @@ from unittest.mock import patch
 import sys
 from contextlib import ExitStack
 
+from flaky import flaky
 import numpy as np
-from distutils.version import LooseVersion
 import pytest
 from sklearn.base import clone
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -26,7 +27,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 import torch
 from torch import nn
-from flaky import flaky
 
 from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
@@ -467,6 +467,54 @@ class TestNeuralNet:
         with open(str(p), 'rb') as f:
             pickle.load(f)
 
+    def test_save_params_invalid_argument_name_raises(self, net_fit):
+        msg = "save_params got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        with pytest.raises(TypeError, match=msg):
+            net_fit.save_params(foobar='some-file.pt')
+
+    def test_load_params_invalid_argument_name_raises(self, net_fit):
+        msg = "load_params got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        with pytest.raises(TypeError, match=msg):
+            net_fit.load_params(foobar='some-file.pt')
+
+    def test_save_params_with_f_params_and_f_module_raises(self, net_fit):
+        msg = "save_params called with both f_params and f_module, please choose one"
+        with pytest.raises(TypeError, match=msg):
+            net_fit.save_params(f_module='weights.pt', f_params='params.pt')
+
+    def test_load_params_with_f_params_and_f_module_raises(self, net_fit):
+        msg = "load_params called with both f_params and f_module, please choose one"
+        with pytest.raises(TypeError, match=msg):
+            net_fit.load_params(f_module='weights.pt', f_params='params.pt')
+
+    def test_save_params_no_state_dict_raises(self, net_fit):
+        msg = ("You are trying to save 'f_max_epochs' but for that to work, the net "
+               "needs to have an attribute called 'net.max_epochs_' that is a PyTorch "
+               "Module; make sure that it exists and check for typos.")
+        with pytest.raises(AttributeError, match=msg):
+            net_fit.save_params(f_max_epochs='some-file.pt')
+
+    def test_load_params_no_state_dict_raises(self, net_fit):
+        msg = ("You are trying to load 'f_max_epochs' but for that to work, the net "
+               "needs to have an attribute called 'net.max_epochs_' that is a PyTorch "
+               "Module; make sure that it exists and check for typos.")
+        with pytest.raises(AttributeError, match=msg):
+            net_fit.load_params(f_max_epochs='some-file.pt')
+
+    def test_save_params_unknown_attribute_raises(self, net_fit):
+        msg = ("You are trying to save 'f_unknown' but for that to work, the net "
+               "needs to have an attribute called 'net.unknown_' that is a PyTorch "
+               "Module; make sure that it exists and check for typos.")
+        with pytest.raises(AttributeError, match=msg):
+            net_fit.save_params(f_unknown='some-file.pt')
+
+    def test_load_params_unknown_attribute_raises(self, net_fit):
+        msg = ("You are trying to load 'f_unknown' but for that to work, the net "
+               "needs to have an attribute called 'net.unknown_' that is a PyTorch "
+               "Module; make sure that it exists and check for typos.")
+        with pytest.raises(AttributeError, match=msg):
+            net_fit.load_params(f_unknown='some-file.pt')
+
     def test_save_load_state_dict_file(
             self, net_cls, module_cls, net_fit, data, tmpdir):
         net = net_cls(module_cls).initialize()
@@ -511,35 +559,48 @@ class TestNeuralNet:
         net.fit(*data)
         return net
 
-    def test_save_load_state_dict_file_with_history_optimizer(
-            self, net_cls, module_cls, net_fit_adam, tmpdir):
+    @pytest.fixture
+    def net_fit_criterion(self, net_fit_adam, module_cls):
+        """Replace criterion by a module so that it has learnt parameters"""
+        criterion = net_fit_adam.criterion_
+        net_fit_adam.criterion_ = module_cls()
+        yield net_fit_adam
+        net_fit_adam.criterion_ = criterion
+
+    def test_save_load_state_dict_file_with_history_optimizer_criterion(
+            self, net_cls, module_cls, net_fit_criterion, tmpdir):
 
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = skorch_tmpdir.join('testmodel.pkl')
         o = skorch_tmpdir.join('optimizer.pkl')
+        c = skorch_tmpdir.join('criterion.pkl')
         h = skorch_tmpdir.join('history.json')
 
         with ExitStack() as stack:
             p_fp = stack.enter_context(open(str(p), 'wb'))
             o_fp = stack.enter_context(open(str(o), 'wb'))
+            c_fp = stack.enter_context(open(str(c), 'wb'))
             h_fp = stack.enter_context(open(str(h), 'w'))
-            net_fit_adam.save_params(
-                f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
+            net_fit_criterion.save_params(
+                f_params=p_fp, f_optimizer=o_fp, f_criterion=c_fp, f_history=h_fp)
 
             # 'step' is state from the Adam optimizer
             orig_steps = [v['step'] for v in
-                          net_fit_adam.optimizer_.state_dict()['state'].values()]
-            orig_loss = np.array(net_fit_adam.history[:, 'train_loss'])
-            del net_fit_adam
+                          net_fit_criterion.optimizer_.state_dict()['state'].values()]
+            orig_loss = np.array(net_fit_criterion.history[:, 'train_loss'])
+            orig_criterion_weight = dict(net_fit_criterion.criterion_.named_parameters())[
+                'sequential.0.weight']
+            del net_fit_criterion
 
         with ExitStack() as stack:
             p_fp = stack.enter_context(open(str(p), 'rb'))
             o_fp = stack.enter_context(open(str(o), 'rb'))
+            c_fp = stack.enter_context(open(str(c), 'rb'))
             h_fp = stack.enter_context(open(str(h), 'r'))
             new_net = net_cls(
-                module_cls, optimizer=torch.optim.Adam).initialize()
+                module_cls, criterion=module_cls, optimizer=torch.optim.Adam).initialize()
             new_net.load_params(
-                f_params=p_fp, f_optimizer=o_fp, f_history=h_fp)
+                f_params=p_fp, f_optimizer=o_fp, f_criterion=c_fp, f_history=h_fp)
 
             new_steps = [v['step'] for v in
                          new_net.optimizer_.state_dict()['state'].values()]
@@ -547,6 +608,9 @@ class TestNeuralNet:
 
             assert np.allclose(orig_loss, new_loss)
             assert orig_steps == new_steps
+            new_criterion_weight = dict(new_net.criterion_.named_parameters())[
+                'sequential.0.weight']
+            assert (orig_criterion_weight == new_criterion_weight).all()
 
     def test_save_load_state_dict_str_with_history_optimizer(
             self, net_cls, module_cls, net_fit_adam, tmpdir):
@@ -583,12 +647,14 @@ class TestNeuralNet:
         skorch_dir = tmpdir.mkdir('skorch')
         f_params = skorch_dir.join('params.pt')
         f_optimizer = skorch_dir.join('optimizer.pt')
+        f_criterion = skorch_dir.join('criterion.pt')
         f_history = skorch_dir.join('history.json')
 
         cp = checkpoint_cls(
             monitor=None,
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
+            f_criterion=str(f_criterion),
             f_history=str(f_history))
         net = net_cls(
             module_cls, max_epochs=4, lr=0.1,
@@ -598,6 +664,7 @@ class TestNeuralNet:
 
         assert f_params.exists()
         assert f_optimizer.exists()
+        assert f_criterion.exists()
         assert f_history.exists()
 
         new_net = net_cls(
@@ -645,6 +712,8 @@ class TestNeuralNet:
             'model_epoch_{last_epoch[epoch]}.pt')
         f_optimizer = skorch_dir.join(
             'optimizer_epoch_{last_epoch[epoch]}.pt')
+        f_criterion = skorch_dir.join(
+            'criterion_epoch_{last_epoch[epoch]}.pt')
         f_history = skorch_dir.join(
             'history.json')
 
@@ -652,6 +721,7 @@ class TestNeuralNet:
             monitor='epoch_3_scorer',
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
+            f_criterion=str(f_criterion),
             f_history=str(f_history))
 
         net = net_cls(
@@ -664,6 +734,7 @@ class TestNeuralNet:
 
         assert skorch_dir.join('model_epoch_3.pt').exists()
         assert skorch_dir.join('optimizer_epoch_3.pt').exists()
+        assert skorch_dir.join('criterion_epoch_3.pt').exists()
         assert skorch_dir.join('history.json').exists()
 
         new_net = net_cls(
@@ -697,7 +768,7 @@ class TestNeuralNet:
 
         with pytest.raises(NotInitializedError) as exc:
             net.save_params(f_params=str(p), f_optimizer=o)
-        expected = ("Cannot save state of an un-initialized optimizer. "
+        expected = ("Cannot save state of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
         assert exc.value.args[0] == expected
@@ -715,7 +786,7 @@ class TestNeuralNet:
 
         with pytest.raises(NotInitializedError) as exc:
             net.load_params(f_params=str(p), f_optimizer=o)
-        expected = ("Cannot load state of an un-initialized optimizer. "
+        expected = ("Cannot load state of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
         assert exc.value.args[0] == expected
@@ -729,7 +800,7 @@ class TestNeuralNet:
 
         with pytest.raises(NotInitializedError) as exc:
             net.save_params(f_params=str(p))
-        expected = ("Cannot save parameters of an un-initialized model. "
+        expected = ("Cannot save state of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
         assert exc.value.args[0] == expected
@@ -743,7 +814,7 @@ class TestNeuralNet:
 
         with pytest.raises(NotInitializedError) as exc:
             net.load_params(f_params=str(p))
-        expected = ("Cannot load parameters of an un-initialized model. "
+        expected = ("Cannot load state of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
         assert exc.value.args[0] == expected
@@ -2474,10 +2545,10 @@ class TestNeuralNet:
         assert 'mymodule' not in net_cls.prefixes_
         assert 'mymodule_' not in net_cls.cuda_dependent_attributes_
 
-    def test_set_params_on_custom_module(self, net_cls, module_cls):
-        # set_params requires the prefixes_ attribute to be correctly
-        # set, which is what is tested here
+    @pytest.fixture
+    def net_custom_module_cls(self, net_cls, module_cls):
         class MyNet(net_cls):
+            """Net with custom attribute mymodule"""
             def __init__(self, *args, mymodule=module_cls, **kwargs):
                 self.mymodule = mymodule
                 super().__init__(*args, **kwargs)
@@ -2490,13 +2561,37 @@ class TestNeuralNet:
 
                 return self
 
-        net = MyNet(module_cls, mymodule__hidden_units=77).initialize()
+        return MyNet
+
+    def test_set_params_on_custom_module(self, net_custom_module_cls, module_cls):
+        # set_params requires the prefixes_ attribute to be correctly
+        # set, which is what is tested here
+        net = net_custom_module_cls(module_cls, mymodule__hidden_units=77).initialize()
         hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 77
 
         net.set_params(mymodule__hidden_units=99)
         hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 99
+
+    def test_save_load_state_dict_custom_module(
+            self, net_custom_module_cls, module_cls, tmpdir):
+        # test that we can store and load an arbitrary attribute like 'mymodule'
+        net = net_custom_module_cls(module_cls).initialize()
+        weights_before = net.mymodule_.state_dict()['sequential.3.weight']
+        tmpdir_mymodule = str(tmpdir.mkdir('skorch').join('mymodule.pkl'))
+        net.save_params(f_mymodule=tmpdir_mymodule)
+        del net
+
+        # initialize a new net, weights should differ
+        net_new = net_custom_module_cls(module_cls).initialize()
+        weights_new = net_new.mymodule_.state_dict()['sequential.3.weight']
+        assert not (weights_before == weights_new).all()
+
+        # after loading, weights should be the same again
+        net_new.load_params(f_mymodule=tmpdir_mymodule)
+        weights_loaded = net_new.mymodule_.state_dict()['sequential.3.weight']
+        assert (weights_before == weights_loaded).all()
 
     @pytest.mark.parametrize("needs_y, train_split, raises", [
         (False, None, ExitStack()),  # ExitStack = does not raise
