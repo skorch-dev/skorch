@@ -289,7 +289,14 @@ class TestNeuralNetBinaryClassifier:
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch, "sigmoid", mock)
 
-        net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss)
+        # add a custom nonlinearity - note that the output must return
+        # a 2d array from a 1d vector to conform to the required
+        # y_proba
+        def nonlin(x):
+            return torch.stack((1 - x, x), 1)
+
+        net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss,
+                      predict_nonlinearity=nonlin)
         X, y = data
         net.fit(X, y)
 

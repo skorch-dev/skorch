@@ -803,3 +803,69 @@ class TestTeeGenerator:
 
         assert first_return == expected_list
         assert second_return == expected_list
+
+
+class TestInferPredictNonlinearity:
+    @pytest.fixture
+    def infer_predict_nonlinearity(self):
+        from skorch.utils import _infer_predict_nonlinearty
+        return _infer_predict_nonlinearty
+
+    @pytest.fixture
+    def net_clf_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def net_bin_clf_cls(self):
+        from skorch import NeuralNetBinaryClassifier
+        return NeuralNetBinaryClassifier
+
+    @pytest.fixture
+    def net_regr_cls(self):
+        from skorch import NeuralNetRegressor
+        return NeuralNetRegressor
+
+    def test_infer_neural_net_classifier_default(
+            self, infer_predict_nonlinearity, net_clf_cls, module_cls):
+        # default NeuralNetClassifier: no output nonlinearity
+        net = net_clf_cls(module_cls).initialize()
+        fn = infer_predict_nonlinearity(net)
+
+        X = np.random.random((20, 5))
+        out = fn(X)
+        assert out is X
+
+    def test_infer_neural_net_classifier_crossentropy_loss(
+            self, infer_predict_nonlinearity, net_clf_cls, module_cls):
+        # CrossEntropyLoss criteron: nonlinearity should return valid probabilities
+        net = net_clf_cls(module_cls, criterion=torch.nn.CrossEntropyLoss).initialize()
+        fn = infer_predict_nonlinearity(net)
+
+        X = torch.rand((20, 5))
+        out = fn(X).numpy()
+        assert np.allclose(out.sum(axis=1), 1.0)
+        assert ((0 <= out) & (out <= 1.0)).all()
+
+    def test_infer_neural_binary_net_classifier_default(
+            self, infer_predict_nonlinearity, net_bin_clf_cls, module_cls):
+        # BCEWithLogitsLoss should return valid probabilities
+        net = net_bin_clf_cls(module_cls).initialize()
+        fn = infer_predict_nonlinearity(net)
+
+        X = torch.rand(20)  # binary classifier returns 1-dim output
+        X = 10 * X - 5.0  # random values from -5 to 5
+        out = fn(X).numpy()
+        assert out.shape == (20, 2)  # output should be 2-dim
+        assert np.allclose(out.sum(axis=1), 1.0)
+        assert ((0 <= out) & (out <= 1.0)).all()
+
+    def test_infer_neural_net_regressor_default(
+            self, infer_predict_nonlinearity, net_regr_cls, module_cls):
+        # default NeuralNetRegressor: no output nonlinearity
+        net = net_regr_cls(module_cls).initialize()
+        fn = infer_predict_nonlinearity(net)
+
+        X = np.random.random((20, 5))
+        out = fn(X)
+        assert out is X

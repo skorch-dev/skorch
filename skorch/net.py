@@ -22,6 +22,8 @@ from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.history import History
 from skorch.setter import optimizer_setter
+from skorch.utils import _identity
+from skorch.utils import _infer_predict_nonlinearty
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import TeeGenerator
 from skorch.utils import check_is_fitted
@@ -152,6 +154,33 @@ class NeuralNet:
       ``net.set_params(callbacks__print_log__keys_ignored=['epoch',
       'train_loss'])``).
 
+    predict_nonlinearity : callable, None, or 'auto' (default='auto')
+      The nonlinearity to be applied to the prediction. When set to
+      'auto', infers the correct nonlinearity based on the criterion
+      (softmax for :class:`~torch.nn.CrossEntropyLoss` and sigmoid for
+      :class:`~torch.nn.BCEWithLogitsLoss`). If it cannot be inferred
+      or if the parameter is None, just use the identity
+      function. Don't pass a lambda function if you want the net to be
+      pickleable.
+
+      In case a callable is passed, it should accept the output of the
+      module (the first output if there is more than one), which is a
+      PyTorch tensor, and return the transformed PyTorch tensor.
+
+      This can be useful, e.g., when
+      :func:`~skorch.NeuralNetClassifier.predict_proba`
+      should return probabilities but a criterion is used that does
+      not expect probabilities. In that case, the module can return
+      whatever is required by the criterion and the
+      ``predict_nonlinearity`` transforms this output into
+      probabilities.
+
+      The nonlinearity is applied only when calling
+      :func:`~skorch.classifier.NeuralNetClassifier.predict` or
+      :func:`~skorch.classifier.NeuralNetClassifier.predict_proba` but
+      not anywhere else -- notably, the loss is unaffected by this
+      nonlinearity.
+
     warm_start : bool (default=False)
       Whether each fit call should lead to a re-initialization of the
       module (cold start) or whether the module should be trained
@@ -213,6 +242,7 @@ class NeuralNet:
             dataset=Dataset,
             train_split=CVSplit(5),
             callbacks=None,
+            predict_nonlinearity='auto',
             warm_start=False,
             verbose=1,
             device='cpu',
@@ -229,6 +259,7 @@ class NeuralNet:
         self.dataset = dataset
         self.train_split = train_split
         self.callbacks = callbacks
+        self.predict_nonlinearity = predict_nonlinearity
         self.warm_start = warm_start
         self.verbose = verbose
         self.device = device
@@ -1010,6 +1041,45 @@ class NeuralNet:
             return self.module_(**x_dict)
         return self.module_(x, **fit_params)
 
+    def _get_predict_nonlinearity(self):
+        """Return the nonlinearity to be applied to the prediction
+
+        This can be useful, e.g., when
+        :func:`~skorch.classifier.NeuralNetClassifier.predict_proba`
+        should return probabilities but a criterion is used that does
+        not expect probabilities. In that case, the module can return
+        whatever is required by the criterion and the
+        ``predict_nonlinearity`` transforms this output into
+        probabilities.
+
+        The nonlinearity is applied only when calling
+        :func:`~skorch.classifier.NeuralNetClassifier.predict` or
+        :func:`~skorch.classifier.NeuralNetClassifier.predict_proba`
+        but not anywhere else -- notably, the loss is unaffected by
+        this nonlinearity.
+
+        Raises
+        ------
+        TypeError
+          Raise a TypeError if the return value is not callable.
+
+        Returns
+        -------
+        nonlin : callable
+          A callable that takes a single argument, which is a PyTorch
+          tensor, and returns a PyTorch tensor.
+
+        """
+        self.check_is_fitted()
+        nonlin = self.predict_nonlinearity
+        if nonlin is None:
+            nonlin = _identity
+        elif nonlin == 'auto':
+            nonlin = _infer_predict_nonlinearty(self)
+        if not callable(nonlin):
+            raise TypeError("predict_nonlinearity has to be a callable, 'auto' or None")
+        return nonlin
+
     def predict_proba(self, X):
         """Return the output of the module's forward method as a numpy
         array.
@@ -1041,9 +1111,11 @@ class NeuralNet:
         y_proba : numpy ndarray
 
         """
+        nonlin = self._get_predict_nonlinearity()
         y_probas = []
         for yp in self.forward_iter(X, training=False):
             yp = yp[0] if isinstance(yp, tuple) else yp
+            yp = nonlin(yp)
             y_probas.append(to_numpy(yp))
         y_proba = np.concatenate(y_probas, 0)
         return y_proba
