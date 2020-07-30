@@ -240,6 +240,7 @@ PyTorch versions:
 - 1.3.1
 - 1.4.0
 - 1.5.0
+- 1.6.0
 
 In general, this should work (assuming CUDA 9):
 
