@@ -14,6 +14,7 @@ import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
 import sys
+import time
 from contextlib import ExitStack
 
 from flaky import flaky
@@ -2208,8 +2209,11 @@ class TestNeuralNet:
         assert net.history[:, "train_batch_count"] == [train_batch_count]
         assert net.history[:, "valid_batch_count"] == [valid_batch_count]
 
-    @flaky(max_runs=3)
+    @flaky(max_runs=5)
     def test_fit_lbfgs_optimizer(self, net_cls, module_cls, data):
+        # need to randomize the seed, otherwise flaky always runs with
+        # the exact same seed
+        torch.manual_seed(time.time_ns())
         X, y = data
         net = net_cls(
             module_cls,
@@ -2763,7 +2767,6 @@ class TestNetSparseInput:
         assert score_start > 1.25 * score_end
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
-    @flaky(max_runs=3)
     def test_fit_sparse_csr_learns_cuda(self, model, X, y):
         model.set_params(net__device='cuda')
         model.fit(X, y)
