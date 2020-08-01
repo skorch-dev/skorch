@@ -2213,7 +2213,7 @@ class TestNeuralNet:
     def test_fit_lbfgs_optimizer(self, net_cls, module_cls, data):
         # need to randomize the seed, otherwise flaky always runs with
         # the exact same seed
-        torch.manual_seed(time.time_ns())
+        torch.manual_seed(int(time.time()))
         X, y = data
         net = net_cls(
             module_cls,
