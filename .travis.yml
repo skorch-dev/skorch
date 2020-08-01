@@ -1,7 +1,7 @@
 language: python
 dist: xenial
 python:
-  - "3.7.5"
+  - "3.7"
   - "3.6"
   - "3.5"  # TODO: drop support in 0.10.0
 env:
@@ -11,6 +11,10 @@ env:
   - PYTORCH_VERSION="1.4.0"
   - PYTORCH_VERSION="1.5.0"
   - PYTORCH_VERSION="1.6.0"
+jobs:
+  exclude:
+  - python: "3.5"
+    env: PYTORCH_VERSION="1.6.0"
 
 cache:
   apt: true
