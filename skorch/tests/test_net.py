@@ -292,7 +292,6 @@ class TestNeuralNet:
             args = check.call_args_list[0][0][1]
             assert args == attributes
 
-    @flaky(max_runs=3)
     def test_net_learns(self, net_cls, module_cls, data):
         X, y = data
         net = net_cls(
@@ -2755,7 +2754,6 @@ class TestNetSparseInput:
         return np.array(
             [1 if (' def ' in x) or (' assert ' in x) else 0 for x in X])
 
-    @flaky(max_runs=3)
     def test_fit_sparse_csr_learns(self, model, X, y):
         model.fit(X, y)
         net = model.steps[-1][1]
