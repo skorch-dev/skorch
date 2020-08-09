@@ -429,7 +429,7 @@ the integers representing the tokens for each sample, and another
 array containing the number of tokens of each sample. skorch has you
 covered here as well.
 
-You could a list or tuple with all your inputs (``net.fit([tokens,
+You could supply a list or tuple with all your inputs (``net.fit([tokens,
 num_tokens], y)``), but we actually recommend another approach. The best
 way is to pass the different arguments as a dictionary. Then the keys
 of that dictionary have to correspond to the argument names of your
