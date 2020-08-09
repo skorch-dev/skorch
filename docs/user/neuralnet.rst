@@ -388,6 +388,83 @@ e.g. :class:`.Checkpoint`. Those should be used if you need to have
 your model saved or loaded at specific times, e.g. at the start or end
 of the training process.
 
+Input data
+----------
+
+Regular data
+^^^^^^^^^^^^
+
+skorch supports numerous input types for data. Regular input types
+that should just work are numpy arrays, torch tensors, scipy sparse
+CSR matrices, and pandas DataFrames (see also
+:class:`~skorch.helper.DataFrameTransformer`).
+
+Typically, your task should involve an ``X`` and a ``y``. If you're
+dealing with a task that doesn't require a target (say, training an
+autoencoder), you can just pass ``y=None``. Make sure your loss
+function deals with this appropriately.
+
+Datasets
+^^^^^^^^
+
+:class:`~torch.utils.data.Dataset`\s are also supported, with the
+requirement that they should return exactly two items (``X`` and
+``y``). For more information on that, take a look at the
+:ref:`Dataset` documentation.
+
+Many PyTorch libraries, like torchvision, implement their own
+``Dataset``\s. These usually work seamlessly with skorch, as long as
+their ``__getitem__`` methods return two outputs. In case they don't,
+consider overriding the ``__getitem__`` class and re-arranging the
+ouputs so that ``__getitem__`` returns exactly two elements. If the
+original implementation returns more than two elements, take a look at
+the next section to get an idea how to deal with that.
+
+Multiple input arguments
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+In some cases, the input actually consists of multiple inputs. E.g.,
+in a text classification task, you might have an array that contains
+the integers representing the tokens for each sample, and another
+array containing the number of tokens of each sample. skorch has you
+covered here as well.
+
+You could supply a list or tuple with all your inputs (``net.fit([tokens,
+num_tokens], y)``), but we actually recommend another approach. The best
+way is to pass the different arguments as a dictionary. Then the keys
+of that dictionary have to correspond to the argument names of your
+module's ``forward`` method. Below is an example:
+
+.. code:: python
+
+    X_dict = {'tokens': tokens, 'num_tokens': num_tokens}
+
+    class MyModule(nn.Module):
+        def forward(self, tokens, num_tokens):  # <- same names as in your dict
+            ...
+
+    net = NeuralNet(MyModule, ...)
+    net.fit(X_dict, y)
+
+As you can see, the ``forward`` method takes arguments with exactly
+the same name as the keys in the dictionary. This is how the different
+inputs are matched. To make this work with
+:class:`~sklearn.model_selection.GridSearchCV`, please use
+:class:`~skorch.helper.SliceDict`.
+
+Using a dict should cover most use cases that involve multiple
+inputs. However, it will fail if your inputs have different
+sizes. E.g., if your array of tokens has 1000 elements but your array
+of number of tokens has 2000 elements, this would fail. The main
+reason for this is batching: How can we know which elements of the two
+arrays belong in the same batch?
+
+If your input consists of multiple inputs with different sizes, your
+best bet is to implement your own dataset class. That class should
+know how it deals with the different inputs, i.e. which elements
+belong to the same sample. Again, please refer to the :ref:`Dataset`
+section for more details.
+
 Special arguments
 -----------------
 
