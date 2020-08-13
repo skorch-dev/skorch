@@ -4,11 +4,9 @@ Only contains tests that are specific for regressor subclasses.
 
 """
 
-from flaky import flaky
 import numpy as np
 import pytest
 from sklearn.base import clone
-import torch
 
 from skorch.tests.conftest import INFERENCE_METHODS
 
@@ -77,7 +75,6 @@ class TestNeuralNetRegressor:
                "before using this method.")
         assert exc.value.args[0] == msg
 
-    @flaky(max_runs=3)
     def test_net_learns(self, net, net_cls, data, module_cls):
         X, y = data
         net = net_cls(

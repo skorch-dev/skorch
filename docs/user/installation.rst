@@ -87,19 +87,24 @@ PyTorch
 PyTorch is not covered by the dependencies, since the PyTorch version
 you need is dependent on your OS and device. For installation
 instructions for PyTorch, visit the `PyTorch website
-<http://pytorch.org/>`__. skorch officially supports the following
-PyTorch versions:
+<http://pytorch.org/>`__. skorch officially supports the last four
+minor PyTorch versions, which currently are:
 
-- 1.1.0
-- 1.2.0
 - 1.3.1
 - 1.4.0
+- 1.5.1
+- 1.6.0
 
-In general, this should work (assuming CUDA 9):
+However, that doesn't mean that older versions don't work, just that
+they aren't tested. Since skorch mostly relies on the stable part of
+the PyTorch API, older PyTorch versions should work fine.
+
+In general, running this to install PyTorch should work (assuming CUDA
+10.2):
 
 .. code:: bash
 
     # using conda:
-    conda install pytorch cudatoolkit=9 -c pytorch
+    conda install pytorch cudatoolkit==10.2 -c pytorch
     # using pip
     pip install torch

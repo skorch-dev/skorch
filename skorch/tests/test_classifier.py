@@ -6,7 +6,6 @@ Only contains tests that are specific for classifier subclasses.
 
 from unittest.mock import Mock
 
-from flaky import flaky
 import numpy as np
 import pytest
 import torch
@@ -215,7 +214,6 @@ class TestNeuralNetBinaryClassifier:
                "before using this method.")
         assert exc.value.args[0] == msg
 
-    @flaky(max_runs=3)
     def test_net_learns(self, net_cls, module_cls, data):
         X, y = data
         net = net_cls(
