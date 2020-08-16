@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.9.0] - 2020-08-17
+
+### Added
+
 - Added the `event_name` argument for `LRScheduler` for optional recording of LR changes inside `net.history`. NOTE: Supported only in Pytorch>=1.4
 - Make it easier to add custom modules or optimizers to a neural net class by automatically registering them where necessary and by making them available to set_params
 - Added the `step_every` argument for `LRScheduler` to set whether the scheduler step should be taken on every epoch or on every batch.
@@ -34,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a bug introduced by moving the `optimizer.zero_grad()` call outside of the train step function, making it incompatible with LBFGS and other optimizers that call the train step several times per batch (#636)
 - Fixed pickling of the `ProgressBar` callback (#656)
 
-## [0.8.0] - 2019-04-11
+## [0.8.0] - 2020-04-11
 
 ### Added
 
@@ -206,9 +214,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the net was configured to use the CPU (#354, #358)
 
 
-[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.9.0...HEAD
 [0.4.0]: https://github.com/skorch-dev/skorch/compare/v0.3.0...v0.4.0
 [0.5.0]: https://github.com/skorch-dev/skorch/compare/v0.4.0...v0.5.0
 [0.6.0]: https://github.com/skorch-dev/skorch/compare/v0.5.0...v0.6.0
 [0.7.0]: https://github.com/skorch-dev/skorch/compare/v0.6.0...v0.7.0
 [0.8.0]: https://github.com/skorch-dev/skorch/compare/v0.7.0...v0.8.0
+[0.9.0]: https://github.com/skorch-dev/skorch/compare/v0.8.0...v0.9.0
