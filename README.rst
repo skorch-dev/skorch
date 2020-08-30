@@ -254,6 +254,24 @@ In general, running this to install PyTorch should work (assuming CUDA
     # using pip
     pip install torch
 
+==================
+External resources
+==================
+
+- @githubnemo: `poster <https://github.com/githubnemo/skorch-poster>`_
+  for the PyTorch developer conference 2019
+- @thomasjpfan: `talk <https://www.youtube.com/watch?v=yAXsxf2CQ8M>`_
+  "Skorch - A Union of Scikit-learn and PyTorch" at PyData 2018
+- @thomasjpfan: `talk <https://www.youtube.com/watch?v=0J7FaLk0bmQ>`_
+  "Skorch: A Union of Scikit learn and PyTorch" at SciPy 2019
+- @BenjaminBossan: `https://www.youtube.com/watch?v=Qbu_DCBjVEk
+  <talk>`_ "skorch: A scikit-learn compatible neural network library"
+  at PyCon/PyData 2019
+- @jakubczakon: `blog post
+  <https://neptune.ai/blog/model-training-libraries-pytorch-ecosystem>`_
+  "8 Creators and Core Contributors Talk About Their Model Training
+  Libraries From PyTorch Ecosystem" 2020
+
 =============
 Communication
 =============
