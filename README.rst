@@ -264,9 +264,9 @@ External resources
   "Skorch - A Union of Scikit-learn and PyTorch" at PyData 2018
 - @thomasjpfan: `talk <https://www.youtube.com/watch?v=0J7FaLk0bmQ>`_
   "Skorch: A Union of Scikit learn and PyTorch" at SciPy 2019
-- @BenjaminBossan: `https://www.youtube.com/watch?v=Qbu_DCBjVEk
-  <talk>`_ "skorch: A scikit-learn compatible neural network library"
-  at PyCon/PyData 2019
+- @BenjaminBossan: `talk
+  <https://www.youtube.com/watch?v=Qbu_DCBjVEk>`_ "skorch: A
+  scikit-learn compatible neural network library" at PyCon/PyData 2019
 - @jakubczakon: `blog post
   <https://neptune.ai/blog/model-training-libraries-pytorch-ecosystem>`_
   "8 Creators and Core Contributors Talk About Their Model Training
