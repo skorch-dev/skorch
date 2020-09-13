@@ -55,6 +55,10 @@ if __name__ == '__main__':
 
 ```
 
+Note: The function you pass to `fire.Fire` shouldn't have any
+positional arguments, otherwise the displayed help will not work
+correctly; this is a quirk of fire.
+
 This even works if your neural net is part of an sklearn pipeline, in
 which case the help extends to all other estimators of your pipeline.
 

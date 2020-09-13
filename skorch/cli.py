@@ -161,7 +161,8 @@ def _yield_preproc_steps(model):
     if not isinstance(model, Pipeline):
         return
 
-    for key, val in model.get_params().items():
+    preproc_pipe = Pipeline(model.steps[:-1])
+    for key, val in preproc_pipe.get_params().items():
         if isinstance(val, BaseEstimator):
             if not isinstance(val, (Pipeline, FeatureUnion)):
                 yield key, val
@@ -190,7 +191,12 @@ def _yield_estimators(model):
 
     yield '__'.join(net_prefixes), net
 
-    module = net.module
+    module = getattr(net, 'module', None)
+    if not module:
+        # There is no module attribute, we're dealing with a normal
+        # scikit-learn estimator, so no need to show further help.
+        return
+
     module_prefixes.append('module')
     yield '__'.join(module_prefixes), module
 
@@ -293,6 +299,13 @@ def parse_args(kwargs, defaults=None):
     >>>
     >>> if __name__ == '__main__':
     >>>     fire.Fire(main)
+
+
+    Note
+    ----
+    The function you pass to `fire.Fire` shouldn't have any positional
+    arguments, otherwise the displayed help will not correctly work;
+    this is a quirk of fire.
 
     Parameters
     ----------
