@@ -584,7 +584,7 @@ def _sigmoid_then_2d(x):
     return y_proba
 
 
-def _infer_predict_nonlinearty(net):
+def _infer_predict_nonlinearity(net):
     """Infers the correct nonlinearity to apply for this net
 
     The nonlinearity is applied only when calling
