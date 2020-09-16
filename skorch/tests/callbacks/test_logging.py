@@ -215,8 +215,12 @@ class TestWandb:
     def wandb_run_cls(self):
         import wandb
         os.environ['WANDB_MODE'] = 'dryrun' # run offline
-        with wandb.init(anonymous="allow") as run:
-            return run
+        wandb_version = tuple(map(int, wandb.__version__.split('.')[:2]))
+        if wandb_version >= (0, 10):
+            return wandb.init(anonymous="allow")
+        else:
+            with wandb.init(anonymous="allow") as run:
+                return run
 
     @pytest.fixture
     def mock_run(self):
