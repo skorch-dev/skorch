@@ -23,7 +23,7 @@ from skorch.exceptions import DeviceWarning
 from skorch.history import History
 from skorch.setter import optimizer_setter
 from skorch.utils import _identity
-from skorch.utils import _infer_predict_nonlinearty
+from skorch.utils import _infer_predict_nonlinearity
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import TeeGenerator
 from skorch.utils import _check_f_arguments
@@ -1081,7 +1081,7 @@ class NeuralNet:
         if nonlin is None:
             nonlin = _identity
         elif nonlin == 'auto':
-            nonlin = _infer_predict_nonlinearty(self)
+            nonlin = _infer_predict_nonlinearity(self)
         if not callable(nonlin):
             raise TypeError("predict_nonlinearity has to be a callable, 'auto' or None")
         return nonlin
