@@ -1,4 +1,10 @@
-"""Neural net classes."""
+"""Neural net base class
+
+This is the most flexible class, not making assumptions on the kind of
+task being peformed. Subclass this to create more specialized and
+sklearn-conforming classes like NeuralNetClassifier.
+
+"""
 
 import fnmatch
 from itertools import chain

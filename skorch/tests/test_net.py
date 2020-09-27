@@ -468,12 +468,14 @@ class TestNeuralNet:
             pickle.load(f)
 
     def test_save_params_invalid_argument_name_raises(self, net_fit):
-        msg = "save_params got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        msg = ("save_params got an unexpected argument 'foobar', "
+               "did you mean 'f_foobar'?")
         with pytest.raises(TypeError, match=msg):
             net_fit.save_params(foobar='some-file.pt')
 
     def test_load_params_invalid_argument_name_raises(self, net_fit):
-        msg = "load_params got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        msg = ("load_params got an unexpected argument 'foobar', "
+               "did you mean 'f_foobar'?")
         with pytest.raises(TypeError, match=msg):
             net_fit.load_params(foobar='some-file.pt')
 
@@ -588,8 +590,8 @@ class TestNeuralNet:
             orig_steps = [v['step'] for v in
                           net_fit_criterion.optimizer_.state_dict()['state'].values()]
             orig_loss = np.array(net_fit_criterion.history[:, 'train_loss'])
-            orig_criterion_weight = dict(net_fit_criterion.criterion_.named_parameters())[
-                'sequential.0.weight']
+            orig_criterion_weight = dict(
+                net_fit_criterion.criterion_.named_parameters())['sequential.0.weight']
             del net_fit_criterion
 
         with ExitStack() as stack:
@@ -598,7 +600,10 @@ class TestNeuralNet:
             c_fp = stack.enter_context(open(str(c), 'rb'))
             h_fp = stack.enter_context(open(str(h), 'r'))
             new_net = net_cls(
-                module_cls, criterion=module_cls, optimizer=torch.optim.Adam).initialize()
+                module_cls,
+                criterion=module_cls,
+                optimizer=torch.optim.Adam,
+            ).initialize()
             new_net.load_params(
                 f_params=p_fp, f_optimizer=o_fp, f_criterion=c_fp, f_history=h_fp)
 
@@ -2192,6 +2197,7 @@ class TestNeuralNet:
         assert train_batch_size == expected_train_batch_size
         assert valid_batch_size == expected_valid_batch_size
 
+        # pylint: disable=unsubscriptable-object
         train_kwargs = train_loader_mock.call_args[1]
         valid_kwargs = valid_loader_mock.call_args[1]
         assert train_kwargs['batch_size'] == expected_train_batch_size
@@ -2304,6 +2310,7 @@ class TestNeuralNet:
 
         net.fit(train_ds, None)
 
+        # pylint: disable=unsubscriptable-object
         train_loader_ds = train_loader_mock.call_args[0][0]
         valid_loader_ds = valid_loader_mock.call_args[0][0]
 
@@ -2422,6 +2429,7 @@ class TestNeuralNet:
                 # This is not necessary for gradient accumulation but
                 # only for testing purposes
                 super().initialize()
+                # pylint: disable=access-member-before-definition
                 self.true_optimizer_ = self.optimizer_
                 mock_optimizer.step.side_effect = self.true_optimizer_.step
                 mock_optimizer.zero_grad.side_effect = self.true_optimizer_.zero_grad
@@ -2580,6 +2588,7 @@ class TestNeuralNet:
                 super().initialize_module(*args, **kwargs)
 
                 params = self.get_params_for('mymodule')
+                # pylint: disable=attribute-defined-outside-init
                 self.mymodule_ = self.mymodule(**params)
 
                 return self
@@ -2724,7 +2733,8 @@ class TestNeuralNet:
         ).initialize()
 
         rv = np.random.random((20, 5))
-        net.forward_iter = lambda *args, **kwargs: (torch.as_tensor(rv) for _ in range(2))
+        net.forward_iter = (
+            lambda *args, **kwargs: (torch.as_tensor(rv) for _ in range(2)))
 
         # 2 batches, mock return value has shape 20,5 thus y_proba has
         # shape 40,5

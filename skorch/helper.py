@@ -4,7 +4,6 @@ They should not be used in skorch directly.
 
 """
 from collections import Sequence
-from collections import namedtuple
 from functools import partial
 
 import numpy as np
@@ -12,7 +11,7 @@ from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 import torch
 
-from skorch.cli import parse_args
+from skorch.cli import parse_args  # pylint: disable=unused-import
 from skorch.utils import _make_split
 from skorch.utils import is_torch_data_type
 from skorch.utils import to_tensor

@@ -147,9 +147,8 @@ class ScoringBase(Callback):
             if hasattr(self.scoring_._score_func, '__name__'):
                 # sklearn < 0.22
                 return self.scoring_._score_func.__name__
-            else:
-                # sklearn >= 0.22
-                return self.scoring_._score_func._score_func.__name__
+            # sklearn >= 0.22
+            return self.scoring_._score_func._score_func.__name__
         if isinstance(self.scoring_, dict):
             raise ValueError("Dict not supported as scorer for multi-metric scoring."
                              " Register multiple scoring callbacks instead.")

@@ -15,7 +15,6 @@ from skorch.callbacks import PassthroughScoring
 from skorch.dataset import CVSplit
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
-from skorch.utils import to_numpy
 
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks
@@ -117,6 +116,7 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
                    "respectively.")
             raise ValueError(msg)
         if y is not None:
+            # pylint: disable=attribute-defined-outside-init
             self.classes_inferred_ = np.unique(y)
 
     # pylint: disable=arguments-differ

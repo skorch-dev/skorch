@@ -153,7 +153,7 @@ class LRScheduler(Callback):
         )
 
     def on_epoch_end(self, net, **kwargs):
-        if not self.step_every == 'epoch':
+        if self.step_every != 'epoch':
             return
         epoch = len(net.history)
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
@@ -177,7 +177,7 @@ class LRScheduler(Callback):
             self.lr_scheduler_.step(epoch)
 
     def on_batch_end(self, net, training, **kwargs):
-        if not training or not self.step_every == 'batch':
+        if not training or self.step_every != 'batch':
             return
         if self.event_name is not None and hasattr(
                 self.lr_scheduler_, "get_last_lr"):
@@ -253,7 +253,7 @@ class WarmRestartLR(_LRScheduler):
 
     def _get_current_lr(self, min_lr, max_lr, period, epoch):
         return min_lr + 0.5 * (max_lr - min_lr) * (
-                1 + np.cos(epoch * np.pi / period))
+            1 + np.cos(epoch * np.pi / period))
 
     def get_lr(self):
         epoch_idx = float(self.last_epoch)
