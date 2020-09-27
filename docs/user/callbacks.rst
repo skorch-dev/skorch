@@ -67,16 +67,16 @@ on_epoch_end(net, dataset_train, dataset_valid)
 Called once at the end of the epoch, i.e. possibly several times per
 fit call. Gets training and validation data as additional input.
 
-on_batch_begin(net, Xi, yi, training)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+on_batch_begin(net, batch, training)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Called once before each batch of data is processed, i.e. possibly
 several times per epoch. Gets batch data as additional input.
 Also includes a bool indicating if this is a training batch or not.
 
 
-on_batch_end(net, Xi, yi, training, loss, y_pred)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+on_batch_end(net, batch, training, loss, y_pred)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Called once after each batch of data is processed, i.e. possibly
 several times per epoch. Gets batch data as additional input.

@@ -77,17 +77,6 @@ def get_len(data):
     return list(len_set)[0]
 
 
-def uses_placeholder_y(ds):
-    """If ``ds`` is a ``skorch.dataset.Dataset`` or a
-    ``skorch.dataset.Dataset`` nested inside a
-    ``torch.utils.data.Subset`` and uses
-    y as a placeholder, return ``True``."""
-
-    if isinstance(ds, torch.utils.data.Subset):
-        return uses_placeholder_y(ds.dataset)
-    return isinstance(ds, Dataset) and hasattr(ds, "y") and ds.y is None
-
-
 def unpack_data(data):
     """Unpack data returned by the net's iterator into a 2-tuple.
 

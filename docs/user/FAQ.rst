@@ -305,7 +305,7 @@ gradient accumulation yourself:
             loss = super().get_loss(*args, **kwargs)
             return loss / self.acc_steps  # normalize loss
 
-        def train_step(self, Xi, yi, **fit_params):
+        def train_step(self, batch, **fit_params):
             """Perform gradient accumulation
 
             Only optimize every nth batch.
@@ -313,7 +313,7 @@ gradient accumulation yourself:
             """
             # note that n_train_batches starts at 1 for each epoch
             n_train_batches = len(self.history[-1, 'batches'])
-            step = self.train_step_single(Xi, yi, **fit_params)
+            step = self.train_step_single(batch, **fit_params)
 
             if n_train_batches % self.acc_steps == 0:
                 self.optimizer_.step()

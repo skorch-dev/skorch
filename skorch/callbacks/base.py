@@ -44,12 +44,10 @@ class Callback:
                      dataset_train=None, dataset_valid=None, **kwargs):
         """Called at the end of each epoch."""
 
-    def on_batch_begin(self, net,
-                       X=None, y=None, training=None, **kwargs):
+    def on_batch_begin(self, net, batch=None, training=None, **kwargs):
         """Called at the beginning of each batch."""
 
-    def on_batch_end(self, net,
-                     X=None, y=None, training=None, **kwargs):
+    def on_batch_end(self, net, batch=None, training=None, **kwargs):
         """Called at the end of each batch."""
 
     def on_grad_computed(self, net, named_parameters,

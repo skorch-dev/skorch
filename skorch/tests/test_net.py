@@ -2160,7 +2160,8 @@ class TestNeuralNet:
 
         net = net_cls(module_cls).initialize()
         Xi = to_tensor(data[0][:3], device='cpu')
-        y_eval = net.evaluation_step(Xi, training=training)
+        batch = Xi, None
+        y_eval = net.evaluation_step(batch, training=training)
 
         assert y_eval.requires_grad is training
 
@@ -2431,7 +2432,7 @@ class TestNeuralNet:
                 # because only every nth step is optimized
                 return loss / self.acc_steps
 
-            def train_step(self, Xi, yi, **fit_params):
+            def train_step(self, batch, **fit_params):
                 """Perform gradient accumulation
 
                 Only optimize every 2nd batch.
@@ -2439,7 +2440,7 @@ class TestNeuralNet:
                 """
                 # note that n_train_batches starts at 1 for each epoch
                 n_train_batches = len(self.history[-1, 'batches'])
-                step = self.train_step_single(Xi, yi, **fit_params)
+                step = self.train_step_single(batch, **fit_params)
 
                 if n_train_batches % self.acc_steps == 0:
                     self.optimizer_.step()
@@ -2742,6 +2743,83 @@ class TestNeuralNet:
 
         with pytest.raises(TypeError, match=msg):
             net.predict_proba(np.zeros((3, 3)))
+
+    def test_customize_net_with_custom_dataset_that_returns_3_values(self, data):
+        # Test if it's possible to easily customize NeuralNet to work
+        # with Datasets that don't return 2 values. This way, a user
+        # can more easily customize the net and use his or her own
+        # datasets.
+        from skorch import NeuralNet
+        from skorch.utils import to_tensor
+
+        class MyDataset(torch.utils.data.Dataset):
+            """Returns 3 elements instead of 2"""
+            def __init__(self, X, y):
+                self.X = X
+                self.y = y
+
+            def __getitem__(self, i):
+                x = self.X[i]
+                if self.y is None:
+                    return x[:5], x[5:]
+                y = self.y[i]
+                return x[:5], x[5:], y
+
+            def __len__(self):
+                return len(self.X)
+
+        class MyModule(nn.Module):
+            """Module that takes 2 inputs"""
+            def __init__(self):
+                super().__init__()
+                self.lin = nn.Linear(20, 2)
+
+            def forward(self, x0, x1):
+                x = torch.cat((x0, x1), axis=1)
+                return self.lin(x)
+
+        class MyNet(NeuralNet):
+            """Override train_step_single and validation_step"""
+            def train_step_single(self, batch, **fit_params):
+
+                self.module_.train()
+                x0, x1, yi = batch
+                x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
+                y_pred = self.module_(x0, x1)
+                loss = self.criterion_(y_pred, yi)
+                loss.backward()
+                return {'loss': loss, 'y_pred': y_pred}
+
+            def validation_step(self, batch, **fit_params):
+                self.module_.eval()
+                x0, x1, yi = batch
+                x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
+                y_pred = self.module_(x0, x1)
+                loss = self.criterion_(y_pred, yi)
+                return {'loss': loss, 'y_pred': y_pred}
+
+            def evaluation_step(self, batch, training=False):
+                self.check_is_fitted()
+                x0, x1 = batch
+                x0, x1 = to_tensor((x0, x1), device=self.device)
+                with torch.set_grad_enabled(training):
+                    self.module_.train(training)
+                    return self.module_(x0, x1)
+
+        net = MyNet(
+            MyModule,
+            lr=0.1,
+            dataset=MyDataset,
+            criterion=lambda: nn.functional.cross_entropy,
+        )
+        X, y = data[0][:100], data[1][:100]
+        net.fit(X, y)
+
+        # net learns
+        assert net.history[-1, 'train_loss'] < 0.75 * net.history[0, 'train_loss']
+
+        y_pred = net.predict(X)
+        assert y_pred.shape == (100, 2)
 
 
 class TestNetSparseInput:
