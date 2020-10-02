@@ -135,8 +135,10 @@ support for wildcards (globbing):
         ('linear0.bias', {'lr': 1}),
     ]
 
-If your use case requires you to use a non-default PyTorch optimizer then
-you can create a method and assign it to optimizer property:
+Your use case may require an optimizer whose signature differs from a 
+default PyTorch optimizer's signature. In that case, you can define a 
+custom function that reroutes the arguments as needed and pass it to 
+the ``optimizer`` parameter:
 
 .. code:: python
 
