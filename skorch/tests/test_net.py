@@ -2743,6 +2743,31 @@ class TestNeuralNet:
         with pytest.raises(TypeError, match=msg):
             net.predict_proba(np.zeros((3, 3)))
 
+    def test_net_with_amp_enabled_fit_works(self, net_cls, module_cls, data):
+        X, y = data[0][:100], data[1][:100]
+        net = net_cls(module_cls, amp_enabled=True)
+        net.fit(X, y)
+
+    def test_net_with_amp_enabled_old_pytorch_version_raises(self):
+        # TODO
+        pass
+
+    def test_net_with_amp_enabled_default_grad_scaler(self):
+        # TODO
+        pass
+
+    def test_amp_grad_scaler_set_params(self):
+        # TODO
+        pass
+
+    def test_amp_custom_grad_scaler_used(self):
+        # TODO
+        pass
+
+    def test_amp_save_params_with_grad_scaler(self):
+        # TODO
+        pass
+
 
 class TestNetSparseInput:
     @pytest.fixture(scope='module')

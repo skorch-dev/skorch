@@ -675,3 +675,9 @@ def _check_f_arguments(caller_name, **kwargs):
             key = 'module_' if key == 'f_params' else key[2:] + '_'
             kwargs_module[key] = val
     return kwargs_module, kwargs_other
+
+
+@contextmanager
+def no_context(*args, **kwargs):
+    """TODO"""
+    yield
