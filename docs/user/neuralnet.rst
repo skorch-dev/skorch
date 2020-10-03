@@ -155,7 +155,7 @@ the ``optimizer`` parameter:
             optimizer__weight_decay=1e-2,
             optimizer__k=5,
             optimizer__alpha=0.5,
-            lr=1e-3
+            lr=1e-3)
 
 lr
 ^^^
