@@ -2791,7 +2791,6 @@ class TestNeuralNet:
         class MyNet(NeuralNet):
             """Override train_step_single and validation_step"""
             def train_step_single(self, batch, **fit_params):
-
                 self.module_.train()
                 x0, x1, yi = batch
                 x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
