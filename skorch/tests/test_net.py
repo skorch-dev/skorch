@@ -263,6 +263,24 @@ class TestNeuralNet:
         # "optimizer_2".
         MyNet(module_cls, optimizer_2__lr=0.123)  # should not raise
 
+    def test_net_init_with_iterator_valid_shuffle_true(
+            self, net_cls, module_cls, recwarn):
+        # If a user sets iterator_valid__shuffle=True, they might be
+        # in for a surprise, since predict et al. will result in
+        # shuffled predictions. It is best to warn about this, since
+        # most of the times, this is not what users actually want.
+        expected = (
+            "You set iterator_valid__shuffle=True; this is most likely not what you want "
+            "because the values returned by predict and predict_proba will be shuffled.")
+
+        # no warning expected here
+        net_cls(module_cls, iterator_valid__shuffle=False)
+        assert not recwarn.list
+
+        # warning expected here
+        with pytest.warns(UserWarning, match=expected):
+            net_cls(module_cls, iterator_valid__shuffle=True)
+
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass

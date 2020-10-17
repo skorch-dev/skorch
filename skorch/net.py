@@ -1516,6 +1516,16 @@ class NeuralNet:
         did you mean iterator_train__shuffle?
 
         """
+        # warn about usage of iterator_valid__shuffle=True, since this
+        # is almost certainly not what the user wants
+        if kwargs.get('iterator_valid__shuffle'):
+            warnings.warn(
+                "You set iterator_valid__shuffle=True; this is most likely not "
+                "what you want because the values returned by predict and "
+                "predict_proba will be shuffled.",
+                UserWarning)
+
+        # check for wrong arguments
         unexpected_kwargs = []
         missing_dunder_kwargs = []
         for key in kwargs:
