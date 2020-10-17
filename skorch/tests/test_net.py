@@ -2819,7 +2819,7 @@ class TestNeuralNet:
             MyModule,
             lr=0.1,
             dataset=MyDataset,
-            criterion=lambda: nn.functional.cross_entropy,
+            criterion=nn.CrossEntropyLoss,
         )
         X, y = data[0][:100], data[1][:100]
         net.fit(X, y)
