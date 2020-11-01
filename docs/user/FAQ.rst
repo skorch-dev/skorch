@@ -104,19 +104,24 @@ dictionary. Below, there is example code on how to achieve this:
     # add sample_weight to the X dict
     X['sample_weight'] = sample_weight
 
+    class MyModule(nn.Module):
+        ...  # normal PyTorch module
+
     class MyNet(NeuralNet):
         def __init__(self, *args, **kwargs):
-            # make sure to set reduce=False in your criterion, since we need the loss
-            # for each sample so that it can be weighted
+            # make sure to set reduce=False in your criterion
+            # (since we need the loss for each sample so that it can be weighted)
             super().__init__(*args, criterion__reduce=False, **kwargs)
 
         def get_loss(self, y_pred, y_true, X, *args, **kwargs):
-            # override get_loss to use the sample_weight from X
+            # Pass the data to get unnormalized loss
             loss_unreduced = super().get_loss(y_pred, y_true, X["data"], *args, **kwargs)
+
+            # Reweight the loss with sample_weight
             loss_reduced = (X["sample_weight"] * loss_unreduced).mean()
             return loss_reduced
 
-    net = MyNet(nn.MSELoss, ...)
+    net = MyNet(MyModule, ...)
     net.fit(X, y)
 
 
