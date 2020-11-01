@@ -105,12 +105,7 @@ dictionary. Below, there is example code on how to achieve this:
     X['sample_weight'] = sample_weight
 
     class MyModule(nn.Module):
-        ...
-        def forward(self, data, sample_weight):
-            # when X is a dict, its keys are passed as kwargs to forward, thus
-            # our forward has to have the arguments 'data' and 'sample_weight';
-            # usually, sample_weight can be ignored here
-            ...
+        ...  # normal PyTorch module definition
 
     class MyNet(NeuralNet):
         def __init__(self, *args, criterion__reduce=False, **kwargs):
@@ -120,7 +115,7 @@ dictionary. Below, there is example code on how to achieve this:
 
         def get_loss(self, y_pred, y_true, X, *args, **kwargs):
             # override get_loss to use the sample_weight from X
-            loss_unreduced = super().get_loss(y_pred, y_true, X, *args, **kwargs)
+            loss_unreduced = super().get_loss(y_pred, y_true, X["data"], *args, **kwargs)
             sample_weight = X['sample_weight']
             loss_reduced = (sample_weight * loss_unreduced).mean()
             return loss_reduced
