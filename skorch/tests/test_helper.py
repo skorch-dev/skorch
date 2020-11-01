@@ -173,8 +173,7 @@ class TestSliceDict:
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
         }
-        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy',
-                          iid=True)
+        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy')
         gs.fit(X, y)
         print(gs.best_score_, gs.best_params_)
 
@@ -423,7 +422,7 @@ class TestSliceDataset:
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
         }
-        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', iid=True)
+        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy')
         gs.fit(slds, y)  # does not raise
 
     def test_grid_search_with_slds_and_internal_split_works(
@@ -436,7 +435,7 @@ class TestSliceDataset:
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
         }
-        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy', iid=True)
+        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy')
         gs.fit(slds, y)  # does not raise
 
     def test_grid_search_with_slds_X_and_slds_y(
@@ -453,7 +452,7 @@ class TestSliceDataset:
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
         }
-        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', iid=True)
+        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy')
         gs.fit(slds, slds_y)  # does not raise
 
     def test_index_with_2d_array_raises(self, slds):
