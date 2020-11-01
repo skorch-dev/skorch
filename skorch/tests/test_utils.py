@@ -808,8 +808,8 @@ class TestTeeGenerator:
 class TestInferPredictNonlinearity:
     @pytest.fixture
     def infer_predict_nonlinearity(self):
-        from skorch.utils import _infer_predict_nonlinearty
-        return _infer_predict_nonlinearty
+        from skorch.utils import _infer_predict_nonlinearity
+        return _infer_predict_nonlinearity
 
     @pytest.fixture
     def net_clf_cls(self):

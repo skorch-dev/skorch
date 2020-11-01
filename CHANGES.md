@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CLI helper function now also supports normal (i.e. non-skorch) sklearn estimators
+
 ### Changed
 
 ### Fixed

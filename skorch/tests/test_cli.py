@@ -253,6 +253,57 @@ class TestCli:
             assert snippet in out
 
     @pytest.fixture
+    def clf_sklearn(self):
+        from sklearn.linear_model import LinearRegression
+        return LinearRegression()
+
+    @pytest.fixture
+    def pipe_sklearn(self, clf_sklearn):
+        return Pipeline([
+            ('features', FeatureUnion([
+                ('scale', MinMaxScaler()),
+            ])),
+            ('clf', clf_sklearn),
+        ])
+
+    def test_print_help_sklearn_estimator(self, print_help, clf_sklearn, capsys):
+        # Should also work with non-skorch sklearn estimator;
+        # need to assert that count==1 since there was a bug in my
+        # first implementation that resulted in the help for the final
+        # estimator appearing twice.
+        print_help(clf_sklearn)
+        out = capsys.readouterr()[0]
+
+        expected_snippets = [
+            '-- --help',
+            '--fit_intercept',
+            '--copy_X',
+            '--normalize',
+        ]
+        for snippet in expected_snippets:
+            assert snippet in out
+            assert out.count(snippet) == 1
+
+    def test_print_help_sklearn_pipeline(self, print_help, pipe_sklearn, capsys):
+        # Should also work with non-skorch sklearn pipelines;
+        # need to assert that count==1 since there was a bug in my
+        # first implementation that resulted in the help for the final
+        # estimator appearing twice.
+        print_help(pipe_sklearn)
+        out = capsys.readouterr()[0]
+
+        expected_snippets = [
+            '-- --help',
+            '<MinMaxScaler> options',
+            '--features__scale__feature_range',
+            '--clf__fit_intercept',
+            '--clf__normalize',
+        ]
+        for snippet in expected_snippets:
+            assert snippet in out
+            assert out.count(snippet) == 1
+
+    @pytest.fixture
     def parse_args(self):
         from skorch.cli import parse_args
         return parse_args
@@ -317,3 +368,16 @@ class TestCli:
         assert isinstance(net.module_.nonlin, nn.Hardtanh)
         assert net.module_.nonlin.min_val == 1
         assert net.module_.nonlin.max_val == 2
+
+    def test_parse_args_sklearn_pipe_custom_defaults(self, parse_args, pipe_sklearn):
+        defaults = {'features__scale__copy': 123, 'clf__fit_intercept': 456}
+        kwargs = {'features__scale__copy': 555, 'clf__normalize': 789}
+        parsed = parse_args(kwargs, defaults)
+        pipe = parsed(pipe_sklearn)
+        scaler = pipe.steps[0][1].transformer_list[0][1]
+        clf = pipe.steps[-1][1]
+
+        # cmd line args have precedence over defaults
+        assert scaler.copy == 555
+        assert clf.fit_intercept == 456
+        assert clf.normalize == 789
