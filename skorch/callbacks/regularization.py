@@ -3,6 +3,7 @@
 from torch.nn.utils import clip_grad_norm_
 
 from skorch.callbacks import Callback
+from skorch.utils import _unscale_optimizer_grads
 
 
 __all__ = ['GradientNormClipping']
@@ -43,7 +44,8 @@ class GradientNormClipping(Callback):
             return
 
         if net.amp_enabled:
-            net.grad_scaler_.unscale_(net.optimizer_)
+            _unscale_optimizer_grads(net.grad_scaler_, net.optimizer_)
+
         clip_grad_norm_(
             (p for _, p in named_parameters),
             max_norm=self.gradient_clip_value,
