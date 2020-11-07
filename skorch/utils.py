@@ -137,7 +137,7 @@ def to_numpy(X):
     return X.numpy()
 
 
-def to_device(X, device):
+def to_device(X, device=None):
     """Generic function to modify the device type of the tensor(s) or module.
 
     Parameters
@@ -153,14 +153,17 @@ def to_device(X, device):
 
     device : str, torch.device
         The compute device to be used. If device=None, return the input
-        unmodified
+        unmodified. If device="auto", then cuda will be used if it is
+        available and cpu will be used if it's not available.
 
     """
     if device is None:
         return X
+    elif device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if isinstance(X, dict):
-        return {key: to_device(val,device) for key, val in X.items()}
+        return {key: to_device(val, device) for key, val in X.items()}
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):
