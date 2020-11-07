@@ -242,14 +242,11 @@ class TestToDevice:
         ('cpu', 'cuda'),
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
-        ('auto', None),
         (None, None),
     ])
     def test_check_device_torch_tensor(self, to_device, x, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
-        elif device_from == 'auto':
-            device_from = device_to = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         prev_device = None
         if None in (device_from, device_to):
@@ -266,15 +263,12 @@ class TestToDevice:
         ('cpu', 'cuda'),
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
-        ('auto', None),
         (None, None),
     ])
     def test_check_device_tuple_torch_tensor(
             self, to_device, x_tup, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
-        elif device_from == 'auto':
-            device_from = device_to = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         prev_devices = [None for _ in range(len(x_tup))]
         if None in (device_from, device_to):
@@ -293,15 +287,12 @@ class TestToDevice:
         ('cpu', 'cuda'),
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
-        ('auto', None),
         (None, None),
     ])
     def test_check_device_dict_torch_tensor(
             self, to_device, x_dict, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
-        elif device_from == 'auto':
-            device_from = device_to = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         original_x_dict = deepcopy(x_dict)
 
@@ -326,15 +317,12 @@ class TestToDevice:
         ('cpu', 'cuda'),
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
-        ('auto', None),
         (None, None),
     ])
     def test_check_device_packed_padded_sequence(
             self, to_device, x_pad_seq, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
-        elif device_from == 'auto':
-            device_from = device_to = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         prev_device = None
         if None in (device_from, device_to):
@@ -351,7 +339,6 @@ class TestToDevice:
         ('cpu', 'cuda'),
         ('cuda', 'cpu'),
         ('cuda', 'cuda'),
-        ('auto', None),
         (None, None),
     ])
     def test_nested_data(self, to_device, x_list, device_from, device_to):
@@ -360,8 +347,6 @@ class TestToDevice:
         # to_device should honor this.
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
-        elif device_from == 'auto':
-            device_from = device_to = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         prev_devices = [None for _ in range(len(x_list))]
         if None in (device_from, device_to):
