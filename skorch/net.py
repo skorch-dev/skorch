@@ -465,6 +465,9 @@ class NeuralNet:
             callbacks_.append((name, cb))
 
         self.callbacks_ = callbacks_
+        if self.callbacks is False:
+            self.callbacks_ = []
+
         return self
 
     def initialize_criterion(self):
