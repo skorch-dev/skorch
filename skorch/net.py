@@ -141,7 +141,7 @@ class NeuralNet:
       data and should return the tuple ``dataset_train, dataset_valid``.
       The validation data may be None.
 
-    callbacks : None or list of Callback instances (default=None)
+    callbacks : None, False, or list of Callback instances (default=None)
       More callbacks, in addition to those returned by
       ``get_default_callbacks``. Each callback should inherit from
       :class:`.Callback`. If not ``None``, a list of callbacks is
@@ -154,6 +154,8 @@ class NeuralNet:
       callbacks (e.g., for the callback with name ``'print_log'``, use
       ``net.set_params(callbacks__print_log__keys_ignored=['epoch',
       'train_loss'])``).
+
+      If ``False``, completely disable callbacks.
 
     predict_nonlinearity : callable, None, or 'auto' (default='auto')
       The nonlinearity to be applied to the prediction. When set to
