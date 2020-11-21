@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - CLI helper function now also supports normal (i.e. non-skorch) sklearn estimators
+- Add an example of using skorch with [optuna](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/optuna-example.ipynb) (#718)
 
 ### Changed
 
