@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `SacredLogger` callback for logging to Sacred (#725)
 - CLI helper function now also supports normal (i.e. non-skorch) sklearn estimators
 
 ### Changed
