@@ -744,6 +744,40 @@ class SacredLogger(Callback):
     more information. Alternatively you can subclass this callback and extend
     the ``on_*`` methods.
 
+    To use this logger, you first have to install Sacred:
+
+    >>> pip install sacred
+
+    You might also install pymongo to use a mongodb backend. See the upstream_
+    documentation for more details. Once you have installed it, you can set up
+    a simple experiment and pass this Logger as a callback to your skorch
+    estimator:
+
+    >>> from sacred import Experiment
+    >>> from sokrch.callbacks.logging import SacredLogger
+    >>> from sokrch.callbacks.scoring import EpochScoring
+    >>> ex = Experiment()
+
+    >>> @ex.config
+    >>> def my_config():
+    ...     max_epochs = 20
+    ...     lr = 0.01
+
+    >>> @ex.automain
+    >>> def main(_run, max_epochs, lr):
+    ...     # Take care to add additional scoring callbacks *before* the logger.
+    ...     net = NeuralNetClassifier(
+    ...         ClassifierModule,
+    ...         max_epochs=max_epochs,
+    ...         lr=0.01,
+    ...         callbacks=[EpochScoring("f1"), SacredLogger(_run)]
+    ...     )
+    ...     # now fit your estimator to your data
+    ...     net.fit(X, y)
+
+    You can then call this script and optionally pass a backend as a command
+    line parameter.
+
 
     Parameters
     ----------
@@ -757,6 +791,9 @@ class SacredLogger(Callback):
       Key or list of keys that should not be logged to Sacred. Note that in
       addition to the keys provided by the user, keys such as those starting
       with 'event_' or ending on '_best' are ignored by default.
+
+
+    .. _upstream: https://github.com/IDSIA/sacred#installing
     """
 
     def __init__(
