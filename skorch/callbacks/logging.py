@@ -734,7 +734,7 @@ class SacredLogger(Callback):
     """Logs results from history to Sacred.
 
     Sacred is a tool to help you configure, organize, log and reproduce
-    experiments developed at IDSIA. See https://github.com/IDSIA/sacred.
+    experiments. Developed at IDSIA. See https://github.com/IDSIA/sacred.
 
     Use this callback to automatically log all interesting values from
     your net's history to Sacred.
