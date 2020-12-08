@@ -753,9 +753,15 @@ class SacredLogger(Callback):
     a simple experiment and pass this Logger as a callback to your skorch
     estimator:
 
+    # contents of sacred-experiment.py
+    >>> import numpy as np
     >>> from sacred import Experiment
-    >>> from sokrch.callbacks.logging import SacredLogger
-    >>> from sokrch.callbacks.scoring import EpochScoring
+    >>> from sklearn.datasets import make_classification
+    >>> from skorch.callbacks.logging import SacredLogger
+    >>> from skorch.callbacks.scoring import EpochScoring
+    >>> from skorch import NeuralNetClassifier
+    >>> from skorch.toy import make_classifier
+
     >>> ex = Experiment()
 
     >>> @ex.config
@@ -763,17 +769,23 @@ class SacredLogger(Callback):
     ...     max_epochs = 20
     ...     lr = 0.01
 
+    >>> X, y = make_classification()
+    >>> X, y = X.astype(np.float32), y.astype(np.int64)
+
     >>> @ex.automain
     >>> def main(_run, max_epochs, lr):
     ...     # Take care to add additional scoring callbacks *before* the logger.
     ...     net = NeuralNetClassifier(
-    ...         ClassifierModule,
+    ...         make_classifier(),
     ...         max_epochs=max_epochs,
     ...         lr=0.01,
     ...         callbacks=[EpochScoring("f1"), SacredLogger(_run)]
     ...     )
     ...     # now fit your estimator to your data
     ...     net.fit(X, y)
+    
+    Then call this from the command line, e.g. like this:
+    ``python sacred-script.py with max_epochs=15``
 
     You can then call this script and optionally pass a backend as a command
     line parameter.
