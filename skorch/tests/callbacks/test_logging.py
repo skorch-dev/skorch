@@ -265,7 +265,7 @@ class TestSacred:
         logger = sacred_logger_cls(
             mock_experiment, keys_ignored='a-key').initialize()
         expected = {'a-key', 'batches'}
-        assert npt.keys_ignored_ == expected
+        assert logger.keys_ignored_ == expected
 
     def test_fit_with_real_experiment(
             self,
