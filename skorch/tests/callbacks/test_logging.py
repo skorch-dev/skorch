@@ -248,11 +248,11 @@ class TestSacred:
     ):
         # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
         # this should not cause a problem
-        npt = sacred_logger_cls(
+        logger = sacred_logger_cls(
             mock_experiment, keys_ignored=['dur', 'valid_loss', 'unknown'])
         net_cls(
             classifier_module,
-            callbacks=[npt],
+            callbacks=[logger],
             max_epochs=3,
         ).fit(*data)
 
@@ -262,7 +262,7 @@ class TestSacred:
         assert 'valid_loss' not in call_args
 
     def test_keys_ignored_is_string(self, sacred_logger_cls, mock_experiment):
-        npt = sacred_logger_cls(
+        logger = sacred_logger_cls(
             mock_experiment, keys_ignored='a-key').initialize()
         expected = {'a-key', 'batches'}
         assert npt.keys_ignored_ == expected
