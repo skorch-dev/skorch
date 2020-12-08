@@ -275,12 +275,18 @@ class TestSacred:
             sacred_logger_cls,
             sacred_experiment_cls,
     ):
-        net = net_cls(
-            classifier_module,
-            callbacks=[sacred_logger_cls(sacred_experiment_cls())],
-            max_epochs=5,
-        )
-        net.fit(*data)
+        experiment = sacred_experiment_cls()
+
+        @experiment.main
+        def experiment_main(_run):
+            net = net_cls(
+                classifier_module,
+                callbacks=[sacred_logger_cls(_run)],
+                max_epochs=5,
+            )
+            net.fit(*data)
+
+        experiment.run()
 
     def test_log_on_batch_level_on(
             self,
