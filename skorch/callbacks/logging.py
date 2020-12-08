@@ -787,8 +787,8 @@ class SacredLogger(Callback):
     Then call this from the command line, e.g. like this:
     ``python sacred-script.py with max_epochs=15``
 
-    You can then call this script and optionally pass a backend as a command
-    line parameter.
+    You can also change other options on the command line and optionally
+    specify a backend.
 
 
     Parameters
