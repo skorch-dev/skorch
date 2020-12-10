@@ -155,7 +155,6 @@ class LRScheduler(Callback):
     def on_epoch_end(self, net, **kwargs):
         if not self.step_every == 'epoch':
             return
-        epoch = len(net.history)
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             if callable(self.monitor):
                 score = self.monitor(net)
