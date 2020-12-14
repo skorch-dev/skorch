@@ -746,7 +746,7 @@ class SacredLogger(Callback):
 
     To use this logger, you first have to install Sacred:
 
-    >>> pip install sacred
+    $ pip install sacred
 
     You might also install pymongo to use a mongodb backend. See the upstream_
     documentation for more details. Once you have installed it, you can set up
