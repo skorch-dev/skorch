@@ -155,7 +155,8 @@ class NeuralNet:
       ``net.set_params(callbacks__print_log__keys_ignored=['epoch',
       'train_loss'])``).
 
-      If ``False``, completely disable callbacks.
+      If ``callbacks="disable"``, completely ignore all default
+      callbacks.
 
     predict_nonlinearity : callable, None, or 'auto' (default='auto')
       The nonlinearity to be applied to the prediction. When set to
@@ -437,6 +438,10 @@ class NeuralNet:
         not unique, a ValueError is raised.
 
         """
+        if self.callbacks == "disable":
+            self.callbacks_ = []
+            return self
+
         callbacks_ = []
 
         class Dummy:
@@ -467,8 +472,6 @@ class NeuralNet:
             callbacks_.append((name, cb))
 
         self.callbacks_ = callbacks_
-        if self.callbacks is False:
-            self.callbacks_ = []
 
         return self
 
