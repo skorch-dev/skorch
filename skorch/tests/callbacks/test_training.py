@@ -1088,5 +1088,5 @@ class TestTrainEndCheckpoint:
 class TestNoCallbacks(TestCheckpoint):
     def test_no_callbacks(self, net_cls, data):
         net = net_cls(callbacks="disable")
-        net.fit(*data)
+        net.initialize()
         assert net.callbacks_ == []
