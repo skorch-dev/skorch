@@ -2811,3 +2811,8 @@ class TestNetSparseInput:
         score_end = net.history[-1]['train_loss']
 
         assert score_start > 1.25 * score_end
+
+    def test_no_callbacks(self, net_cls):
+        net = net_cls(callbacks="disable")
+        net.initialize()
+        assert net.callbacks_ == []

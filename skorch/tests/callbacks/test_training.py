@@ -1083,10 +1083,3 @@ class TestTrainEndCheckpoint:
 
         assert save_params_mock.call_count == 1
         save_params_mock.assert_has_calls([call(f_mymodule='train_end_mymodule.pt')])
-
-
-class TestNoCallbacks(TestCheckpoint):
-    def test_no_callbacks(self, net_cls, data):
-        net = net_cls(callbacks="disable")
-        net.initialize()
-        assert net.callbacks_ == []
