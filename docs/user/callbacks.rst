@@ -138,7 +138,7 @@ use a callback for learning rate scheduling (e.g. via
 :class:`.LRScheduler`) and want to test its usefulness, you can
 compare the performance once with and once without the callback.
 
-To completely disable callbacks, set ``callbacks=False``.
+To completely disable all callbacks, set ``callbacks="diable"``.
 
 
 Scoring
