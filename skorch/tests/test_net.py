@@ -2812,7 +2812,7 @@ class TestNetSparseInput:
 
         assert score_start > 1.25 * score_end
 
-    def test_no_callbacks(self, net_cls):
-        net = net_cls(callbacks="disable")
+    def test_no_callbacks(self, net_cls, module_cls):
+        net = net_cls(module_cls, callbacks="disable")
         net.initialize()
         assert net.callbacks_ == []
