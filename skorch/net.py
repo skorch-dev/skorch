@@ -147,7 +147,7 @@ class NeuralNet:
       If ``callbacks=None``, only use default callbacks,
       those returned by ``get_default_callbacks``.
 
-      If ``callbacks="disable"``, disable all callbacks, or, do not run
+      If ``callbacks="disable"``, disable all callbacks, i.e. do not run
       any of the callbacks.
 
       If ``callbacks`` is a list of callbacks, use those callbacks in
