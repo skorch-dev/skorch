@@ -783,7 +783,7 @@ class SacredLogger(Callback):
     ...     )
     ...     # now fit your estimator to your data
     ...     net.fit(X, y)
-    
+
     Then call this from the command line, e.g. like this:
     ``python sacred-script.py with max_epochs=15``
 
@@ -799,6 +799,19 @@ class SacredLogger(Callback):
     log_on_batch_end : bool (default=False)
       Whether to log loss and other metrics on batch level.
 
+    log_on_epoch_end : bool (default=True)
+      Whether to log loss and other metrics on epoch level.
+
+    batch_suffix : str (default=None)
+      A string that will be appended to all logged keys. By default (if set to
+      ``None``) "_batch" is used if batch and epoch logging are both enabled
+      and no suffix is used otherwise.
+
+    epoch_suffix : str (default=None)
+      A string that will be appended to all logged keys. By default (if set to
+      ``None``) "_epoch" is used if batch and epoch logging are both enabled
+      and no suffix is used otherwise.
+
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be logged to Sacred. Note that in
       addition to the keys provided by the user, keys such as those starting
@@ -812,10 +825,24 @@ class SacredLogger(Callback):
         self,
         experiment,
         log_on_batch_end=False,
+        log_on_epoch_end=True,
+        batch_suffix=None,
+        epoch_suffix=None,
         keys_ignored=None,
     ):
         self.experiment = experiment
         self.log_on_batch_end = log_on_batch_end
+        self.log_on_epoch_end = log_on_epoch_end
+        self.batch_suffix = batch_suffix
+        self.epoch_suffix = epoch_suffix
+        if self.batch_suffix is None:
+            self.batch_suffix = (
+                "_batch" if log_on_batch_end and log_on_epoch_end else ""
+            )
+        if self.epoch_suffix is None:
+            self.epoch_suffix = (
+                "_epoch" if log_on_batch_end and log_on_epoch_end else ""
+            )
         self.keys_ignored = keys_ignored
 
     def initialize(self):
@@ -823,22 +850,25 @@ class SacredLogger(Callback):
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
-        self.keys_ignored_.add('batches')
+        self.keys_ignored_.add("batches")
         return self
 
     def on_batch_end(self, net, **kwargs):
-        if self.log_on_batch_end:
-            batch_logs = net.history[-1]['batches'][-1]
+        if not self.log_on_batch_end:
+            return
+        batch_logs = net.history[-1]["batches"][-1]
 
-            for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
-                # skorch does not keep a batch count, but sacred will
-                # automatically associate the results with a counter.
-                self.experiment.log_scalar(key, batch_logs[key])
+        for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
+            # skorch does not keep a batch count, but sacred will
+            # automatically associate the results with a counter.
+            self.experiment.log_scalar(key + self.batch_suffix, batch_logs[key])
 
     def on_epoch_end(self, net, **kwargs):
         """Automatically log values from the last history step."""
+        if not self.log_on_epoch_end:
+            return
         epoch_logs = net.history[-1]
-        epoch = epoch_logs['epoch']
+        epoch = epoch_logs["epoch"]
 
         for key in filter_log_keys(epoch_logs.keys(), self.keys_ignored_):
-            self.experiment.log_scalar(key, epoch_logs[key], epoch)
+            self.experiment.log_scalar(key + self.epoch_suffix, epoch_logs[key], epoch)
