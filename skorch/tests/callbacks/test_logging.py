@@ -307,7 +307,13 @@ class TestSacred:
 
         # 5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls
         assert mock_experiment.log_scalar.call_count == 110
-        mock_experiment.log_scalar.assert_any_call('train_batch_size', 4)
+        mock_experiment.log_scalar.assert_any_call('train_batch_size_batch', 4)
+
+        logged_keys = [
+            call_args.args[0] for call_args in mock_experiment.log_scalar.call_args_list
+        ]
+        # This is a batch-only metric.
+        assert 'train_batch_size_epoch' not in logged_keys
 
     def test_log_on_batch_level_off(
             self,
@@ -329,7 +335,7 @@ class TestSacred:
         # 5 epochs x 2 epoch metrics = 10 calls
         assert mock_experiment.log_scalar.call_count == 10
         call_args_list = mock_experiment.log_scalar.call_args_list
-        assert call('train_batch_size', 4) not in call_args_list
+        assert call('train_batch_size_batch', 4) not in call_args_list
 
 @pytest.mark.skipif(
     not wandb_installed, reason='wandb is not installed')
