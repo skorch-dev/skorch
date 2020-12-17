@@ -141,7 +141,7 @@ class NeuralNet:
       data and should return the tuple ``dataset_train, dataset_valid``.
       The validation data may be None.
 
-    callbacks : None, str, or list of Callback instances (default=None)
+    callbacks : None, "disable", or list of Callback instances (default=None)
       Which callbacks to enable. There are three possible values:
 
       If ``callbacks=None``, only use default callbacks,
