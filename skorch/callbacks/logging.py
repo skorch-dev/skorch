@@ -846,7 +846,7 @@ class SacredLogger(Callback):
 
         self.batch_suffix_ = self.batch_suffix
         self.epoch_suffix_ = self.epoch_suffix
-        if self.batch_suffix__ is None:
+        if self.batch_suffix_ is None:
             self.batch_suffix_ = (
                 "_batch" if log_on_batch_end and log_on_epoch_end else ""
             )
