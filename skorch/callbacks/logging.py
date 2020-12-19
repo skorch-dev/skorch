@@ -848,11 +848,11 @@ class SacredLogger(Callback):
         self.epoch_suffix_ = self.epoch_suffix
         if self.batch_suffix_ is None:
             self.batch_suffix_ = (
-                "_batch" if log_on_batch_end and log_on_epoch_end else ""
+                "_batch" if self.log_on_batch_end and self.log_on_epoch_end else ""
             )
         if self.epoch_suffix_ is None:
             self.epoch_suffix_ = (
-                "_epoch" if log_on_batch_end and log_on_epoch_end else ""
+                "_epoch" if self.log_on_batch_end and self.log_on_epoch_end else ""
             )
         return self
 
