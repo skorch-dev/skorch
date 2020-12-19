@@ -835,14 +835,6 @@ class SacredLogger(Callback):
         self.log_on_epoch_end = log_on_epoch_end
         self.batch_suffix = batch_suffix
         self.epoch_suffix = epoch_suffix
-        if self.batch_suffix is None:
-            self.batch_suffix = (
-                "_batch" if log_on_batch_end and log_on_epoch_end else ""
-            )
-        if self.epoch_suffix is None:
-            self.epoch_suffix = (
-                "_epoch" if log_on_batch_end and log_on_epoch_end else ""
-            )
         self.keys_ignored = keys_ignored
 
     def initialize(self):
@@ -851,6 +843,17 @@ class SacredLogger(Callback):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
         self.keys_ignored_.add("batches")
+
+        self.batch_suffix_ = self.batch_suffix
+        self.epoch_suffix_ = self.epoch_suffix
+        if self.batch_suffix__ is None:
+            self.batch_suffix_ = (
+                "_batch" if log_on_batch_end and log_on_epoch_end else ""
+            )
+        if self.epoch_suffix_ is None:
+            self.epoch_suffix_ = (
+                "_epoch" if log_on_batch_end and log_on_epoch_end else ""
+            )
         return self
 
     def on_batch_end(self, net, **kwargs):
@@ -861,7 +864,7 @@ class SacredLogger(Callback):
         for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
             # skorch does not keep a batch count, but sacred will
             # automatically associate the results with a counter.
-            self.experiment.log_scalar(key + self.batch_suffix, batch_logs[key])
+            self.experiment.log_scalar(key + self.batch_suffix_, batch_logs[key])
 
     def on_epoch_end(self, net, **kwargs):
         """Automatically log values from the last history step."""
@@ -871,4 +874,4 @@ class SacredLogger(Callback):
         epoch = epoch_logs["epoch"]
 
         for key in filter_log_keys(epoch_logs.keys(), self.keys_ignored_):
-            self.experiment.log_scalar(key + self.epoch_suffix, epoch_logs[key], epoch)
+            self.experiment.log_scalar(key + self.epoch_suffix_, epoch_logs[key], epoch)
