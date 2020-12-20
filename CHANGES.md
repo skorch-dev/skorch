@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed implementation of `net.history` access to make it faster; this should not have any noticeable effects, but if you encounter bugs, please create an issue
+
 ### Fixed
 
 ## [0.9.0] - 2020-08-30
