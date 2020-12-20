@@ -1421,6 +1421,11 @@ class TestNeuralNet:
         stdout = capsys.readouterr()[0]
         assert "Re-initializing module!" not in stdout
 
+    def test_no_callbacks(self, net_cls, module_cls):
+        net = net_cls(module_cls, callbacks="disable")
+        net.initialize()
+        assert net.callbacks_ == []
+
     def test_message_fit_with_initialized_net(
             self, net_cls, module_cls, data, capsys):
         net = net_cls(module_cls).initialize()
@@ -2811,8 +2816,3 @@ class TestNetSparseInput:
         score_end = net.history[-1]['train_loss']
 
         assert score_start > 1.25 * score_end
-
-    def test_no_callbacks(self, net_cls, module_cls):
-        net = net_cls(module_cls, callbacks="disable")
-        net.initialize()
-        assert net.callbacks_ == []
