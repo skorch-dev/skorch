@@ -108,10 +108,6 @@ def _get_getitem_method(items, key):
     * history[0, 'foo', :, ('bar', 'baz')]: key is list/tuple of str
 
     """
-
-    if isinstance(items, tuple):
-        raise ZeroDivisionError
-
     if isinstance(items, list):
         if isinstance(key, list):
             return _getitem_list_list
@@ -119,7 +115,7 @@ def _get_getitem_method(items, key):
             return _getitem_list_tuple
         if isinstance(key, str):
             return _getitem_list_str
-        raise ZeroDivisionError
+        raise TypeError("History access with given types not supported")
 
     if isinstance(items, dict):
         if isinstance(key, list):
@@ -128,7 +124,7 @@ def _get_getitem_method(items, key):
             return _getitem_dict_tuple
         if isinstance(key, str):
             return _getitem_dict_str
-    raise ZeroDivisionError
+    raise TypeError("History access with given types not supported")
 
 
 def _unpack_index(i):
