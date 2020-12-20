@@ -39,7 +39,7 @@ def _getitem_list_list(items, keys):
                 row.append(item[key])
             except KeyError:
                 do_append = False
-                continue
+                break
         if row and do_append:
             filtered.append(row)
     return filtered
