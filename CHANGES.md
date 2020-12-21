@@ -11,9 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `SacredLogger` callback for logging to Sacred (#725)
 - CLI helper function now also supports normal (i.e. non-skorch) sklearn estimators
+- Disabling all callbacks is now supported (which allows reducing overhead,
+  which is especially relevant for small models).
 
 ### Changed
 
+- We no longer pass the `epoch` parameter to LR schedulers, since that parameter has been deprecated. We now rely on the scheduler to keep track of the epoch itself.
 - Changed implementation of `net.history` access to make it faster; this should not have any noticeable effects, but if you encounter bugs, please create an issue
 
 ### Fixed

@@ -155,7 +155,6 @@ class LRScheduler(Callback):
     def on_epoch_end(self, net, **kwargs):
         if not self.step_every == 'epoch':
             return
-        epoch = len(net.history)
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             if callable(self.monitor):
                 score = self.monitor(net)
@@ -167,14 +166,14 @@ class LRScheduler(Callback):
                 else:
                     score = net.history[-1, self.monitor]
 
-            self.lr_scheduler_.step(score, epoch)
+            self.lr_scheduler_.step(score)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
             if self.event_name is not None and hasattr(
                     self.lr_scheduler_, "get_last_lr"):
                 net.history.record(self.event_name,
                                    self.lr_scheduler_.get_last_lr()[0])
-            self.lr_scheduler_.step(epoch)
+            self.lr_scheduler_.step()
 
     def on_batch_end(self, net, training, **kwargs):
         if not training or not self.step_every == 'batch':
