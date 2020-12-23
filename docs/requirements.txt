@@ -1,4 +1,4 @@
 numpy>=1.13.3
-https://download.pytorch.org/whl/torch_stable.html
+https://download.pytorch.org/whl/cpu/torch-1.7.1%2Bcpu-cp38-cp38-linux_x86_64.whl
 sphinx-rtd-theme==0.4.0
 numpydoc==0.8.0
