@@ -6,7 +6,7 @@ Since skorch provides a few extras on top of a pure PyTorch training code, it is
 expected that it will add an overhead to the total runtime. For typical
 workloads, this overhead should be unnoticeable.
 
-In a few situations, the skorch extras may add a significant overhead, though.
+In a few situations, skorch's extra functionality may add significant overhead.
 This is especially the case when the amount of data and the neural net are
 relatively small. The reason is that typically, most time is spent on the
 ``forward``, ``backward``, and parameter update calls. When those are really
