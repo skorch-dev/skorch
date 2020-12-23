@@ -2,9 +2,9 @@
 Performance
 ===========
 
-Since skorch provides a few extras on top of a pure PyTorch training code, it is
-expected that it will add an overhead to the total runtime. For typical
-workloads, this overhead should be unnoticeable.
+Since skorch provides extra functionality on top of a pure PyTorch training
+code, it is expected that it will add an overhead to the total runtime. For
+typical workloads, this overhead should be unnoticeable.
 
 In a few situations, skorch's extra functionality may add significant overhead.
 This is especially the case when the amount of data and the neural net are
