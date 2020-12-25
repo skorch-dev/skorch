@@ -59,6 +59,7 @@ User's Guide
    user/helper
    user/REST
    user/parallelism
+   user/performance
    user/FAQ
 
 
