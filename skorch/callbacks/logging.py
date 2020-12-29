@@ -16,7 +16,7 @@ from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
 __all__ = ['EpochTimer', 'NeptuneLogger', 'WandbLogger', 'PrintLog', 'ProgressBar',
-           'TensorBoard']
+           'TensorBoard', 'SacredLogger']
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -728,3 +728,150 @@ class TensorBoard(Callback):
     def on_train_end(self, net, **kwargs):
         if self.close_after_train:
             self.writer.close()
+
+
+class SacredLogger(Callback):
+    """Logs results from history to Sacred.
+
+    Sacred is a tool to help you configure, organize, log and reproduce
+    experiments. Developed at IDSIA. See https://github.com/IDSIA/sacred.
+
+    Use this callback to automatically log all interesting values from
+    your net's history to Sacred.
+
+    If you want to log additional information, you can simply add it to
+    ``History``. See the documentation on ``Callbacks``, and ``Scoring`` for
+    more information. Alternatively you can subclass this callback and extend
+    the ``on_*`` methods.
+
+    To use this logger, you first have to install Sacred:
+
+    $ pip install sacred
+
+    You might also install pymongo to use a mongodb backend. See the upstream_
+    documentation for more details. Once you have installed it, you can set up
+    a simple experiment and pass this Logger as a callback to your skorch
+    estimator:
+
+    # contents of sacred-experiment.py
+    >>> import numpy as np
+    >>> from sacred import Experiment
+    >>> from sklearn.datasets import make_classification
+    >>> from skorch.callbacks.logging import SacredLogger
+    >>> from skorch.callbacks.scoring import EpochScoring
+    >>> from skorch import NeuralNetClassifier
+    >>> from skorch.toy import make_classifier
+
+    >>> ex = Experiment()
+
+    >>> @ex.config
+    >>> def my_config():
+    ...     max_epochs = 20
+    ...     lr = 0.01
+
+    >>> X, y = make_classification()
+    >>> X, y = X.astype(np.float32), y.astype(np.int64)
+
+    >>> @ex.automain
+    >>> def main(_run, max_epochs, lr):
+    ...     # Take care to add additional scoring callbacks *before* the logger.
+    ...     net = NeuralNetClassifier(
+    ...         make_classifier(),
+    ...         max_epochs=max_epochs,
+    ...         lr=0.01,
+    ...         callbacks=[EpochScoring("f1"), SacredLogger(_run)]
+    ...     )
+    ...     # now fit your estimator to your data
+    ...     net.fit(X, y)
+
+    Then call this from the command line, e.g. like this:
+    ``python sacred-script.py with max_epochs=15``
+
+    You can also change other options on the command line and optionally
+    specify a backend.
+
+
+    Parameters
+    ----------
+    experiment : sacred.Experiment
+      Instantiated ``Experiment`` class.
+
+    log_on_batch_end : bool (default=False)
+      Whether to log loss and other metrics on batch level.
+
+    log_on_epoch_end : bool (default=True)
+      Whether to log loss and other metrics on epoch level.
+
+    batch_suffix : str (default=None)
+      A string that will be appended to all logged keys. By default (if set to
+      ``None``) "_batch" is used if batch and epoch logging are both enabled
+      and no suffix is used otherwise.
+
+    epoch_suffix : str (default=None)
+      A string that will be appended to all logged keys. By default (if set to
+      ``None``) "_epoch" is used if batch and epoch logging are both enabled
+      and no suffix is used otherwise.
+
+    keys_ignored : str or list of str (default=None)
+      Key or list of keys that should not be logged to Sacred. Note that in
+      addition to the keys provided by the user, keys such as those starting
+      with 'event_' or ending on '_best' are ignored by default.
+
+
+    .. _upstream: https://github.com/IDSIA/sacred#installing
+    """
+
+    def __init__(
+        self,
+        experiment,
+        log_on_batch_end=False,
+        log_on_epoch_end=True,
+        batch_suffix=None,
+        epoch_suffix=None,
+        keys_ignored=None,
+    ):
+        self.experiment = experiment
+        self.log_on_batch_end = log_on_batch_end
+        self.log_on_epoch_end = log_on_epoch_end
+        self.batch_suffix = batch_suffix
+        self.epoch_suffix = epoch_suffix
+        self.keys_ignored = keys_ignored
+
+    def initialize(self):
+        keys_ignored = self.keys_ignored
+        if isinstance(keys_ignored, str):
+            keys_ignored = [keys_ignored]
+        self.keys_ignored_ = set(keys_ignored or [])
+        self.keys_ignored_.add("batches")
+
+        self.batch_suffix_ = self.batch_suffix
+        self.epoch_suffix_ = self.epoch_suffix
+        if self.batch_suffix_ is None:
+            self.batch_suffix_ = (
+                "_batch" if self.log_on_batch_end and self.log_on_epoch_end else ""
+            )
+        if self.epoch_suffix_ is None:
+            self.epoch_suffix_ = (
+                "_epoch" if self.log_on_batch_end and self.log_on_epoch_end else ""
+            )
+        return self
+
+    def on_batch_end(self, net, **kwargs):
+        if not self.log_on_batch_end:
+            return
+        batch_logs = net.history[-1]["batches"][-1]
+
+        for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
+            # skorch does not keep a batch count, but sacred will
+            # automatically associate the results with a counter.
+            self.experiment.log_scalar(key + self.batch_suffix_, batch_logs[key])
+
+    def on_epoch_end(self, net, **kwargs):
+        """Automatically log values from the last history step."""
+        if not self.log_on_epoch_end:
+            return
+        epoch_logs = net.history[-1]
+        epoch = epoch_logs["epoch"]
+
+        for key in filter_log_keys(epoch_logs.keys(), self.keys_ignored_):
+            self.experiment.log_scalar(key + self.epoch_suffix_, epoch_logs[key], epoch)
