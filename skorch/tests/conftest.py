@@ -148,6 +148,15 @@ try:
 except ImportError:
     pass
 
+sacred_installed = False
+try:
+    # pylint: disable=unused-import
+    import sacred
+
+    sacred_installed = True
+except ImportError:
+    pass
+
 wandb_installed = False
 try:
     # pylint: disable=unused-import
