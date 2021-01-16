@@ -12,7 +12,7 @@ Call like this:
 
 ```
 python examples/benchmarks/mnist.py
-python examples/benchmarks/mnist.py --device cpu --num_samples 5000 --amp_enabled true
+python examples/benchmarks/mnist.py --device cuda --num_samples 5000 --amp_enabled true
 ```
 
 When called the first time, this will download MNIST data to
