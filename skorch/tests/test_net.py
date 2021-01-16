@@ -263,6 +263,24 @@ class TestNeuralNet:
         # "optimizer_2".
         MyNet(module_cls, optimizer_2__lr=0.123)  # should not raise
 
+    def test_net_init_with_iterator_valid_shuffle_true(
+            self, net_cls, module_cls, recwarn):
+        # If a user sets iterator_valid__shuffle=True, they might be
+        # in for a surprise, since predict et al. will result in
+        # shuffled predictions. It is best to warn about this, since
+        # most of the times, this is not what users actually want.
+        expected = (
+            "You set iterator_valid__shuffle=True; this is most likely not what you want "
+            "because the values returned by predict and predict_proba will be shuffled.")
+
+        # no warning expected here
+        net_cls(module_cls, iterator_valid__shuffle=False)
+        assert not recwarn.list
+
+        # warning expected here
+        with pytest.warns(UserWarning, match=expected):
+            net_cls(module_cls, iterator_valid__shuffle=True)
+
     def test_fit(self, net_fit):
         # fitting does not raise anything
         pass
@@ -1266,8 +1284,7 @@ class TestNeuralNet:
             'max_epochs': [10, 20],
             'module__hidden_units': [10, 20],
         }
-        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy',
-                          iid=True)
+        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy')
         gs.fit(X[:100], y[:100])  # for speed
         print(gs.best_score_, gs.best_params_)
 
@@ -1408,6 +1425,11 @@ class TestNeuralNet:
 
         stdout = capsys.readouterr()[0]
         assert "Re-initializing module!" not in stdout
+
+    def test_no_callbacks(self, net_cls, module_cls):
+        net = net_cls(module_cls, callbacks="disable")
+        net.initialize()
+        assert net.callbacks_ == []
 
     def test_message_fit_with_initialized_net(
             self, net_cls, module_cls, data, capsys):

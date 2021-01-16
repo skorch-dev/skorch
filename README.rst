@@ -7,10 +7,9 @@
 
 A scikit-learn compatible neural network library that wraps PyTorch.
 
-.. |build| image:: https://api.travis-ci.org/skorch-dev/skorch.svg?branch=master
-    :alt: Build Status
+.. |build| image:: https://github.com/skorch-dev/skorch/workflows/tests/badge.svg
+    :alt: Test Status
     :scale: 100%
-    :target: https://travis-ci.org/skorch-dev/skorch?branch=master
 
 .. |coverage| image:: https://github.com/skorch-dev/skorch/blob/master/assets/coverage.svg
     :alt: Test Coverage
@@ -235,10 +234,10 @@ instructions for PyTorch, visit the `PyTorch website
 <http://pytorch.org/>`__. skorch officially supports the last four
 minor PyTorch versions, which currently are:
 
-- 1.3.1
 - 1.4.0
 - 1.5.1
 - 1.6.0
+- 1.7.1
 
 However, that doesn't mean that older versions don't work, just that
 they aren't tested. Since skorch mostly relies on the stable part of

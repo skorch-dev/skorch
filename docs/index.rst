@@ -60,6 +60,7 @@ User's Guide
    user/REST
    user/parallelism
    user/customization
+   user/performance
    user/FAQ
 
 
