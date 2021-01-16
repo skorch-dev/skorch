@@ -142,11 +142,20 @@ class NeuralNet:
       data and should return the tuple ``dataset_train, dataset_valid``.
       The validation data may be None.
 
-    callbacks : None or list of Callback instances (default=None)
-      More callbacks, in addition to those returned by
-      ``get_default_callbacks``. Each callback should inherit from
-      :class:`.Callback`. If not ``None``, a list of callbacks is
-      expected where the callback names are inferred from the class
+    callbacks : None, "disable", or list of Callback instances (default=None)
+      Which callbacks to enable. There are three possible values:
+
+      If ``callbacks=None``, only use default callbacks,
+      those returned by ``get_default_callbacks``.
+
+      If ``callbacks="disable"``, disable all callbacks, i.e. do not run
+      any of the callbacks.
+
+      If ``callbacks`` is a list of callbacks, use those callbacks in
+      addition to the default callbacks. Each callback should be an
+      instance of :class:`.Callback`.
+
+      Callback names are inferred from the class
       name. Name conflicts are resolved by appending a count suffix
       starting with 1, e.g. ``EpochScoring_1``. Alternatively,
       a tuple ``(name, callback)`` can be passed, where ``name``
@@ -444,6 +453,10 @@ class NeuralNet:
         not unique, a ValueError is raised.
 
         """
+        if self.callbacks == "disable":
+            self.callbacks_ = []
+            return self
+
         callbacks_ = []
 
         class Dummy:
@@ -474,6 +487,7 @@ class NeuralNet:
             callbacks_.append((name, cb))
 
         self.callbacks_ = callbacks_
+
         return self
 
     def initialize_criterion(self):
@@ -1550,6 +1564,16 @@ class NeuralNet:
         did you mean iterator_train__shuffle?
 
         """
+        # warn about usage of iterator_valid__shuffle=True, since this
+        # is almost certainly not what the user wants
+        if kwargs.get('iterator_valid__shuffle'):
+            warnings.warn(
+                "You set iterator_valid__shuffle=True; this is most likely not "
+                "what you want because the values returned by predict and "
+                "predict_proba will be shuffled.",
+                UserWarning)
+
+        # check for wrong arguments
         unexpected_kwargs = []
         missing_dunder_kwargs = []
         for key in kwargs:

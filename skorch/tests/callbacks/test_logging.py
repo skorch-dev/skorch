@@ -11,6 +11,7 @@ import torch
 from torch import nn
 
 from skorch.tests.conftest import neptune_installed
+from skorch.tests.conftest import sacred_installed
 from skorch.tests.conftest import wandb_installed
 from skorch.tests.conftest import tensorboard_installed
 
@@ -190,6 +191,151 @@ class TestNeptune:
 
         npt.on_batch_end(net)
         assert npt.first_batch_ is False
+
+@pytest.mark.skipif(
+    not sacred_installed, reason='Sacred is not installed')
+class TestSacred:
+    @pytest.fixture
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def data(self, classifier_data):
+        X, y = classifier_data
+        # accelerate training since we don't care for the loss
+        X, y = X[:40], y[:40]
+        return X, y
+
+    @pytest.fixture
+    def sacred_logger_cls(self):
+        from skorch.callbacks import SacredLogger
+        return SacredLogger
+
+    @pytest.fixture
+    def sacred_experiment_cls(self):
+        from sacred import Experiment
+        return Experiment
+
+    @pytest.fixture
+    def mock_experiment(self, sacred_experiment_cls):
+        mock = Mock(spec=sacred_experiment_cls)
+        mock.log_scalar = Mock()
+        return mock
+
+    @pytest.fixture
+    def net_fitted(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            sacred_logger_cls,
+            mock_experiment,
+    ):
+        return net_cls(
+            classifier_module,
+            callbacks=[sacred_logger_cls(mock_experiment)],
+            max_epochs=3,
+        ).fit(*data)
+
+    def test_ignore_keys(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            sacred_logger_cls,
+            mock_experiment,
+    ):
+        # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
+        # this should not cause a problem
+        logger = sacred_logger_cls(
+            mock_experiment, keys_ignored=['dur', 'valid_loss', 'unknown'])
+        net_cls(
+            classifier_module,
+            callbacks=[logger],
+            max_epochs=3,
+        ).fit(*data)
+
+        # 3 epochs x 2 epoch metrics = 6 calls
+        assert mock_experiment.log_scalar.call_count == 6
+        call_args = [args[0][0] for args in mock_experiment.log_scalar.call_args_list]
+        assert 'valid_loss' not in call_args
+
+    def test_keys_ignored_is_string(self, sacred_logger_cls, mock_experiment):
+        logger = sacred_logger_cls(
+            mock_experiment, keys_ignored='a-key').initialize()
+        expected = {'a-key', 'batches'}
+        assert logger.keys_ignored_ == expected
+
+    def test_fit_with_real_experiment(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            sacred_logger_cls,
+            sacred_experiment_cls,
+    ):
+        experiment = sacred_experiment_cls()
+
+        @experiment.main
+        def experiment_main(_run):
+            net = net_cls(
+                classifier_module,
+                callbacks=[sacred_logger_cls(_run)],
+                max_epochs=5,
+            )
+            net.fit(*data)
+
+        experiment.run()
+
+    def test_log_on_batch_level_on(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            sacred_logger_cls,
+            mock_experiment,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[sacred_logger_cls(mock_experiment, log_on_batch_end=True)],
+            max_epochs=5,
+            batch_size=4,
+            train_split=False
+        )
+        net.fit(*data)
+
+        # 5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls
+        assert mock_experiment.log_scalar.call_count == 110
+        mock_experiment.log_scalar.assert_any_call('train_batch_size_batch', 4)
+
+        logged_keys = [
+            call_args.args[0] for call_args in mock_experiment.log_scalar.call_args_list
+        ]
+        # This is a batch-only metric.
+        assert 'train_batch_size_epoch' not in logged_keys
+
+    def test_log_on_batch_level_off(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            sacred_logger_cls,
+            mock_experiment,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[sacred_logger_cls(mock_experiment, log_on_batch_end=False)],
+            max_epochs=5,
+            batch_size=4,
+            train_split=False
+        )
+        net.fit(*data)
+
+        # 5 epochs x 2 epoch metrics = 10 calls
+        assert mock_experiment.log_scalar.call_count == 10
+        call_args_list = mock_experiment.log_scalar.call_args_list
+        assert call('train_batch_size_batch', 4) not in call_args_list
 
 @pytest.mark.skipif(
     not wandb_installed, reason='wandb is not installed')

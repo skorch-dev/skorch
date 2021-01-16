@@ -135,6 +135,28 @@ support for wildcards (globbing):
         ('linear0.bias', {'lr': 1}),
     ]
 
+Your use case may require an optimizer whose signature differs from a 
+default PyTorch optimizer's signature. In that case, you can define a 
+custom function that reroutes the arguments as needed and pass it to 
+the ``optimizer`` parameter:
+
+.. code:: python
+
+    # custom optimizer to encapsulate Adam
+    def make_lookahead(parameters, optimizer_cls, k, alpha, **kwargs):
+        optimizer = optimizer_cls(parameters, **kwargs)
+        return Lookahead(optimizer=optimizer, k=k, alpha=alpha)
+
+
+    net = NeuralNetClassifier(
+            ...,
+            optimizer=make_lookahead,
+            optimizer__optimizer_cls=torch.optim.Adam,
+            optimizer__weight_decay=1e-2,
+            optimizer__k=5,
+            optimizer__alpha=0.5,
+            lr=1e-3)
+
 lr
 ^^^
 
