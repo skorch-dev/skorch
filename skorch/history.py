@@ -33,15 +33,14 @@ def _getitem_list_list(items, keys):
     filtered = []
     for item in items:
         row = []
-        do_append = True
         for key in keys:
             try:
                 row.append(item[key])
             except KeyError:
-                do_append = False
                 break
-        if row and do_append:
-            filtered.append(row)
+        else:  # no break
+            if row:
+                filtered.append(row)
     return filtered
 
 
