@@ -23,17 +23,107 @@ def _filter_none(items):
     return type_(filter(_not_none, items))
 
 
-def _getitem(item, i):
-    """Extract value or values from dicts.
+def _getitem_list_list(items, keys):
+    """Ugly but efficient extraction of multiple values from a list of
+    items.
 
-    Covers the case of a single key or multiple keys. If not found,
-    return placeholders instead.
+    Keys are contained in a list.
 
     """
-    if not isinstance(i, (tuple, list)):
-        return item.get(i, _none)
-    type_ = list if isinstance(item, list) else tuple
-    return type_(item.get(j, _none) for j in i)
+    filtered = []
+    for item in items:
+        row = []
+        for key in keys:
+            try:
+                row.append(item[key])
+            except KeyError:
+                break
+        else:  # no break
+            if row:
+                filtered.append(row)
+    return filtered
+
+
+def _getitem_list_tuple(items, keys):
+    """Ugly but efficient extraction of multiple values from a list of
+    items.
+
+    Keys are contained in a tuple.
+
+    """
+    filtered = []
+    for item in items:
+        row = ()
+        do_append = True
+        for key in keys:
+            try:
+                row += (item[key],)
+            except KeyError:
+                do_append = False
+                break
+        if row and do_append:
+            filtered.append(row)
+    return filtered
+
+
+def _getitem_list_str(items, key):
+    filtered = []
+    for item in items:
+        try:
+            filtered.append(item[key])
+        except KeyError:
+            continue
+    return filtered
+
+
+def _getitem_dict_list(item, keys):
+    return [item.get(key, _none) for key in keys]
+
+
+def _getitem_dict_tuple(item, keys):
+    return tuple(item.get(key, _none) for key in keys)
+
+
+def _getitem_dict_str(item, key):
+    return item.get(key, _none)
+
+
+def _get_getitem_method(items, key):
+    """Return method to extract values from items.
+
+    For the given type of items and type of keys, find the correct
+    method to extract the values. By calling this only once per items,
+    we can save a lot of type checking, which can be slow if there are
+    a lot of epochs and a lot of items. However, we now make the
+    assumption that the type of items doesn't change (we know that the
+    key doesn't change). This should always be true, except if
+    something really weird happens.
+
+    We are multi-dispatching based on the following possibilities:
+
+    * history[0, 'foo', :10]: get a list of items
+    * history[0, 'foo', 0]: get a dict
+    * history[0, 'foo', :, 'bar']: key is a str
+    * history[0, 'foo', :, ('bar', 'baz')]: key is list/tuple of str
+
+    """
+    if isinstance(items, list):
+        if isinstance(key, list):
+            return _getitem_list_list
+        if isinstance(key, tuple):
+            return _getitem_list_tuple
+        if isinstance(key, str):
+            return _getitem_list_str
+        raise TypeError("History access with given types not supported")
+
+    if isinstance(items, dict):
+        if isinstance(key, list):
+            return _getitem_dict_list
+        if isinstance(key, tuple):
+            return _getitem_dict_tuple
+        if isinstance(key, str):
+            return _getitem_dict_str
+    raise TypeError("History access with given types not supported")
 
 
 def _unpack_index(i):
@@ -200,14 +290,9 @@ class History(list):
 
         # extract keys of batches
         # handles: history[..., k_e, i_b][k_b]
-        if k_b is not None:
-            items = [
-                _filter_none([_getitem(b, k_b) for b in batches])
-                if isinstance(batches, (list, tuple))
-                else _getitem(batches, k_b)
-                for batches in items
-            ]
-            # get rid of empty batches
+        if items and (k_b is not None):
+            extract = _get_getitem_method(items[0], k_b)
+            items = [extract(batches, k_b) for batches in items]
             items = [b for b in items if b not in (_none, [], ())]
             if not _filter_none(items):
                 # all rows contained _none or were empty
@@ -216,8 +301,11 @@ class History(list):
         # extract epoch-level values, but only if not already done
         # handles: history[..., k_e]
         if (k_e is not None) and (i_b is None):
-            items = [_getitem(batches, k_e)
-                     for batches in items]
+            if not items:
+                raise KeyError(keyerror_msg.format(k_e))
+
+            extract = _get_getitem_method(items[0], k_e)
+            items = [extract(item, k_e) for item in items]
             if not _filter_none(items):
                 raise KeyError(keyerror_msg.format(k_e))
 
