@@ -149,12 +149,7 @@ class LRScheduler(Callback):
             if callable(self.monitor):
                 score = self.monitor(net)
             else:
-                if self.lr_scheduler_.mode == 'max':
-                    score = -np.inf
-                elif self.lr_scheduler_.mode == 'min':
-                    score = np.inf
-                else:
-                    score = net.history[-1, self.monitor]
+                score = net.history[-1, self.monitor]
 
             self.lr_scheduler_.step(score)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
