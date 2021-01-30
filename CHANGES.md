@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI helper function now also supports normal (i.e. non-skorch) sklearn estimators
 - Disabling all callbacks is now supported (which allows reducing overhead,
   which is especially relevant for small models).
-- `LRScheduler` now currently passes the score/loss in the history to `ReduceLROnPlateau`. (#738)
+- `LRScheduler` now correctly passes the value being monitored to `ReduceLROnPlateau`. (#738)
 
 ### Changed
 
