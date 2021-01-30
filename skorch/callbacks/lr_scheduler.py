@@ -149,7 +149,14 @@ class LRScheduler(Callback):
             if callable(self.monitor):
                 score = self.monitor(net)
             else:
-                score = net.history[-1, self.monitor]
+                try:
+                    score = net.history[-1, self.monitor]
+                except KeyError:
+                    raise ValueError(
+                        f"'{self.monitor}' was not found in history. A "
+                        f"PassthroughScoring callback with name='{self.monitor}' "
+                        "should be placed before the LRScheduler callback"
+                    )
 
             self.lr_scheduler_.step(score)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
