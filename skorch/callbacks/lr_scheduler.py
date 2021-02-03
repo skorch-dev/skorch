@@ -154,7 +154,7 @@ class LRScheduler(Callback):
                 except KeyError as e:
                     raise ValueError(
                         f"'{self.monitor}' was not found in history. A "
-                        f"PassthroughScoring callback with name='{self.monitor}' "
+                        f"Scoring callback with name='{self.monitor}' "
                         "should be placed before the LRScheduler callback"
                     ) from e
 
