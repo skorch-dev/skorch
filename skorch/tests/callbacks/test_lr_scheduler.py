@@ -319,7 +319,7 @@ class TestReduceLROnPlateau:
             ],
             max_epochs=1,
         )
-        msg = ("'bad_key' was not found in history. A PassthroughScoring "
+        msg = ("'bad_key' was not found in history. A Scoring "
                "callback with name='bad_key' should be placed before the "
                "LRScheduler callback")
         with pytest.raises(ValueError, match=msg):
