@@ -121,7 +121,7 @@ dictionary. Below, there is example code on how to achieve this:
         def get_loss(self, y_pred, y_true, X, *args, **kwargs):
             # override get_loss to use the sample_weight from X
             loss_unreduced = super().get_loss(y_pred, y_true, X, *args, **kwargs)
-            sample_weight = X['sample_weight']
+            sample_weight = skorch.utils.to_tensor(X['sample_weight'], device=self.device)
             loss_reduced = (sample_weight * loss_unreduced).mean()
             return loss_reduced
 
