@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI helper function now also supports normal (i.e. non-skorch) sklearn estimators
 - Disabling all callbacks is now supported (which allows reducing overhead,
   which is especially relevant for small models).
+- `LRScheduler` now correctly passes the value being monitored to `ReduceLROnPlateau`. (#738)
 
 ### Changed
 
@@ -35,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Removed support for schedulers with a `batch_step()` method in `LRScheduler`. 
+- Removed support for schedulers with a `batch_step()` method in `LRScheduler`.
 - Raise `FutureWarning` in `CVSplit` when `random_state` is not used. Will raise an exception in a future (#620)
 - The behavior of method `net.get_params` changed to make it more consistent with sklearn: it will no longer return "learned" attributes like `module_`; therefore, functions like `sklearn.base.clone`, when called with a fitted net, will no longer return a fitted net but instead an uninitialized net; if you want a copy of a fitted net, use `copy.deepcopy` instead;`net.get_params` is used under the hood by many sklearn functions and classes, such as `GridSearchCV`, whose behavior may thus be affected by the change. (#521, #527)
 - Raise `FutureWarning` when using `CyclicLR` scheduler, because the default behavior has changed from taking a step every batch to taking a step every epoch. (#626)

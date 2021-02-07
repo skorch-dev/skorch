@@ -149,12 +149,14 @@ class LRScheduler(Callback):
             if callable(self.monitor):
                 score = self.monitor(net)
             else:
-                if self.lr_scheduler_.mode == 'max':
-                    score = -np.inf
-                elif self.lr_scheduler_.mode == 'min':
-                    score = np.inf
-                else:
+                try:
                     score = net.history[-1, self.monitor]
+                except KeyError as e:
+                    raise ValueError(
+                        f"'{self.monitor}' was not found in history. A "
+                        f"Scoring callback with name='{self.monitor}' "
+                        "should be placed before the LRScheduler callback"
+                    ) from e
 
             self.lr_scheduler_.step(score)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
