@@ -768,7 +768,7 @@ class NeuralNet:
 
         """
         self.check_is_fitted()
-        Xi = unpack_data(batch)[0]
+        Xi, _ = unpack_data(batch)
         with torch.set_grad_enabled(training):
             self.module_.train(training)
             return self.infer(Xi)

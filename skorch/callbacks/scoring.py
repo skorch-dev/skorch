@@ -379,7 +379,7 @@ class EpochScoring(ScoringBase):
         # self.target_extractor(y) here but on epoch end, so that
         # there are no copies of parts of y hanging around during
         # training.
-        y = unpack_data(batch)[1]
+        _X, y = unpack_data(batch)
         if y is not None:
             self.y_trues_.append(y)
         self.y_preds_.append(y_pred)
