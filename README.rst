@@ -261,14 +261,14 @@ External resources
   <https://neptune.ai/blog/model-training-libraries-pytorch-ecosystem>`_
   "8 Creators and Core Contributors Talk About Their Model Training
   Libraries From PyTorch Ecosystem" 2020
-- @BenjaminBossan: `talk
+- @BenjaminBossan: `talk 1
   <https://www.youtube.com/watch?v=Qbu_DCBjVEk>`_ "skorch: A
   scikit-learn compatible neural network library" at PyCon/PyData 2019
 - @githubnemo: `poster <https://github.com/githubnemo/skorch-poster>`_
   for the PyTorch developer conference 2019
-- @thomasjpfan: `talk <https://www.youtube.com/watch?v=0J7FaLk0bmQ>`_
+- @thomasjpfan: `talk 2 <https://www.youtube.com/watch?v=0J7FaLk0bmQ>`_
   "Skorch: A Union of Scikit learn and PyTorch" at SciPy 2019
-- @thomasjpfan: `talk <https://www.youtube.com/watch?v=yAXsxf2CQ8M>`_
+- @thomasjpfan: `talk 3 <https://www.youtube.com/watch?v=yAXsxf2CQ8M>`_
   "Skorch - A Union of Scikit-learn and PyTorch" at PyData 2018
 
 =============
