@@ -1,4 +1,4 @@
 [run]
 omit = 
        skorch/tests/*
-       skorch/tests/*
+

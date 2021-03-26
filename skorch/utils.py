@@ -160,7 +160,7 @@ def to_device(X, device):
         return X
 
     if isinstance(X, dict):
-        return {key: to_device(val,device) for key, val in X.items()}
+        return {key: to_device(val, device) for key, val in X.items()}
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):

@@ -305,7 +305,7 @@ gradient accumulation yourself:
             loss = super().get_loss(*args, **kwargs)
             return loss / self.acc_steps  # normalize loss
 
-        def train_step(self, Xi, yi, **fit_params):
+        def train_step(self, batch, **fit_params):
             """Perform gradient accumulation
 
             Only optimize every nth batch.
@@ -313,7 +313,7 @@ gradient accumulation yourself:
             """
             # note that n_train_batches starts at 1 for each epoch
             n_train_batches = len(self.history[-1, 'batches'])
-            step = self.train_step_single(Xi, yi, **fit_params)
+            step = self.train_step_single(batch, **fit_params)
 
             if n_train_batches % self.acc_steps == 0:
                 self.optimizer_.step()
@@ -404,3 +404,43 @@ the **greatest** score.
     grid_searcher.fit(X, y)
     best_net = grid_searcher.best_estimator_
     print(best_net.score(X, y))
+
+Migration guide
+---------------
+
+Migration from 0.9 to 0.10
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With skorch 0.10, we pushed the tuple unpacking of values returned by
+the iterator to methods lower down the call chain. This way, it is
+much easier to work with iterators that don't return exactly two
+values, as per the convention.
+
+A consequence of this is a **change in signature** of these methods:
+
+- :py:meth:`skorch.net.NeuralNet.train_step_single`
+- :py:meth:`skorch.net.NeuralNet.validation_step`
+- :py:meth:`skorch.callbacks.Callback.on_batch_begin`
+- :py:meth:`skorch.callbacks.Callback.on_batch_end`
+
+Instead of receiving the unpacked tuple of ``X`` and ``y``, they just
+receive a ``batch``, which is whatever is returned by the
+iterator. The tuple unpacking needs to be performed inside these
+methods.
+
+If you have customized any of these methods, it is easy to retrieve
+the previous behavior. E.g. if you wrote your own ``on_batch_begin``,
+this is how to make the transition:
+
+.. code:: python
+
+    # before
+    def on_batch_begin(self, net, X, y, ...):
+	...
+
+    # after
+    def on_batch_begin(self, net, batch, ...):
+        X, y = batch
+        ...
+
+The same goes for the other three methods.

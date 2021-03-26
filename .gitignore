@@ -1,6 +1,9 @@
 __pycache__/
+dist/
+docs/_build/
 bin/
 .ipynb_checkpoints/
+Untitled*.ipynb
 data/
 *.egg-info
 .coverage
@@ -18,3 +21,4 @@ data/
 *.w2v
 *prof
 *.py~
+*.pt

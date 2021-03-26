@@ -1,7 +1,5 @@
 """Contains shared fixtures, hooks, etc."""
 
-from unittest.mock import Mock
-
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification

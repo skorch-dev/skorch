@@ -15,10 +15,11 @@ if LooseVersion(sklearn.__version__) >= '0.22':
 else:
     from sklearn.metrics.scorer import _BaseScorer
 
+from skorch.callbacks import Callback
+from skorch.dataset import unpack_data
 from skorch.utils import data_from_dataset
 from skorch.utils import is_skorch_dataset
 from skorch.utils import to_numpy
-from skorch.callbacks import Callback
 from skorch.utils import check_indexing
 from skorch.utils import to_device
 
@@ -146,9 +147,8 @@ class ScoringBase(Callback):
             if hasattr(self.scoring_._score_func, '__name__'):
                 # sklearn < 0.22
                 return self.scoring_._score_func.__name__
-            else:
-                # sklearn >= 0.22
-                return self.scoring_._score_func._score_func.__name__
+            # sklearn >= 0.22
+            return self.scoring_._score_func._score_func.__name__
         if isinstance(self.scoring_, dict):
             raise ValueError("Dict not supported as scorer for multi-metric scoring."
                              " Register multiple scoring callbacks instead.")
@@ -239,10 +239,11 @@ class BatchScoring(ScoringBase):
     """
     # pylint: disable=unused-argument,arguments-differ
 
-    def on_batch_end(self, net, X, y, training, **kwargs):
+    def on_batch_end(self, net, batch, training, **kwargs):
         if training != self.on_train:
             return
 
+        X, y = unpack_data(batch)
         y_preds = [kwargs['y_pred']]
         with _cache_net_forward_iter(net, self.use_caching, y_preds) as cached_net:
             # In case of y=None we will not have gathered any samples.
@@ -367,7 +368,7 @@ class EpochScoring(ScoringBase):
 
     # pylint: disable=arguments-differ
     def on_batch_end(
-            self, net, y, y_pred, training, **kwargs):
+            self, net, batch, y_pred, training, **kwargs):
         if not self.use_caching or training != self.on_train:
             return
 
@@ -378,6 +379,7 @@ class EpochScoring(ScoringBase):
         # self.target_extractor(y) here but on epoch end, so that
         # there are no copies of parts of y hanging around during
         # training.
+        _X, y = unpack_data(batch)
         if y is not None:
             self.y_trues_.append(y)
         self.y_preds_.append(y_pred)

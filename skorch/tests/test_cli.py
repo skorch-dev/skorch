@@ -337,6 +337,7 @@ class TestCli:
 
         kwargs_set_params = estimator.set_params.call_args_list[1][1]
         assert kwargs_set_params['foo'] == 'bar'
+        # pylint: disable=comparison-with-callable
         assert kwargs_set_params['baz'] == cos
 
         assert help_.call_count == 0

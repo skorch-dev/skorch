@@ -1,5 +1,7 @@
 """Test for utils.py"""
 
+from copy import deepcopy
+
 import numpy as np
 import pytest
 from scipy import sparse
@@ -8,7 +10,7 @@ from torch.nn.utils.rnn import PackedSequence
 from torch.nn.utils.rnn import pack_padded_sequence
 
 from skorch.tests.conftest import pandas_installed
-from copy import deepcopy
+
 
 class TestToTensor:
     @pytest.fixture
@@ -186,8 +188,8 @@ class TestToNumpy:
 
     @pytest.mark.parametrize('x_invalid', [
         1,
-        [1,2,3],
-        (1,2,3),
+        [1, 2, 3],
+        (1, 2, 3),
         {'a': 1},
     ])
     def test_invalid_inputs(self, to_numpy, x_invalid):
@@ -230,7 +232,8 @@ class TestToDevice:
         return [torch.zeros(3), torch.ones(2, 4)]
 
     def check_device_type(self, tensor, device_input, prev_device):
-        """assert expected device type conditioned on the input argument for `to_device`"""
+        """assert expected device type conditioned on the input argument for
+        `to_device`"""
         if None is device_input:
             assert tensor.device.type == prev_device
 
@@ -296,7 +299,7 @@ class TestToDevice:
 
         original_x_dict = deepcopy(x_dict)
 
-        prev_devices=[None for _ in range(len(list(x_dict.keys())))]
+        prev_devices = [None for _ in range(len(list(x_dict.keys())))]
         if None in (device_from, device_to):
             prev_devices = [x.device.type for x in x_dict.values()]
 
@@ -845,6 +848,7 @@ class TestInferPredictNonlinearity:
         X = torch.rand((20, 5))
         out = fn(X).numpy()
         assert np.allclose(out.sum(axis=1), 1.0)
+        # pylint: disable=misplaced-comparison-constant
         assert ((0 <= out) & (out <= 1.0)).all()
 
     def test_infer_neural_binary_net_classifier_default(
@@ -858,6 +862,7 @@ class TestInferPredictNonlinearity:
         out = fn(X).numpy()
         assert out.shape == (20, 2)  # output should be 2-dim
         assert np.allclose(out.sum(axis=1), 1.0)
+        # pylint: disable=misplaced-comparison-constant
         assert ((0 <= out) & (out <= 1.0)).all()
 
     def test_infer_neural_net_regressor_default(

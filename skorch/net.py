@@ -1,4 +1,10 @@
-"""Neural net classes."""
+"""Neural net base class
+
+This is the most flexible class, not making assumptions on the kind of
+task being peformed. Subclass this to create more specialized and
+sklearn-conforming classes like NeuralNetClassifier.
+
+"""
 
 import fnmatch
 from itertools import chain
@@ -14,11 +20,11 @@ from torch.utils.data import DataLoader
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
 from skorch.callbacks import PassthroughScoring
+from skorch.callbacks.base import _issue_warning_if_on_batch_override
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
 from skorch.dataset import unpack_data
-from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
 from skorch.history import History
 from skorch.setter import optimizer_setter
@@ -329,43 +335,40 @@ class NeuralNet:
         * on_batch_end
 
         """
+        # TODO: remove after some deprecation period, e.g. skorch 0.12
+        if not self.history:  # perform check only at the start
+            _issue_warning_if_on_batch_override(self.callbacks_)
+
         getattr(self, method_name)(self, **cb_kwargs)
         for _, cb in self.callbacks_:
             getattr(cb, method_name)(self, **cb_kwargs)
 
     # pylint: disable=unused-argument
-    def on_train_begin(self, net,
-                       X=None, y=None, **kwargs):
+    def on_train_begin(self, net, X=None, y=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_train_end(self, net,
-                     X=None, y=None, **kwargs):
+    def on_train_end(self, net, X=None, y=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_epoch_begin(self, net,
-                       dataset_train=None, dataset_valid=None, **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         self.history.new_epoch()
         self.history.record('epoch', len(self.history))
 
     # pylint: disable=unused-argument
-    def on_epoch_end(self, net,
-                     dataset_train=None, dataset_valid=None, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_batch_begin(self, net,
-                       Xi=None, yi=None, training=False, **kwargs):
+    def on_batch_begin(self, net, batch=None, training=False, **kwargs):
         self.history.new_batch()
 
-    def on_batch_end(self, net,
-                     Xi=None, yi=None, training=False, **kwargs):
+    def on_batch_end(self, net, batch=None, training=False, **kwargs):
         pass
 
-    def on_grad_computed(self, net, named_parameters,
-                         Xi=None, yi=None,
-                         training=False, **kwargs):
+    def on_grad_computed(
+            self, net, named_parameters, batch=None, training=False, **kwargs):
         pass
 
     def _yield_callbacks(self):
@@ -377,6 +380,18 @@ class NeuralNet:
           * callbacks with and without name
           * initialized and uninitialized callbacks
           * puts PrintLog(s) last
+
+        Yields
+        ------
+        name : str
+          Name of the callback.
+
+        cb : Callback or Callback instance
+          The callback itself
+
+        named_by_user : bool
+          Whether the name was given by the user or determined
+          automatically.
 
         """
         print_logs = []
@@ -584,10 +599,12 @@ class NeuralNet:
             ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
             optimizer_setter,
         )
+        return self
 
     def initialize_history(self):
         """Initializes the history."""
         self.history_ = History()
+        return self
 
     def initialize(self):
         """Initializes all components of the :class:`.NeuralNet` and
@@ -607,7 +624,7 @@ class NeuralNet:
     def check_data(self, X, y=None):
         pass
 
-    def validation_step(self, Xi, yi, **fit_params):
+    def validation_step(self, batch, **fit_params):
         """Perform a forward step using batched data and return the
         resulting loss.
 
@@ -616,11 +633,8 @@ class NeuralNet:
 
         Parameters
         ----------
-        Xi : input data
-          A batch of the input data.
-
-        yi : target data
-          A batch of the target data.
+        batch
+          A single batch returned by the data loader.
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
@@ -628,15 +642,16 @@ class NeuralNet:
 
         """
         self.module_.eval()
+        Xi, yi = unpack_data(batch)
         with torch.no_grad():
             y_pred = self.infer(Xi, **fit_params)
             loss = self.get_loss(y_pred, yi, X=Xi, training=False)
         return {
             'loss': loss,
             'y_pred': y_pred,
-            }
+        }
 
-    def train_step_single(self, Xi, yi, **fit_params):
+    def train_step_single(self, batch, **fit_params):
         """Compute y_pred, loss value, and update net's gradients.
 
         The module is set to be in train mode (e.g. dropout is
@@ -644,33 +659,30 @@ class NeuralNet:
 
         Parameters
         ----------
-        Xi : input data
-          A batch of the input data.
-
-        yi : target data
-          A batch of the target data.
+        batch
+          A single batch returned by the data loader.
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
           the module and to the ``self.train_split`` call.
 
+        Returns
+        -------
+        step : dict
+          A dictionary ``{'loss': loss, 'y_pred': y_pred}``, where the
+          float ``loss`` is the result of the loss function and
+          ``y_pred`` the prediction generated by the PyTorch module.
+
         """
         self.module_.train()
+        Xi, yi = unpack_data(batch)
         y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
-
-        self.notify(
-            'on_grad_computed',
-            named_parameters=TeeGenerator(self.module_.named_parameters()),
-            X=Xi,
-            y=yi
-        )
-
         return {
             'loss': loss,
             'y_pred': y_pred,
-            }
+        }
 
     def get_train_step_accumulator(self):
         """Return the train step accumulator.
@@ -688,7 +700,7 @@ class NeuralNet:
         """
         return FirstStepAccumulator()
 
-    def train_step(self, Xi, yi, **fit_params):
+    def train_step(self, batch, **fit_params):
         """Prepares a loss function callable and pass it to the optimizer,
         hence performing one optimization step.
 
@@ -701,29 +713,39 @@ class NeuralNet:
 
         Parameters
         ----------
-        Xi : input data
-          A batch of the input data.
-
-        yi : target data
-          A batch of the target data.
+        batch
+          A single batch returned by the data loader.
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
           the module and to the train_split call.
+
+        Returns
+        -------
+        step : dict
+          A dictionary ``{'loss': loss, 'y_pred': y_pred}``, where the
+          float ``loss`` is the result of the loss function and
+          ``y_pred`` the prediction generated by the PyTorch module.
 
         """
         step_accumulator = self.get_train_step_accumulator()
 
         def step_fn():
             self.optimizer_.zero_grad()
-            step = self.train_step_single(Xi, yi, **fit_params)
+            step = self.train_step_single(batch, **fit_params)
             step_accumulator.store_step(step)
+
+            self.notify(
+                'on_grad_computed',
+                named_parameters=TeeGenerator(self.module_.named_parameters()),
+                batch=batch,
+            )
             return step['loss']
 
         self.optimizer_.step(step_fn)
         return step_accumulator.get_step()
 
-    def evaluation_step(self, Xi, training=False):
+    def evaluation_step(self, batch, training=False):
         """Perform a forward step to produce the output used for
         prediction and scoring.
 
@@ -731,8 +753,22 @@ class NeuralNet:
         beforehand which can be overridden to re-enable features
         like dropout by setting ``training=True``.
 
+        Parameters
+        ----------
+        batch
+          A single batch returned by the data loader.
+
+        training : bool (default=False)
+          Whether to set the module to train mode or not.
+
+        Returns
+        -------
+        y_infer
+          The prediction generated by the module.
+
         """
         self.check_is_fitted()
+        Xi, _ = unpack_data(batch)
         with torch.set_grad_enabled(training):
             self.module_.train(training)
             return self.infer(Xi)
@@ -789,9 +825,8 @@ class NeuralNet:
             self.run_single_epoch(dataset_train, training=True, prefix="train",
                                   step_fn=self.train_step, **fit_params)
 
-            if dataset_valid is not None:
-                self.run_single_epoch(dataset_valid, training=False, prefix="valid",
-                                      step_fn=self.validation_step, **fit_params)
+            self.run_single_epoch(dataset_valid, training=False, prefix="valid",
+                                  step_fn=self.validation_step, **fit_params)
 
             self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
@@ -801,32 +836,33 @@ class NeuralNet:
 
         Parameters
         ----------
-        dataset : torch Dataset
-            The initialized dataset to loop over.
+        dataset : torch Dataset or None
+          The initialized dataset to loop over. If None, skip this step.
 
         training : bool
-            Whether to set the module to train mode or not.
+          Whether to set the module to train mode or not.
 
         prefix : str
-            Prefix to use when saving to the history.
+          Prefix to use when saving to the history.
 
         step_fn : callable
-            Function to call for each batch.
+          Function to call for each batch.
 
         **fit_params : dict
-            Additional parameters passed to the ``step_fn``.
+          Additional parameters passed to the ``step_fn``.
         """
-        is_placeholder_y = uses_placeholder_y(dataset)
+        if dataset is None:
+            return
 
         batch_count = 0
-        for data in self.get_iterator(dataset, training=training):
-            Xi, yi = unpack_data(data)
-            yi_res = yi if not is_placeholder_y else None
-            self.notify("on_batch_begin", X=Xi, y=yi_res, training=training)
-            step = step_fn(Xi, yi, **fit_params)
+        for batch in self.get_iterator(dataset, training=training):
+            self.notify("on_batch_begin", batch=batch, training=training)
+            step = step_fn(batch, **fit_params)
             self.history.record_batch(prefix + "_loss", step["loss"].item())
-            self.history.record_batch(prefix + "_batch_size", get_len(Xi))
-            self.notify("on_batch_end", X=Xi, y=yi_res, training=training, **step)
+            batch_size = (get_len(batch[0]) if isinstance(batch, (tuple, list))
+                          else get_len(batch))
+            self.history.record_batch(prefix + "_batch_size", batch_size)
+            self.notify("on_batch_end", batch=batch, training=training, **step)
             batch_count += 1
 
         self.history.record(prefix + "_batch_count", batch_count)
@@ -977,9 +1013,8 @@ class NeuralNet:
         """
         dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
-        for data in iterator:
-            Xi = unpack_data(data)[0]
-            yp = self.evaluation_step(Xi, training=training)
+        for batch in iterator:
+            yp = self.evaluation_step(batch, training=training)
             yield to_device(yp, device=device)
 
     def forward(self, X, training=False, device='cpu'):

@@ -1,11 +1,13 @@
+"""Custom scoring functions"""
+
 import numpy as np
-from skorch.net import NeuralNet
+
 from skorch.dataset import unpack_data
 
 
-def loss_scoring(net: NeuralNet, X, y=None, sample_weight=None):
+def loss_scoring(net, X, y=None, sample_weight=None):
     """Calculate score using the criterion of the net
-    
+
     Use the exact same logic as during model training to calculate the score.
 
     This function can be used to implement the ``score`` method for a
@@ -66,9 +68,10 @@ def loss_scoring(net: NeuralNet, X, y=None, sample_weight=None):
             "Expected one of 'mean', 'sum' or 'none' "
             "for reduction but got {reduction}.".format(reduction=reduction)
         )
-    for data in iterator:
-        Xi, yi = unpack_data(data)
-        yp = net.evaluation_step(Xi, training=False)
+
+    for batch in iterator:
+        yp = net.evaluation_step(batch, training=False)
+        yi = unpack_data(batch)[1]
         loss = net.get_loss(yp, yi)
         if reduction == "none":
             loss_value = loss.detach().cpu().numpy()

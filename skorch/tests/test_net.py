@@ -486,12 +486,14 @@ class TestNeuralNet:
             pickle.load(f)
 
     def test_save_params_invalid_argument_name_raises(self, net_fit):
-        msg = "save_params got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        msg = ("save_params got an unexpected argument 'foobar', "
+               "did you mean 'f_foobar'?")
         with pytest.raises(TypeError, match=msg):
             net_fit.save_params(foobar='some-file.pt')
 
     def test_load_params_invalid_argument_name_raises(self, net_fit):
-        msg = "load_params got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        msg = ("load_params got an unexpected argument 'foobar', "
+               "did you mean 'f_foobar'?")
         with pytest.raises(TypeError, match=msg):
             net_fit.load_params(foobar='some-file.pt')
 
@@ -606,8 +608,8 @@ class TestNeuralNet:
             orig_steps = [v['step'] for v in
                           net_fit_criterion.optimizer_.state_dict()['state'].values()]
             orig_loss = np.array(net_fit_criterion.history[:, 'train_loss'])
-            orig_criterion_weight = dict(net_fit_criterion.criterion_.named_parameters())[
-                'sequential.0.weight']
+            orig_criterion_weight = dict(
+                net_fit_criterion.criterion_.named_parameters())['sequential.0.weight']
             del net_fit_criterion
 
         with ExitStack() as stack:
@@ -616,7 +618,10 @@ class TestNeuralNet:
             c_fp = stack.enter_context(open(str(c), 'rb'))
             h_fp = stack.enter_context(open(str(h), 'r'))
             new_net = net_cls(
-                module_cls, criterion=module_cls, optimizer=torch.optim.Adam).initialize()
+                module_cls,
+                criterion=module_cls,
+                optimizer=torch.optim.Adam,
+            ).initialize()
             new_net.load_params(
                 f_params=p_fp, f_optimizer=o_fp, f_criterion=c_fp, f_history=h_fp)
 
@@ -2182,7 +2187,8 @@ class TestNeuralNet:
 
         net = net_cls(module_cls).initialize()
         Xi = to_tensor(data[0][:3], device='cpu')
-        y_eval = net.evaluation_step(Xi, training=training)
+        batch = Xi, None
+        y_eval = net.evaluation_step(batch, training=training)
 
         assert y_eval.requires_grad is training
 
@@ -2213,6 +2219,7 @@ class TestNeuralNet:
         assert train_batch_size == expected_train_batch_size
         assert valid_batch_size == expected_valid_batch_size
 
+        # pylint: disable=unsubscriptable-object
         train_kwargs = train_loader_mock.call_args[1]
         valid_kwargs = valid_loader_mock.call_args[1]
         assert train_kwargs['batch_size'] == expected_train_batch_size
@@ -2325,6 +2332,7 @@ class TestNeuralNet:
 
         net.fit(train_ds, None)
 
+        # pylint: disable=unsubscriptable-object
         train_loader_ds = train_loader_mock.call_args[0][0]
         valid_loader_ds = valid_loader_mock.call_args[0][0]
 
@@ -2443,6 +2451,7 @@ class TestNeuralNet:
                 # This is not necessary for gradient accumulation but
                 # only for testing purposes
                 super().initialize()
+                # pylint: disable=access-member-before-definition
                 self.true_optimizer_ = self.optimizer_
                 mock_optimizer.step.side_effect = self.true_optimizer_.step
                 mock_optimizer.zero_grad.side_effect = self.true_optimizer_.zero_grad
@@ -2453,7 +2462,7 @@ class TestNeuralNet:
                 # because only every nth step is optimized
                 return loss / self.acc_steps
 
-            def train_step(self, Xi, yi, **fit_params):
+            def train_step(self, batch, **fit_params):
                 """Perform gradient accumulation
 
                 Only optimize every 2nd batch.
@@ -2461,7 +2470,7 @@ class TestNeuralNet:
                 """
                 # note that n_train_batches starts at 1 for each epoch
                 n_train_batches = len(self.history[-1, 'batches'])
-                step = self.train_step_single(Xi, yi, **fit_params)
+                step = self.train_step_single(batch, **fit_params)
 
                 if n_train_batches % self.acc_steps == 0:
                     self.optimizer_.step()
@@ -2601,6 +2610,7 @@ class TestNeuralNet:
                 super().initialize_module(*args, **kwargs)
 
                 params = self.get_params_for('mymodule')
+                # pylint: disable=attribute-defined-outside-init
                 self.mymodule_ = self.mymodule(**params)
 
                 return self
@@ -2745,7 +2755,8 @@ class TestNeuralNet:
         ).initialize()
 
         rv = np.random.random((20, 5))
-        net.forward_iter = lambda *args, **kwargs: (torch.as_tensor(rv) for _ in range(2))
+        net.forward_iter = (
+            lambda *args, **kwargs: (torch.as_tensor(rv) for _ in range(2)))
 
         # 2 batches, mock return value has shape 20,5 thus y_proba has
         # shape 40,5
@@ -2764,6 +2775,82 @@ class TestNeuralNet:
 
         with pytest.raises(TypeError, match=msg):
             net.predict_proba(np.zeros((3, 3)))
+
+    def test_customize_net_with_custom_dataset_that_returns_3_values(self, data):
+        # Test if it's possible to easily customize NeuralNet to work
+        # with Datasets that don't return 2 values. This way, a user
+        # can more easily customize the net and use his or her own
+        # datasets.
+        from skorch import NeuralNet
+        from skorch.utils import to_tensor
+
+        class MyDataset(torch.utils.data.Dataset):
+            """Returns 3 elements instead of 2"""
+            def __init__(self, X, y):
+                self.X = X
+                self.y = y
+
+            def __getitem__(self, i):
+                x = self.X[i]
+                if self.y is None:
+                    return x[:5], x[5:]
+                y = self.y[i]
+                return x[:5], x[5:], y
+
+            def __len__(self):
+                return len(self.X)
+
+        class MyModule(nn.Module):
+            """Module that takes 2 inputs"""
+            def __init__(self):
+                super().__init__()
+                self.lin = nn.Linear(20, 2)
+
+            def forward(self, x0, x1):
+                x = torch.cat((x0, x1), axis=1)
+                return self.lin(x)
+
+        class MyNet(NeuralNet):
+            """Override train_step_single and validation_step"""
+            def train_step_single(self, batch, **fit_params):
+                self.module_.train()
+                x0, x1, yi = batch
+                x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
+                y_pred = self.module_(x0, x1)
+                loss = self.criterion_(y_pred, yi)
+                loss.backward()
+                return {'loss': loss, 'y_pred': y_pred}
+
+            def validation_step(self, batch, **fit_params):
+                self.module_.eval()
+                x0, x1, yi = batch
+                x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
+                y_pred = self.module_(x0, x1)
+                loss = self.criterion_(y_pred, yi)
+                return {'loss': loss, 'y_pred': y_pred}
+
+            def evaluation_step(self, batch, training=False):
+                self.check_is_fitted()
+                x0, x1 = batch
+                x0, x1 = to_tensor((x0, x1), device=self.device)
+                with torch.set_grad_enabled(training):
+                    self.module_.train(training)
+                    return self.module_(x0, x1)
+
+        net = MyNet(
+            MyModule,
+            lr=0.1,
+            dataset=MyDataset,
+            criterion=nn.CrossEntropyLoss,
+        )
+        X, y = data[0][:100], data[1][:100]
+        net.fit(X, y)
+
+        # net learns
+        assert net.history[-1, 'train_loss'] < 0.75 * net.history[0, 'train_loss']
+
+        y_pred = net.predict(X)
+        assert y_pred.shape == (100, 2)
 
 
 class TestNetSparseInput:
