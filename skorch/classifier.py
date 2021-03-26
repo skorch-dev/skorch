@@ -206,7 +206,7 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
         y_pred : numpy ndarray
 
         """
-        return super().predict_proba(X).argmax(axis=1)
+        return self.predict_proba(X).argmax(axis=1)
 
 
 neural_net_binary_clf_doc_start = """NeuralNet for binary classification tasks
