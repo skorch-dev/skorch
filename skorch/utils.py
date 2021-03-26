@@ -11,6 +11,8 @@ from enum import Enum
 from functools import partial
 from itertools import tee
 import pathlib
+from operator import attrgetter
+from types import SimpleNamespace
 import warnings
 
 import numpy as np
@@ -29,6 +31,13 @@ if LooseVersion(sklearn.__version__) >= '0.22.0':
     from sklearn.utils import _safe_indexing as safe_indexing
 else:
     from sklearn.utils import safe_indexing
+
+GPYTORCH_INSTALLED = False
+try:
+    import gpytorch
+    GPYTORCH_INSTALLED = True
+except ImportError:
+    gpytorch = None
 
 
 class Ansi(Enum):
@@ -140,6 +149,9 @@ def to_numpy(X):
 def to_device(X, device):
     """Generic function to modify the device type of the tensor(s) or module.
 
+    PyTorch distribution objects are left untouched, since they don't support an
+    API to move between devices.
+
     Parameters
     ----------
     X : input data
@@ -165,6 +177,10 @@ def to_device(X, device):
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):
         return type(X)(to_device(x, device) for x in X)
+
+    if isinstance(X, torch.distributions.distribution.Distribution):
+        return X
+
     return X.to(device)
 
 
@@ -363,10 +379,20 @@ def duplicate_items(*collections):
     return duplicates
 
 
+class futureattr:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, kwargs):
+        return attrgetter(self.name)(SimpleNamespace(**kwargs))
+
+
 def params_for(prefix, kwargs):
     """Extract parameters that belong to a given sklearn module prefix from
     ``kwargs``. This is useful to obtain parameters that belong to a
     submodule.
+
+    TODO: extend tests
 
     Examples
     --------
@@ -375,9 +401,14 @@ def params_for(prefix, kwargs):
     {'a': 3, 'b': 4}
 
     """
+    def resolve(val):
+        if not isinstance(val, futureattr):
+            return val
+        return val(kwargs)
+
     if not prefix.endswith('__'):
         prefix += '__'
-    return {key[len(prefix):]: val for key, val in kwargs.items()
+    return {key[len(prefix):]: resolve(val) for key, val in kwargs.items()
             if key.startswith(prefix)}
 
 
@@ -584,6 +615,10 @@ def _sigmoid_then_2d(x):
     return y_proba
 
 
+def _transpose(x):
+    return x.T
+
+
 def _infer_predict_nonlinearity(net):
     """Infers the correct nonlinearity to apply for this net
 
@@ -603,6 +638,15 @@ def _infer_predict_nonlinearity(net):
 
     if isinstance(criterion, BCEWithLogitsLoss):
         return _sigmoid_then_2d
+
+    likelihood = getattr(net, 'likelihood_', None)
+    if (
+            likelihood
+            and GPYTORCH_INSTALLED
+            and isinstance(likelihood, gpytorch.likelihoods.SoftmaxLikelihood)
+    ):
+        # SoftmaxLikelihood returns batch second order
+        return _transpose
 
     return _identity
 

@@ -43,7 +43,7 @@ from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 
 
-_PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
+_PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer', 'likelihood'}
 """Special names that mark pytorch components.
 
 These special names are used to recognize whether an attribute that is
@@ -613,9 +613,9 @@ class NeuralNet:
         """
         self.initialize_virtual_params()
         self.initialize_callbacks()
-        self.initialize_criterion()
         self.initialize_module()
         self.initialize_optimizer()
+        self.initialize_criterion()
         self.initialize_history()
 
         self.initialized_ = True
