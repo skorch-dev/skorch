@@ -384,7 +384,7 @@ class futureattr:
         self.name = name
 
     def __call__(self, kwargs):
-        return attrgetter(self.name)(SimpleNamespace(**kwargs))
+        return kwargs[self.name]
 
 
 def params_for(prefix, kwargs):

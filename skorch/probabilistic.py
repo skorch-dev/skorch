@@ -6,6 +6,7 @@ Assumptions being made:
 
 - The criterion always takes likelihood and module as input arguments
 - We optimize the negative criterion
+- Need elaboration on how batching works - are distributions disjoint?
 
 """
 
@@ -239,6 +240,8 @@ class GPBase(NeuralNet):
     def forward(self, X, training=False, device='cpu'):
         """Gather and concatenate the output from forward call with
         input data.
+
+        TODO: mention how this deals with distributions
 
         The outputs from ``self.module_.forward`` are gathered on the
         compute device specified by ``device`` and then concatenated
