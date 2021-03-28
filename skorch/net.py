@@ -1654,11 +1654,12 @@ class NeuralNet:
             # callbacks need special treatmeant since they are list of tuples
             self.initialize_callbacks()
             self._set_params_callback(**cb_params)
-
-        # if the net is not initialized, just set the attributes on the net and
-        # exist early, no need to initialize any components
-        if not self.initialized_:
             vars(self).update(cb_params)
+
+        # if the net is not initialized, we can exit as this point, because the
+        # special_params have been set as attributes and will be applied by
+        # initialize() at a later point in time.
+        if not self.initialized_:
             return self
 
         # Below: Re-initialize parts of the net if necessary.
