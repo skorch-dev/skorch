@@ -1650,12 +1650,18 @@ class NeuralNet:
                     "caused this error.")
             setattr(self, key, val)
 
-        # Below: Re-initialize parts of the net if necessary.
-
         if cb_params:
             # callbacks need special treatmeant since they are list of tuples
             self.initialize_callbacks()
             self._set_params_callback(**cb_params)
+
+        # if the net is not initialized, just set the attributes on the net and
+        # exist early, no need to initialize any components
+        if not self.initialized_:
+            vars(self).update(cb_params)
+            return self
+
+        # Below: Re-initialize parts of the net if necessary.
 
         if any('criterion' in key.split('__', 1)[0] for key in special_params):
             self.initialize_criterion()
