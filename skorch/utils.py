@@ -11,8 +11,6 @@ from enum import Enum
 from functools import partial
 from itertools import tee
 import pathlib
-from operator import attrgetter
-from types import SimpleNamespace
 import warnings
 
 import numpy as np
