@@ -1097,6 +1097,16 @@ class TestNeuralNet:
         msg = capsys.readouterr()[0].strip()
         assert msg == ""
 
+    def test_set_params_on_uninitialized_net_doesnt_initialize(self, net_cls, module_cls):
+        # It used to be the case that setting a parameter on, say, the module
+        # would always (re-)initialize the module, even if the whole net was not
+        # initialized yet. This is unnecessary at best and can break things at
+        # worst.
+        net = net_cls(module_cls)
+        net.set_params(module__input_units=12)
+        assert not net.initialized_
+        assert not hasattr(net, 'module_')
+
     def test_optimizer_param_groups(self, net_cls, module_cls):
         net = net_cls(
             module_cls,
