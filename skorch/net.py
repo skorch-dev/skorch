@@ -459,10 +459,6 @@ class NeuralNet:
         not unique, a ValueError is raised.
 
         """
-        if self.callbacks == "disable":
-            self.callbacks_ = []
-            return self
-
         callbacks_ = []
 
         class Dummy:
@@ -492,34 +488,16 @@ class NeuralNet:
             cb.initialize()
             callbacks_.append((name, cb))
 
+        # pylint: disable=attribute-defined-outside-init
         self.callbacks_ = callbacks_
-
         return self
 
     def initialize_criterion(self):
         """Initializes the criterion."""
         criterion_params = self.get_params_for('criterion')
+        # pylint: disable=attribute-defined-outside-init
         self.criterion_ = self.criterion(**criterion_params)
-        if isinstance(self.criterion_, torch.nn.Module):
-            self.criterion_ = to_device(self.criterion_, self.device)
         return self
-
-    def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
-        """Returns a message that informs about re-initializing a compoment.
-
-        Sometimes, the module or optimizer need to be
-        re-initialized. Not only should the user receive a message
-        about this but also should they be informed about what
-        parameters, if any, caused it.
-
-        """
-        msg = "Re-initializing {}".format(name)
-        if triggered_directly and kwargs:
-            msg += (" because the following parameters were re-set: {}."
-                    .format(', '.join(sorted(kwargs))))
-        else:
-            msg += "."
-        return msg
 
     def initialize_module(self):
         """Initializes the module.
@@ -530,19 +508,11 @@ class NeuralNet:
         """
         kwargs = self.get_params_for('module')
         module = self.module
-        is_initialized = isinstance(module, torch.nn.Module)
+        if isinstance(module, torch.nn.Module):
+            module = type(module)
 
-        if kwargs or not is_initialized:
-            if is_initialized:
-                module = type(module)
-
-            if (is_initialized or self.initialized_) and self.verbose:
-                msg = self._format_reinit_msg("module", kwargs)
-                print(msg)
-
-            module = module(**kwargs)
-
-        self.module_ = to_device(module, self.device)
+        # pylint: disable=attribute-defined-outside-init
+        self.module_ = module(**kwargs)
         return self
 
     def _is_virtual_param(self, key):
@@ -567,38 +537,16 @@ class NeuralNet:
     def initialize_virtual_params(self):
         self.virtual_params_ = {}
 
-    def initialize_optimizer(self, triggered_directly=True):
+    def initialize_optimizer(self):
         """Initialize the model optimizer. If ``self.optimizer__lr``
         is not set, use ``self.lr`` instead.
-
-        Parameters
-        ----------
-        triggered_directly : bool (default=True)
-          Only relevant when optimizer is re-initialized.
-          Initialization of the optimizer can be triggered directly
-          (e.g. when lr was changed) or indirectly (e.g. when the
-          module was re-initialized). If and only if the former
-          happens, the user should receive a message informing them
-          about the parameters that caused the re-initialization.
 
         """
         args, kwargs = self.get_params_for_optimizer(
             'optimizer', self.module_.named_parameters())
 
-        if self.initialized_ and self.verbose:
-            msg = self._format_reinit_msg(
-                "optimizer", kwargs, triggered_directly=triggered_directly)
-            print(msg)
-
-        if 'lr' not in kwargs:
-            kwargs['lr'] = self.lr
-
+        # pylint: disable=attribute-defined-outside-init
         self.optimizer_ = self.optimizer(*args, **kwargs)
-
-        self._register_virtual_param(
-            ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
-            optimizer_setter,
-        )
         return self
 
     def initialize_history(self):
@@ -606,17 +554,96 @@ class NeuralNet:
         self.history_ = History()
         return self
 
-    def initialize(self):
-        """Initializes all components of the :class:`.NeuralNet` and
-        returns self.
+    def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
+        """Returns a message that informs about re-initializing a compoment.
+
+        Sometimes, the module or optimizer need to be
+        re-initialized. Not only should the user receive a message
+        about this but also should they be informed about what
+        parameters, if any, caused it.
 
         """
+        msg = "Re-initializing {}".format(name)
+        if triggered_directly and kwargs:
+            msg += (" because the following parameters were re-set: {}"
+                    .format(', '.join(sorted(kwargs))))
+        msg += "."
+        return msg
+
+    def _initialize_virtual_params(self):
         self.initialize_virtual_params()
+        return self
+
+    def _initialize_callbacks(self):
+        if self.callbacks == "disable":
+            self.callbacks_ = []
+            return self
         self.initialize_callbacks()
+        return self
+
+    def _initialize_criterion(self):
         self.initialize_criterion()
-        self.initialize_module()
+        if isinstance(self.criterion_, torch.nn.Module):
+            self.criterion_ = to_device(self.criterion_, self.device)
+        return self
+
+    def _initialize_module(self, reason=None):
+        is_initialized = isinstance(self.module, torch.nn.Module)
+        kwargs = self.get_params_for('module')
+
+        # module is not already initialized or some parameters were changed
+        needs_init = kwargs or (not is_initialized) or reason
+        if needs_init:
+            if (is_initialized or self.initialized_) and self.verbose:
+                if reason and not kwargs:
+                    # re-initialization was triggered indirectly
+                    msg = reason
+                else:
+                    # re-initialization was triggered directly
+                    msg = self._format_reinit_msg("module", kwargs)
+                print(msg)
+
+            self.initialize_module()
+        else:
+            self.module_ = self.module
+
+        self.module_ = to_device(self.module_, self.device)
+        return self
+
+    def _initialize_optimizer(self, reason=None):
+        _, kwargs = self.get_params_for_optimizer(
+            'optimizer', self.module_.named_parameters())
+
+        if self.initialized_ and self.verbose:
+            if reason and not kwargs:
+                # re-initialization was triggered indirectly
+                msg = reason
+            else:
+                # re-initialization was triggered directly
+                msg = self._format_reinit_msg(
+                    "optimizer", kwargs, triggered_directly=False)
+            print(msg)
+
         self.initialize_optimizer()
+
+        self._register_virtual_param(
+            ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
+            optimizer_setter,
+        )
+        return self
+
+    def _initialize_history(self):
         self.initialize_history()
+        return self
+
+    def initialize(self):
+        """Initializes all of its components and returns self."""
+        self._initialize_virtual_params()
+        self._initialize_callbacks()
+        self._initialize_criterion()
+        self._initialize_module()
+        self._initialize_optimizer()
+        self._initialize_history()
 
         self.initialized_ = True
         return self
@@ -1448,6 +1475,11 @@ class NeuralNet:
             pgroups.append({'params': [p for _, p in params]})
 
         args = (pgroups,)
+
+        # 'lr' is an optimizer param that can be set without the 'optimizer__'
+        # prefix because it's so common
+        if 'lr' not in kwargs:
+            kwargs['lr'] = self.lr
         return args, kwargs
 
     def get_params_for_optimizer(self, prefix, named_parameters):
@@ -1652,7 +1684,7 @@ class NeuralNet:
 
         if cb_params:
             # callbacks need special treatmeant since they are list of tuples
-            self.initialize_callbacks()
+            self._initialize_callbacks()
             self._set_params_callback(**cb_params)
             vars(self).update(cb_params)
 
@@ -1662,34 +1694,77 @@ class NeuralNet:
         if not self.initialized_:
             return self
 
-        # Below: Re-initialize parts of the net if necessary.
+        ######################################################
+        # Below: Re-initialize parts of the net if necessary #
+        ######################################################
 
         if any('criterion' in key.split('__', 1)[0] for key in special_params):
-            self.initialize_criterion()
+            self._initialize_criterion()
 
-        module_triggers_optimizer_reinit = False
-        if any('module' in key.split('__', 1)[0] for key in special_params):
-            self.initialize_module()
-            module_triggers_optimizer_reinit = True
+        # Search component-specific params; keys are checked with 'in' instead
+        # of 'startswith' to catch custom components like 'mymodule'.
 
-        optimizer_changed = (
-            any('optimizer' in key.split('__', 1)[0] for key in special_params)
-            or 'lr' in normal_params
-        )
-        if module_triggers_optimizer_reinit or optimizer_changed:
-            # Model selectors such as GridSearchCV will set the
-            # parameters before .initialize() is called, therefore we
-            # need to make sure that we have an initialized model here
-            # as the optimizer depends on it.
+        # likelihood is only relevant for probabilistic models
+        likelihood_params = {k: v for k, v in special_params.items()
+                             if 'likelihood' in k.split('__', 1)[0]}
+        module_params = {k: v for k, v in special_params.items()
+                         if 'module' in k.split('__', 1)[0]}
+        optimizer_params = {k: v for k, v in special_params.items()
+                            if 'optimizer' in k.split('__', 1)[0]}
+        if 'lr' in normal_params:
+            optimizer_params['lr'] = normal_params['lr']
+
+        # re-initialize likelihood if necessary and print a message
+        if likelihood_params:
+            msg = self._format_reinit_msg(
+                "likelihood", likelihood_params, triggered_directly=False)
+            self._initialize_likelihood(reason=msg)
+
+        if likelihood_params or module_params:
+            # Model selectors such as GridSearchCV will set the parameters
+            # before .initialize() is called, therefore we need to make sure
+            # that we have an initialized likelihood here as the module might
+            # need it.
+            if (
+                    not hasattr(self, 'likelihood_')
+                    and hasattr(self, 'initialize_likelihood')
+            ):
+                self._initialize_likelihood()
+
+            # defensively re-initialize module when ll was changed, even if it
+            # might not affect the module, since we don't know if it does or not
+            if module_params:
+                msg = self._format_reinit_msg(
+                    "module", module_params, triggered_directly=True)
+            else:
+                msg = self._format_reinit_msg(
+                    "module", triggered_directly=False)
+            self._initialize_module(reason=msg)
+
+        if likelihood_params or module_params or optimizer_params:
+            # Model selectors such as GridSearchCV will set the parameters
+            # before .initialize() is called, therefore we need to make sure
+            # that we have an initialized model, and possibly likelihood, here
+            # as the optimizer depends on them.
+            if (
+                    not hasattr(self, 'likelihood_')
+                    and hasattr(self, 'initialize_likelihood')
+            ):
+                self.initialize_likelihood()
             if not hasattr(self, 'module_'):
-                self.initialize_module()
+                self._initialize_module()
 
             # If we reached this point but the optimizer was not
             # changed, it means that optimizer initialization was
             # triggered indirectly.
-            self.initialize_optimizer(triggered_directly=optimizer_changed)
+            if optimizer_params:
+                msg = self._format_reinit_msg(
+                    "optimizer", kwargs, triggered_directly=True)
+            else:
+                msg = self._format_reinit_msg(
+                    'optimizer', triggered_directly=False)
 
-        vars(self).update(kwargs)
+            self._initialize_optimizer(reason=msg)
 
         return self
 
