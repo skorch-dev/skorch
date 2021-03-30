@@ -615,7 +615,7 @@ class NeuralNet:
             'optimizer', self.module_.named_parameters())
 
         if self.initialized_ and self.verbose:
-            if reason and not kwargs:
+            if reason:
                 # re-initialization was triggered indirectly
                 msg = reason
             else:
@@ -1703,38 +1703,21 @@ class NeuralNet:
 
         # Search component-specific params; keys are checked with 'in' instead
         # of 'startswith' to catch custom components like 'mymodule'.
-
         module_params = {k: v for k, v in special_params.items()
                          if 'module' in k.split('__', 1)[0]}
-        optimizer_params = {k: v for k, v in special_params.items()
-                            if 'optimizer' in k.split('__', 1)[0]}
-        if 'lr' in normal_params:
-            optimizer_params['lr'] = normal_params['lr']
+        if not module_params:
+            # nothing further to do, return early
+            return
 
-        if module_params:
-            msg = self._format_reinit_msg(
-                "module", module_params, triggered_directly=True)
-            self._initialize_module(reason=msg)
+        # (Re-)initialize module
+        msg = self._format_reinit_msg(
+            "module", module_params, triggered_directly=True)
+        self._initialize_module(reason=msg)
 
-        if module_params or optimizer_params:
-            # Model selectors such as GridSearchCV will set the parameters
-            # before .initialize() is called, therefore we need to make sure
-            # that we have an initialized model, and possibly likelihood, here
-            # as the optimizer depends on them.
-            if not hasattr(self, 'module_'):
-                self._initialize_module()
-
-            # If we reached this point but the optimizer was not
-            # changed, it means that optimizer initialization was
-            # triggered indirectly.
-            if optimizer_params:
-                msg = self._format_reinit_msg(
-                    "optimizer", kwargs, triggered_directly=True)
-            else:
-                msg = self._format_reinit_msg(
-                    'optimizer', triggered_directly=False)
-
-            self._initialize_optimizer(reason=msg)
+        # (Re-)initialize optimizer
+        msg = self._format_reinit_msg(
+            'optimizer', triggered_directly=False)
+        self._initialize_optimizer(reason=msg)
 
         return self
 
