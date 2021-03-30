@@ -2014,7 +2014,8 @@ class NeuralNet:
             **kwargs)
 
         if not kwargs_module and not kwargs_other:
-            print("Nothing to save")
+            if self.verbose:
+                print("Nothing to save")
             return
 
         msg_init = (
@@ -2128,7 +2129,8 @@ class NeuralNet:
         kwargs_module, kwargs_other = _check_f_arguments('load_params', **kwargs_full)
 
         if not kwargs_module and not kwargs_other:
-            print("Nothing to load")
+            if self.verbose:
+                print("Nothing to load")
             return
 
         # only valid key in kwargs_other is f_history
