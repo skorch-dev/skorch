@@ -1088,7 +1088,7 @@ class TestNeuralNet:
         {'optimizer__lr': 0.12},
         {'module__input_units': 12, 'lr': 0.56},
     ])
-    def test_reinitializing_module_optimizer_no_message(
+    def test_reinitializing_module_optimizer_not_initialized_no_message(
             self, net_cls, module_cls, kwargs, capsys):
         # When net is *not* initialized, set_params on module or
         # optimizer should not trigger a message.
@@ -1096,6 +1096,24 @@ class TestNeuralNet:
         net.set_params(**kwargs)
         msg = capsys.readouterr()[0].strip()
         assert msg == ""
+
+    @pytest.mark.parametrize('kwargs, expected', [
+        ({}, ""),  # no param, no message
+        ({'lr': 0.12}, ""),  # virtual param
+        ({'optimizer__lr': 0.12}, ""),  # virtual param
+        ({'module__input_units': 12}, "Re-initializing optimizer."),
+        ({'module__input_units': 12, 'lr': 0.56}, "Re-initializing optimizer."),
+    ])
+    def test_reinitializing_module_optimizer_when_initialized_message(
+            self, net_cls, module_cls, kwargs, expected, capsys):
+        # When the not *is* initialized, set_params on module should trigger a
+        # message
+        net = net_cls(module_cls).initialize()
+        net.set_params(**kwargs)
+        msg = capsys.readouterr()[0].strip()
+        # don't check the whole message since it may contain other bits not
+        # tested here
+        assert expected in msg
 
     def test_set_params_on_uninitialized_net_doesnt_initialize(self, net_cls, module_cls):
         # It used to be the case that setting a parameter on, say, the module
