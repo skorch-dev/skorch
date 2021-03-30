@@ -1704,9 +1704,6 @@ class NeuralNet:
         # Search component-specific params; keys are checked with 'in' instead
         # of 'startswith' to catch custom components like 'mymodule'.
 
-        # likelihood is only relevant for probabilistic models
-        likelihood_params = {k: v for k, v in special_params.items()
-                             if 'likelihood' in k.split('__', 1)[0]}
         module_params = {k: v for k, v in special_params.items()
                          if 'module' in k.split('__', 1)[0]}
         optimizer_params = {k: v for k, v in special_params.items()
@@ -1714,43 +1711,16 @@ class NeuralNet:
         if 'lr' in normal_params:
             optimizer_params['lr'] = normal_params['lr']
 
-        # re-initialize likelihood if necessary and print a message
-        if likelihood_params:
+        if module_params:
             msg = self._format_reinit_msg(
-                "likelihood", likelihood_params, triggered_directly=False)
-            self._initialize_likelihood(reason=msg)
-
-        if likelihood_params or module_params:
-            # Model selectors such as GridSearchCV will set the parameters
-            # before .initialize() is called, therefore we need to make sure
-            # that we have an initialized likelihood here as the module might
-            # need it.
-            if (
-                    not hasattr(self, 'likelihood_')
-                    and hasattr(self, 'initialize_likelihood')
-            ):
-                self._initialize_likelihood()
-
-            # defensively re-initialize module when ll was changed, even if it
-            # might not affect the module, since we don't know if it does or not
-            if module_params:
-                msg = self._format_reinit_msg(
-                    "module", module_params, triggered_directly=True)
-            else:
-                msg = self._format_reinit_msg(
-                    "module", triggered_directly=False)
+                "module", module_params, triggered_directly=True)
             self._initialize_module(reason=msg)
 
-        if likelihood_params or module_params or optimizer_params:
+        if module_params or optimizer_params:
             # Model selectors such as GridSearchCV will set the parameters
             # before .initialize() is called, therefore we need to make sure
             # that we have an initialized model, and possibly likelihood, here
             # as the optimizer depends on them.
-            if (
-                    not hasattr(self, 'likelihood_')
-                    and hasattr(self, 'initialize_likelihood')
-            ):
-                self.initialize_likelihood()
             if not hasattr(self, 'module_'):
                 self._initialize_module()
 
