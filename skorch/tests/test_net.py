@@ -172,7 +172,7 @@ class TestNeuralNet:
 
     def test_net_init_one_unknown_argument(self, net_cls, module_cls):
         with pytest.raises(TypeError) as e:
-            net_cls(module_cls, unknown_arg=123)
+            net_cls(module_cls, unknown_arg=123).initialize()
 
         expected = ("__init__() got unexpected argument(s) unknown_arg. "
                     "Either you made a typo, or you added new arguments "
@@ -183,7 +183,7 @@ class TestNeuralNet:
     def test_net_init_two_unknown_arguments(self, net_cls, module_cls):
         with pytest.raises(TypeError) as e:
             net_cls(module_cls, lr=0.1, mxa_epochs=5,
-                    warm_start=False, bathc_size=20)
+                    warm_start=False, bathc_size=20).initialize()
 
         expected = ("__init__() got unexpected argument(s) "
                     "bathc_size, mxa_epochs. "
@@ -203,7 +203,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, name, suggestion):
         # forgot to use double-underscore notation
         with pytest.raises(TypeError) as e:
-            net_cls(module_cls, **{name: 123})
+            net_cls(module_cls, **{name: 123}).initialize()
 
         tmpl = "Got an unexpected argument {}, did you mean {}?"
         expected = tmpl.format(name, suggestion)
@@ -218,7 +218,7 @@ class TestNeuralNet:
                 max_epochs=7,  # correct
                 iterator_train_shuffle=True,  # uses _ instead of __
                 optimizerlr=0.5,  # missing __
-            )
+            ).initialize()
         expected = ("Got an unexpected argument iterator_train_shuffle, "
                     "did you mean iterator_train__shuffle?\n"
                     "Got an unexpected argument optimizerlr, "
@@ -233,7 +233,7 @@ class TestNeuralNet:
                 module_cls,
                 foobar=123,
                 iterator_train_shuffle=True,
-            )
+            ).initialize()
         expected = ("__init__() got unexpected argument(s) foobar. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
@@ -279,7 +279,7 @@ class TestNeuralNet:
 
         # warning expected here
         with pytest.warns(UserWarning, match=expected):
-            net_cls(module_cls, iterator_valid__shuffle=True)
+            net_cls(module_cls, iterator_valid__shuffle=True).initialize()
 
     def test_fit(self, net_fit):
         # fitting does not raise anything
@@ -510,28 +510,28 @@ class TestNeuralNet:
     def test_save_params_no_state_dict_raises(self, net_fit):
         msg = ("You are trying to save 'f_max_epochs' but for that to work, the net "
                "needs to have an attribute called 'net.max_epochs_' that is a PyTorch "
-               "Module; make sure that it exists and check for typos.")
+               "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.save_params(f_max_epochs='some-file.pt')
 
     def test_load_params_no_state_dict_raises(self, net_fit):
         msg = ("You are trying to load 'f_max_epochs' but for that to work, the net "
                "needs to have an attribute called 'net.max_epochs_' that is a PyTorch "
-               "Module; make sure that it exists and check for typos.")
+               "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.load_params(f_max_epochs='some-file.pt')
 
     def test_save_params_unknown_attribute_raises(self, net_fit):
         msg = ("You are trying to save 'f_unknown' but for that to work, the net "
                "needs to have an attribute called 'net.unknown_' that is a PyTorch "
-               "Module; make sure that it exists and check for typos.")
+               "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.save_params(f_unknown='some-file.pt')
 
     def test_load_params_unknown_attribute_raises(self, net_fit):
         msg = ("You are trying to load 'f_unknown' but for that to work, the net "
                "needs to have an attribute called 'net.unknown_' that is a PyTorch "
-               "Module; make sure that it exists and check for typos.")
+               "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.load_params(f_unknown='some-file.pt')
 
@@ -800,15 +800,15 @@ class TestNeuralNet:
             self, net_cls, module_cls, tmpdir):
         from skorch.exceptions import NotInitializedError
 
-        net = net_cls(module_cls).initialize_module()
+        net = net_cls(module_cls).initialize()
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = skorch_tmpdir.join('testmodel.pkl')
-        o = skorch_tmpdir.join('optimizer.pkl')
-
         net.save_params(f_params=str(p))
 
+        net = net_cls(module_cls)  # not initialized
+        o = skorch_tmpdir.join('optimizer.pkl')
         with pytest.raises(NotInitializedError) as exc:
-            net.load_params(f_params=str(p), f_optimizer=o)
+            net.load_params(f_optimizer=str(o))
         expected = ("Cannot load state of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
@@ -1162,7 +1162,7 @@ class TestNeuralNet:
         assert net.module_.sequential[0].out_features == 123
 
     def test_criterion_init_with_params(self, net_cls, module_cls):
-        mock = Mock()
+        mock = Mock(spec=nn.Module)
         net = net_cls(module_cls, criterion=mock, criterion__spam='eggs')
         net.initialize()
         assert mock.call_count == 1
@@ -2518,92 +2518,68 @@ class TestNeuralNet:
         calls_zero_grad = mock_optimizer.zero_grad.call_count
         assert calls_total == calls_step == calls_zero_grad
 
-    def test_setattr_module(self, net_cls, module_cls):
+    def test_setattr_custom_module(self, net_cls, module_cls):
+        # creating a custom module should result in its regiestration
         net = net_cls(module_cls)
         assert 'mymodule' not in net.prefixes_
         assert 'mymodule' not in net.cuda_dependent_attributes_
 
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = module_cls
+            def initialize_module(self):
+                super().initialize_module()
+                self.mymodule_ = module_cls()
+                return self
 
-        net = MyNet(module_cls)
+        net = MyNet(module_cls).initialize()
         assert 'mymodule' in net.prefixes_
         assert 'mymodule_' in net.cuda_dependent_attributes_
 
-        del net.mymodule
+        del net.mymodule_
         assert 'mymodule' not in net.prefixes_
         assert 'mymodule_' not in net.cuda_dependent_attributes_
 
-    def test_setattr_module_instance(self, net_cls, module_cls):
-        net = net_cls(module_cls)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule' not in net.cuda_dependent_attributes_
-
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = module_cls()
-
-        net = MyNet(module_cls)
-        assert 'mymodule' in net.prefixes_
-        assert 'mymodule_' in net.cuda_dependent_attributes_
-
-        del net.mymodule
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule_' not in net.cuda_dependent_attributes_
-
-    def test_setattr_optimizer(self, net_cls, module_cls):
+    def test_setattr_custom_optimizer(self, net_cls, module_cls):
+        # creating a custom optimizer should result in its regiestration
         net = net_cls(module_cls)
         assert 'myoptimizer' not in net.prefixes_
         assert 'myoptimizer' not in net.cuda_dependent_attributes_
 
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.myoptimizer = torch.optim.SGD
+            def initialize_optimizer(self):
+                super().initialize_optimizer()
+                self.myoptimizer_ = torch.optim.SGD(self.module_.parameters(), lr=1)
+                return self
 
-        net = MyNet(module_cls)
+        net = MyNet(module_cls).initialize()
         assert 'myoptimizer' in net.prefixes_
         assert 'myoptimizer_' in net.cuda_dependent_attributes_
 
-        del net.myoptimizer
+        del net.myoptimizer_
         assert 'myoptimizer' not in net.prefixes_
         assert 'myoptimizer_' not in net.cuda_dependent_attributes_
 
-    def test_setattr_ending_in_underscore(self, net_cls, module_cls):
-        # attributes whose name ends in underscore should not be
-        # registered
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule_ = module_cls
-
-        net = MyNet(module_cls)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule_' not in net.prefixes_
-        assert 'mymodule_' not in net.cuda_dependent_attributes_
-
-    def test_setattr_no_duplicates(self, net_cls, module_cls):
+    def test_setattr_custom_module_no_duplicates(self, net_cls, module_cls):
         # the 'module' attribute is set twice but that shouldn't lead
         # to duplicates in prefixes_ or cuda_dependent_attributes_
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.module = module_cls
+            def initialize_module(self):
+                super().initialize_module()
+                self.module_ = module_cls()  # same attribute name
+                return self
 
-        net = MyNet(module_cls)
+        net = MyNet(module_cls).initialize()
         assert net.prefixes_.count('module') == 1
         assert net.cuda_dependent_attributes_.count('module_') == 1
 
-    def test_setattr_non_torch_attribute(self, net_cls, module_cls):
+    def test_setattr_in_initialize_non_torch_attribute(self, net_cls, module_cls):
         # attributes that are not torch modules or optimizers should
         # not be registered
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
+            def initialize_module(self):
+                super().initialize_module()
                 self.num = 123
+                self.num_ = 123
+                return self
 
         net = MyNet(module_cls)
         assert 'num' not in net.prefixes_
@@ -2615,11 +2591,12 @@ class TestNeuralNet:
         assert 'mymodule' not in net.cuda_dependent_attributes_
 
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = module_cls
+            def initialize_module(self):
+                super().initialize_module()
+                self.mymodule_ = module_cls()
+                return self
 
-        net = MyNet(module_cls)
+        net = MyNet(module_cls).initialize()
         assert 'mymodule' in net.prefixes_
         assert 'mymodule_' in net.cuda_dependent_attributes_
 
@@ -2630,16 +2607,16 @@ class TestNeuralNet:
     def net_custom_module_cls(self, net_cls, module_cls):
         class MyNet(net_cls):
             """Net with custom attribute mymodule"""
-            def __init__(self, *args, mymodule=module_cls, **kwargs):
-                self.mymodule = mymodule
+            def __init__(self, *args, custom=module_cls, **kwargs):
+                self.custom = custom
                 super().__init__(*args, **kwargs)
 
             def initialize_module(self, *args, **kwargs):
                 super().initialize_module(*args, **kwargs)
 
-                params = self.get_params_for('mymodule')
+                params = self.get_params_for('custom')
                 # pylint: disable=attribute-defined-outside-init
-                self.mymodule_ = self.mymodule(**params)
+                self.custom_ = self.custom(**params)
 
                 return self
 
@@ -2648,31 +2625,31 @@ class TestNeuralNet:
     def test_set_params_on_custom_module(self, net_custom_module_cls, module_cls):
         # set_params requires the prefixes_ attribute to be correctly
         # set, which is what is tested here
-        net = net_custom_module_cls(module_cls, mymodule__hidden_units=77).initialize()
-        hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
+        net = net_custom_module_cls(module_cls, custom__hidden_units=77).initialize()
+        hidden_units = net.custom_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 77
 
-        net.set_params(mymodule__hidden_units=99)
-        hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
+        net.set_params(custom__hidden_units=99)
+        hidden_units = net.custom_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 99
 
     def test_save_load_state_dict_custom_module(
             self, net_custom_module_cls, module_cls, tmpdir):
-        # test that we can store and load an arbitrary attribute like 'mymodule'
+        # test that we can store and load an arbitrary attribute like 'custom'
         net = net_custom_module_cls(module_cls).initialize()
-        weights_before = net.mymodule_.state_dict()['sequential.3.weight']
-        tmpdir_mymodule = str(tmpdir.mkdir('skorch').join('mymodule.pkl'))
-        net.save_params(f_mymodule=tmpdir_mymodule)
+        weights_before = net.custom_.state_dict()['sequential.3.weight']
+        tmpdir_custom = str(tmpdir.mkdir('skorch').join('custom.pkl'))
+        net.save_params(f_custom=tmpdir_custom)
         del net
 
         # initialize a new net, weights should differ
         net_new = net_custom_module_cls(module_cls).initialize()
-        weights_new = net_new.mymodule_.state_dict()['sequential.3.weight']
+        weights_new = net_new.custom_.state_dict()['sequential.3.weight']
         assert not (weights_before == weights_new).all()
 
         # after loading, weights should be the same again
-        net_new.load_params(f_mymodule=tmpdir_mymodule)
-        weights_loaded = net_new.mymodule_.state_dict()['sequential.3.weight']
+        net_new.load_params(f_custom=tmpdir_custom)
+        weights_loaded = net_new.custom_.state_dict()['sequential.3.weight']
         assert (weights_before == weights_loaded).all()
 
     @pytest.mark.parametrize("needs_y, train_split, raises", [

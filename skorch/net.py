@@ -244,10 +244,9 @@ class NeuralNet:
       a tuple with unique names.
 
     """
-    prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
-                 'criterion', 'callbacks', 'dataset']
+    prefixes_ = ['iterator_train', 'iterator_valid', 'callbacks', 'dataset']
 
-    cuda_dependent_attributes_ = ['module_', 'optimizer_', 'criterion_']
+    cuda_dependent_attributes_ = []
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -290,7 +289,7 @@ class NeuralNet:
         initialized = kwargs.pop('initialized_', False)
         virtual_params = kwargs.pop('virtual_params_', dict())
 
-        kwargs = self._check_kwargs(kwargs)
+        self._kwargs = kwargs
         vars(self).update(kwargs)
 
         self.history_ = history
@@ -644,6 +643,8 @@ class NeuralNet:
         self._initialize_module()
         self._initialize_optimizer()
         self._initialize_history()
+
+        self._check_kwargs(self._kwargs)
 
         self.initialized_ = True
         return self
@@ -1668,6 +1669,8 @@ class NeuralNet:
                 cb_params[key] = val
             elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
+            elif '__' in key:
+                special_params[key] = val
             else:
                 normal_params[key] = val
 
@@ -1797,6 +1800,7 @@ class NeuralNet:
     def _register_attribute(
             self,
             name,
+            attr,
             prefixes=True,
             cuda_dependent_attributes=True,
     ):
@@ -1813,6 +1817,11 @@ class NeuralNet:
 
         Parameters
         ----------
+        name : str
+          Name of the attribute.
+
+        attr : torch.nn.Module or torch.optim.Optimizer
+          The attribute itself.
         prefixes : bool (default=True)
           Whether to add to prefixes_.
 
@@ -1820,7 +1829,9 @@ class NeuralNet:
           Whether to add to cuda_dependent_attributes_.
 
         """
-        # copy the lists to avoid mutation
+        name = name.rstrip('_')  # module_ -> module
+
+        # Always copy the collections to avoid mutation
         if prefixes:
             self.prefixes_ = self.prefixes_[:] + [name]
 
@@ -1835,7 +1846,7 @@ class NeuralNet:
             cuda_dependent_attributes=True,
     ):
         """Remove attribute name from prefixes_ and
-        cuda_dependent_attributes_.
+        cuda_dependent_attributes_ and modules_.
 
         Use this to remove PyTorch components that are not needed
         anymore. This is mostly a clean up job, so as to not leave
@@ -1845,6 +1856,8 @@ class NeuralNet:
 
         Parameters
         ----------
+        name : str
+          Name of the attribute.
         prefixes : bool (default=True)
           Whether to remove from prefixes_.
 
@@ -1852,6 +1865,8 @@ class NeuralNet:
           Whether to remove from cuda_dependent_attributes_.
 
         """
+        name = name.rstrip('_')  # module_ -> module
+
         # copy the lists to avoid mutation
         if prefixes:
             self.prefixes_ = [p for p in self.prefixes_ if p != name]
@@ -1875,12 +1890,12 @@ class NeuralNet:
         # just setattr as usual.
         # For a discussion why we chose this implementation, see here:
         # https://github.com/skorch-dev/skorch/pull/597
-        is_known = name.endswith('_') or (name in self.prefixes_)
+        is_known = name in self.prefixes_ or name.rstrip('_') in self.prefixes_
         is_special_param = '__' in name
-        is_torch_component = any(c in name for c in _PYTORCH_COMPONENTS)
+        is_torch_component = isinstance(attr, (torch.nn.Module, torch.optim.Optimizer))
 
         if not (is_known or is_special_param) and is_torch_component:
-            self._register_attribute(name)
+            self._register_attribute(name, attr)
         super().__setattr__(name, attr)
 
     def __delattr__(self, name):
@@ -1978,11 +1993,11 @@ class NeuralNet:
         msg_module = (
             "You are trying to save 'f_{name}' but for that to work, the net "
             "needs to have an attribute called 'net.{name}_' that is a PyTorch "
-            "Module; make sure that it exists and check for typos.")
+            "Module or Optimizer; make sure that it exists and check for typos.")
 
         for attr, f_name in kwargs_module.items():
             # valid attrs can be 'module_', 'optimizer_', etc.
-            if attr[:-1] in self.prefixes_:
+            if attr.endswith('_') and not self.initialized_:
                 self.check_is_fitted([attr], msg=msg_init)
             module = self._get_module(attr, msg=msg_module)
             torch.save(module.state_dict(), f_name)
@@ -2098,11 +2113,11 @@ class NeuralNet:
         msg_module = (
             "You are trying to load 'f_{name}' but for that to work, the net "
             "needs to have an attribute called 'net.{name}_' that is a PyTorch "
-            "Module; make sure that it exists and check for typos.")
+            "Module or Optimizer; make sure that it exists and check for typos.")
 
         for attr, f_name in kwargs_module.items():
             # valid attrs can be 'module_', 'optimizer_', etc.
-            if attr[:-1] in self.prefixes_:
+            if attr.endswith('_') and not self.initialized_:
                 self.check_is_fitted([attr], msg=msg_init)
             module = self._get_module(attr, msg=msg_module)
             state_dict = _get_state_dict(f_name)
