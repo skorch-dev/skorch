@@ -638,6 +638,10 @@ class NeuralNet:
             is_initialized = isinstance(self.module, torch.nn.Module)
             kwargs = self.get_params_for('module')
 
+            # TODO This is not yet completely correct. When the module needs no
+            # initilization, initialize_module is not called, but what about
+            # custom modules? Same applies to criteria.
+
             # module is not already initialized or some parameters were changed
             needs_init = kwargs or (not is_initialized) or reason
             if needs_init:
