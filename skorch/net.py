@@ -45,16 +45,6 @@ from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 
 
-_PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
-"""Special names that mark pytorch components.
-
-These special names are used to recognize whether an attribute that is
-being set in the net should be added to prefixes_ and
-cuda_dependent_attributes_
-
-"""
-
-
 # pylint: disable=too-many-instance-attributes
 class NeuralNet:
     # pylint: disable=anomalous-backslash-in-string
