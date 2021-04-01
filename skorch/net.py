@@ -9,6 +9,7 @@ sklearn-conforming classes like NeuralNetClassifier.
 import fnmatch
 from itertools import chain
 from collections import OrderedDict
+from contextlib import contextmanager
 import tempfile
 import warnings
 
@@ -26,6 +27,7 @@ from skorch.dataset import CVSplit
 from skorch.dataset import get_len
 from skorch.dataset import unpack_data
 from skorch.exceptions import DeviceWarning
+from skorch.exceptions import SkorchAttributeError
 from skorch.history import History
 from skorch.setter import optimizer_setter
 from skorch.utils import _identity
@@ -230,6 +232,12 @@ class NeuralNet:
       listed attributes are mapped to CPU.  Expand this list if you
       want to add other cuda-dependent attributes.
 
+    modules_ : TODO
+
+    criteria_ : TODO
+
+    optimizers_ : TODO
+
     initialized_ : bool
       Whether the :class:`.NeuralNet` was initialized.
 
@@ -244,10 +252,15 @@ class NeuralNet:
       a tuple with unique names.
 
     """
-    prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
-                 'criterion', 'callbacks', 'dataset']
+    prefixes_ = ['iterator_train', 'iterator_valid', 'callbacks', 'dataset']
 
-    cuda_dependent_attributes_ = ['module_', 'optimizer_', 'criterion_']
+    cuda_dependent_attributes_ = []
+
+    init_context_ = None  # TODO
+
+    modules_ = []
+    criteria_ = []
+    optimizers_ = []
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -290,7 +303,7 @@ class NeuralNet:
         initialized = kwargs.pop('initialized_', False)
         virtual_params = kwargs.pop('virtual_params_', dict())
 
-        kwargs = self._check_kwargs(kwargs)
+        self._kwargs = kwargs
         vars(self).update(kwargs)
 
         self.history_ = history
@@ -459,10 +472,6 @@ class NeuralNet:
         not unique, a ValueError is raised.
 
         """
-        if self.callbacks == "disable":
-            self.callbacks_ = []
-            return self
-
         callbacks_ = []
 
         class Dummy:
@@ -492,34 +501,16 @@ class NeuralNet:
             cb.initialize()
             callbacks_.append((name, cb))
 
+        # pylint: disable=attribute-defined-outside-init
         self.callbacks_ = callbacks_
-
         return self
 
     def initialize_criterion(self):
         """Initializes the criterion."""
         criterion_params = self.get_params_for('criterion')
+        # pylint: disable=attribute-defined-outside-init
         self.criterion_ = self.criterion(**criterion_params)
-        if isinstance(self.criterion_, torch.nn.Module):
-            self.criterion_ = to_device(self.criterion_, self.device)
         return self
-
-    def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
-        """Returns a message that informs about re-initializing a compoment.
-
-        Sometimes, the module or optimizer need to be
-        re-initialized. Not only should the user receive a message
-        about this but also should they be informed about what
-        parameters, if any, caused it.
-
-        """
-        msg = "Re-initializing {}".format(name)
-        if triggered_directly and kwargs:
-            msg += (" because the following parameters were re-set: {}."
-                    .format(', '.join(sorted(kwargs))))
-        else:
-            msg += "."
-        return msg
 
     def initialize_module(self):
         """Initializes the module.
@@ -530,19 +521,11 @@ class NeuralNet:
         """
         kwargs = self.get_params_for('module')
         module = self.module
-        is_initialized = isinstance(module, torch.nn.Module)
+        if isinstance(module, torch.nn.Module):
+            module = type(module)
 
-        if kwargs or not is_initialized:
-            if is_initialized:
-                module = type(module)
-
-            if (is_initialized or self.initialized_) and self.verbose:
-                msg = self._format_reinit_msg("module", kwargs)
-                print(msg)
-
-            module = module(**kwargs)
-
-        self.module_ = to_device(module, self.device)
+        # pylint: disable=attribute-defined-outside-init
+        self.module_ = module(**kwargs)
         return self
 
     def _is_virtual_param(self, key):
@@ -567,38 +550,17 @@ class NeuralNet:
     def initialize_virtual_params(self):
         self.virtual_params_ = {}
 
-    def initialize_optimizer(self, triggered_directly=True):
+    def initialize_optimizer(self):
         """Initialize the model optimizer. If ``self.optimizer__lr``
         is not set, use ``self.lr`` instead.
 
-        Parameters
-        ----------
-        triggered_directly : bool (default=True)
-          Only relevant when optimizer is re-initialized.
-          Initialization of the optimizer can be triggered directly
-          (e.g. when lr was changed) or indirectly (e.g. when the
-          module was re-initialized). If and only if the former
-          happens, the user should receive a message informing them
-          about the parameters that caused the re-initialization.
-
         """
+        named_parameters = self.get_learnable_params('optimizer')
         args, kwargs = self.get_params_for_optimizer(
-            'optimizer', self.module_.named_parameters())
+            'optimizer', named_parameters)
 
-        if self.initialized_ and self.verbose:
-            msg = self._format_reinit_msg(
-                "optimizer", kwargs, triggered_directly=triggered_directly)
-            print(msg)
-
-        if 'lr' not in kwargs:
-            kwargs['lr'] = self.lr
-
+        # pylint: disable=attribute-defined-outside-init
         self.optimizer_ = self.optimizer(*args, **kwargs)
-
-        self._register_virtual_param(
-            ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
-            optimizer_setter,
-        )
         return self
 
     def initialize_history(self):
@@ -606,17 +568,146 @@ class NeuralNet:
         self.history_ = History()
         return self
 
-    def initialize(self):
-        """Initializes all components of the :class:`.NeuralNet` and
-        returns self.
+    def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
+        """Returns a message that informs about re-initializing a compoment.
+
+        Sometimes, the module or optimizer need to be
+        re-initialized. Not only should the user receive a message
+        about this but also should they be informed about what
+        parameters, if any, caused it.
 
         """
-        self.initialize_virtual_params()
-        self.initialize_callbacks()
-        self.initialize_module()
-        self.initialize_optimizer()
-        self.initialize_criterion()
-        self.initialize_history()
+        msg = "Re-initializing {}".format(name)
+        if triggered_directly and kwargs:
+            msg += (" because the following parameters were re-set: {}"
+                    .format(', '.join(sorted(kwargs))))
+        msg += "."
+        return msg
+
+    @contextmanager
+    def _current_init_context(self, name):
+        try:
+            self.init_context_ = name
+            yield
+        finally:
+            self.init_context_ = None
+
+    def _initialize_virtual_params(self):
+        with self._current_init_context('virtual_params'):
+            self.initialize_virtual_params()
+            return self
+
+    def _initialize_callbacks(self):
+        with self._current_init_context('callbacks'):
+            if self.callbacks == "disable":
+                self.callbacks_ = []
+                return self
+            self.initialize_callbacks()
+            return self
+
+    def _initialize_criterion(self, reason=None):
+        with self._current_init_context('criterion'):
+            is_initialized = isinstance(self.criterion, torch.nn.Module)
+            kwargs = self.get_params_for('criterion')
+
+            # criterion is not already initialized or some parameters were changed
+            needs_init = kwargs or (not is_initialized) or reason
+            if needs_init:
+                if (is_initialized or self.initialized_) and self.verbose:
+                    if reason and not kwargs:
+                        # re-initialization was triggered indirectly
+                        msg = reason
+                    else:
+                        # re-initialization was triggered directly
+                        msg = self._format_reinit_msg("criterion", kwargs)
+                    print(msg)
+
+                self.initialize_criterion()
+            else:
+                self.criterion_ = self.criterion
+
+            for name in self.criteria_:
+                criterion = getattr(self, name + '_')
+                if isinstance(criterion, torch.nn.Module):
+                    setattr(self, name + '_', to_device(criterion, self.device))
+
+            return self
+
+    def _initialize_module(self, reason=None):
+        with self._current_init_context('module'):
+            is_initialized = isinstance(self.module, torch.nn.Module)
+            kwargs = self.get_params_for('module')
+
+            # module is not already initialized or some parameters were changed
+            needs_init = kwargs or (not is_initialized) or reason
+            if needs_init:
+                if (is_initialized or self.initialized_) and self.verbose:
+                    if reason and not kwargs:
+                        # re-initialization was triggered indirectly
+                        msg = reason
+                    else:
+                        # re-initialization was triggered directly
+                        msg = self._format_reinit_msg("module", kwargs)
+                    print(msg)
+
+                self.initialize_module()
+            else:
+                self.module_ = self.module
+
+            for name in self.modules_:
+                module = getattr(self, name + '_')
+                if isinstance(module, torch.nn.Module):
+                    setattr(self, name + '_', to_device(module, self.device))
+
+            return self
+
+    def get_learnable_params(self, optimizer_name='optimizer'):
+        """TODO"""
+        for name in self.modules_ + self.criteria_:
+            module = getattr(self, name + '_')
+            named_parameters = getattr(module, 'named_parameters', None)
+            if named_parameters:
+                yield from named_parameters()
+
+    def _initialize_optimizer(self, reason=None):
+        with self._current_init_context('optimizer'):
+            named_parameters = self.get_learnable_params('optimizer')
+            _, kwargs = self.get_params_for_optimizer(
+                'optimizer', named_parameters)
+
+            if self.initialized_ and self.verbose:
+                if reason:
+                    # re-initialization was triggered indirectly
+                    msg = reason
+                else:
+                    # re-initialization was triggered directly
+                    msg = self._format_reinit_msg(
+                        "optimizer", kwargs, triggered_directly=False)
+                print(msg)
+
+            self.initialize_optimizer()
+
+            self._register_virtual_param(
+                ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
+                optimizer_setter,
+            )
+            return self
+
+    def _initialize_history(self):
+        with self._current_init_context('callbacks'):
+            self.initialize_history()
+            return self
+
+    def initialize(self):
+        """Initializes all of its components and returns self."""
+        self._initialize_virtual_params()
+        self._initialize_callbacks()
+        self._initialize_module()
+        self._initialize_criterion()
+        self._initialize_optimizer()
+        self._initialize_history()
+
+        self._check_kwargs(self._kwargs)
 
         self.initialized_ = True
         return self
@@ -737,7 +828,7 @@ class NeuralNet:
 
             self.notify(
                 'on_grad_computed',
-                named_parameters=TeeGenerator(self.module_.named_parameters()),
+                named_parameters=TeeGenerator(self.get_learnable_params()),
                 batch=batch,
             )
             return step['loss']
@@ -1448,6 +1539,11 @@ class NeuralNet:
             pgroups.append({'params': [p for _, p in params]})
 
         args = (pgroups,)
+
+        # 'lr' is an optimizer param that can be set without the 'optimizer__'
+        # prefix because it's so common
+        if 'lr' not in kwargs:
+            kwargs['lr'] = self.lr
         return args, kwargs
 
     def get_params_for_optimizer(self, prefix, named_parameters):
@@ -1584,6 +1680,9 @@ class NeuralNet:
             # see https://github.com/skorch-dev/skorch/pull/590 for
             # why this must be sorted
             for prefix in sorted(self.prefixes_, key=lambda s: (-len(s), s)):
+                if key == prefix:
+                    # e.g. someone did net.set_params(callbacks=[])
+                    break
                 if key.startswith(prefix):
                     if not key.startswith(prefix + '__'):
                         missing_dunder_kwargs.append((prefix, key))
@@ -1634,8 +1733,13 @@ class NeuralNet:
                 virtual_params[key] = val
             elif key.startswith('callbacks'):
                 cb_params[key] = val
+                self._kwargs[key] = val
             elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
+                self._kwargs[key] = val
+            elif '__' in key:
+                special_params[key] = val
+                self._kwargs[key] = val
             else:
                 normal_params[key] = val
 
@@ -1650,39 +1754,74 @@ class NeuralNet:
                     "caused this error.")
             setattr(self, key, val)
 
-        # Below: Re-initialize parts of the net if necessary.
-
         if cb_params:
             # callbacks need special treatmeant since they are list of tuples
-            self.initialize_callbacks()
+            self._initialize_callbacks()
             self._set_params_callback(**cb_params)
+            vars(self).update(cb_params)
 
-        if any('criterion' in key.split('__', 1)[0] for key in special_params):
-            self.initialize_criterion()
+        # If the net is not initialized or there are no special params, we can
+        # exit as this point, because the special_params have been set as
+        # attributes and will be applied by initialize() at a later point in
+        # time.
+        if not self.initialized_ or not special_params:
+            return self
 
-        module_triggers_optimizer_reinit = False
-        if any('module' in key.split('__', 1)[0] for key in special_params):
-            self.initialize_module()
-            module_triggers_optimizer_reinit = True
+        # if net is initialized, checking kwargs is possible
+        self._check_kwargs(self._kwargs)
 
-        optimizer_changed = (
-            any('optimizer' in key.split('__', 1)[0] for key in special_params)
-            or 'lr' in normal_params
-        )
-        if module_triggers_optimizer_reinit or optimizer_changed:
-            # Model selectors such as GridSearchCV will set the
-            # parameters before .initialize() is called, therefore we
-            # need to make sure that we have an initialized model here
-            # as the optimizer depends on it.
-            if not hasattr(self, 'module_'):
-                self.initialize_module()
+        ######################################################
+        # Below: Re-initialize parts of the net if necessary #
+        ######################################################
 
-            # If we reached this point but the optimizer was not
-            # changed, it means that optimizer initialization was
-            # triggered indirectly.
-            self.initialize_optimizer(triggered_directly=optimizer_changed)
+        # if there are module params, reinit module, criterion, optimizer
+        # if there are criterion params, reinit criterion, optimizer
+        # optimizer params don't need to be checked, as they are virtual
+        reinit_module = False
+        reinit_criterion = False
+        reinit_optimizer = False
 
-        vars(self).update(kwargs)
+        component_names = {key.split('__', 1)[0] for key in special_params}
+        for prefix in component_names:
+            if prefix in self.modules_:
+                reinit_module = True
+                reinit_criterion = True
+                reinit_optimizer = True
+
+                module_params = {k: v for k, v in special_params.items()
+                                 if k.startswith(prefix)}
+                msg_module = self._format_reinit_msg(
+                    "module", module_params, triggered_directly=True)
+                msg_criterion = self._format_reinit_msg(
+                    "criterion", triggered_directly=False)
+                msg_optimizer = self._format_reinit_msg(
+                    "optimizer", triggered_directly=False)
+
+                # if any module is modified, everything is re-initialized, no
+                # need to check any further
+                break
+
+            if prefix in self.criteria_:
+                reinit_criterion = True
+                reinit_optimizer = True
+
+                criterion_params = {k: v for k, v in special_params.items()
+                                    if k.startswith(prefix)}
+                msg_criterion = self._format_reinit_msg(
+                    "criterion", criterion_params, triggered_directly=True)
+                msg_optimizer = self._format_reinit_msg(
+                    "optimizer", triggered_directly=False)
+
+        if not (reinit_module or reinit_criterion or reinit_optimizer):
+            raise ValueError("Something went wrong, please open an issue on "
+                             "https://github.com/skorch-dev/skorch/issues")
+
+        if reinit_module:
+            self._initialize_module(reason=msg_module)
+        if reinit_criterion:
+            self._initialize_criterion(reason=msg_criterion)
+        if reinit_optimizer:
+            self._initialize_optimizer(reason=msg_optimizer)
 
         return self
 
@@ -1762,11 +1901,12 @@ class NeuralNet:
     def _register_attribute(
             self,
             name,
+            attr,
             prefixes=True,
             cuda_dependent_attributes=True,
     ):
-        """Add attribute name to prefixes_ and
-        cuda_dependent_attributes_.
+        """Add attribute name to prefixes_ and cuda_dependent_attributes_,
+        keep track of modules for device management.
 
         The first is to take care that the attribute works correctly
         with set_params, e.g. when it comes to re-initialization.
@@ -1778,6 +1918,12 @@ class NeuralNet:
 
         Parameters
         ----------
+        name : str
+          Name of the attribute.
+
+        attr : torch.nn.Module or torch.optim.Optimizer
+          The attribute itself.
+
         prefixes : bool (default=True)
           Whether to add to prefixes_.
 
@@ -1785,13 +1931,22 @@ class NeuralNet:
           Whether to add to cuda_dependent_attributes_.
 
         """
-        # copy the lists to avoid mutation
+        name = name.rstrip('_')  # module_ -> module
+
+        # Always copy the collections to avoid mutation
         if prefixes:
             self.prefixes_ = self.prefixes_[:] + [name]
 
         if cuda_dependent_attributes:
             self.cuda_dependent_attributes_ = (
                 self.cuda_dependent_attributes_[:] + [name + '_'])
+
+        if self.init_context_ == 'module':
+            self.modules_ = self.modules_[:] + [name]
+        elif self.init_context_ == 'criterion':
+            self.criteria_ = self.criteria_[:] + [name]
+        elif self.init_context_ == 'optimizer':
+            self.optimizers_ = self.optimizers_[:] + [name]
 
     def _unregister_attribute(
             self,
@@ -1800,7 +1955,7 @@ class NeuralNet:
             cuda_dependent_attributes=True,
     ):
         """Remove attribute name from prefixes_ and
-        cuda_dependent_attributes_.
+        cuda_dependent_attributes_ and modules_.
 
         Use this to remove PyTorch components that are not needed
         anymore. This is mostly a clean up job, so as to not leave
@@ -1810,6 +1965,9 @@ class NeuralNet:
 
         Parameters
         ----------
+        name : str
+          Name of the attribute.
+
         prefixes : bool (default=True)
           Whether to remove from prefixes_.
 
@@ -1817,6 +1975,8 @@ class NeuralNet:
           Whether to remove from cuda_dependent_attributes_.
 
         """
+        name = name.rstrip('_')  # module_ -> module
+
         # copy the lists to avoid mutation
         if prefixes:
             self.prefixes_ = [p for p in self.prefixes_ if p != name]
@@ -1825,6 +1985,34 @@ class NeuralNet:
             self.cuda_dependent_attributes_ = [
                 a for a in self.cuda_dependent_attributes_ if a != name + '_']
 
+        if name in self.modules_:
+            self.modules_ = [p for p in self.modules_ if p != name]
+        if name in self.criteria_:
+            self.criteria_ = [p for p in self.criteria_ if p != name]
+        if name in self.optimizers_:
+            self.optimizers_ = [p for p in self.optimizers_ if p != name]
+
+    def _check_settable_attr(self, name, attr):
+        """Check whether this attribute is valid for it to be settable.
+
+        E.g. for it to work with set_params.
+
+        """
+        if (self.init_context_ is None) and isinstance(attr, torch.nn.Module):
+            msg = ("Trying to set torch compoment '{}' outside of an initialize method."
+                   " Consider defining it inside 'initialize_module'".format(name))
+            raise SkorchAttributeError(msg)
+
+        if (self.init_context_ is None) and isinstance(attr, torch.optim.Optimizer):
+            msg = ("Trying to set torch compoment '{}' outside of an initialize method."
+                   " Consider defining it inside 'initialize_optimizer'".format(name))
+            raise SkorchAttributeError(msg)
+
+        if not name.endswith('_'):
+            msg = ("Names of initialized modules or optimizers should end "
+                   "with an underscore (e.g. '{}_')".format(name))
+            raise SkorchAttributeError(msg)
+
     def __setattr__(self, name, attr):
         """Set an attribute on the net
 
@@ -1832,20 +2020,25 @@ class NeuralNet:
         is created, those attributes are added to ``prefixes_`` and
         ``cuda_dependent_attributes_`` automatically.
 
+        These components are also tracked to correctly set the device.
+
         """
         # If it's a
         # 1. known attribute or
         # 2. special param like module__num_units or
-        # 3. not a torch module/optimizer instance or class
+        # 3. the net is being __init__-ialized
+        # 4. not a torch module/optimizer instance or class
         # just setattr as usual.
         # For a discussion why we chose this implementation, see here:
         # https://github.com/skorch-dev/skorch/pull/597
-        is_known = name.endswith('_') or (name in self.prefixes_)
+        is_known = name in self.prefixes_ or name.rstrip('_') in self.prefixes_
         is_special_param = '__' in name
-        is_torch_component = any(c in name for c in _PYTORCH_COMPONENTS)
+        first_init = not hasattr(self, 'initialized_')
+        is_torch_component = isinstance(attr, (torch.nn.Module, torch.optim.Optimizer))
 
-        if not (is_known or is_special_param) and is_torch_component:
-            self._register_attribute(name)
+        if not (is_known or is_special_param or first_init) and is_torch_component:
+            self._check_settable_attr(name, attr)
+            self._register_attribute(name, attr)
         super().__setattr__(name, attr)
 
     def __delattr__(self, name):
@@ -1932,7 +2125,8 @@ class NeuralNet:
             **kwargs)
 
         if not kwargs_module and not kwargs_other:
-            print("Nothing to save")
+            if self.verbose:
+                print("Nothing to save")
             return
 
         msg_init = (
@@ -1942,11 +2136,11 @@ class NeuralNet:
         msg_module = (
             "You are trying to save 'f_{name}' but for that to work, the net "
             "needs to have an attribute called 'net.{name}_' that is a PyTorch "
-            "Module; make sure that it exists and check for typos.")
+            "Module or Optimizer; make sure that it exists and check for typos.")
 
         for attr, f_name in kwargs_module.items():
             # valid attrs can be 'module_', 'optimizer_', etc.
-            if attr[:-1] in self.prefixes_:
+            if attr.endswith('_') and not self.initialized_:
                 self.check_is_fitted([attr], msg=msg_init)
             module = self._get_module(attr, msg=msg_module)
             torch.save(module.state_dict(), f_name)
@@ -2046,7 +2240,8 @@ class NeuralNet:
         kwargs_module, kwargs_other = _check_f_arguments('load_params', **kwargs_full)
 
         if not kwargs_module and not kwargs_other:
-            print("Nothing to load")
+            if self.verbose:
+                print("Nothing to load")
             return
 
         # only valid key in kwargs_other is f_history
@@ -2061,11 +2256,11 @@ class NeuralNet:
         msg_module = (
             "You are trying to load 'f_{name}' but for that to work, the net "
             "needs to have an attribute called 'net.{name}_' that is a PyTorch "
-            "Module; make sure that it exists and check for typos.")
+            "Module or Optimizer; make sure that it exists and check for typos.")
 
         for attr, f_name in kwargs_module.items():
             # valid attrs can be 'module_', 'optimizer_', etc.
-            if attr[:-1] in self.prefixes_:
+            if attr.endswith('_') and not self.initialized_:
                 self.check_is_fitted([attr], msg=msg_init)
             module = self._get_module(attr, msg=msg_module)
             state_dict = _get_state_dict(f_name)
