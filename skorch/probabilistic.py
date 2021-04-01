@@ -10,7 +10,6 @@ Assumptions being made:
 
 """
 
-from itertools import chain
 import pickle
 
 import gpytorch
@@ -27,10 +26,8 @@ from skorch.callbacks import EpochScoring
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PassthroughScoring
 from skorch.callbacks import PrintLog
-from skorch.setter import optimizer_setter
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
-from skorch.utils import to_device
 from skorch.utils import to_numpy
 
 
@@ -41,11 +38,6 @@ __all__ = ['GPRegressor', 'GPBinaryClassifier']
 
 class GPBase(NeuralNet):
     """TODO"""
-    prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
-                 'criterion', 'callbacks', 'dataset', 'likelihood']
-
-    cuda_dependent_attributes_ = ['module_', 'optimizer_', 'criterion_', 'likelihood_']
-
     def __init__(
             self,
             module,
@@ -64,83 +56,31 @@ class GPBase(NeuralNet):
         )
         self.likelihood = likelihood
 
-    def initialize(self):
-        """Initializes all components of the :class:`.NeuralNet` and
-        returns self.
-
-        TODO
-
-        """
-        self.initialize_likelihood()
-        return super().initialize()
-
-    def initialize_likelihood(self):
-        """Initializes the likelihood."""
-        kwargs = self.get_params_for('likelihood')
+    def initialize_module(self):
+        """Initializes likelihood and module."""
+        ll_kwargs = self.get_params_for('likelihood')
         likelihood = self.likelihood
         is_initialized = isinstance(likelihood, torch.nn.Module)
 
-        if kwargs or not is_initialized:
+        if not is_initialized or ll_kwargs:
+            # likelihood needs to be initialized because it's not yet or because
+            # its arguments changed
             if is_initialized:
                 likelihood = type(likelihood)
+            self.likelihood_ = likelihood(**ll_kwargs)
 
-            if (is_initialized or self.initialized_) and self.verbose:
-                msg = self._format_reinit_msg("likelihood", kwargs)
-                print(msg)
-
-            likelihood = likelihood(**kwargs)
-
-        self.likelihood_ = likelihood
-        if isinstance(self.likelihood_, torch.nn.Module):
-            self.likelihood_ = to_device(self.likelihood_, self.device)
-        return self
-
-    def initialize_optimizer(self, triggered_directly=True):
-        """Initialize the model optimizer. If ``self.optimizer__lr``
-        is not set, use ``self.lr`` instead.
-
-        Parameters
-        ----------
-        triggered_directly : bool (default=True)
-          Only relevant when optimizer is re-initialized.
-          Initialization of the optimizer can be triggered directly
-          (e.g. when lr was changed) or indirectly (e.g. when the
-          module was re-initialized). If and only if the former
-          happens, the user should receive a message informing them
-          about the parameters that caused the re-initialization.
-
-        """
-        named_parameters = chain(
-            self.module_.named_parameters(), self.likelihood_.named_parameters())
-        args, kwargs = self.get_params_for_optimizer(
-            'optimizer', named_parameters)
-
-        if self.initialized_ and self.verbose:
-            msg = self._format_reinit_msg(
-                "optimizer", kwargs, triggered_directly=triggered_directly)
-            print(msg)
-
-        if 'lr' not in kwargs:
-            kwargs['lr'] = self.lr
-
-        self.optimizer_ = self.optimizer(*args, **kwargs)
-
-        self._register_virtual_param(
-            ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
-            optimizer_setter,
-        )
+        super().initialize_module()
         return self
 
     def initialize_criterion(self):
         """Initializes the criterion."""
+        # criterion takes likelihood as first argument
         criterion_params = self.get_params_for('criterion')
         self.criterion_ = self.criterion(
             likelihood=self.likelihood_,
             model=self.module_,
             **criterion_params
         )
-        if isinstance(self.criterion_, torch.nn.Module):
-            self.criterion_ = to_device(self.criterion_, self.device)
         return self
 
     def train_step_single(self, batch, **fit_params):

@@ -268,7 +268,17 @@ class TestGPRegressorExact(BaseProbabilisticTests):
     @pytest.fixture
     def gp_cls(self):
         from skorch.probabilistic import GPRegressor
-        return GPRegressor
+
+        class ExactGPRegressor(GPRegressor):
+            def initialize_module(self):
+                ll_kwargs = self.get_params_for('likelihood')
+                self.likelihood_ = self.likelihood(**ll_kwargs)
+
+                module_kwargs = self.get_params_for('module')
+                self.module_ = self.module(likelihood=self.likelihood_, **module_kwargs)
+                return self
+
+        return ExactGPRegressor
 
     @pytest.fixture
     def module_cls(self):
@@ -276,14 +286,12 @@ class TestGPRegressorExact(BaseProbabilisticTests):
 
     @pytest.fixture
     def gp(self, gp_cls, module_cls, data):
-        from skorch.utils import futureattr
 
         X, y = data
         gpr = gp_cls(
             module_cls,
             module__X=torch.from_numpy(X),
             module__y=torch.from_numpy(y),
-            module__likelihood=futureattr('likelihood_'),
 
             optimizer=torch.optim.Adam,
             lr=0.1,
