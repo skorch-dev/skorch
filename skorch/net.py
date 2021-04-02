@@ -656,7 +656,53 @@ class NeuralNet:
             return self
 
     def get_learnable_params(self, optimizer_name='optimizer'):
-        """TODO"""
+        """Yield the learnable parameters of all modules
+
+        Typically, this will yield the ``named_parameters`` of the standard
+        module of the net. However, if you add custom modules or if your
+        criterion has learnable parameters, these are returned as well.
+
+        Sometimes, you might want to change this behavior, e.g. when you have
+        two separate modules that should be trained by two separate optimizers.
+        In this case, override this method like this:
+
+        .. code:: python
+
+            class MyNet(NeuralNet):
+                def get_learnable_params(self, optimizer_name='optimizer'):
+                    # assumes there is a module_ and a module2_
+                    if optimizer_name == 'optimizer':
+                        yield from self.module_.named_parameters()
+                    else:
+                        yield from self.module2_.named_parameters()
+
+                def initialize_optimizer(self, *args, **kwargs):
+                    super().initialize_optimizer(*args, **kwargs)
+
+                    # add an additional optimizer called 'optimizer2_' that is
+                    # only responsible for training 'module2_'
+                    named_params = self.get_learnable_params('optimizer2')
+                    args, kwargs = self.get_params_for_optimizer(
+                        'optimizer2', named_params)
+                    self.optimizer2_ = torch.optim.SGD(*args, **kwargs)
+                    return self
+
+        Parameters
+        ----------
+        optimizer_name : str (default='optimizer')
+          The name of the optimizer that will be responsible for updateing these
+          parameters. By default, this argument is not used in the method body
+          but it can be useful if you choose to override this method.
+
+        Yields
+        ------
+        named_parameters
+
+          An iterator over all module parameters, yielding both the name of the
+          parameter as well as the parameter itself. Use this, for instance, to
+          pass the named parameters to :meth:`.get_params_for_optimizer`.
+
+        """
         for name in self.modules_ + self.criteria_:
             module = getattr(self, name + '_')
             named_parameters = getattr(module, 'named_parameters', None)
