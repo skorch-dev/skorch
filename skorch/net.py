@@ -831,6 +831,25 @@ class NeuralNet:
         """
         return FirstStepAccumulator()
 
+    def _zero_grad_optimizer(self, set_to_none=False):
+        """TODO
+
+        Regarding ``set_to_none``, see:
+        https://pytorch.org/docs/stable/optim.html#torch.optim.Optimizer.zero_grad
+
+        Only available from PyTorch 1.7.
+
+        """
+        for name in self.optimizers_:
+            optimizer = getattr(self, name + '_')
+            optimizer.zero_grad()
+
+    def _step_optimizer(self, step_fn):
+        """TODO"""
+        for name in self.optimizers_:
+            optimizer = getattr(self, name + '_')
+            optimizer.step(step_fn)
+
     def train_step(self, batch, **fit_params):
         """Prepares a loss function callable and pass it to the optimizer,
         hence performing one optimization step.
@@ -862,7 +881,7 @@ class NeuralNet:
         step_accumulator = self.get_train_step_accumulator()
 
         def step_fn():
-            self.optimizer_.zero_grad()
+            self._zero_grad_optimizer()
             step = self.train_step_single(batch, **fit_params)
             step_accumulator.store_step(step)
 
@@ -873,7 +892,7 @@ class NeuralNet:
             )
             return step['loss']
 
-        self.optimizer_.step(step_fn)
+        self._step_optimizer(step_fn)
         return step_accumulator.get_step()
 
     def evaluation_step(self, batch, training=False):

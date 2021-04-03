@@ -198,9 +198,9 @@ Here is an example of how this could look like in practice:
         def initialize_module(self, *args, **kwargs):
             super().initialize_module(*args, **kwargs)
 
-            # add an additional module called 'mymodule_'
-            params = self.get_params_for('mymodule')
-            self.mymodule_ = MyModule(**params)
+            # add an additional module called 'module2_'
+            params = self.get_params_for('module2')
+            self.module2_ = Module2(**params)
             return self
 
         def initialize_criterion(self, *args, **kwargs):
@@ -212,11 +212,14 @@ Here is an example of how this could look like in practice:
             return self
 
         def initialize_optimizer(self, *args, **kwargs):
-            super().initialize_optimizer(*args, **kwargs)
+            # first initialize the normal optimizer
+            named_params = self.module_.named_parameters()
+            args, kwargs = self.get_params_for_optimizer('optimizer', named_params)
+            self.optimizer_ = self.optimizer(*args, **kwargs)
 
-            # add an additional optimizer called 'optimizer2_' that is
-            # only responsible for training 'mymodule_'
-            named_params = self.mymodule_.named_parameters()
+            # next add an another optimizer called 'optimizer2_' that is
+            # only responsible for training 'module2_'
+            named_params = self.module2_.named_parameters()
             args, kwargs = self.get_params_for_optimizer('optimizer2', named_params)
             self.optimizer2_ = torch.optim.SGD(*args, **kwargs)
             return self
@@ -226,7 +229,7 @@ Here is an example of how this could look like in practice:
 
     net = MyNet(
         ...,
-        mymodule__num_units=123,
+        module2__num_units=123,
         other_criterion__reduction='sum',
         optimizer2__lr=0.1,
     )
@@ -237,7 +240,7 @@ Here is an example of how this could look like in practice:
     net.partial_fit(X, y)
 
     # grid search et al. works
-    search = GridSearchCV(net, {'mymodule__num_units': [10, 50, 100]}, ...)
+    search = GridSearchCV(net, {'module2__num_units': [10, 50, 100]}, ...)
     search.fit(X, y)
 
 In this example, a new criterion, a new module, and a new optimizer
@@ -247,8 +250,7 @@ this example should illustrate how to start. Since the rules outlined
 above are being followed, we can use grid search on our customly
 defined components.
 
-.. note:: In the example above, the parameters of the module "mymodule" or
-          passed to both the default optimizer and to the newly added optimizer
-          "optmizer2_". This is probably not what you want. To change this
-          behavior, override the method
-          :func:`~skorch.net.NeuralNet.get_learnable_params`.
+.. note:: In the example above, the parameters of ``module_`` are trained by
+          ``optimzer_`` and the parameters of ``module2_`` are trained by
+          ``optimizer2_``. To conveniently obtain the parameters of all modules,
+          call the method :func:`~skorch.net.NeuralNet.get_learnable_params`.

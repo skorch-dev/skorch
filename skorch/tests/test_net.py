@@ -3001,6 +3001,41 @@ class TestNeuralNet:
         assert net.mymodule_.device == 'foo'
         assert net.mycriterion_.device == 'foo'
 
+    def test_custom_optimizer_performs_updates(self, net_cls, module_cls, data):
+        # make sure that updates are actually performed by a custom optimizer
+        from skorch.utils import to_tensor
+
+        # custom optimizers should actually perform updates
+        # pylint: disable=attribute-defined-outside-init
+        class MyNet(net_cls):
+            """A net with 2 modules with their respective optimizers"""
+            def initialize_module(self):
+                super().initialize_module()
+                self.module2_ = module_cls()
+                return self
+
+            def initialize_optimizer(self):
+                self.optimizer_ = self.optimizer(self.module_.parameters(), self.lr)
+                self.optimizer2_ = self.optimizer(self.module2_.parameters(), self.lr)
+                return self
+
+            def infer(self, x, **fit_params):
+                # prediction is just mean of the two modules
+                x = to_tensor(x, device=self.device)
+                return 0.5 * (self.module_(x) + self.module2_(x))
+
+        net = MyNet(module_cls, max_epochs=1, lr=0.5).initialize()
+        # params1_before = [copy.deepcopy(p) for p in net.module_.parameters()]
+        params1_before = copy.deepcopy(list(net.module_.parameters()))
+        params2_before = copy.deepcopy(list(net.module2_.parameters()))
+
+        net.partial_fit(*data)
+        params1_after = list(net.module_.parameters())
+        params2_after = list(net.module2_.parameters())
+
+        assert not any((p_b == p_a).all() for p_b, p_a in zip(params1_before, params1_after))
+        assert not any((p_b == p_a).all() for p_b, p_a in zip(params2_before, params2_after))
+
     def test_optimizer_initialized_after_module_moved_to_device(self, net_cls):
         # it is recommended to initialize the optimizer with the module params
         # _after_ the module has been moved to its device, see:
