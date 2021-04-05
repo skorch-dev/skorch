@@ -540,11 +540,22 @@ class NeuralNet:
     def initialize_virtual_params(self):
         self.virtual_params_ = {}
 
-    def initialize_optimizer(self):
+    def initialize_optimizer(self, triggered_directly=None):
         """Initialize the model optimizer. If ``self.optimizer__lr``
         is not set, use ``self.lr`` instead.
 
+        Parameters
+        ----------
+        triggered_directly
+          Deprecated, don't use it anymore.
+
         """
+        # handle deprecated paramter
+        if triggered_directly is not None:
+            warnings.warn(
+                "The 'triggered_directly' argument to 'initialize_optimizer' is "
+                "deprecated, please don't use it anymore.", DeprecationWarning)
+
         named_parameters = self.get_learnable_params('optimizer')
         args, kwargs = self.get_params_for_optimizer(
             'optimizer', named_parameters)
@@ -583,11 +594,13 @@ class NeuralNet:
             self.init_context_ = None
 
     def _initialize_virtual_params(self):
+        # this init context is for consistency and not being used at the moment
         with self._current_init_context('virtual_params'):
             self.initialize_virtual_params()
             return self
 
     def _initialize_callbacks(self):
+        # this init context is for consistency and not being used at the moment
         with self._current_init_context('callbacks'):
             if self.callbacks == "disable":
                 self.callbacks_ = []
@@ -662,28 +675,24 @@ class NeuralNet:
         module of the net. However, if you add custom modules or if your
         criterion has learnable parameters, these are returned as well.
 
-        Sometimes, you might want to change this behavior, e.g. when you have
-        two separate modules that should be trained by two separate optimizers.
-        In this case, override this method like this:
+        If you want your optimizer to only update the parameters of some but not
+        all modules, you should override :meth:`.initialize_module` and match
+        the corresponding modules and optimizers there:
 
         .. code:: python
 
             class MyNet(NeuralNet):
-                def get_learnable_params(self, optimizer_name='optimizer'):
-                    # assumes there is a module_ and a module2_
-                    if optimizer_name == 'optimizer':
-                        yield from self.module_.named_parameters()
-                    else:
-                        yield from self.module2_.named_parameters()
 
                 def initialize_optimizer(self, *args, **kwargs):
-                    super().initialize_optimizer(*args, **kwargs)
+                    # first initialize the normal optimizer
+                    named_params = self.module_.named_parameters()
+                    args, kwargs = self.get_params_for_optimizer('optimizer', named_params)
+                    self.optimizer_ = self.optimizer(*args, **kwargs)
 
-                    # add an additional optimizer called 'optimizer2_' that is
+                    # next add an another optimizer called 'optimizer2_' that is
                     # only responsible for training 'module2_'
-                    named_params = self.get_learnable_params('optimizer2')
-                    args, kwargs = self.get_params_for_optimizer(
-                        'optimizer2', named_params)
+                    named_params = self.module2_.named_parameters()
+                    args, kwargs = self.get_params_for_optimizer('optimizer2', named_params)
                     self.optimizer2_ = torch.optim.SGD(*args, **kwargs)
                     return self
 
@@ -696,9 +705,8 @@ class NeuralNet:
 
         Yields
         ------
-        named_parameters
-
-          An iterator over all module parameters, yielding both the name of the
+        named_parameters : generator of parameter name and parameter
+          A generator over all module parameters, yielding both the name of the
           parameter as well as the parameter itself. Use this, for instance, to
           pass the named parameters to :meth:`.get_params_for_optimizer`.
 
@@ -734,7 +742,8 @@ class NeuralNet:
             return self
 
     def _initialize_history(self):
-        with self._current_init_context('callbacks'):
+        # this init context is for consistency and not being used at the moment
+        with self._current_init_context('history'):
             self.initialize_history()
             return self
 
