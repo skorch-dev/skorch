@@ -45,16 +45,6 @@ from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 
 
-_PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer', 'likelihood'}
-"""Special names that mark pytorch components.
-
-These special names are used to recognize whether an attribute that is
-being set in the net should be added to prefixes_ and
-cuda_dependent_attributes_
-
-"""
-
-
 # pylint: disable=too-many-instance-attributes
 class NeuralNet:
     # pylint: disable=anomalous-backslash-in-string
@@ -550,11 +540,22 @@ class NeuralNet:
     def initialize_virtual_params(self):
         self.virtual_params_ = {}
 
-    def initialize_optimizer(self):
+    def initialize_optimizer(self, triggered_directly=None):
         """Initialize the model optimizer. If ``self.optimizer__lr``
         is not set, use ``self.lr`` instead.
 
+        Parameters
+        ----------
+        triggered_directly
+          Deprecated, don't use it anymore.
+
         """
+        # handle deprecated paramter
+        if triggered_directly is not None:
+            warnings.warn(
+                "The 'triggered_directly' argument to 'initialize_optimizer' is "
+                "deprecated, please don't use it anymore.", DeprecationWarning)
+
         named_parameters = self.get_learnable_params('optimizer')
         args, kwargs = self.get_params_for_optimizer(
             'optimizer', named_parameters)
@@ -593,11 +594,13 @@ class NeuralNet:
             self.init_context_ = None
 
     def _initialize_virtual_params(self):
+        # this init context is for consistency and not being used at the moment
         with self._current_init_context('virtual_params'):
             self.initialize_virtual_params()
             return self
 
     def _initialize_callbacks(self):
+        # this init context is for consistency and not being used at the moment
         with self._current_init_context('callbacks'):
             if self.callbacks == "disable":
                 self.callbacks_ = []
@@ -638,6 +641,10 @@ class NeuralNet:
             is_initialized = isinstance(self.module, torch.nn.Module)
             kwargs = self.get_params_for('module')
 
+            # TODO This is not yet completely correct. When the module needs no
+            # initilization, initialize_module is not called, but what about
+            # custom modules? Same applies to criteria.
+
             # module is not already initialized or some parameters were changed
             needs_init = kwargs or (not is_initialized) or reason
             if needs_init:
@@ -662,7 +669,48 @@ class NeuralNet:
             return self
 
     def get_learnable_params(self, optimizer_name='optimizer'):
-        """TODO"""
+        """Yield the learnable parameters of all modules
+
+        Typically, this will yield the ``named_parameters`` of the standard
+        module of the net. However, if you add custom modules or if your
+        criterion has learnable parameters, these are returned as well.
+
+        If you want your optimizer to only update the parameters of some but not
+        all modules, you should override :meth:`.initialize_module` and match
+        the corresponding modules and optimizers there:
+
+        .. code:: python
+
+            class MyNet(NeuralNet):
+
+                def initialize_optimizer(self, *args, **kwargs):
+                    # first initialize the normal optimizer
+                    named_params = self.module_.named_parameters()
+                    args, kwargs = self.get_params_for_optimizer('optimizer', named_params)
+                    self.optimizer_ = self.optimizer(*args, **kwargs)
+
+                    # next add an another optimizer called 'optimizer2_' that is
+                    # only responsible for training 'module2_'
+                    named_params = self.module2_.named_parameters()
+                    args, kwargs = self.get_params_for_optimizer('optimizer2', named_params)
+                    self.optimizer2_ = torch.optim.SGD(*args, **kwargs)
+                    return self
+
+        Parameters
+        ----------
+        optimizer_name : str (default='optimizer')
+          The name of the optimizer that will be responsible for updateing these
+          parameters. By default, this argument is not used in the method body
+          but it can be useful if you choose to override this method.
+
+        Yields
+        ------
+        named_parameters : generator of parameter name and parameter
+          A generator over all module parameters, yielding both the name of the
+          parameter as well as the parameter itself. Use this, for instance, to
+          pass the named parameters to :meth:`.get_params_for_optimizer`.
+
+        """
         for name in self.modules_ + self.criteria_:
             module = getattr(self, name + '_')
             named_parameters = getattr(module, 'named_parameters', None)
@@ -694,7 +742,8 @@ class NeuralNet:
             return self
 
     def _initialize_history(self):
-        with self._current_init_context('callbacks'):
+        # this init context is for consistency and not being used at the moment
+        with self._current_init_context('history'):
             self.initialize_history()
             return self
 
@@ -791,6 +840,25 @@ class NeuralNet:
         """
         return FirstStepAccumulator()
 
+    def _zero_grad_optimizer(self, set_to_none=False):
+        """TODO
+
+        Regarding ``set_to_none``, see:
+        https://pytorch.org/docs/stable/optim.html#torch.optim.Optimizer.zero_grad
+
+        Only available from PyTorch 1.7.
+
+        """
+        for name in self.optimizers_:
+            optimizer = getattr(self, name + '_')
+            optimizer.zero_grad()
+
+    def _step_optimizer(self, step_fn):
+        """TODO"""
+        for name in self.optimizers_:
+            optimizer = getattr(self, name + '_')
+            optimizer.step(step_fn)
+
     def train_step(self, batch, **fit_params):
         """Prepares a loss function callable and pass it to the optimizer,
         hence performing one optimization step.
@@ -822,7 +890,7 @@ class NeuralNet:
         step_accumulator = self.get_train_step_accumulator()
 
         def step_fn():
-            self.optimizer_.zero_grad()
+            self._zero_grad_optimizer()
             step = self.train_step_single(batch, **fit_params)
             step_accumulator.store_step(step)
 
@@ -833,7 +901,7 @@ class NeuralNet:
             )
             return step['loss']
 
-        self.optimizer_.step(step_fn)
+        self._step_optimizer(step_fn)
         return step_accumulator.get_step()
 
     def evaluation_step(self, batch, training=False):
