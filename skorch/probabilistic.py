@@ -228,7 +228,7 @@ class GPBase(NeuralNet):
 
     def sample(self, X, n_samples, axis=-1):
         """TODO"""
-        samples = [p.rsample(torch.Size([n_samples])) for p in self.forward_iter(X)]
+        samples = [p.sample(torch.Size([n_samples])) for p in self.forward_iter(X)]
         return torch.cat(samples, axis=axis)
 
     def confidence_region(self, X, sigmas=2):
@@ -255,23 +255,8 @@ class GPBase(NeuralNet):
             raise pickle.PicklingError(msg) from exc
 
 
-class GPRegressor(GPBase, RegressorMixin):
-    def __init__(
-            self,
-            module,
-            *args,
-            likelihood=gpytorch.likelihoods.GaussianLikelihood,
-            criterion=gpytorch.mlls.ExactMarginalLogLikelihood,
-            **kwargs
-    ):
-        super().__init__(
-            module,
-            *args,
-            criterion=criterion,
-            likelihood=likelihood,
-            **kwargs
-        )
-
+class _GPRegressorPredictMixin:
+    """TODO"""
     def predict(self, X, return_std=False, return_cov=False):
         """TODO
 
@@ -279,7 +264,10 @@ class GPRegressor(GPBase, RegressorMixin):
 
         """
         if return_cov:
-            raise NotImplementedError("TODO")
+            msg = ("The 'return_cov' argument is not supported. Please try: "
+                   "'posterior = next(gpr.forward_iter(X)); "
+                   "posterior.covariance_matrix'.")
+            raise NotImplementedError(msg)
 
         nonlin = self._get_predict_nonlinearity()
         y_preds, y_stds = [], []
@@ -299,7 +287,77 @@ class GPRegressor(GPBase, RegressorMixin):
         return y_pred, y_std
 
 
-class _GPClassifier(GPBase, ClassifierMixin):
+class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
+    def __init__(
+            self,
+            module,
+            *args,
+            likelihood=gpytorch.likelihoods.GaussianLikelihood,
+            criterion=gpytorch.mlls.ExactMarginalLogLikelihood,
+            **kwargs
+    ):
+        super().__init__(
+            module,
+            *args,
+            criterion=criterion,
+            likelihood=likelihood,
+            **kwargs
+        )
+
+    def initialize_module(self):
+        """Initializes likelihood and module."""
+        likelihood = self.likelihood
+        ll_kwargs = self.get_params_for('likelihood')
+
+        module = self.module
+        module_kwargs = self.get_params_for('module')
+
+        initialized_ll = isinstance(likelihood, torch.nn.Module)
+        initialized_both = initialized_ll and isinstance(module, torch.nn.Module)
+
+        if not initialized_ll or ll_kwargs:
+            # likelihood needs to be initialized because it's not yet or because
+            # its arguments changed
+            if initialized_ll:
+                likelihood = type(likelihood)
+            self.likelihood_ = likelihood(**ll_kwargs)
+
+        if 'likelihood' not in module_kwargs:
+            module_kwargs['likelihood'] = self.likelihood_
+
+        if not initialized_both or module_kwargs:
+            # module needs to be initialized because it's not yet or because
+            # the likelihood and/or its arguments changed
+            if initialized_both:
+                module = type(module)
+            self.module_ = module(**module_kwargs)
+
+        if not isinstance(self.module_, gpytorch.models.ExactGP):
+            raise TypeError("{} requires 'module' to be a gpytorch.models.ExactGP."
+                            .format(self.__class__.__name__))
+        return self
+
+
+class GPRegressor(_GPRegressorPredictMixin, GPBase):
+    """TODO"""
+    def __init__(
+            self,
+            module,
+            *args,
+            likelihood=gpytorch.likelihoods.GaussianLikelihood,
+            criterion=gpytorch.mlls.VariationalELBO,
+            **kwargs
+    ):
+        super().__init__(
+            module,
+            *args,
+            criterion=criterion,
+            likelihood=likelihood,
+            **kwargs
+        )
+
+
+class _GPClassifier(GPBase):
     def __init__(
             self,
             module,
@@ -389,7 +447,8 @@ class _GPClassifier(GPBase, ClassifierMixin):
         return self.predict_proba(X).argmax(axis=1)
 
 
-class GPBinaryClassifier(GPBase, ClassifierMixin):
+class GPBinaryClassifier(GPBase):
+    """TODO"""
     def __init__(
             self,
             module,

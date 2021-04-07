@@ -377,20 +377,10 @@ def duplicate_items(*collections):
     return duplicates
 
 
-class futureattr:
-    def __init__(self, name):
-        self.name = name
-
-    def __call__(self, kwargs):
-        return kwargs[self.name]
-
-
 def params_for(prefix, kwargs):
     """Extract parameters that belong to a given sklearn module prefix from
     ``kwargs``. This is useful to obtain parameters that belong to a
     submodule.
-
-    TODO: extend tests
 
     Examples
     --------
@@ -399,14 +389,9 @@ def params_for(prefix, kwargs):
     {'a': 3, 'b': 4}
 
     """
-    def resolve(val):
-        if not isinstance(val, futureattr):
-            return val
-        return val(kwargs)
-
     if not prefix.endswith('__'):
         prefix += '__'
-    return {key[len(prefix):]: resolve(val) for key, val in kwargs.items()
+    return {key[len(prefix):]: val for key, val in kwargs.items()
             if key.startswith(prefix)}
 
 
