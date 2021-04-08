@@ -286,8 +286,8 @@ class BaseProbabilisticTests:
     @pytest.mark.parametrize('kwargs,expected', [
         ({}, ""),
         ({
-            'likelihood__noise_prior': gpytorch.priors.NormalPrior(0, 1)
-            , 'likelihood__batch_shape': (345,),
+            'likelihood__noise_prior': gpytorch.priors.NormalPrior(0, 1),
+            'likelihood__batch_shape': (345,),
         }, ""),
         ({
             'likelihood__noise_prior': gpytorch.priors.NormalPrior(0, 1),
@@ -306,26 +306,22 @@ class BaseProbabilisticTests:
         msg = capsys.readouterr()[0].strip()
         assert msg == expected
 
-    @pytest.mark.skip
     @pytest.mark.parametrize('kwargs,expected', [
         ({}, ""),
         (
-            {
-                'likelihood__noise_prior': gpytorch.priors.NormalPrior(0, 1),
-                'likelihood__batch_shape': (345,),
-            },
+            {'likelihood__max_plate_nesting': 2},
             ("Re-initializing module because the following "
-             "parameters were re-set: noise_prior, batch_shape.\n"
+             "parameters were re-set: likelihood__max_plate_nesting.\n"
              "Re-initializing criterion.\n"
              "Re-initializing optimizer.")
         ),
         (
             {
-                'likelihood__noise_prior': gpytorch.priors.NormalPrior(0, 1),
+                'likelihood__max_plate_nesting': 2,
                 'optimizer__momentum': 0.567,
             },
             ("Re-initializing module because the following "
-             "parameters were re-set: noise_prior.\n"
+             "parameters were re-set: likelihood__max_plate_nesting.\n"
              "Re-initializing criterion.\n"
              "Re-initializing optimizer.")
         ),

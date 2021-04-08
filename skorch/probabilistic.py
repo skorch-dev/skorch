@@ -306,6 +306,8 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
 
     def initialize_module(self):
         """Initializes likelihood and module."""
+        # We need a custom implementation here because the module is initialized
+        # with likelihood as an argument, which would not be passed otherwise.
         likelihood = self.likelihood
         ll_kwargs = self.get_params_for('likelihood')
 
