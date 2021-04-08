@@ -1075,23 +1075,22 @@ class TestNeuralNet:
         (
             {'module__input_units': 12, 'module__hidden_units': 34},
             ("Re-initializing module because the following "
-             "parameters were re-set: hidden_units, input_units.\n"
+             "parameters were re-set: module__hidden_units, module__input_units.\n"
              "Re-initializing criterion.\n"
              "Re-initializing optimizer.")
         ),
         (
             {'criterion__reduce': False, 'criterion__size_average': True},
             ("Re-initializing criterion because the following "
-             "parameters were re-set: reduce, size_average.\n"
+             "parameters were re-set: criterion__reduce, criterion__size_average.\n"
              "Re-initializing optimizer.")
         ),
         (
             {'module__input_units': 12, 'criterion__reduce': True,
              'optimizer__momentum': 0.56},
             ("Re-initializing module because the following "
-             "parameters were re-set: input_units.\n"
-             "Re-initializing criterion because the following "
-             "parameters were re-set: reduce.\n"
+             "parameters were re-set: module__input_units.\n"
+             "Re-initializing criterion.\n"
              "Re-initializing optimizer.")
         ),
     ])
@@ -2839,6 +2838,178 @@ class TestNeuralNet:
         # setting normal and custom module should re-initialize, but only once
         net.set_params(criterion__size_average=True, mycriterion__reduce=False)
         assert init_side_effects == ['module'] + ['criterion', 'optimizer'] * 4
+
+    def test_set_params_on_custom_module_with_default_module_params_msg(
+            self, net_cls, module_cls, capsys,
+    ):
+        # say we have module and module2, with module having some non-default
+        # params, e.g. module__num_hidden=3; when setting params on module2,
+        # that non-default value should not be given as a reason for
+        # re-initialization.
+        class MyNet(net_cls):
+            def initialize_module(self):
+                super().initialize_module()
+                self.module2_ = module_cls()
+                return self
+
+        net = MyNet(module_cls, module__hidden_units=7).initialize()
+        net.set_params(module2__num_hidden=3)
+
+        msg = capsys.readouterr()[0]
+        # msg should not be about hidden_units, since that wasn't changed, but
+        # about num_hidden
+        expected = ("Re-initializing module because the following parameters "
+                    "were re-set: module2__num_hidden.")
+        assert msg.startswith(expected)
+
+    def test_set_params_on_custom_criterion_with_default_criterion_params_msg(
+            self, net_cls, module_cls, capsys,
+    ):
+        # say we have criterion and criterion2, with criterion having some non-default
+        # params, e.g. criterion__num_hidden=3; when setting params on criterion2,
+        # that non-default value should not be given as a reason for
+        # re-initialization.
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                self.criterion2_ = module_cls()
+                return self
+
+        net = MyNet(module_cls, criterion__reduce=False).initialize()
+        net.set_params(criterion2__num_hidden=3)
+
+        msg = capsys.readouterr()[0]
+        # msg should not be about hidden_units, since that wasn't changed, but
+        # about num_hidden
+        expected = ("Re-initializing criterion because the following parameters "
+                    "were re-set: criterion2__num_hidden.")
+        assert msg.startswith(expected)
+
+    def test_modules_reinit_when_both_initialized_but_custom_module_changed(
+            self, net_cls, module_cls,
+    ):
+        # When the default module and the custom module are already initialized,
+        # initialize() should just leave them. However, when we change a
+        # parameter on the custom module, both should be re-initialized.
+        class MyNet(net_cls):
+            def __init__(self, *args, module2, **kwargs):
+                self.module2 = module2
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self):
+                super().initialize_module()
+                params = self.get_params_for('module2')
+                is_init = isinstance(self.module2, nn.Module)
+
+                if is_init and not params:
+                    # no need to initialize
+                    self.module2_ = self.module2
+                    return
+
+                if is_init:
+                    module2 = type(self.module2)
+                else:
+                    module2 = self.module2
+                self.module2_ = module2(**params)
+                return self
+
+        module = module_cls()
+        module2 = module_cls()
+
+        # all default params, hence no re-initilization
+        net = MyNet(module=module, module2=module2).initialize()
+        assert net.module_ is module
+        assert net.module2_ is module2
+
+        # module2 non default param, hence re-initilization
+        net = MyNet(module=module, module2=module2, module2__num_hidden=3).initialize()
+        assert net.module_ is module
+        assert net.module2_ is not module2
+
+    def test_criteria_reinit_when_both_initialized_but_custom_criterion_changed(
+            self, net_cls, module_cls,
+    ):
+        # When the default criterion and the custom criterion are already initialized,
+        # initialize() should just leave them. However, when we change a
+        # parameter on the custom criterion, both should be re-initialized.
+        class MyNet(net_cls):
+            def __init__(self, *args, criterion2, **kwargs):
+                self.criterion2 = criterion2
+                super().__init__(*args, **kwargs)
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                params = self.get_params_for('criterion2')
+                is_init = isinstance(self.criterion2, nn.Module)
+
+                if is_init and not params:
+                    # no need to initialize
+                    self.criterion2_ = self.criterion2
+                    return
+
+                if is_init:
+                    criterion2 = type(self.criterion2)
+                else:
+                    criterion2 = self.criterion2
+                self.criterion2_ = criterion2(**params)
+                return self
+
+        criterion = module_cls()
+        criterion2 = module_cls()
+
+        # all default params, hence no re-initilization
+        net = MyNet(module_cls, criterion=criterion, criterion2=criterion2).initialize()
+        assert net.criterion_ is criterion
+        assert net.criterion2_ is criterion2
+
+        # criterion2 non default param, hence re-initilization
+        net = MyNet(
+            module_cls,
+            criterion=criterion,
+            criterion2=criterion2,
+            criterion2__num_hidden=3,
+        ).initialize()
+        assert net.criterion_ is criterion
+        assert net.criterion2_ is not criterion2
+
+    def test_custom_module_is_init_when_default_module_already_is(
+            self, net_cls, module_cls,
+    ):
+        # Assume that the module is already initialized, which is something we
+        # allow, but the custom module isn't. After calling initialize(), the
+        # custom module should be initialized and not skipped just because the
+        # default module already was initialized.
+        class MyNet(net_cls):
+            def initialize_module(self):
+                super().initialize_module()
+                self.module2_ = module_cls()
+                return self
+
+        module = module_cls()
+        net = MyNet(module=module).initialize()  # module already initialized
+
+        assert net.module_ is module  # normal module_ not changed
+        assert hasattr(net, 'module2_')  # there is a module2_
+
+    def test_custom_criterion_is_init_when_default_criterion_already_is(
+            self, net_cls, module_cls,
+    ):
+        # Assume that the criterion is already initialized, which is something we
+        # allow, but the custom criterion isn't. After calling initialize(), the
+        # custom criterion should be initialized and not skipped just because the
+        # default criterion already was initialized.
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                self.criterion2_ = module_cls()
+                return self
+
+        criterion = module_cls()
+        # criterion already initialized
+        net = MyNet(module_cls, criterion=criterion).initialize()
+
+        assert net.criterion_ is criterion  # normal criterion_ not changed
+        assert hasattr(net, 'criterion2_')  # there is a criterion2_
 
     def test_setting_custom_module_outside_initialize_raises(self, net_cls, module_cls):
         from skorch.exceptions import SkorchAttributeError

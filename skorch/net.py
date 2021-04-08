@@ -496,22 +496,43 @@ class NeuralNet:
         return self
 
     def initialize_criterion(self):
-        """Initializes the criterion."""
-        criterion_params = self.get_params_for('criterion')
+        """Initializes the criterion.
+
+        If the criterion is already initialized and no parameter was changed, it
+        will be left as is.
+
+        """
+        kwargs = self.get_params_for('criterion')
+        criterion = self.criterion
+        is_init = isinstance(criterion, torch.nn.Module)
+        if is_init and not kwargs:
+            # criterion already initialized and no params changed:
+            self.criterion_ = self.criterion
+            return
+
+        if is_init:
+            criterion = type(criterion)
+
         # pylint: disable=attribute-defined-outside-init
-        self.criterion_ = self.criterion(**criterion_params)
+        self.criterion_ = criterion(**kwargs)
         return self
 
     def initialize_module(self):
         """Initializes the module.
 
-        Note that if the module has learned parameters, those will be
-        reset.
+        If the module is already initialized and no parameter was changed, it
+        will be left as is.
 
         """
         kwargs = self.get_params_for('module')
         module = self.module
-        if isinstance(module, torch.nn.Module):
+        is_init = isinstance(module, torch.nn.Module)
+        if is_init and not kwargs:
+            # module already initialized and no params changed:
+            self.module_ = self.module
+            return
+
+        if is_init:
             module = type(module)
 
         # pylint: disable=attribute-defined-outside-init
@@ -609,15 +630,20 @@ class NeuralNet:
             return self
 
     def _initialize_criterion(self, reason=None):
+        # _initialize_criterion and _initialize_module share the same logic
         with self._current_init_context('criterion'):
-            is_initialized = isinstance(self.criterion, torch.nn.Module)
-            kwargs = self.get_params_for('criterion')
+            kwargs = {}
+            for criterion_name in self.criteria_:
+                kwargs.update(self.get_params_for(criterion_name))
 
-            # criterion is not already initialized or some parameters were changed
-            needs_init = kwargs or (not is_initialized) or reason
-            if needs_init:
-                if (is_initialized or self.initialized_) and self.verbose:
-                    if reason and not kwargs:
+            has_init_criterion = any(
+                isinstance(getattr(self, criterion_name + '_', None), torch.nn.Module)
+                for criterion_name in self.criteria_)
+
+            # check if a re-init message is required
+            if kwargs or reason or has_init_criterion:
+                if self.initialized_ and self.verbose:
+                    if reason:
                         # re-initialization was triggered indirectly
                         msg = reason
                     else:
@@ -625,10 +651,9 @@ class NeuralNet:
                         msg = self._format_reinit_msg("criterion", kwargs)
                     print(msg)
 
-                self.initialize_criterion()
-            else:
-                self.criterion_ = self.criterion
+            self.initialize_criterion()
 
+            # deal with device
             for name in self.criteria_:
                 criterion = getattr(self, name + '_')
                 if isinstance(criterion, torch.nn.Module):
@@ -637,19 +662,19 @@ class NeuralNet:
             return self
 
     def _initialize_module(self, reason=None):
+        # _initialize_criterion and _initialize_module share the same logic
         with self._current_init_context('module'):
-            is_initialized = isinstance(self.module, torch.nn.Module)
-            kwargs = self.get_params_for('module')
+            kwargs = {}
+            for module_name in self.modules_:
+                kwargs.update(self.get_params_for(module_name))
 
-            # TODO This is not yet completely correct. When the module needs no
-            # initilization, initialize_module is not called, but what about
-            # custom modules? Same applies to criteria.
+            has_init_module = any(
+                isinstance(getattr(self, module_name + '_', None), torch.nn.Module)
+                for module_name in self.modules_)
 
-            # module is not already initialized or some parameters were changed
-            needs_init = kwargs or (not is_initialized) or reason
-            if needs_init:
-                if (is_initialized or self.initialized_) and self.verbose:
-                    if reason and not kwargs:
+            if kwargs or reason or has_init_module:
+                if self.initialized_ and self.verbose:
+                    if reason:
                         # re-initialization was triggered indirectly
                         msg = reason
                     else:
@@ -657,10 +682,9 @@ class NeuralNet:
                         msg = self._format_reinit_msg("module", kwargs)
                     print(msg)
 
-                self.initialize_module()
-            else:
-                self.module_ = self.module
+            self.initialize_module()
 
+            # deal with device
             for name in self.modules_:
                 module = getattr(self, name + '_')
                 if isinstance(module, torch.nn.Module):
