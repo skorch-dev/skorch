@@ -258,6 +258,31 @@ class BaseProbabilisticTests:
         gp.fit(X, y)
         gp.predict(X)
 
+    def test_in_sklearn_pipeline(self, pipe, data):
+        X, y = data
+        # none of this raises an error
+        pipe.fit(X, y)
+        pipe.predict(X)
+        pipe.set_params(**self.settable_params)
+
+    def test_grid_search_works(self, gp, data, recwarn):
+        X, y = data
+        params = {
+            'lr': [0.01, 0.02],
+            'max_epochs': [10, 20],
+            'likelihood__max_plate_nesting': [1, 2],
+        }
+        gs = GridSearchCV(gp, params, refit=True, cv=3, scoring=self.scoring)
+        gs.fit(X[:60], y[:60])  # for speed
+
+        # sklearn will catch fit failures and raise a warning, we should thus
+        # check that no warnings are generated
+        assert not recwarn.list
+
+    # Multioutput doesn't work because GPyTorch makes assumptions about the
+    # module output that are not compatible with multiple outputs. The tests are
+    # left in case this is fixed but they're not being executed.
+
     @pytest.mark.skip
     def test_fit_multioutput(self, gp_multioutput):
         # doesn't raise
@@ -308,27 +333,6 @@ class BaseProbabilisticTests:
         # Probabilities, hence these limits
         assert y_proba.min() >= 0
         assert y_proba.max() <= 1
-
-    def test_in_sklearn_pipeline(self, pipe, data):
-        X, y = data
-        # none of this raises an error
-        pipe.fit(X, y)
-        pipe.predict(X)
-        pipe.set_params(**self.settable_params)
-
-    def test_grid_search_works(self, gp, data, recwarn):
-        X, y = data
-        params = {
-            'lr': [0.01, 0.02],
-            'max_epochs': [10, 20],
-            'likelihood__max_plate_nesting': [1, 2],
-        }
-        gs = GridSearchCV(gp, params, refit=True, cv=3, scoring=self.scoring)
-        gs.fit(X[:60], y[:60])  # for speed
-
-        # sklearn will catch fit failures and raise a warning, we should thus
-        # check that no warnings are generated
-        assert not recwarn.list
 
     ##################
     # initialization #
