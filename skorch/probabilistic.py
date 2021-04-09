@@ -251,7 +251,9 @@ class GPBase(NeuralNet):
         try:
             return super().__getstate__()
         except pickle.PicklingError as exc:
-            msg = "TODO"  # reference issue
+            msg = ("This GPyTorch model cannot be pickled. The reason is probably this:"
+                   " https://github.com/pytorch/pytorch/issues/38137. "
+                   "Try using 'dill' instead of 'pickle'.")
             raise pickle.PicklingError(msg) from exc
 
 

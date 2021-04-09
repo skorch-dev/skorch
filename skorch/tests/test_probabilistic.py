@@ -1,13 +1,16 @@
 """Tests for probabilistic.py"""
 
+import copy
 import pickle
 import re
 
 import numpy as np
 import pytest
+from sklearn.base import clone
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 import torch
+from torch.testing import assert_allclose
 
 from skorch.utils import is_torch_data_type
 
@@ -125,6 +128,10 @@ class BaseProbabilisticTests:
         raise NotImplementedError
 
     @pytest.fixture
+    def module_multioutput_cls(self):
+        raise NotImplementedError
+
+    @pytest.fixture
     def data(self):
         raise NotImplementedError
 
@@ -136,6 +143,11 @@ class BaseProbabilisticTests:
     def gp_fit(self, gp, data):
         X, y = data
         return gp.fit(X, y)
+
+    @pytest.fixture
+    def gp_multioutput(self, gp_cls, module_multioutput_cls, data):
+        # should be fitted
+        raise NotImplementedError
 
     @pytest.fixture
     def pipe(self, gp):
@@ -156,13 +168,47 @@ class BaseProbabilisticTests:
 
     def test_pickle_error_msg(self, gp_fit):
         # Should eventually be replaced by a test that saves and loads the model
-        # using pickle or deepcopy and checks that the predictions are identical
-        msg = "TODO"
+        # using pickle and checks that the predictions are identical
+        msg = ("This GPyTorch model cannot be pickled. The reason is probably this:"
+               " https://github.com/pytorch/pytorch/issues/38137. "
+               "Try using 'dill' instead of 'pickle'.")
         with pytest.raises(pickle.PicklingError, match=msg):
             pickle.dumps(gp_fit)
 
-    def test_save_load_params(self, gp_fit):
-        pass
+    def test_deepcopy(self, gp_fit):
+        # Should eventually be replaced by a test that saves and loads the model
+        # using deepcopy and checks that the predictions are identical
+        msg = ("This GPyTorch model cannot be pickled. The reason is probably this:"
+               " https://github.com/pytorch/pytorch/issues/38137. "
+               "Try using 'dill' instead of 'pickle'.")
+        with pytest.raises(pickle.PicklingError, match=msg):
+            copy.deepcopy(gp_fit)  # doesn't raise
+
+    def test_clone(self, gp_fit):
+        clone(gp_fit)  # doesn't raise
+
+    def test_save_load_params(self, gp_fit, tmpdir):
+        gp2 = clone(gp_fit).initialize()
+
+        # check first that parameters are not equal
+        for (_, p0), (_, p1) in zip(
+                gp_fit.get_learnable_params(), gp2.get_learnable_params(),
+        ):
+            assert not (p0 == p1).all()
+
+        # save and load params to gp2
+        p_module = tmpdir.join('module.pt')
+        p_likelihood = tmpdir.join('likelihood.pt')
+        with open(str(p_module), 'wb') as fm, open(str(p_likelihood), 'wb') as fll:
+            gp_fit.save_params(f_params=fm, f_likelihood=fll)
+        with open(str(p_module), 'rb') as fm, open(str(p_likelihood), 'rb') as fll:
+            gp2.load_params(f_params=fm, f_likelihood=fll)
+
+        # now parameters should be equal
+        for (_, p0), (_, p1) in zip(
+                gp_fit.get_learnable_params(), gp2.get_learnable_params(),
+        ):
+            assert_allclose(p0, p1)
 
     ##############
     # functional #
@@ -213,21 +259,26 @@ class BaseProbabilisticTests:
         gp.predict(X)
 
     @pytest.mark.skip
-    def test_multioutput_forward_iter(self, gp_multiouput, data):
-        X = data[0]
-        y_infer = next(gp_multiouput.forward_iter(X))
-
-        assert isinstance(y_infer, tuple)
-        assert len(y_infer) == 3
-        assert y_infer[0].shape[0] == min(len(X), gp_multiouput.batch_size)
+    def test_fit_multioutput(self, gp_multioutput):
+        # doesn't raise
+        pass
 
     @pytest.mark.skip
-    def test_multioutput_forward(self, gp_multiouput, data):
+    def test_multioutput_forward_iter(self, gp_multioutput, data):
         X = data[0]
-        y_infer = gp_multiouput.forward(X)
+        y_infer = next(gp_multioutput.forward_iter(X))
 
         assert isinstance(y_infer, tuple)
         assert len(y_infer) == 3
+        assert y_infer[0].shape[0] == min(len(X), gp_multioutput.batch_size)
+
+    @pytest.mark.skip
+    def test_multioutput_forward(self, gp_multioutput, data):
+        X = data[0]
+        y_infer = gp_multioutput.forward(X)
+
+        assert isinstance(y_infer, tuple)
+        assert len(y_infer) == 2
         for arr in y_infer:
             assert is_torch_data_type(arr)
 
@@ -235,22 +286,22 @@ class BaseProbabilisticTests:
             assert len(output) == self.n_samples
 
     @pytest.mark.skip
-    def test_multioutput_predict(self, gp_multiouput, data):
+    def test_multioutput_predict(self, gp_multioutput, data):
         X = data[0]
 
         # does not raise
-        y_pred = gp_multiouput.predict(X)
+        y_pred = gp_multioutput.predict(X)
 
         # Expecting only 1 column containing predict class:
         # (number of samples,)
         assert y_pred.shape == (self.n_samples)
 
     @pytest.mark.skip
-    def test_multiouput_predict_proba(self, gp_multiouput, data):
+    def test_multioutput_predict_proba(self, gp_multioutput, data):
         X = data[0]
 
         # does not raise
-        y_proba = gp_multiouput.predict_proba(X)
+        y_proba = gp_multioutput.predict_proba(X)
 
         # Expecting full output: (number of samples, number of output units)
         assert y_proba.shape == (self.n_samples, self.n_targets)
