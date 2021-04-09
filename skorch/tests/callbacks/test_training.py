@@ -398,6 +398,48 @@ class TestCheckpoint:
             [call(f_mymodule='mymodule.pt')] * len(net.history)
         )
 
+    @pytest.fixture
+    def load_params(self):
+        import torch
+        return torch.load
+
+    @pytest.mark.parametrize('load_best_flag, should_match', [
+        (False, False),
+        (True, True),
+    ])
+    def test_automatically_load_checkpoint(
+            self, net_cls, checkpoint_cls, data, tmp_path,
+            load_params, load_best_flag, should_match,
+    ):
+        # checkpoint once at the beginning of training.
+        # when restoring at the end of training, the parameters
+        # of the net should not differ. if we do not restore
+        # then the parameters must differ.
+        path_cb = tmp_path / 'params_cb.pt'
+        path_net = tmp_path / 'params_net.pt'
+
+        def save_once_monitor(net):
+            return len(net.history) == 1
+
+        net = net_cls(callbacks=[
+            checkpoint_cls(
+                monitor=save_once_monitor,
+                f_params=path_cb,
+                load_best=load_best_flag,
+            ),
+        ])
+
+        net.fit(*data)
+        net.save_params(path_net)
+
+        params_cb = load_params(path_cb)
+        params_net = load_params(path_net)
+
+        if should_match:
+            assert params_cb == params_net
+        else:
+            assert params_cb != params_net
+
 
 
 class TestEarlyStopping:
