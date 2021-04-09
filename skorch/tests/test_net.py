@@ -3172,6 +3172,49 @@ class TestNeuralNet:
         assert net.mymodule_.device == 'foo'
         assert net.mycriterion_.device == 'foo'
 
+    def test_custom_modules_and_criteria_training_mode_set_correctly(
+            self, net_cls, module_cls, data,
+    ):
+        # custom modules and criteria should be set to training/eval mode
+        # correctly depending on the stage of training/validation/inference
+        from skorch.callbacks import Callback
+
+        class MyNet(net_cls):
+            """Net with custom mymodule and mycriterion"""
+            def initialize_module(self):
+                super().initialize_module()
+                self.mymodule_ = module_cls()
+                return self
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                self.mycriterion_ = module_cls()
+                return self
+
+            def evaluation_step(self, batch, training=False):
+                y_pred = super().evaluation_step(batch, training=training)
+                assert_net_training_mode(self, training=training)
+                return y_pred
+
+        def assert_net_training_mode(net, training=True):
+            if training:
+                check = lambda module: module.training is True
+            else:
+                check = lambda module: module.training is False
+            assert check(net.module_)
+            assert check(net.mymodule_)
+            assert check(net.criterion_)
+            assert check(net.mycriterion_)
+
+        class CheckTrainingCallback(Callback):
+            def on_batch_end(self, net, batch, training, **kwargs):
+                assert_net_training_mode(net, training=training)
+
+        X, y = data
+        net = MyNet(module_cls, callbacks=[CheckTrainingCallback], max_epochs=1)
+        net.fit(X, y)
+        net.predict(X)
+
     def test_custom_optimizer_performs_updates(self, net_cls, module_cls, data):
         # make sure that updates are actually performed by a custom optimizer
         from skorch.utils import to_tensor
@@ -3204,8 +3247,10 @@ class TestNeuralNet:
         params1_after = list(net.module_.parameters())
         params2_after = list(net.module2_.parameters())
 
-        assert not any((p_b == p_a).all() for p_b, p_a in zip(params1_before, params1_after))
-        assert not any((p_b == p_a).all() for p_b, p_a in zip(params2_before, params2_after))
+        assert not any(
+            (p_b == p_a).all() for p_b, p_a in zip(params1_before, params1_after))
+        assert not any(
+            (p_b == p_a).all() for p_b, p_a in zip(params2_before, params2_after))
 
     def test_optimizer_initialized_after_module_moved_to_device(self, net_cls):
         # it is recommended to initialize the optimizer with the module params
@@ -3411,7 +3456,7 @@ class TestNeuralNet:
         class MyNet(NeuralNet):
             """Override train_step_single and validation_step"""
             def train_step_single(self, batch, **fit_params):
-                self.module_.train()
+                self._set_training(True)
                 x0, x1, yi = batch
                 x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
                 y_pred = self.module_(x0, x1)
@@ -3420,7 +3465,7 @@ class TestNeuralNet:
                 return {'loss': loss, 'y_pred': y_pred}
 
             def validation_step(self, batch, **fit_params):
-                self.module_.eval()
+                self._set_training(False)
                 x0, x1, yi = batch
                 x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
                 y_pred = self.module_(x0, x1)
@@ -3432,7 +3477,7 @@ class TestNeuralNet:
                 x0, x1 = batch
                 x0, x1 = to_tensor((x0, x1), device=self.device)
                 with torch.set_grad_enabled(training):
-                    self.module_.train(training)
+                    self._set_training(training)
                     return self.module_(x0, x1)
 
         net = MyNet(
