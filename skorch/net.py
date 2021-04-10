@@ -222,12 +222,6 @@ class NeuralNet:
       listed attributes are mapped to CPU.  Expand this list if you
       want to add other cuda-dependent attributes.
 
-    modules_ : TODO
-
-    criteria_ : TODO
-
-    optimizers_ : TODO
-
     initialized_ : bool
       Whether the :class:`.NeuralNet` was initialized.
 
@@ -241,12 +235,29 @@ class NeuralNet:
       The complete (i.e. default and other), initialized callbacks, in
       a tuple with unique names.
 
+    modules_ : list of str
+      List of names of all modules that are torch modules. This list is
+      collected dynamically when the net is initialized. Typically, there is no
+      reason for a user to modify this list.
+
+    criteria_ : list of str
+      List of names of all criteria that are torch modules. This list is
+      collected dynamically when the net is initialized. Typically, there is no
+      reason for a user to modify this list.
+
+    optimizers_ : list of str
+      List of names of all optimizers. This list is collected dynamically when
+      the net is initialized. Typically, there is no reason for a user to modify
+      this list.
+
     """
     prefixes_ = ['iterator_train', 'iterator_valid', 'callbacks', 'dataset']
 
     cuda_dependent_attributes_ = []
 
-    init_context_ = None  # TODO
+    # This attribute keeps track of which initialization method is being used.
+    # It should not be changed manually.
+    init_context_ = None
 
     modules_ = []
     criteria_ = []
@@ -789,7 +800,8 @@ class NeuralNet:
         pass
 
     def _set_training(self, training=True):
-        """Set training/evaluation mode on all modules and criteria
+        """Set training/evaluation mode on all modules and criteria that are torch
+        Modules.
 
         Parameters
         ----------
@@ -878,24 +890,50 @@ class NeuralNet:
         """
         return FirstStepAccumulator()
 
-    def _zero_grad_optimizer(self, set_to_none=False):
-        """TODO
+    def _zero_grad_optimizer(self, set_to_none=None):
+        """Zero out the gradient of all optimizers.
 
-        Regarding ``set_to_none``, see:
-        https://pytorch.org/docs/stable/optim.html#torch.optim.Optimizer.zero_grad
+        Parameters
+        ----------
+        set_to_none : bool or None (default=None)
+          Whether to zero out gradients (default) or to set them to None by
+          passing True. Note that since this option is only available starting
+          from PyTorch 1.7, it is ignored by default (i.e. when its value is
+          None). For skorch to pass this value to the ``zero_grad`` call,
+          override this method and set the value to True or False.
 
-        Only available from PyTorch 1.7.
+          The advantages and disadvantages of setting this value to True are
+          discussed here:
+
+          https://pytorch.org/docs/stable/optim.html#torch.optim.Optimizer.zero_grad
 
         """
         for name in self.optimizers_:
             optimizer = getattr(self, name + '_')
-            optimizer.zero_grad()
+            if set_to_none is None:
+                optimizer.zero_grad()
+            else:
+                optimizer.zero_grad(set_to_none=set_to_none)
 
     def _step_optimizer(self, step_fn):
-        """TODO"""
+        """Perform a ``step`` call on all optimizers.
+
+        Parameters
+        ----------
+        step_fn : callable or None
+          If None, just call ``optimizer.step()`` without arguments. Else, this
+          will be passed as the training step closure to the optimizer(s). Note
+          that this could lead to the function being called multiple times. If
+          more fine-grained control is desired instead, please override the
+          :meth:`.train_step` method.
+
+        """
         for name in self.optimizers_:
             optimizer = getattr(self, name + '_')
-            optimizer.step(step_fn)
+            if step_fn is None:
+                optimizer.step()
+            else:
+                optimizer.step(step_fn)
 
     def train_step(self, batch, **fit_params):
         """Prepares a loss function callable and pass it to the optimizer,
@@ -1899,8 +1937,8 @@ class NeuralNet:
                 msg_optimizer = self._format_reinit_msg(
                     "optimizer", triggered_directly=False)
 
-                # if any module is modified, everything is re-initialized, no
-                # need to check any further
+                # if any module is modified, everything needs to be
+                # re-initialized, no need to check any further
                 break
 
             if prefix in self.criteria_:
@@ -2008,13 +2046,13 @@ class NeuralNet:
             cuda_dependent_attributes=True,
     ):
         """Add attribute name to prefixes_ and cuda_dependent_attributes_,
-        keep track of modules for device management.
+        keep track of modules, criteria, and optimizers.
 
-        The first is to take care that the attribute works correctly
-        with set_params, e.g. when it comes to re-initialization.
+        Keeping track of prefxies is to take care that the attribute works
+        correctly with set_params, e.g. when it comes to re-initialization.
 
-        The second is to make sure that nets trained with CUDA can be
-        loaded without CUDA.
+        Keeping track of cuda dependent attributes is to make sure that nets
+        trained with CUDA can be loaded without CUDA.
 
         This method takes care of not mutating the lists.
 
@@ -2056,8 +2094,8 @@ class NeuralNet:
             prefixes=True,
             cuda_dependent_attributes=True,
     ):
-        """Remove attribute name from prefixes_ and
-        cuda_dependent_attributes_ and modules_.
+        """Remove attribute name from prefixes_, cuda_dependent_attributes_ and the
+        modules_/criteria_/optimizers_ list if applicable.
 
         Use this to remove PyTorch components that are not needed
         anymore. This is mostly a clean up job, so as to not leave

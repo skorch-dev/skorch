@@ -139,11 +139,12 @@ treated as "first class citizens" in skorch land. This means:
 1. The parameters of your custom modules are automatically passed to the
    optimizer (but you can modify this behavior).
 2. skorch takes care of moving your modules to the correct device.
-3. When a module needs to be re-initialized because ``set_params`` was called,
+3. skorch takes care of setting the training/eval mode correctly.
+4. When a module needs to be re-initialized because ``set_params`` was called,
    all modules and optimizers that may depend on it are also re-initialized.
    This is for instance important for the optimizer, which must know about the
    parameters of the newly initialized module.
-4. You can pass arguments to the custom modules and optimizers using the now
+5. You can pass arguments to the custom modules and optimizers using the now
    familiar double-underscore notation. E.g., you can initialize your net like
    this:
 
