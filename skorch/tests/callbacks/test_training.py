@@ -413,7 +413,7 @@ class TestCheckpoint:
     ):
         # checkpoint once at the beginning of training.
         # when restoring at the end of training, the parameters
-        # of the net should not differ. if we do not restore
+        # of the net should not differ. If we do not restore
         # then the parameters must differ.
         path_cb = tmp_path / 'params_cb.pt'
         path_net = tmp_path / 'params_net.pt'
