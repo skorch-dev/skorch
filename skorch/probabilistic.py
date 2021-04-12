@@ -92,6 +92,28 @@ class GPBase(NeuralNet):
         )
         return self
 
+    def check_is_fitted(self, attributes=None, *args, **kwargs):
+        """Checks whether the GP is initialized.
+
+        Parameters
+        ----------
+        attributes : iterable of str or None (default=None)
+          All the attributes that are strictly required of a fitted net. By
+          default, those are the `module_` and `likelihood_` attributes.
+
+        Other arguments as in
+        ``sklearn.utils.validation.check_is_fitted``.
+
+        Raises
+        ------
+        skorch.exceptions.NotInitializedError
+          When the given attributes are not present.
+
+        """
+        if attributes is None:
+            attributes = ['module_', 'likelihood_']
+        check_is_fitted(self, attributes, *args, **kwargs)
+
     def train_step_single(self, batch, **fit_params):
         """Compute y_pred, loss value, and update net's gradients.
 
