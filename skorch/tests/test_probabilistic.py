@@ -18,8 +18,11 @@ from skorch.utils import is_torch_data_type
 gpytorch = pytest.importorskip('gpytorch')
 
 
+# PyTorch Modules are defined on the module root to make them pickleable.
+
+
 class RbfModule(gpytorch.models.ExactGP):
-    """Defined on root to make it pickleable"""
+    """Simple exact GP regression module"""
     def __init__(self, X, y, likelihood):
         super().__init__(X, y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
@@ -32,6 +35,7 @@ class RbfModule(gpytorch.models.ExactGP):
 
 
 class VariationalRegressionModule(gpytorch.models.ApproximateGP):
+    """GP regression for variational inference"""
     def __init__(self, inducing_points, eps=1e-6):
         variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
             inducing_points.size(0))
@@ -53,6 +57,7 @@ class VariationalRegressionModule(gpytorch.models.ApproximateGP):
 
 
 class VariationalBinaryClassificationModule(gpytorch.models.ApproximateGP):
+    """GP classification for variational inference"""
     def __init__(self, inducing_points, eps=1e-6):
         variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
             inducing_points.size(0))
@@ -75,6 +80,15 @@ class VariationalBinaryClassificationModule(gpytorch.models.ApproximateGP):
 
 
 class BaseProbabilisticTests:
+    """Base class for all GP estimators.
+
+    This class defined all fixtures, most of which need to be implemented by the
+    respective subclass, as well as all the tests. The tests take care of using
+    attributes and properties that are true for all sorts of GPs (e.g. only
+    using parameters shared by all likelihoods).
+
+    """
+
     ##########################
     # constants and fixtures #
     ##########################
@@ -129,14 +143,16 @@ class BaseProbabilisticTests:
 
     @pytest.fixture
     def module_multioutput_cls(self):
-        raise NotImplementedError
+        # since multioutput is not currently being tested, not an abstract
+        # method
+        pass
 
     @pytest.fixture
     def data(self):
         raise NotImplementedError
 
     @pytest.fixture
-    def gp(self, gp_cls, data):
+    def gp(self, gp_cls, module_cls, data):
         raise NotImplementedError
 
     @pytest.fixture
@@ -146,8 +162,9 @@ class BaseProbabilisticTests:
 
     @pytest.fixture
     def gp_multioutput(self, gp_cls, module_multioutput_cls, data):
-        # should be fitted
-        raise NotImplementedError
+        # should be fitted; since it's not currently being tested, not an
+        # abstract method
+        pass
 
     @pytest.fixture
     def pipe(self, gp):
@@ -441,6 +458,8 @@ class BaseProbabilisticTests:
 
 
 class TestExactGPRegressor(BaseProbabilisticTests):
+    """Tests for ExactGPRegressor."""
+
     ##########################
     # constants and fixtures #
     ##########################
@@ -479,7 +498,6 @@ class TestExactGPRegressor(BaseProbabilisticTests):
             optimizer=torch.optim.Adam,
             lr=0.1,
             max_epochs=20,
-            batch_size=-1,
         )
         return gpr
 
@@ -523,6 +541,8 @@ class TestExactGPRegressor(BaseProbabilisticTests):
 
 
 class TestGPRegressorVariational(BaseProbabilisticTests):
+    """Tests for GPRegressor."""
+
     ##########################
     # constants and fixtures #
     ##########################
@@ -567,6 +587,8 @@ class TestGPRegressorVariational(BaseProbabilisticTests):
 
 
 class TestGPBinaryClassifier(BaseProbabilisticTests):
+    """Tests for GPBinaryClassifier."""
+
     ##########################
     # constants and fixtures #
     ##########################

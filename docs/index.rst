@@ -54,6 +54,7 @@ User's Guide
    user/callbacks
    user/dataset
    user/save_load
+   user/probabilistic
    user/history
    user/toy
    user/helper
@@ -85,5 +86,5 @@ Indices and tables
 
 
 .. _nolearn: https://github.com/dnouri/nolearn
-.. _pytorch: http://pytorch.org/
-.. _sklearn: http://scikit-learn.org/
+.. _pytorch: https://pytorch.org/
+.. _sklearn: https://scikit-learn.org/
