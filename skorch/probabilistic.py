@@ -52,6 +52,7 @@ class GPBase(NeuralNet):
             train_split=None,
             **kwargs
     ):
+        self.likelihood = likelihood
         super().__init__(
             module,
             *args,
@@ -59,7 +60,6 @@ class GPBase(NeuralNet):
             train_split=train_split,
             **kwargs
         )
-        self.likelihood = likelihood
 
     def initialize_module(self):
         """Initializes likelihood and module."""
@@ -69,7 +69,10 @@ class GPBase(NeuralNet):
         likelihood = self.likelihood
         is_initialized = isinstance(likelihood, torch.nn.Module)
 
-        if not is_initialized or ll_kwargs:
+        if is_initialized and not ll_kwargs:
+            # likelihood already initialized and no params changed
+            self.likelihood_ = likelihood
+        else:
             # likelihood needs to be initialized because it's not yet or because
             # its arguments changed
             if is_initialized:
@@ -517,22 +520,30 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
         module_kwargs = self.get_params_for('module')
 
         initialized_ll = isinstance(likelihood, torch.nn.Module)
-        initialized_both = initialized_ll and isinstance(module, torch.nn.Module)
+        initialized_module = isinstance(module, torch.nn.Module)
+        initialized_both = initialized_ll and initialized_module
 
-        if not initialized_ll or ll_kwargs:
+        if initialized_ll and not ll_kwargs:
+            # likelihood already initialized and no params changed
+            self.likelihood_ = likelihood
+        else:
             # likelihood needs to be initialized because it's not yet or because
             # its arguments changed
             if initialized_ll:
                 likelihood = type(likelihood)
             self.likelihood_ = likelihood(**ll_kwargs)
 
+        # ExactGP requires likelihood to be passed
         if 'likelihood' not in module_kwargs:
             module_kwargs['likelihood'] = self.likelihood_
 
-        if not initialized_both or module_kwargs:
+        if initialized_both and not module_kwargs:
+            # module and likelihood were already initialized no no params changed
+            self.module_ = module
+        else:
             # module needs to be initialized because it's not yet or because
             # the likelihood and/or its arguments changed
-            if initialized_both:
+            if initialized_module:
                 module = type(module)
             self.module_ = module(**module_kwargs)
 

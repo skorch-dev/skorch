@@ -410,6 +410,23 @@ class BaseProbabilisticTests:
         msg = capsys.readouterr()[0].strip()
         assert msg == expected
 
+    def test_likelihood_already_initialized_does_not_reinit(self, gp, gp_cls):
+        # When the likelihood is already initialized and no params changed, it
+        # should just be set as is instead of creating a new instance. In
+        # theory, the same should apply to modules but in all the examples here,
+        # modules require params, so we cannot test it.
+
+        gp_init = gp.initialize()
+        # create a new GP instance using this somewhat convoluted approach
+        # because we don't know what arguments are required to initialize from
+        # scratch
+        params = gp_init.get_params()
+        # set likelihood and likelihood to be initialized already
+        params['likelihood'] = gp_init.likelihood_
+        gp = gp_cls(**params).initialize()
+
+        assert gp.likelihood_ is gp_init.likelihood_
+
     ##########################
     # probabalistic specific #
     ##########################
