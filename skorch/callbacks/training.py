@@ -132,7 +132,8 @@ class Checkpoint(Callback):
       Load the best checkpoint automatically once training ended.
       This can be particularly helpful in combination with early stopping
       as it allows for scoring with the best model, even when early stopping
-      ended training a number of epochs later.
+      ended training a number of epochs later. Note that this will only
+      work when ``monitor != None``.
 
     event_name: str, (default='event_cp')
       Name of event to be placed in history when checkpoint is triggered.
@@ -188,7 +189,7 @@ class Checkpoint(Callback):
         return self
 
     def on_train_end(self, net, **kwargs):
-        if not self.load_best:
+        if not self.load_best or self.monitor is None:
             return
         self._sink("Loading best checkpoint after training.", net.verbose)
         net.load_params(checkpoint=self)

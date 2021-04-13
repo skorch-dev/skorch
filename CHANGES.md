@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `load_best` attribute to `Checkpoint` callback to automatically load state of the
+  best result at the end of training
+
 ### Changed
 
 ### Fixed

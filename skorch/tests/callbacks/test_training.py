@@ -320,7 +320,7 @@ class TestCheckpoint:
         assert pickle_dump_mock.call_count == len(net.history)
         save_params_mock.assert_has_calls(
             [
-                call(f_module=str(f_params)),  # params is turned into module 
+                call(f_module=str(f_params)),  # params is turned into module
                 call(f_optimizer=str(f_optimizer)),
                 call(f_criterion=str(f_criterion)),
                 call(f_history=str(f_history)),
@@ -403,13 +403,10 @@ class TestCheckpoint:
         import torch
         return torch.load
 
-    @pytest.mark.parametrize('load_best_flag, should_match', [
-        (False, False),
-        (True, True),
-    ])
+    @pytest.mark.parametrize('load_best_flag', [False, True])
     def test_automatically_load_checkpoint(
             self, net_cls, checkpoint_cls, data, tmp_path,
-            load_params, load_best_flag, should_match,
+            load_params, load_best_flag,
     ):
         # checkpoint once at the beginning of training.
         # when restoring at the end of training, the parameters
@@ -421,13 +418,16 @@ class TestCheckpoint:
         def save_once_monitor(net):
             return len(net.history) == 1
 
-        net = net_cls(callbacks=[
-            checkpoint_cls(
-                monitor=save_once_monitor,
-                f_params=path_cb,
-                load_best=load_best_flag,
-            ),
-        ])
+        net = net_cls(
+            max_epochs=3,
+            callbacks=[
+                checkpoint_cls(
+                    monitor=save_once_monitor,
+                    f_params=path_cb,
+                    load_best=load_best_flag,
+                ),
+            ],
+        )
 
         net.fit(*data)
         net.save_params(path_net)
@@ -435,7 +435,7 @@ class TestCheckpoint:
         params_cb = load_params(path_cb)
         params_net = load_params(path_net)
 
-        if should_match:
+        if load_best_flag:
             assert params_cb == params_net
         else:
             assert params_cb != params_net
