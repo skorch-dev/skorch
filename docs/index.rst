@@ -9,9 +9,7 @@ Introduction
 
 The goal of skorch is to make it possible to use PyTorch_ with
 sklearn_. This is achieved by providing a wrapper around
-PyTorch that has an sklearn interface. In that sense,
-skorch is the spiritual successor to nolearn_, but instead of
-using Lasagne and Theano, it uses PyTorch.
+PyTorch that has an sklearn interface.
 
 skorch does not re-invent the wheel, instead getting as much out
 of your way as possible. If you are familiar with sklearn and
@@ -84,6 +82,5 @@ Indices and tables
 * :ref:`search`
 
 
-.. _nolearn: https://github.com/dnouri/nolearn
 .. _pytorch: http://pytorch.org/
 .. _sklearn: http://scikit-learn.org/
