@@ -17,6 +17,9 @@ if [ -z "$PYTORCH_VERSION" ]; then
 	exit 1
 fi
 
+# check if worktree is not dirty, see https://stackoverflow.com/a/5737794
+test -z "$(git status --porcelain --untracked-files=no)"
+
 conda update -q -y conda
 
 # Remove previous deploy environment
