@@ -29,10 +29,6 @@ try:
 except IOError:
     README = ''
 
-try:
-    CHANGES = open(os.path.join(here, 'CHANGES.md')).read()
-except IOError:
-    CHANGES = ''
 
 setup(
     name='skorch',
