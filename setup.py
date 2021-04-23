@@ -9,6 +9,9 @@ with open('VERSION', 'r') as f:
 with open('requirements.txt') as f:
     install_requires = [l.strip() for l in f]
 
+
+python_requires = '>=3.6'
+
 tests_require = [
     'pytest',
     'pytest-cov',
@@ -26,10 +29,6 @@ try:
 except IOError:
     README = ''
 
-try:
-    CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
-except IOError:
-    CHANGES = ''
 
 setup(
     name='skorch',
@@ -41,6 +40,7 @@ setup(
     include_package_data=True,
     url="https://github.com/skorch-dev/skorch",
     zip_safe=False,
+    python_requires=python_requires,
     install_requires=install_requires,
     extras_require={
         'testing': tests_require,
