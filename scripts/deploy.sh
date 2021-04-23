@@ -17,6 +17,9 @@ if [ -z "$PYTORCH_VERSION" ]; then
 	exit 1
 fi
 
+# check if worktree is not dirty, see https://stackoverflow.com/a/5737794
+test -z "$(git status --porcelain --untracked-files=no)"
+
 conda update -q -y conda
 
 # Remove previous deploy environment
@@ -45,6 +48,10 @@ conda install -c pytorch -y "pytorch==${PYTORCH_VERSION}"
 python setup.py install
 
 pytest -x
+
+# check if README can be rendered correctly on PyPI
+pip install readme-renderer
+python -m readme_renderer README.rst > /dev/null
 
 python setup.py sdist bdist_wheel
 

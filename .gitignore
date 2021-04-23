@@ -22,3 +22,7 @@ data/
 *prof
 *.py~
 *.pt
+*.pth
+*.pickle
+*.mat
+*.ipynb
