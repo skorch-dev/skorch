@@ -2632,6 +2632,53 @@ class TestNeuralNet:
         assert 'myoptimizer_' not in net.cuda_dependent_attributes_
         assert 'myoptimizer' not in net.prefixes_
 
+    def test_custom_optimizer_virtual_params(self, net_cls, module_cls):
+        # creating a custom optimizer should lead to its parameters being
+        # virtual
+        side_effects = []
+
+        class MyNet(net_cls):
+            def initialize_module(self):
+                side_effects.append(True)
+                return super().initialize_module()
+
+            def initialize_optimizer(self):
+                super().initialize_optimizer()
+                self.myoptimizer_ = torch.optim.SGD(self.module_.parameters(), lr=1)
+                return self
+
+        net = MyNet(module_cls).initialize()
+
+        # module initialized once
+        assert len(side_effects) == 1
+
+        net.set_params(optimizer__lr=123)
+        # module is not re-initialized, since virtual parameter
+        assert len(side_effects) == 1
+
+        net.set_params(myoptimizer__lr=123)
+        # module is not re-initialized, since virtual parameter
+        assert len(side_effects) == 1
+
+    def test_custom_optimizer_lr_is_associated_with_optimizer(
+            self, net_cls, module_cls,
+    ):
+        # the 'lr' parameter belongs to the default optimizer, not any custom
+        # optimizer
+        class MyNet(net_cls):
+            def initialize_optimizer(self):
+                super().initialize_optimizer()
+                self.myoptimizer_ = torch.optim.SGD(self.module_.parameters(), lr=1)
+                return self
+
+        net = MyNet(module_cls, lr=123).initialize()
+        assert net.optimizer_.state_dict()['param_groups'][0]['lr'] == 123
+        assert net.myoptimizer_.state_dict()['param_groups'][0]['lr'] == 1
+
+        net.set_params(lr=456)
+        assert net.optimizer_.state_dict()['param_groups'][0]['lr'] == 456
+        assert net.myoptimizer_.state_dict()['param_groups'][0]['lr'] == 1
+
     def test_setattr_custom_module_no_duplicates(self, net_cls, module_cls):
         # the 'module' attribute is set twice but that shouldn't lead
         # to duplicates in prefixes_ or cuda_dependent_attributes_

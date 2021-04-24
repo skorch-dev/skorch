@@ -7,6 +7,7 @@ sklearn-conforming classes like NeuralNetClassifier.
 """
 
 import fnmatch
+from functools import partial
 from itertools import chain
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -754,26 +755,28 @@ class NeuralNet:
 
     def _initialize_optimizer(self, reason=None):
         with self._current_init_context('optimizer'):
-            named_parameters = self.get_learnable_params('optimizer')
-            _, kwargs = self.get_params_for_optimizer(
-                'optimizer', named_parameters)
-
             if self.initialized_ and self.verbose:
                 if reason:
                     # re-initialization was triggered indirectly
                     msg = reason
                 else:
                     # re-initialization was triggered directly
-                    msg = self._format_reinit_msg(
-                        "optimizer", kwargs, triggered_directly=False)
+                    msg = self._format_reinit_msg("optimizer", triggered_directly=False)
                 print(msg)
 
             self.initialize_optimizer()
 
-            self._register_virtual_param(
-                ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
-                optimizer_setter,
-            )
+            # register the virtual params for all optimizers
+            for name in self.optimizers_:
+                param_pattern = [name + '__param_groups__*__*', name + '__*']
+                if name == 'optimizer':  # 'lr' is short for optimizer__lr
+                    param_pattern.append('lr')
+                setter = partial(
+                    optimizer_setter,
+                    optimizer_attr=name + '_',
+                    optimizer_name=name,
+                )
+                self._register_virtual_param(param_pattern, setter)
             return self
 
     def _initialize_history(self):
