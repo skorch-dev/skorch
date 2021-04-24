@@ -14,7 +14,11 @@ replacements for sklearn classifiers and regressors.
 The :class:`.NeuralNet` class is a little less opinionated about the
 incoming data, e.g. it does not determine a loss function by default.
 Therefore, if you want to write your own subclass for a special use
-case, you would typically subclass from :class:`.NeuralNet`.
+case, you would typically subclass from :class:`.NeuralNet`. The
+:func:`~skorch.net.NeuralNet.predict` method returns the same output
+as :func:`~skorch.net.NeuralNet.predict_proba` by default, which is
+the module output (or the first module output, in case it returns
+multiple values).
 
 :class:`.NeuralNet` and its subclasses are already very flexible as they are and
 should cover many use cases by adjusting the provided parameters or by using
