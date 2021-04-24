@@ -507,6 +507,42 @@ class NeuralNet:
         self.callbacks_ = callbacks_
         return self
 
+    def initialized_instance(self, instance_or_cls, kwargs):
+        """Return an instance initiliazed with the given parameters
+
+        This is a helper method that deals with several possibilities for a
+        component that might need to be initialized:
+
+        * It is already an instance that's good to go
+        * It is an instance but it needs to be re-initialized
+        * It's not an instance and needs to be initialized
+
+        For the majority of use cases, this comes down to just comes down to
+        just initializing the class with its arguments.
+
+        Parameters
+        ----------
+        instance_or_cls
+          The instance or class or callable to be initialized, e.g.
+          ``self.module``.
+
+        kwargs : dict
+          The keyword arguments to initialize the instance or class. Can be an
+          empty dict.
+
+        Returns
+        -------
+        instance
+          The initialized component.
+
+        """
+        is_init = isinstance(instance_or_cls, torch.nn.Module)
+        if is_init and not kwargs:
+            return instance_or_cls
+        if is_init:
+            return type(instance_or_cls)(**kwargs)
+        return instance_or_cls(**kwargs)
+
     def initialize_criterion(self):
         """Initializes the criterion.
 
@@ -515,18 +551,9 @@ class NeuralNet:
 
         """
         kwargs = self.get_params_for('criterion')
-        criterion = self.criterion
-        is_init = isinstance(criterion, torch.nn.Module)
-        if is_init and not kwargs:
-            # criterion already initialized and no params changed:
-            self.criterion_ = self.criterion
-            return
-
-        if is_init:
-            criterion = type(criterion)
-
+        criterion = self.initialized_instance(self.criterion, kwargs)
         # pylint: disable=attribute-defined-outside-init
-        self.criterion_ = criterion(**kwargs)
+        self.criterion_ = criterion
         return self
 
     def initialize_module(self):
@@ -537,18 +564,9 @@ class NeuralNet:
 
         """
         kwargs = self.get_params_for('module')
-        module = self.module
-        is_init = isinstance(module, torch.nn.Module)
-        if is_init and not kwargs:
-            # module already initialized and no params changed:
-            self.module_ = self.module
-            return
-
-        if is_init:
-            module = type(module)
-
+        module = self.initialized_instance(self.module, kwargs)
         # pylint: disable=attribute-defined-outside-init
-        self.module_ = module(**kwargs)
+        self.module_ = module
         return self
 
     def _is_virtual_param(self, key):
