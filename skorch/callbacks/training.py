@@ -532,7 +532,7 @@ class ParamMapper(Callback):
         return self
 
     def named_parameters(self, net):
-        return net.get_learnable_params()
+        return net.get_all_learnable_params()
 
     def filter_parameters(self, patterns, params):
         pattern_fns = (

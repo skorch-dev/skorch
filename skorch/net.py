@@ -589,7 +589,7 @@ class NeuralNet:
                 "The 'triggered_directly' argument to 'initialize_optimizer' is "
                 "deprecated, please don't use it anymore.", DeprecationWarning)
 
-        named_parameters = self.get_learnable_params('optimizer')
+        named_parameters = self.get_all_learnable_params()
         args, kwargs = self.get_params_for_optimizer(
             'optimizer', named_parameters)
 
@@ -704,7 +704,7 @@ class NeuralNet:
 
             return self
 
-    def get_learnable_params(self, optimizer_name='optimizer'):
+    def get_all_learnable_params(self):
         """Yield the learnable parameters of all modules
 
         Typically, this will yield the ``named_parameters`` of the standard
@@ -731,13 +731,6 @@ class NeuralNet:
                     args, kwargs = self.get_params_for_optimizer('optimizer2', named_params)
                     self.optimizer2_ = torch.optim.SGD(*args, **kwargs)
                     return self
-
-        Parameters
-        ----------
-        optimizer_name : str (default='optimizer')
-          The name of the optimizer that will be responsible for updateing these
-          parameters. By default, this argument is not used in the method body
-          but it can be useful if you choose to override this method.
 
         Yields
         ------
@@ -975,7 +968,7 @@ class NeuralNet:
 
             self.notify(
                 'on_grad_computed',
-                named_parameters=TeeGenerator(self.get_learnable_params()),
+                named_parameters=TeeGenerator(self.get_all_learnable_params()),
                 batch=batch,
             )
             return step['loss']

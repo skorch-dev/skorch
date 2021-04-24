@@ -258,4 +258,4 @@ defined components.
 .. note:: In the example above, the parameters of ``module_`` are trained by
           ``optimzer_`` and the parameters of ``module2_`` are trained by
           ``optimizer2_``. To conveniently obtain the parameters of all modules,
-          call the method :func:`~skorch.net.NeuralNet.get_learnable_params`.
+          call the method :func:`~skorch.net.NeuralNet.get_all_learnable_params`.
