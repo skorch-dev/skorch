@@ -34,6 +34,11 @@ class Checkpoint(Callback):
     callback that dynamically evaluates whether the model should
     be saved in this epoch.
 
+    As checkpointing is often used in conjunction with early stopping
+    there is a need to restore the state of the model to the best
+    checkpoint after training is done. The checkpoint callback will
+    do this for you if you wish.
+
     Some or all of the following can be saved:
 
       - model parameters (see ``f_params`` parameter);
@@ -123,6 +128,13 @@ class Checkpoint(Callback):
     dirname: str (default='')
       Directory where files are stored.
 
+    load_best: bool (default=False)
+      Load the best checkpoint automatically once training ended.
+      This can be particularly helpful in combination with early stopping
+      as it allows for scoring with the best model, even when early stopping
+      ended training a number of epochs later. Note that this will only
+      work when ``monitor != None``.
+
     event_name: str, (default='event_cp')
       Name of event to be placed in history when checkpoint is triggered.
       Pass ``None`` to disable placing events in history.
@@ -145,6 +157,7 @@ class Checkpoint(Callback):
             dirname='',
             event_name='event_cp',
             sink=noop,
+            load_best=False,
             **kwargs
     ):
         self.monitor = monitor
@@ -157,6 +170,7 @@ class Checkpoint(Callback):
         self.dirname = dirname
         self.event_name = event_name
         self.sink = sink
+        self.load_best = load_best
         self._check_kwargs(kwargs)
         vars(self).update(**kwargs)
         self._validate_filenames()
@@ -173,6 +187,12 @@ class Checkpoint(Callback):
         if self.dirname and not os.path.exists(self.dirname):
             os.makedirs(self.dirname, exist_ok=True)
         return self
+
+    def on_train_end(self, net, **kwargs):
+        if not self.load_best or self.monitor is None:
+            return
+        self._sink("Loading best checkpoint after training.", net.verbose)
+        net.load_params(checkpoint=self)
 
     def on_epoch_end(self, net, **kwargs):
         if "{}_best".format(self.monitor) in net.history[-1]:
@@ -512,7 +532,7 @@ class ParamMapper(Callback):
         return self
 
     def named_parameters(self, net):
-        return net.get_learnable_params()
+        return net.get_all_learnable_params()
 
     def filter_parameters(self, patterns, params):
         pattern_fns = (

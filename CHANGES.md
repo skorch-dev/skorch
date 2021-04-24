@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added a `get_learnable_params` method to retrieve the named parameters of all PyTorch modules defined on the net, including of criteria if applicable
+- Added `load_best` attribute to `Checkpoint` callback to automatically load state of the best result at the end of training
+- Added a `get_all_learnable_params` method to retrieve the named parameters of all PyTorch modules defined on the net, including of criteria if applicable
 
 ### Changed
 
+- Changed the signature of `validation_step`, `train_step_single`, `train_step`, `evaluation_step`, `on_batch_begin`, and `on_batch_end` such that instead of receiving `X` and `y`, they receive the whole batch; this makes it easier to deal with datasets that don't strictly return an `(X, y)` tuple, which is true for quite a few PyTorch datasets; please refer to the [migration guide](https://skorch.readthedocs.io/en/latest/user/FAQ.html#migration-from-0-9-to-0-10) if you encounter problems
 - Checking of arguments to `NeuralNet` is now during `.initialize()`, not during `__init__`, to avoid raising false positives for yet unknown module or optimizer attributes
 - Modules, criteria, and optimizers that are added to a net by the user are now first class: skorch takes care of setting train/eval mode, moving to the indicated device, and updating all learnable parameters during training (check the [docs](https://skorch.readthedocs.io/en/latest/user/customization.html#initialization-and-custom-modules) for more details)
 
@@ -32,7 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - We no longer pass the `epoch` parameter to LR schedulers, since that parameter has been deprecated. We now rely on the scheduler to keep track of the epoch itself.
 - Changed implementation of `net.history` access to make it faster; this should result in a nice speedup when dealing with very small model/data but otherwise not have any noticeable effects; if you encounter bugs, though, please create an issue
-- Changed the signature of `validation_step`, `train_step_single`, `train_step`, `evaluation_step`, `on_batch_begin`, and `on_batch_end` such that instead of receiving `X` and `y`, they receive the whole batch; this makes it easier to deal with datasets that don't strictly return an `(X, y)` tuple, which is true for quite a few PyTorch datasets; please refer to the [migration guide](https://skorch.readthedocs.io/en/stable/user/FAQ.html#migration-from-0-9-to-0-10) if you encounter problems
 
 ### Fixed
 

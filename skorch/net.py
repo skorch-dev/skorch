@@ -7,6 +7,7 @@ sklearn-conforming classes like NeuralNetClassifier.
 """
 
 import fnmatch
+from functools import partial
 from itertools import chain
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -506,6 +507,42 @@ class NeuralNet:
         self.callbacks_ = callbacks_
         return self
 
+    def initialized_instance(self, instance_or_cls, kwargs):
+        """Return an instance initiliazed with the given parameters
+
+        This is a helper method that deals with several possibilities for a
+        component that might need to be initialized:
+
+        * It is already an instance that's good to go
+        * It is an instance but it needs to be re-initialized
+        * It's not an instance and needs to be initialized
+
+        For the majority of use cases, this comes down to just comes down to
+        just initializing the class with its arguments.
+
+        Parameters
+        ----------
+        instance_or_cls
+          The instance or class or callable to be initialized, e.g.
+          ``self.module``.
+
+        kwargs : dict
+          The keyword arguments to initialize the instance or class. Can be an
+          empty dict.
+
+        Returns
+        -------
+        instance
+          The initialized component.
+
+        """
+        is_init = isinstance(instance_or_cls, torch.nn.Module)
+        if is_init and not kwargs:
+            return instance_or_cls
+        if is_init:
+            return type(instance_or_cls)(**kwargs)
+        return instance_or_cls(**kwargs)
+
     def initialize_criterion(self):
         """Initializes the criterion.
 
@@ -514,18 +551,9 @@ class NeuralNet:
 
         """
         kwargs = self.get_params_for('criterion')
-        criterion = self.criterion
-        is_init = isinstance(criterion, torch.nn.Module)
-        if is_init and not kwargs:
-            # criterion already initialized and no params changed:
-            self.criterion_ = self.criterion
-            return
-
-        if is_init:
-            criterion = type(criterion)
-
+        criterion = self.initialized_instance(self.criterion, kwargs)
         # pylint: disable=attribute-defined-outside-init
-        self.criterion_ = criterion(**kwargs)
+        self.criterion_ = criterion
         return self
 
     def initialize_module(self):
@@ -536,18 +564,9 @@ class NeuralNet:
 
         """
         kwargs = self.get_params_for('module')
-        module = self.module
-        is_init = isinstance(module, torch.nn.Module)
-        if is_init and not kwargs:
-            # module already initialized and no params changed:
-            self.module_ = self.module
-            return
-
-        if is_init:
-            module = type(module)
-
+        module = self.initialized_instance(self.module, kwargs)
         # pylint: disable=attribute-defined-outside-init
-        self.module_ = module(**kwargs)
+        self.module_ = module
         return self
 
     def _is_virtual_param(self, key):
@@ -588,7 +607,7 @@ class NeuralNet:
                 "The 'triggered_directly' argument to 'initialize_optimizer' is "
                 "deprecated, please don't use it anymore.", DeprecationWarning)
 
-        named_parameters = self.get_learnable_params('optimizer')
+        named_parameters = self.get_all_learnable_params()
         args, kwargs = self.get_params_for_optimizer(
             'optimizer', named_parameters)
 
@@ -703,7 +722,7 @@ class NeuralNet:
 
             return self
 
-    def get_learnable_params(self, optimizer_name='optimizer'):
+    def get_all_learnable_params(self):
         """Yield the learnable parameters of all modules
 
         Typically, this will yield the ``named_parameters`` of the standard
@@ -731,13 +750,6 @@ class NeuralNet:
                     self.optimizer2_ = torch.optim.SGD(*args, **kwargs)
                     return self
 
-        Parameters
-        ----------
-        optimizer_name : str (default='optimizer')
-          The name of the optimizer that will be responsible for updateing these
-          parameters. By default, this argument is not used in the method body
-          but it can be useful if you choose to override this method.
-
         Yields
         ------
         named_parameters : generator of parameter name and parameter
@@ -754,26 +766,28 @@ class NeuralNet:
 
     def _initialize_optimizer(self, reason=None):
         with self._current_init_context('optimizer'):
-            named_parameters = self.get_learnable_params('optimizer')
-            _, kwargs = self.get_params_for_optimizer(
-                'optimizer', named_parameters)
-
             if self.initialized_ and self.verbose:
                 if reason:
                     # re-initialization was triggered indirectly
                     msg = reason
                 else:
                     # re-initialization was triggered directly
-                    msg = self._format_reinit_msg(
-                        "optimizer", kwargs, triggered_directly=False)
+                    msg = self._format_reinit_msg("optimizer", triggered_directly=False)
                 print(msg)
 
             self.initialize_optimizer()
 
-            self._register_virtual_param(
-                ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
-                optimizer_setter,
-            )
+            # register the virtual params for all optimizers
+            for name in self.optimizers_:
+                param_pattern = [name + '__param_groups__*__*', name + '__*']
+                if name == 'optimizer':  # 'lr' is short for optimizer__lr
+                    param_pattern.append('lr')
+                setter = partial(
+                    optimizer_setter,
+                    optimizer_attr=name + '_',
+                    optimizer_name=name,
+                )
+                self._register_virtual_param(param_pattern, setter)
             return self
 
     def _initialize_history(self):
@@ -972,7 +986,7 @@ class NeuralNet:
 
             self.notify(
                 'on_grad_computed',
-                named_parameters=TeeGenerator(self.get_learnable_params()),
+                named_parameters=TeeGenerator(self.get_all_learnable_params()),
                 batch=batch,
             )
             return step['loss']

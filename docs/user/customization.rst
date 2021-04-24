@@ -14,7 +14,11 @@ replacements for sklearn classifiers and regressors.
 The :class:`.NeuralNet` class is a little less opinionated about the
 incoming data, e.g. it does not determine a loss function by default.
 Therefore, if you want to write your own subclass for a special use
-case, you would typically subclass from :class:`.NeuralNet`.
+case, you would typically subclass from :class:`.NeuralNet`. The
+:func:`~skorch.net.NeuralNet.predict` method returns the same output
+as :func:`~skorch.net.NeuralNet.predict_proba` by default, which is
+the module output (or the first module output, in case it returns
+multiple values).
 
 :class:`.NeuralNet` and its subclasses are already very flexible as they are and
 should cover many use cases by adjusting the provided parameters or by using
@@ -56,7 +60,8 @@ add L1 regularization to our total loss:
 
 It is often a good idea to call ``super`` of the method you override, to make
 sure that everything that needs to happen inside that method does happen. If you
-don't, you should make sure to take care of everything that needs to happen.
+don't, you should make sure to take care of everything that needs to happen by
+following the original implementation.
 
 Training and validation
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -128,8 +133,7 @@ such as :func:`~skorch.net.NeuralNet.initialize_module` and
 customize the initialization behavior, you should override the
 corresponding methods. Following sklearn conventions, the created
 components should be set as an attribute with a trailing underscore as
-the name, e.g. ``module_`` for the initialized module. Finally, the
-method should return ``self``.
+the name, e.g. ``module_`` for the initialized module.
 
 A possible modification you may want to make is to add more modules, criteria,
 and optimizers to your net. This is possible in skorch by following the
@@ -254,4 +258,4 @@ defined components.
 .. note:: In the example above, the parameters of ``module_`` are trained by
           ``optimzer_`` and the parameters of ``module2_`` are trained by
           ``optimizer2_``. To conveniently obtain the parameters of all modules,
-          call the method :func:`~skorch.net.NeuralNet.get_learnable_params`.
+          call the method :func:`~skorch.net.NeuralNet.get_all_learnable_params`.

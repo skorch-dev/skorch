@@ -209,7 +209,7 @@ class BaseProbabilisticTests:
 
         # check first that parameters are not equal
         for (_, p0), (_, p1) in zip(
-                gp_fit.get_learnable_params(), gp2.get_learnable_params(),
+                gp_fit.get_all_learnable_params(), gp2.get_all_learnable_params(),
         ):
             assert not (p0 == p1).all()
 
@@ -223,7 +223,7 @@ class BaseProbabilisticTests:
 
         # now parameters should be equal
         for (_, p0), (_, p1) in zip(
-                gp_fit.get_learnable_params(), gp2.get_learnable_params(),
+                gp_fit.get_all_learnable_params(), gp2.get_all_learnable_params(),
         ):
             assert_allclose(p0, p1)
 

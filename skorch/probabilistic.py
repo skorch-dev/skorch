@@ -64,20 +64,8 @@ class GPBase(NeuralNet):
     def initialize_module(self):
         """Initializes likelihood and module."""
         # pylint: disable=attribute-defined-outside-init
-
         ll_kwargs = self.get_params_for('likelihood')
-        likelihood = self.likelihood
-        is_initialized = isinstance(likelihood, torch.nn.Module)
-
-        if is_initialized and not ll_kwargs:
-            # likelihood already initialized and no params changed
-            self.likelihood_ = likelihood
-        else:
-            # likelihood needs to be initialized because it's not yet or because
-            # its arguments changed
-            if is_initialized:
-                likelihood = type(likelihood)
-            self.likelihood_ = likelihood(**ll_kwargs)
+        self.likelihood_ = self.initialized_instance(self.likelihood, ll_kwargs)
 
         super().initialize_module()
         return self
@@ -86,6 +74,8 @@ class GPBase(NeuralNet):
         """Initializes the criterion."""
         # pylint: disable=attribute-defined-outside-init
 
+        # The criterion is always re-initialized here, since it depends on the
+        # likelihood and the module.
         criterion_params = self.get_params_for('criterion')
         # criterion takes likelihood as first argument
         self.criterion_ = self.criterion(
@@ -513,6 +503,8 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
 
         # We need a custom implementation here because the module is initialized
         # with likelihood as an argument, which would not be passed otherwise.
+        # We cannot use self.initialized_instance, since we need to know if
+        # likelihood was actually (re-)initialized or not.
         likelihood = self.likelihood
         ll_kwargs = self.get_params_for('likelihood')
 
