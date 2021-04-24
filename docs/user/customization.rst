@@ -128,8 +128,7 @@ such as :func:`~skorch.net.NeuralNet.initialize_module` and
 customize the initialization behavior, you should override the
 corresponding methods. Following sklearn conventions, the created
 components should be set as an attribute with a trailing underscore as
-the name, e.g. ``module_`` for the initialized module. Finally, the
-method should return ``self``.
+the name, e.g. ``module_`` for the initialized module.
 
 A possible modification you may want to make is to add more modules, criteria,
 and optimizers to your net. This is possible in skorch by following the
