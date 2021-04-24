@@ -60,7 +60,8 @@ add L1 regularization to our total loss:
 
 It is often a good idea to call ``super`` of the method you override, to make
 sure that everything that needs to happen inside that method does happen. If you
-don't, you should make sure to take care of everything that needs to happen.
+don't, you should make sure to take care of everything that needs to happen by
+following the original implementation.
 
 Training and validation
 ^^^^^^^^^^^^^^^^^^^^^^^
