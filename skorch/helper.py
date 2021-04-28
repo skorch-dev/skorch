@@ -251,7 +251,7 @@ def predefined_split(dataset):
 
     Examples
     --------
-    >>> valid_ds = skorch.Dataset(X, y)
+    >>> valid_ds = skorch.dataset.Dataset(X, y)
     >>> net = NeuralNet(..., train_split=predefined_split(valid_ds))
 
     Parameters
