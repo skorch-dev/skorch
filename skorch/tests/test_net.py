@@ -3243,6 +3243,9 @@ class TestNeuralNet:
                 assert_net_training_mode(self, training=training)
                 return y_pred
 
+            def on_batch_end(self, net, batch, training, **kwargs):
+                assert_net_training_mode(net, training=training)
+
         def assert_net_training_mode(net, training=True):
             if training:
                 check = lambda module: module.training is True
@@ -3253,12 +3256,8 @@ class TestNeuralNet:
             assert check(net.criterion_)
             assert check(net.mycriterion_)
 
-        class CheckTrainingCallback(Callback):
-            def on_batch_end(self, net, batch, training, **kwargs):
-                assert_net_training_mode(net, training=training)
-
         X, y = data
-        net = MyNet(module_cls, callbacks=[CheckTrainingCallback], max_epochs=1)
+        net = MyNet(module_cls, max_epochs=1)
         net.fit(X, y)
         net.predict(X)
 
@@ -3286,7 +3285,6 @@ class TestNeuralNet:
                 return 0.5 * (self.module_(x) + self.module2_(x))
 
         net = MyNet(module_cls, max_epochs=1, lr=0.5).initialize()
-        # params1_before = [copy.deepcopy(p) for p in net.module_.parameters()]
         params1_before = copy.deepcopy(list(net.module_.parameters()))
         params2_before = copy.deepcopy(list(net.module2_.parameters()))
 
@@ -3503,7 +3501,7 @@ class TestNeuralNet:
         class MyNet(NeuralNet):
             """Override train_step_single and validation_step"""
             def train_step_single(self, batch, **fit_params):
-                self._set_training(True)
+                self.module_.train()
                 x0, x1, yi = batch
                 x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
                 y_pred = self.module_(x0, x1)
@@ -3512,7 +3510,7 @@ class TestNeuralNet:
                 return {'loss': loss, 'y_pred': y_pred}
 
             def validation_step(self, batch, **fit_params):
-                self._set_training(False)
+                self.module_.eval()
                 x0, x1, yi = batch
                 x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
                 y_pred = self.module_(x0, x1)
@@ -3524,7 +3522,7 @@ class TestNeuralNet:
                 x0, x1 = batch
                 x0, x1 = to_tensor((x0, x1), device=self.device)
                 with torch.set_grad_enabled(training):
-                    self._set_training(training)
+                    self.module_.train(training)
                     return self.module_(x0, x1)
 
         net = MyNet(
