@@ -1132,11 +1132,11 @@ class TestTrainEndCheckpoint:
         cp = trainendcheckpoint_cls()
         # does not raise
         s = pickle.dumps(cp)
-        cp = pickle.loads(s)
+        pickle.loads(s)
 
     def test_pickle_initialized_callback(self, trainendcheckpoint_cls):
         # issue 773
         cp = trainendcheckpoint_cls().initialize()
         # does not raise
         s = pickle.dumps(cp)
-        cp = pickle.loads(s)
+        pickle.loads(s)
