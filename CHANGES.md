@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed a bug in `TrainEndCheckpoint` that prevented it from being unpickled (#773)
+
 ## [0.10.0] - 2021-03-23
 
 ### Added

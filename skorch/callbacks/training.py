@@ -752,10 +752,18 @@ class TrainEndCheckpoint(Callback):
             **self._f_kwargs()
         )
         self.checkpoint_.initialize()
+        return self
 
     def on_train_end(self, net, **kwargs):
         self.checkpoint_.save_model(net)
         self.checkpoint_._sink("Final checkpoint triggered", net.verbose)
+        return self
 
     def __getattr__(self, attr):
+        if attr == 'checkpoint_':
+            # this should only happen when unpickling
+            try:
+                return object.__getattribute__(self, attr)
+            except AttributeError:
+                return None
         return getattr(self.checkpoint_, attr)
