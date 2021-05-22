@@ -15,4 +15,4 @@ sacred
 sphinx
 sphinx_rtd_theme
 tensorboard>=1.14.0
-wandb>=0.8.30
+wandb<0.10.29
