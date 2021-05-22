@@ -200,23 +200,23 @@ Here is an example of how this could look like in practice:
 .. code:: python
 
     class MyNet(NeuralNet):
-        def initialize_module(self, *args, **kwargs):
-            super().initialize_module(*args, **kwargs)
+        def initialize_module(self):
+            super().initialize_module()
 
             # add an additional module called 'module2_'
             params = self.get_params_for('module2')
             self.module2_ = Module2(**params)
             return self
 
-        def initialize_criterion(self, *args, **kwargs):
-            super().initialize_criterion(*args, **kwargs)
+        def initialize_criterion(self):
+            super().initialize_criterion()
 
             # add an additional criterion called 'other_criterion_'
             params = self.get_params_for('other_criterion')
             self.other_criterion_ = nn.BCELoss(**params)
             return self
 
-        def initialize_optimizer(self, *args, **kwargs):
+        def initialize_optimizer(self):
             # first initialize the normal optimizer
             named_params = self.module_.named_parameters()
             args, kwargs = self.get_params_for_optimizer('optimizer', named_params)
