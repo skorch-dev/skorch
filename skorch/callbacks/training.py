@@ -639,8 +639,11 @@ class LoadInitState(Callback):
                        X=None, y=None, **kwargs):
         if not self.did_load_:
             self.did_load_ = True
-            with suppress(Exception):
-                net.load_params(checkpoint=self.checkpoint)
+            with suppress(FileNotFoundError):
+                if isinstance(self.checkpoint, TrainEndCheckpoint):
+                    net.load_params(checkpoint=self.checkpoint.checkpoint_)
+                else:
+                    net.load_params(checkpoint=self.checkpoint)
 
 
 class TrainEndCheckpoint(Callback):
@@ -752,10 +755,9 @@ class TrainEndCheckpoint(Callback):
             **self._f_kwargs()
         )
         self.checkpoint_.initialize()
+        return self
 
     def on_train_end(self, net, **kwargs):
         self.checkpoint_.save_model(net)
         self.checkpoint_._sink("Final checkpoint triggered", net.verbose)
-
-    def __getattr__(self, attr):
-        return getattr(self.checkpoint_, attr)
+        return self
