@@ -14,6 +14,7 @@ from skorch.tests.conftest import neptune_installed
 from skorch.tests.conftest import sacred_installed
 from skorch.tests.conftest import wandb_installed
 from skorch.tests.conftest import tensorboard_installed
+from skorch.tests.conftest import mlflow_installed
 
 
 @pytest.mark.skipif(
@@ -941,3 +942,25 @@ class TestTensorBoard:
 
         # is not empty
         assert os.listdir(path)
+
+
+@pytest.mark.skipif(
+    not mlflow_installed, reason='mlflow is not installed')
+class TestMLflow:
+    @pytest.fixture
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def data(self, classifier_data):
+        X, y = classifier_data
+        # accelerate training since we don't care for the loss
+        X, y = X[:40], y[:40]
+        return X, y
+
+    @pytest.fixture
+    def mlflow_logger_cls(self):
+        from skorch.callbacks import MLflowLogger
+        return MlflowLogger
+
