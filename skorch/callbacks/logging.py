@@ -17,7 +17,7 @@ from skorch.dataset import get_len
 from skorch.callbacks import Callback
 
 __all__ = ['EpochTimer', 'NeptuneLogger', 'WandbLogger', 'PrintLog', 'ProgressBar',
-           'TensorBoard', 'SacredLogger', 'MLflowLogger']
+           'TensorBoard', 'SacredLogger', 'MlflowLogger']
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -878,21 +878,26 @@ class SacredLogger(Callback):
             self.experiment.log_scalar(key + self.epoch_suffix_, epoch_logs[key], epoch)
 
 
-class MLflowLogger(Callback):
+class MlflowLogger(Callback):
     """
     >>> import mlflow
-    >>> with mlflow.start_run() as run:
-    >>>     net = NeuralNetClassifier(net, callbacks=[MLflowLogger(run)])
+    >>> net = NeuralNetClassifier(net, callbacks=[MLflowLogger])
+    >>> with mlflow.start_run():
     ...     net.fit(X, y)
+
+    :param run: mlflow.entities.Run
+    :param client: mlflow.tracking.MlflowClient
     """
     def __init__(
         self,
-        run: 'mlflow.entities.Run' = None,
-        client: 'mlflow.tracking.MlflowClient' = None,
-        log_on_batch_end: bool = False,
-        log_on_epoch_end: bool = True,
-        keys_ignored: list[str] = [],
-        create_artifact: bool = True,
+        run=None,
+        client=None,
+        create_artifact=True,
+        log_on_batch_end=False,
+        log_on_epoch_end=True,
+        keys_ignored=None,
+        batch_suffix=None,
+        epoch_suffix=None,
     ):
         self.run = run
         self.client = client
@@ -900,6 +905,8 @@ class MLflowLogger(Callback):
         self.log_on_epoch_end = log_on_epoch_end
         self.create_artifact = create_artifact
         self.keys_ignored = keys_ignored
+        self.batch_suffix = batch_suffix
+        self.epoch_suffix = epoch_suffix
 
     def initialize(self):
         if self.run is None:
@@ -913,31 +920,41 @@ class MLflowLogger(Callback):
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
-        self.keys_ignored_.add("batches")
+        self.keys_ignored_.add('batches')
+        self.batch_suffix_ = self._init_suffix(self.batch_suffix, '_batch')
+        self.epoch_suffix_ = self._init_suffix(self.epoch_suffix, '_epoch')
+        return self
+
+    def _init_suffix(self, suffix, default):
+        if suffix is not None:
+            return suffix
+        return default if self.log_on_batch_end and self.log_on_epoch_end else ''
 
     def on_batch_end(self, net, **kwargs):
         if not self.log_on_batch_end:
             return
-        batch_logs = net.history[-1]["batches"][-1]
-        for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
-            self.client.log_metric(self.run_id, "batch_" + key, batch_logs[key])
+        batch_logs = net.history[-1]['batches'][-1]
+        self._iteration_log(batch_logs, self.batch_suffix_)
 
     def on_epoch_end(self, net, **kwargs):
         if not self.log_on_epoch_end:
             return
         epoch_logs = net.history[-1]
-        for key in filter_log_keys(epoch_logs.keys(), self.keys_ignored_):
-            self.client.log_metric(self.run_id, "epoch_" + key, epoch_logs[key])
+        self._iteration_log(epoch_logs, self.epoch_suffix_)
+
+    def _iteration_log(self, logs, suffix):
+        for key in filter_log_keys(logs.keys(), self.keys_ignored_):
+            self.client.log_metric(self.run_id, key + suffix, logs[key])
 
     def on_train_end(self, net, **kwargs):
         if not self.create_artifact:
             return
         with tempfile.TemporaryDirectory(prefix='skorch_mlflow_logger_') as dirpath:
             dirpath = Path(dirpath)
-            params_filepath = dirpath / "params.pkl"
-            optimizer_filepath = dirpath / "optimizer.pkl"
-            criterion_filepath = dirpath / "criterion.pkl"
-            history_filepath = dirpath / "history.json"
+            params_filepath = dirpath / 'params.pkl'
+            optimizer_filepath = dirpath / 'optimizer.pkl'
+            criterion_filepath = dirpath / 'criterion.pkl'
+            history_filepath = dirpath / 'history.json'
             net.save_params(
                 f_params=params_filepath,
                 f_optimizer=optimizer_filepath,
