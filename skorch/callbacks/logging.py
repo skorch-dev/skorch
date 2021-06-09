@@ -893,6 +893,7 @@ class MlflowLogger(Callback):
         run=None,
         client=None,
         create_artifact=True,
+        terminate_after_train=True,
         log_on_batch_end=False,
         log_on_epoch_end=True,
         keys_ignored=None,
@@ -901,9 +902,10 @@ class MlflowLogger(Callback):
     ):
         self.run = run
         self.client = client
+        self.create_artifact = create_artifact
+        self.terminate_after_train = terminate_after_train
         self.log_on_batch_end = log_on_batch_end
         self.log_on_epoch_end = log_on_epoch_end
-        self.create_artifact = create_artifact
         self.keys_ignored = keys_ignored
         self.batch_suffix = batch_suffix
         self.epoch_suffix = epoch_suffix
@@ -947,6 +949,13 @@ class MlflowLogger(Callback):
             self.client.log_metric(self.run_id, key + suffix, logs[key])
 
     def on_train_end(self, net, **kwargs):
+        try:
+            self._log_artifacts(net)
+        finally:
+            if self.terminate_after_train:
+                self.client.set_terminated(self.run_id)
+
+    def _log_artifacts(self, net):
         if not self.create_artifact:
             return
         with tempfile.TemporaryDirectory(prefix='skorch_mlflow_logger_') as dirpath:

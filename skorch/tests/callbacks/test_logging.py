@@ -1073,6 +1073,55 @@ class TestMLflowLogger:
         assert logger.batch_suffix_ == batch_suffix
         assert logger.epoch_suffix_ == epoch_suffix
 
+    @pytest.mark.parametrize('batch_suffix', ['', '_foo'])
+    @pytest.mark.parametrize('epoch_suffix', ['', '_bar'])
+    def test_epoch_batch_custom_suffix(
+            self,
+            logger_cls,
+            mock_client,
+            mock_run,
+            batch_suffix,
+            epoch_suffix
+    ):
+        logger = logger_cls(
+            mock_run,
+            mock_client,
+            log_on_batch_end=True,
+            log_on_epoch_end=True,
+            batch_suffix=batch_suffix,
+            epoch_suffix=epoch_suffix,
+        ).initialize()
+        assert logger.batch_suffix_ == batch_suffix
+        assert logger.epoch_suffix_ == epoch_suffix
+
+    def test_dont_log_epoch_metrics(
+            self,
+            logger_cls,
+            mock_client,
+            mock_run,
+            net_cls,
+            classifier_module,
+            data
+    ):
+        logger = logger_cls(
+            mock_run,
+            mock_client,
+            log_on_batch_end=True,
+            log_on_epoch_end=False,
+            batch_suffix='_batch',
+            epoch_suffix='_epoch',
+        )
+        net_cls(
+            classifier_module,
+            batch_size=10,
+            callbacks=[logger],
+            max_epochs=3,
+        ).fit(*data)
+        assert all(
+            call[0][1].endswith('_batch')
+            for call in mock_client.log_metric.call_args_list
+        )
+
     def test_artifact_filenames(self, net_fitted, mock_client):
         keys = {call_args[0][1].name
                 for call_args in mock_client.log_artifact.call_args_list}
@@ -1099,3 +1148,45 @@ class TestMLflowLogger:
             max_epochs=3,
         ).fit(*data)
         assert not mock_client.log_artifact.called
+
+    def test_run_terminated_automatically(self, net_fitted, mock_client):
+        assert mock_client.set_terminated.call_count == 1
+
+    def test_run_not_closed(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            logger_cls,
+            mock_run,
+            mock_client,
+    ):
+        net_cls(
+            classifier_module,
+            callbacks=[
+                logger_cls(mock_run, mock_client, terminate_after_train=False)
+            ],
+            max_epochs=2,
+        ).fit(*data)
+        assert mock_client.set_terminated.call_count == 0
+
+    def test_fit_with_real_run_and_client(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            logger_cls,
+            tmp_path,
+    ):
+        from mlflow.tracking import MlflowClient
+        client = MlflowClient(tracking_uri=tmp_path.as_uri())
+        experiment_name = 'foo'
+        experiment_id = client.create_experiment(experiment_name)
+        run = client.create_run(experiment_id)
+        logger = logger_cls(run, client, create_artifact=False)
+        net_cls(
+            classifier_module,
+            callbacks=[logger],
+            max_epochs=3,
+        ).fit(*data)
+        assert os.listdir(tmp_path)
