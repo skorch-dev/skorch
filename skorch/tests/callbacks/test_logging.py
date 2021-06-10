@@ -1122,6 +1122,38 @@ class TestMLflowLogger:
             for call in mock_client.log_metric.call_args_list
         )
 
+    def test_log_epochs_with_step(self, net_fitted, mock_client):
+        assert (
+            [call[1].get('step') for call in mock_client.log_metric.call_args_list] ==
+            [x for x in range(1, 4) for _ in range(4)]
+        )
+
+    def test_log_batch_with_step(
+            self,
+            net_cls,
+            logger_cls,
+            classifier_module,
+            mock_run,
+            mock_client,
+            data,
+    ):
+        logger = logger_cls(
+            mock_run,
+            mock_client,
+            log_on_batch_end=True,
+            log_on_epoch_end=False
+        )
+        net_cls(
+            classifier_module,
+            batch_size=10,
+            callbacks=[logger],
+            max_epochs=4,
+        ).fit(*data)
+        assert (
+            [call[1].get('step') for call in mock_client.log_metric.call_args_list] ==
+            [x for x in range(1, 21) for _ in range(2)]
+        )
+
     def test_artifact_filenames(self, net_fitted, mock_client):
         keys = {call_args[0][1].name
                 for call_args in mock_client.log_artifact.call_args_list}

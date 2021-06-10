@@ -925,6 +925,7 @@ class MlflowLogger(Callback):
         self.keys_ignored_.add('batches')
         self.batch_suffix_ = self._init_suffix(self.batch_suffix, '_batch')
         self.epoch_suffix_ = self._init_suffix(self.epoch_suffix, '_epoch')
+        self._batch_count = 0
         return self
 
     def _init_suffix(self, suffix, default):
@@ -932,21 +933,22 @@ class MlflowLogger(Callback):
             return suffix
         return default if self.log_on_batch_end and self.log_on_epoch_end else ''
 
-    def on_batch_end(self, net, **kwargs):
+    def on_batch_end(self, net, training, **kwargs):
         if not self.log_on_batch_end:
             return
+        self._batch_count += 1
         batch_logs = net.history[-1]['batches'][-1]
-        self._iteration_log(batch_logs, self.batch_suffix_)
+        self._iteration_log(batch_logs, self.batch_suffix_, self._batch_count)
 
     def on_epoch_end(self, net, **kwargs):
         if not self.log_on_epoch_end:
             return
         epoch_logs = net.history[-1]
-        self._iteration_log(epoch_logs, self.epoch_suffix_)
+        self._iteration_log(epoch_logs, self.epoch_suffix_, len(net.history))
 
-    def _iteration_log(self, logs, suffix):
+    def _iteration_log(self, logs, suffix, step):
         for key in filter_log_keys(logs.keys(), self.keys_ignored_):
-            self.client.log_metric(self.run_id, key + suffix, logs[key])
+            self.client.log_metric(self.run_id, key + suffix, logs[key], step=step)
 
     def on_train_end(self, net, **kwargs):
         try:
