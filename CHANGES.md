@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `load_best` attribute to `Checkpoint` callback to automatically load state of the
   best result at the end of training
+- Added `MlflowLogger` callback for logging to Mlflow (#769)
 
 ### Changed
 
