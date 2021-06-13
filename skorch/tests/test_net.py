@@ -2568,7 +2568,7 @@ class TestNeuralNet:
         net = net_cls(module_cls).initialize()
         assert 'mymodule' not in net.prefixes_
         assert 'mymodule_' not in net.cuda_dependent_attributes_
-        assert 'mymodule' not in net.modules_
+        assert 'mymodule' not in net._modules
 
         class MyNet(net_cls):
             def initialize_module(self):
@@ -2579,19 +2579,19 @@ class TestNeuralNet:
         net = MyNet(module_cls).initialize()
         assert 'mymodule' in net.prefixes_
         assert 'mymodule_' in net.cuda_dependent_attributes_
-        assert 'mymodule' in net.modules_
+        assert 'mymodule' in net._modules
 
         del net.mymodule_
         assert 'mymodule' not in net.prefixes_
         assert 'mymodule_' not in net.cuda_dependent_attributes_
-        assert 'mymodule' not in net.modules_
+        assert 'mymodule' not in net._modules
 
     def test_setattr_custom_criterion(self, net_cls, module_cls):
         # creating a custom criterion should result in its regiestration
         net = net_cls(module_cls).initialize()
         assert 'mycriterion' not in net.prefixes_
         assert 'mycriterion_' not in net.cuda_dependent_attributes_
-        assert 'mycriterion' not in net.criteria_
+        assert 'mycriterion' not in net._criteria
 
         class MyNet(net_cls):
             def initialize_criterion(self):
@@ -2602,12 +2602,12 @@ class TestNeuralNet:
         net = MyNet(module_cls).initialize()
         assert 'mycriterion' in net.prefixes_
         assert 'mycriterion_' in net.cuda_dependent_attributes_
-        assert 'mycriterion' in net.criteria_
+        assert 'mycriterion' in net._criteria
 
         del net.mycriterion_
         assert 'mycriterion' not in net.prefixes_
         assert 'mycriterion_' not in net.cuda_dependent_attributes_
-        assert 'mycriterion' not in net.criteria_
+        assert 'mycriterion' not in net._criteria
 
     def test_setattr_custom_optimizer(self, net_cls, module_cls):
         # creating a custom optimizer should result in its regiestration
@@ -3243,6 +3243,9 @@ class TestNeuralNet:
                 assert_net_training_mode(self, training=training)
                 return y_pred
 
+            def on_batch_end(self, net, batch, training, **kwargs):
+                assert_net_training_mode(net, training=training)
+
         def assert_net_training_mode(net, training=True):
             if training:
                 check = lambda module: module.training is True
@@ -3253,12 +3256,8 @@ class TestNeuralNet:
             assert check(net.criterion_)
             assert check(net.mycriterion_)
 
-        class CheckTrainingCallback(Callback):
-            def on_batch_end(self, net, batch, training, **kwargs):
-                assert_net_training_mode(net, training=training)
-
         X, y = data
-        net = MyNet(module_cls, callbacks=[CheckTrainingCallback], max_epochs=1)
+        net = MyNet(module_cls, max_epochs=1)
         net.fit(X, y)
         net.predict(X)
 
@@ -3286,7 +3285,6 @@ class TestNeuralNet:
                 return 0.5 * (self.module_(x) + self.module2_(x))
 
         net = MyNet(module_cls, max_epochs=1, lr=0.5).initialize()
-        # params1_before = [copy.deepcopy(p) for p in net.module_.parameters()]
         params1_before = copy.deepcopy(list(net.module_.parameters()))
         params2_before = copy.deepcopy(list(net.module2_.parameters()))
 

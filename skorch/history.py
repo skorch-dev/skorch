@@ -17,18 +17,9 @@ def _not_none(items):
     return all(item is not _none for item in items)
 
 
-def _filter_none(items):
-    """Filter special placeholder value, preserves sequence type."""
-    type_ = list if isinstance(items, list) else tuple
-    return type_(filter(_not_none, items))
-
-
-def _getitem_list_list(items, keys):
+def _getitem_list_list(items, keys, tuple_=False):
     """Ugly but efficient extraction of multiple values from a list of
     items.
-
-    Keys are contained in a list.
-
     """
     filtered = []
     for item in items:
@@ -40,30 +31,14 @@ def _getitem_list_list(items, keys):
                 break
         else:  # no break
             if row:
-                filtered.append(row)
+                filtered.append(tuple(row) if tuple_ else row)
+    if items and not filtered:
+        return _none
     return filtered
 
 
 def _getitem_list_tuple(items, keys):
-    """Ugly but efficient extraction of multiple values from a list of
-    items.
-
-    Keys are contained in a tuple.
-
-    """
-    filtered = []
-    for item in items:
-        row = ()
-        do_append = True
-        for key in keys:
-            try:
-                row += (item[key],)
-            except KeyError:
-                do_append = False
-                break
-        if row and do_append:
-            filtered.append(row)
-    return filtered
+    return _getitem_list_list(items, keys, tuple_=True)
 
 
 def _getitem_list_str(items, key):
@@ -73,6 +48,8 @@ def _getitem_list_str(items, key):
             filtered.append(item[key])
         except KeyError:
             continue
+    if items and not filtered:
+        return _none
     return filtered
 
 
@@ -274,48 +251,53 @@ class History(list):
         # i_e: index epoch, k_e: key epoch
         # i_b: index batch, k_b: key batch
         i_e, k_e, i_b, k_b = _unpack_index(i)
-        keyerror_msg = "Key '{}' was not found in history."
+        keyerror_msg = "Key {!r} was not found in history."
 
         if i_b is not None and k_e != 'batches':
             raise KeyError("History indexing beyond the 2nd level is "
                            "only possible if key 'batches' is used, "
-                           "found key '{}'.".format(k_e))
+                           "found key {!r}.".format(k_e))
 
         items = self.to_list()
+
+        # extract the epochs
+        # handles: history[i_e]
+        if i_e is not None:
+            items = items[i_e]
+            if isinstance(i_e, int):
+                items = [items]
 
         # extract indices of batches
         # handles: history[..., k_e, i_b]
         if i_b is not None:
             items = [row[k_e][i_b] for row in items]
 
-        # extract keys of batches
-        # handles: history[..., k_e, i_b][k_b]
-        if items and (k_b is not None):
-            extract = _get_getitem_method(items[0], k_b)
-            items = [extract(batches, k_b) for batches in items]
-            items = [b for b in items if b not in (_none, [], ())]
-            if not _filter_none(items):
-                # all rows contained _none or were empty
-                raise KeyError(keyerror_msg.format(k_b))
-
-        # extract epoch-level values, but only if not already done
+        # extract keys of epochs or batches
         # handles: history[..., k_e]
-        if (k_e is not None) and (i_b is None):
-            if not items:
-                raise KeyError(keyerror_msg.format(k_e))
+        # handles: history[..., ..., ..., k_b]
+        if k_e is not None and (i_b is None or k_b is not None):
+            key = k_e if k_b is None else k_b
 
-            extract = _get_getitem_method(items[0], k_e)
-            items = [extract(item, k_e) for item in items]
-            if not _filter_none(items):
-                raise KeyError(keyerror_msg.format(k_e))
+            if items:
+                extract = _get_getitem_method(items[0], key)
+                items = [extract(item, key) for item in items]
 
-        # extract the epochs
-        # handles: history[i_b, ..., ..., ...]
-        if i_e is not None:
-            items = items[i_e]
-            if isinstance(i_e, slice):
-                items = _filter_none(items)
-            if items is _none:
-                raise KeyError(keyerror_msg.format(k_e))
+                # filter out epochs with missing keys
+                items = list(filter(_not_none, items))
+
+            if not items and not (k_e == 'batches' and i_b is None):
+                # none of the epochs matched
+                raise KeyError(keyerror_msg.format(key))
+
+            if (
+                    isinstance(i_b, slice)
+                    and k_b is not None
+                    and not any(batches for batches in items)
+            ):
+                # none of the batches matched
+                raise KeyError(keyerror_msg.format(key))
+
+        if isinstance(i_e, int):
+            items, = items
 
         return items

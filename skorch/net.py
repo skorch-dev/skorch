@@ -236,17 +236,17 @@ class NeuralNet:
       The complete (i.e. default and other), initialized callbacks, in
       a tuple with unique names.
 
-    modules_ : list of str
+    _modules : list of str
       List of names of all modules that are torch modules. This list is
       collected dynamically when the net is initialized. Typically, there is no
       reason for a user to modify this list.
 
-    criteria_ : list of str
+    _criteria : list of str
       List of names of all criteria that are torch modules. This list is
       collected dynamically when the net is initialized. Typically, there is no
       reason for a user to modify this list.
 
-    optimizers_ : list of str
+    _optimizers : list of str
       List of names of all optimizers. This list is collected dynamically when
       the net is initialized. Typically, there is no reason for a user to modify
       this list.
@@ -260,9 +260,9 @@ class NeuralNet:
     # It should not be changed manually.
     init_context_ = None
 
-    modules_ = []
-    criteria_ = []
-    optimizers_ = []
+    _modules = []
+    _criteria = []
+    _optimizers = []
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -663,12 +663,12 @@ class NeuralNet:
         # _initialize_criterion and _initialize_module share the same logic
         with self._current_init_context('criterion'):
             kwargs = {}
-            for criterion_name in self.criteria_:
+            for criterion_name in self._criteria:
                 kwargs.update(self.get_params_for(criterion_name))
 
             has_init_criterion = any(
                 isinstance(getattr(self, criterion_name + '_', None), torch.nn.Module)
-                for criterion_name in self.criteria_)
+                for criterion_name in self._criteria)
 
             # check if a re-init message is required
             if kwargs or reason or has_init_criterion:
@@ -684,7 +684,7 @@ class NeuralNet:
             self.initialize_criterion()
 
             # deal with device
-            for name in self.criteria_:
+            for name in self._criteria:
                 criterion = getattr(self, name + '_')
                 if isinstance(criterion, torch.nn.Module):
                     setattr(self, name + '_', to_device(criterion, self.device))
@@ -695,12 +695,12 @@ class NeuralNet:
         # _initialize_criterion and _initialize_module share the same logic
         with self._current_init_context('module'):
             kwargs = {}
-            for module_name in self.modules_:
+            for module_name in self._modules:
                 kwargs.update(self.get_params_for(module_name))
 
             has_init_module = any(
                 isinstance(getattr(self, module_name + '_', None), torch.nn.Module)
-                for module_name in self.modules_)
+                for module_name in self._modules)
 
             if kwargs or reason or has_init_module:
                 if self.initialized_ and self.verbose:
@@ -715,7 +715,7 @@ class NeuralNet:
             self.initialize_module()
 
             # deal with device
-            for name in self.modules_:
+            for name in self._modules:
                 module = getattr(self, name + '_')
                 if isinstance(module, torch.nn.Module):
                     setattr(self, name + '_', to_device(module, self.device))
@@ -758,7 +758,7 @@ class NeuralNet:
           pass the named parameters to :meth:`.get_params_for_optimizer`.
 
         """
-        for name in self.modules_ + self.criteria_:
+        for name in self._modules + self._criteria:
             module = getattr(self, name + '_')
             named_parameters = getattr(module, 'named_parameters', None)
             if named_parameters:
@@ -778,7 +778,7 @@ class NeuralNet:
             self.initialize_optimizer()
 
             # register the virtual params for all optimizers
-            for name in self.optimizers_:
+            for name in self._optimizers:
                 param_pattern = [name + '__param_groups__*__*', name + '__*']
                 if name == 'optimizer':  # 'lr' is short for optimizer__lr
                     param_pattern.append('lr')
@@ -823,7 +823,7 @@ class NeuralNet:
           Whether to set to training mode (True) or evaluation mode (False).
 
         """
-        for module_name in self.modules_ + self.criteria_:
+        for module_name in self._modules + self._criteria:
             module = getattr(self, module_name + '_')
             if isinstance(module, torch.nn.Module):
                 module.train(training)
@@ -922,7 +922,7 @@ class NeuralNet:
           https://pytorch.org/docs/stable/optim.html#torch.optim.Optimizer.zero_grad
 
         """
-        for name in self.optimizers_:
+        for name in self._optimizers:
             optimizer = getattr(self, name + '_')
             if set_to_none is None:
                 optimizer.zero_grad()
@@ -942,7 +942,7 @@ class NeuralNet:
           :meth:`.train_step` method.
 
         """
-        for name in self.optimizers_:
+        for name in self._optimizers:
             optimizer = getattr(self, name + '_')
             if step_fn is None:
                 optimizer.step()
@@ -1937,7 +1937,7 @@ class NeuralNet:
 
         component_names = {key.split('__', 1)[0] for key in special_params}
         for prefix in component_names:
-            if prefix in self.modules_:
+            if prefix in self._modules:
                 reinit_module = True
                 reinit_criterion = True
                 reinit_optimizer = True
@@ -1955,7 +1955,7 @@ class NeuralNet:
                 # re-initialized, no need to check any further
                 break
 
-            if prefix in self.criteria_:
+            if prefix in self._criteria:
                 reinit_criterion = True
                 reinit_optimizer = True
 
@@ -2096,11 +2096,11 @@ class NeuralNet:
                 self.cuda_dependent_attributes_[:] + [name + '_'])
 
         if self.init_context_ == 'module':
-            self.modules_ = self.modules_[:] + [name]
+            self._modules = self._modules[:] + [name]
         elif self.init_context_ == 'criterion':
-            self.criteria_ = self.criteria_[:] + [name]
+            self._criteria = self._criteria[:] + [name]
         elif self.init_context_ == 'optimizer':
-            self.optimizers_ = self.optimizers_[:] + [name]
+            self._optimizers = self._optimizers[:] + [name]
 
     def _unregister_attribute(
             self,
@@ -2109,7 +2109,7 @@ class NeuralNet:
             cuda_dependent_attributes=True,
     ):
         """Remove attribute name from prefixes_, cuda_dependent_attributes_ and the
-        modules_/criteria_/optimizers_ list if applicable.
+        _modules/_criteria/_optimizers list if applicable.
 
         Use this to remove PyTorch components that are not needed
         anymore. This is mostly a clean up job, so as to not leave
@@ -2139,12 +2139,12 @@ class NeuralNet:
             self.cuda_dependent_attributes_ = [
                 a for a in self.cuda_dependent_attributes_ if a != name + '_']
 
-        if name in self.modules_:
-            self.modules_ = [p for p in self.modules_ if p != name]
-        if name in self.criteria_:
-            self.criteria_ = [p for p in self.criteria_ if p != name]
-        if name in self.optimizers_:
-            self.optimizers_ = [p for p in self.optimizers_ if p != name]
+        if name in self._modules:
+            self._modules = [p for p in self._modules if p != name]
+        if name in self._criteria:
+            self._criteria = [p for p in self._criteria if p != name]
+        if name in self._optimizers:
+            self._optimizers = [p for p in self._optimizers if p != name]
 
     def _check_settable_attr(self, name, attr):
         """Check whether this attribute is valid for it to be settable.

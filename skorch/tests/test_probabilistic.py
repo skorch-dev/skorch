@@ -222,9 +222,10 @@ class BaseProbabilisticTests:
             gp2.load_params(f_params=fm, f_likelihood=fll)
 
         # now parameters should be equal
-        for (_, p0), (_, p1) in zip(
+        for (n0, p0), (n1, p1) in zip(
                 gp_fit.get_all_learnable_params(), gp2.get_all_learnable_params(),
         ):
+            assert n0 == n1
             assert_allclose(p0, p1)
 
     ##############
