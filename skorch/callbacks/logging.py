@@ -879,14 +879,86 @@ class SacredLogger(Callback):
 
 
 class MlflowLogger(Callback):
-    """
+    """Logs results from history and artifact to Mlflow
+
+    .. _mlflow: https://mlflow.org/docs/latest/index.html
+    .. _mlflow_fluent: https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow
+    .. _mlflow_run: https://mlflow.org/docs/latest/python_api/\
+                      mlflow.entities.html#mlflow.entities.Run
+    .. _mlflow_client: https://mlflow.org/docs/latest/python_api/\
+                         mlflow.tracking.html#mlflow.tracking.MlflowClient
+
+    "MLflow is an open source platform for managing
+    the end-to-end machine learning lifecycle" (mlflow_)
+
+    Use this callback to automatically log your metrics
+    and create/log artifacts to mlflow.
+
+    The best way to log additional information is to log directly to the
+    experiment object or subclass the ``on_*`` methods.
+
+    To use this logger, you first have to install Mlflow:
+
+    .. code-block::
+
+      $ pip install mlflow
+
+    Examples
+    --------
+
+    Mlflow `fluent API <mlflow_fluent_>`_:
+
     >>> import mlflow
-    >>> net = NeuralNetClassifier(net, callbacks=[MLflowLogger])
+    >>> net = NeuralNetClassifier(net, callbacks=[MLflowLogger()])
     >>> with mlflow.start_run():
     ...     net.fit(X, y)
 
-    :param run: mlflow.entities.Run
-    :param client: mlflow.tracking.MlflowClient
+    Custom `run <mlflow_run_>`_ and `client <mlflow_client_>`_:
+
+    >>> from mlflow.tracking import MlflowClient
+    >>> client = MlflowClient()
+    >>> experiment = client.get_experiment_by_name('Default')
+    >>> run = client.create_run(experiment.experiment_id)
+    >>> net = NeuralNetClassifier(..., callbacks=[MlflowLogger(run, client)])
+    >>> net.fit(X, y)
+
+    Parameters
+    ----------
+
+    run : mlflow.entities.Run (default=None)
+      Instantiated ``Run`` class.
+
+    client : mlflow.tracking.MlflowClient (default=None)
+      Instantiated ``MlflowClient`` class.
+
+    create_artifact : bool (default=True)
+      Weather to create artifacts for the network's
+      params, optimizer, criterion and history.
+      See :ref:`save_load`
+
+    terminate_after_train : bool (default=True)
+      Whether to terminate the ``Run`` object once training finishes.
+
+    log_on_batch_end : bool (default=False)
+      Whether to log loss and other metrics on batch level.
+
+    log_on_epoch_end : bool (default=True)
+      Whether to log loss and other metrics on epoch level.
+
+    batch_suffix : str (default=None)
+      A string that will be appended to all logged keys. By default (if set to
+      ``None``) ``'_batch'`` is used if batch and epoch logging are both enabled
+      and no suffix is used otherwise.
+
+    epoch_suffix : str (default=None)
+      A string that will be appended to all logged keys. By default (if set to
+      ``None``) ``'_epoch'`` is used if batch and epoch logging are both enabled
+      and no suffix is used otherwise.
+
+    keys_ignored : str or list of str (default=None)
+      Key or list of keys that should not be logged to Mlflow. Note that in
+      addition to the keys provided by the user, keys such as those starting
+      with ``'event_'`` or ending on ``'_best'`` are ignored by default.
     """
     def __init__(
         self,
@@ -896,9 +968,9 @@ class MlflowLogger(Callback):
         terminate_after_train=True,
         log_on_batch_end=False,
         log_on_epoch_end=True,
-        keys_ignored=None,
         batch_suffix=None,
         epoch_suffix=None,
+        keys_ignored=None,
     ):
         self.run = run
         self.client = client
@@ -906,18 +978,19 @@ class MlflowLogger(Callback):
         self.terminate_after_train = terminate_after_train
         self.log_on_batch_end = log_on_batch_end
         self.log_on_epoch_end = log_on_epoch_end
-        self.keys_ignored = keys_ignored
         self.batch_suffix = batch_suffix
         self.epoch_suffix = epoch_suffix
+        self.keys_ignored = keys_ignored
 
     def initialize(self):
-        if self.run is None:
+        self.run_ = self.run
+        if self.run_ is None:
             import mlflow
-            self.run = mlflow.active_run()
-        self.run_id = self.run.info.run_id
-        if self.client is None:
+            self.run_ = mlflow.active_run()
+        self.client_ = self.client
+        if self.client_ is None:
             from mlflow.tracking import MlflowClient
-            self.client = MlflowClient()
+            self.client_ = MlflowClient()
         keys_ignored = self.keys_ignored
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
@@ -925,13 +998,15 @@ class MlflowLogger(Callback):
         self.keys_ignored_.add('batches')
         self.batch_suffix_ = self._init_suffix(self.batch_suffix, '_batch')
         self.epoch_suffix_ = self._init_suffix(self.epoch_suffix, '_epoch')
-        self._batch_count = 0
         return self
 
     def _init_suffix(self, suffix, default):
         if suffix is not None:
             return suffix
         return default if self.log_on_batch_end and self.log_on_epoch_end else ''
+
+    def on_train_begin(self, net, **kwargs):
+        self._batch_count = 0
 
     def on_batch_end(self, net, training, **kwargs):
         if not self.log_on_batch_end:
@@ -948,23 +1023,28 @@ class MlflowLogger(Callback):
 
     def _iteration_log(self, logs, suffix, step):
         for key in filter_log_keys(logs.keys(), self.keys_ignored_):
-            self.client.log_metric(self.run_id, key + suffix, logs[key], step=step)
+            self.client_.log_metric(
+                self.run_.info.run_id,
+                key + suffix,
+                logs[key],
+                step=step
+            )
 
     def on_train_end(self, net, **kwargs):
         try:
             self._log_artifacts(net)
         finally:
             if self.terminate_after_train:
-                self.client.set_terminated(self.run_id)
+                self.client_.set_terminated(self.run_.info.run_id)
 
     def _log_artifacts(self, net):
         if not self.create_artifact:
             return
         with tempfile.TemporaryDirectory(prefix='skorch_mlflow_logger_') as dirpath:
             dirpath = Path(dirpath)
-            params_filepath = dirpath / 'params.pkl'
-            optimizer_filepath = dirpath / 'optimizer.pkl'
-            criterion_filepath = dirpath / 'criterion.pkl'
+            params_filepath = dirpath / 'params.pth'
+            optimizer_filepath = dirpath / 'optimizer.pth'
+            criterion_filepath = dirpath / 'criterion.pth'
             history_filepath = dirpath / 'history.json'
             net.save_params(
                 f_params=params_filepath,
@@ -972,7 +1052,7 @@ class MlflowLogger(Callback):
                 f_criterion=criterion_filepath,
                 f_history=history_filepath,
             )
-            self.client.log_artifact(self.run_id, params_filepath)
-            self.client.log_artifact(self.run_id, optimizer_filepath)
-            self.client.log_artifact(self.run_id, criterion_filepath)
-            self.client.log_artifact(self.run_id, history_filepath)
+            self.client_.log_artifact(self.run_.info.run_id, params_filepath)
+            self.client_.log_artifact(self.run_.info.run_id, optimizer_filepath)
+            self.client_.log_artifact(self.run_.info.run_id, criterion_filepath)
+            self.client_.log_artifact(self.run_.info.run_id, history_filepath)

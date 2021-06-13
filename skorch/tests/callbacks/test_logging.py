@@ -974,20 +974,18 @@ class TestMLflowLogger:
         return Mock(MlflowClient)
 
     @pytest.fixture
-    def net_fitted(
-            self,
-            net_cls,
-            logger_cls,
-            data,
-            mock_run,
-            mock_client,
-            classifier_module
-    ):
-        return net_cls(
-            classifier_module,
-            callbacks=[logger_cls(run=mock_run, client=mock_client)],
-            max_epochs=3,
-        ).fit(*data)
+    def logger_mock_cls(self, logger_cls, mock_run, mock_client):
+        return partial(logger_cls, mock_run, mock_client)
+
+    @pytest.fixture
+    def net_builder_cls(self, net_cls, classifier_module, data):
+        def builder(*args, **kwargs):
+            return net_cls(classifier_module, *args, **kwargs).fit(*data)
+        return builder
+
+    @pytest.fixture
+    def net_fitted(self, logger_mock_cls, net_builder_cls):
+        return net_builder_cls(callbacks=[logger_mock_cls()], max_epochs=3)
 
     def test_run_default(self, monkeypatch, logger_cls, mock_run, mock_client):
         import mlflow
@@ -995,55 +993,35 @@ class TestMLflowLogger:
         monkeypatch.setattr(mlflow, 'active_run', mock_active_run)
         logger = logger_cls(client=mock_client).initialize()
         assert mock_active_run.called
-        assert logger.run == mock_run
+        assert logger.run_ == mock_run
 
     def test_client_default(self, monkeypatch, logger_cls, mock_run, mock_client):
         import mlflow.tracking
         monkeypatch.setattr(mlflow.tracking, 'MlflowClient', mock_client)
         logger = logger_cls(run=mock_run).initialize()
         assert mock_client.called
-        assert logger.client == mock_client()
-
-    def test_initialize_run_id(self, net_fitted, mock_run):
-        assert net_fitted.callbacks[0].run_id == mock_run.info.run_id
+        assert logger.client_ == mock_client()
 
     def test_keys_from_history_logged(self, net_fitted, mock_client):
-        log_metric = mock_client.log_metric
-        assert log_metric.call_count == 3 * 4
-        for call_args in log_metric.call_args_list:
-            print(call_args[0][1])
-        keys = {call_args[0][1] for call_args in log_metric.call_args_list}
+        assert mock_client.log_metric.call_count == 3 * 4
+        keys = {call_args[0][1] for call_args in mock_client.log_metric.call_args_list}
         expected = {'dur', 'train_loss', 'valid_loss', 'valid_acc'}
         assert keys == expected
 
-    def test_ignore_keys(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            logger_cls,
-            mock_run,
-            mock_client,
-    ):
+    def test_ignore_keys(self, logger_mock_cls, net_builder_cls):
         # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
         # this should not cause a problem
-        logger = logger_cls(
-            run=mock_run,
-            client=mock_client,
-            keys_ignored=['dur', 'valid_loss', 'unknown'],
-        )
-        net_cls(
-            classifier_module,
-            callbacks=[logger],
-            max_epochs=3,
-        ).fit(*data)
-        log_metric = mock_client.log_metric
-        keys = {call_args[0][1] for call_args in log_metric.call_args_list}
+        logger = logger_mock_cls(keys_ignored=['dur', 'valid_loss', 'unknown'])
+        net_builder_cls(callbacks=[logger], max_epochs=3)
+        keys = {
+            call_args[0][1]
+            for call_args in logger.client_.log_metric.call_args_list
+        }
         expected = {'train_loss', 'valid_acc'}
         assert keys == expected
 
-    def test_keys_ignored_is_string(self, logger_cls, mock_run, mock_client):
-        logger = logger_cls(mock_run, mock_client, keys_ignored='a-key').initialize()
+    def test_keys_ignored_is_string(self, logger_mock_cls):
+        logger = logger_mock_cls(keys_ignored='a-key').initialize()
         expected = {'a-key', 'batches'}
         assert logger.keys_ignored_ == expected
 
@@ -1056,17 +1034,13 @@ class TestMLflowLogger:
     )
     def test_epoch_batch_suffixes_defaults(
             self,
-            logger_cls,
-            mock_run,
-            mock_client,
+            logger_mock_cls,
             log_on_batch_end,
             log_on_epoch_end,
             batch_suffix,
             epoch_suffix,
     ):
-        logger = logger_cls(
-            mock_run,
-            mock_client,
+        logger = logger_mock_cls(
             log_on_batch_end=log_on_batch_end,
             log_on_epoch_end=log_on_epoch_end
         ).initialize()
@@ -1077,15 +1051,11 @@ class TestMLflowLogger:
     @pytest.mark.parametrize('epoch_suffix', ['', '_bar'])
     def test_epoch_batch_custom_suffix(
             self,
-            logger_cls,
-            mock_client,
-            mock_run,
+            logger_mock_cls,
             batch_suffix,
             epoch_suffix
     ):
-        logger = logger_cls(
-            mock_run,
-            mock_client,
+        logger = logger_mock_cls(
             log_on_batch_end=True,
             log_on_epoch_end=True,
             batch_suffix=batch_suffix,
@@ -1094,131 +1064,63 @@ class TestMLflowLogger:
         assert logger.batch_suffix_ == batch_suffix
         assert logger.epoch_suffix_ == epoch_suffix
 
-    def test_dont_log_epoch_metrics(
-            self,
-            logger_cls,
-            mock_client,
-            mock_run,
-            net_cls,
-            classifier_module,
-            data
-    ):
-        logger = logger_cls(
-            mock_run,
-            mock_client,
+    def test_dont_log_epoch_metrics(self, logger_mock_cls, net_builder_cls):
+        logger = logger_mock_cls(
             log_on_batch_end=True,
             log_on_epoch_end=False,
             batch_suffix='_batch',
             epoch_suffix='_epoch',
         )
-        net_cls(
-            classifier_module,
-            batch_size=10,
-            callbacks=[logger],
-            max_epochs=3,
-        ).fit(*data)
+        net_builder_cls(batch_size=10, callbacks=[logger], max_epochs=3)
         assert all(
             call[0][1].endswith('_batch')
-            for call in mock_client.log_metric.call_args_list
+            for call in logger.client_.log_metric.call_args_list
         )
 
     def test_log_epochs_with_step(self, net_fitted, mock_client):
-        assert (
-            [call[1].get('step') for call in mock_client.log_metric.call_args_list] ==
-            [x for x in range(1, 4) for _ in range(4)]
-        )
+        expected = [x for x in range(1, 4) for _ in range(4)]
+        actual = [call[1].get('step') for call in mock_client.log_metric.call_args_list]
+        assert expected == actual
 
-    def test_log_batch_with_step(
-            self,
-            net_cls,
-            logger_cls,
-            classifier_module,
-            mock_run,
-            mock_client,
-            data,
-    ):
-        logger = logger_cls(
-            mock_run,
-            mock_client,
-            log_on_batch_end=True,
-            log_on_epoch_end=False
-        )
-        net_cls(
-            classifier_module,
-            batch_size=10,
-            callbacks=[logger],
-            max_epochs=4,
-        ).fit(*data)
-        assert (
-            [call[1].get('step') for call in mock_client.log_metric.call_args_list] ==
-            [x for x in range(1, 21) for _ in range(2)]
-        )
+    def test_log_batch_with_step(self, logger_mock_cls, net_builder_cls):
+        logger = logger_mock_cls(log_on_batch_end=True, log_on_epoch_end=False)
+        net_builder_cls(batch_size=10, callbacks=[logger], max_epochs=4)
+        expected = [x for x in range(1, 21) for _ in range(2)]
+        actual = [
+            call[1].get('step')
+            for call in logger.client_.log_metric.call_args_list
+        ]
+        assert expected == actual
 
     def test_artifact_filenames(self, net_fitted, mock_client):
         keys = {call_args[0][1].name
                 for call_args in mock_client.log_artifact.call_args_list}
-        expected = {'params.pkl', 'optimizer.pkl', 'criterion.pkl', 'history.json'}
+        expected = {'params.pth', 'optimizer.pth', 'criterion.pth', 'history.json'}
         assert keys == expected
 
     def test_artifact_in_temporary_directory(self, net_fitted, mock_client):
         for call_args in mock_client.log_artifact.call_args_list:
             assert str(call_args[0][1]).startswith('/tmp')
 
-    def test_dont_create_artifact(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            logger_cls,
-            mock_run,
-            mock_client
-    ):
-        logger = logger_cls(mock_run, mock_client, create_artifact=False)
-        net_cls(
-            classifier_module,
-            callbacks=[logger],
-            max_epochs=3,
-        ).fit(*data)
-        assert not mock_client.log_artifact.called
+    def test_dont_create_artifact(self, net_builder_cls, logger_mock_cls):
+        logger = logger_mock_cls(create_artifact=False)
+        net_builder_cls(callbacks=[logger], max_epochs=3)
+        assert not logger.client_.log_artifact.called
 
     def test_run_terminated_automatically(self, net_fitted, mock_client):
         assert mock_client.set_terminated.call_count == 1
 
-    def test_run_not_closed(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            logger_cls,
-            mock_run,
-            mock_client,
-    ):
-        net_cls(
-            classifier_module,
-            callbacks=[
-                logger_cls(mock_run, mock_client, terminate_after_train=False)
-            ],
-            max_epochs=2,
-        ).fit(*data)
-        assert mock_client.set_terminated.call_count == 0
+    def test_run_not_closed(self, logger_mock_cls, mock_client, net_builder_cls):
+        logger = logger_mock_cls(terminate_after_train=False)
+        net_builder_cls(callbacks=[logger], max_epochs=2)
+        assert logger.client_.set_terminated.call_count == 0
 
-    def test_fit_with_real_run_and_client(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            logger_cls,
-            tmp_path,
-    ):
+    def test_fit_with_real_run_and_client(self, tmp_path, logger_cls, net_builder_cls):
         from mlflow.tracking import MlflowClient
         client = MlflowClient(tracking_uri=tmp_path.as_uri())
         experiment_name = 'foo'
         experiment_id = client.create_experiment(experiment_name)
         run = client.create_run(experiment_id)
         logger = logger_cls(run, client, create_artifact=False)
-        net_cls(
-            classifier_module,
-            callbacks=[logger],
-            max_epochs=3,
-        ).fit(*data)
+        net_builder_cls(callbacks=[logger], max_epochs=3)
         assert os.listdir(tmp_path)
