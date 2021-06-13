@@ -1792,7 +1792,10 @@ class NeuralNet:
         # special treatment.
         params_cb = self._get_params_callbacks(deep=deep)
         params.update(params_cb)
-        return params
+
+        # don't include the following attributes
+        to_exclude = {'_modules', '_criteria', '_optimizers'}
+        return {key: val for key, val in params.items() if key not in to_exclude}
 
     def _check_kwargs(self, kwargs):
         """Check argument names passed at initialization.
@@ -2095,11 +2098,13 @@ class NeuralNet:
             self.cuda_dependent_attributes_ = (
                 self.cuda_dependent_attributes_[:] + [name + '_'])
 
-        if self.init_context_ == 'module':
+        # make sure to not double register -- this should never happen, but
+        # still better to check
+        if (self.init_context_ == 'module') and (name not in self._modules):
             self._modules = self._modules[:] + [name]
-        elif self.init_context_ == 'criterion':
+        elif (self.init_context_ == 'criterion') and (name not in self._criteria):
             self._criteria = self._criteria[:] + [name]
-        elif self.init_context_ == 'optimizer':
+        elif (self.init_context_ == 'optimizer') and (name not in self._optimizers):
             self._optimizers = self._optimizers[:] + [name]
 
     def _unregister_attribute(
