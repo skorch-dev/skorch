@@ -1053,7 +1053,7 @@ class TestMLflowLogger:
             self,
             logger_mock_cls,
             batch_suffix,
-            epoch_suffix
+            epoch_suffix,
     ):
         logger = logger_mock_cls(
             log_on_batch_end=True,

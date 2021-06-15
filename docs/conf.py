@@ -53,6 +53,7 @@ intersphinx_mapping = {
     'sklearn': ('http://scikit-learn.org/stable/', None),
     'numpy': ('http://docs.scipy.org/doc/numpy/', None),
     'python': ('https://docs.python.org/3', None),
+    'mlflow': ('https://mlflow.org/docs/latest/', None),
 }
 
 # Add any paths that contain templates here, relative to this directory.

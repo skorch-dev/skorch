@@ -881,15 +881,8 @@ class SacredLogger(Callback):
 class MlflowLogger(Callback):
     """Logs results from history and artifact to Mlflow
 
-    .. _mlflow: https://mlflow.org/docs/latest/index.html
-    .. _mlflow_fluent: https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow
-    .. _mlflow_run: https://mlflow.org/docs/latest/python_api/\
-                      mlflow.entities.html#mlflow.entities.Run
-    .. _mlflow_client: https://mlflow.org/docs/latest/python_api/\
-                         mlflow.tracking.html#mlflow.tracking.MlflowClient
-
     "MLflow is an open source platform for managing
-    the end-to-end machine learning lifecycle" (mlflow_)
+    the end-to-end machine learning lifecycle" (:doc:`mlflow:index`)
 
     Use this callback to automatically log your metrics
     and create/log artifacts to mlflow.
@@ -906,14 +899,15 @@ class MlflowLogger(Callback):
     Examples
     --------
 
-    Mlflow `fluent API <mlflow_fluent_>`_:
+    Mlflow :doc:`fluent API <mlflow:python_api/mlflow>`:
 
     >>> import mlflow
     >>> net = NeuralNetClassifier(net, callbacks=[MLflowLogger()])
     >>> with mlflow.start_run():
     ...     net.fit(X, y)
 
-    Custom `run <mlflow_run_>`_ and `client <mlflow_client_>`_:
+    Custom :py:class:`run <mlflow.entities.Run>` and
+    :py:class:`client <mlflow.tracking.MlflowClient>`:
 
     >>> from mlflow.tracking import MlflowClient
     >>> client = MlflowClient()
@@ -926,13 +920,20 @@ class MlflowLogger(Callback):
     ----------
 
     run : mlflow.entities.Run (default=None)
-      Instantiated ``Run`` class.
+      Instantiated :py:class:`mlflow.entities.Run` class.
+      By default (if set to ``None``),
+      :py:func:`mlflow.active_run` is used to get the current run.
 
     client : mlflow.tracking.MlflowClient (default=None)
-      Instantiated ``MlflowClient`` class.
+      Instantiated :py:class:`mlflow.tracking.MlflowClient` class.
+      By default (if set to ``None``),
+      ``MlflowClient()`` is used, which by default has:
+
+      - the tracking URI set by :py:func:`mlflow.set_tracking_uri`
+      - the registry URI set by :py:func:`mlflow.set_registry_uri`
 
     create_artifact : bool (default=True)
-      Weather to create artifacts for the network's
+      Whether to create artifacts for the network's
       params, optimizer, criterion and history.
       See :ref:`save_load`
 
@@ -1027,7 +1028,7 @@ class MlflowLogger(Callback):
                 self.run_.info.run_id,
                 key + suffix,
                 logs[key],
-                step=step
+                step=step,
             )
 
     def on_train_end(self, net, **kwargs):
