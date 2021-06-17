@@ -1,6 +1,7 @@
 """Tests for callbacks in training.py"""
 
 from functools import partial
+import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
 from unittest.mock import call
@@ -1125,3 +1126,17 @@ class TestTrainEndCheckpoint:
 
         assert save_params_mock.call_count == 1
         save_params_mock.assert_has_calls([call(f_mymodule='train_end_mymodule.pt')])
+
+    def test_pickle_uninitialized_callback(self, trainendcheckpoint_cls):
+        # isuue 773
+        cp = trainendcheckpoint_cls()
+        # does not raise
+        s = pickle.dumps(cp)
+        pickle.loads(s)
+
+    def test_pickle_initialized_callback(self, trainendcheckpoint_cls):
+        # issue 773
+        cp = trainendcheckpoint_cls().initialize()
+        # does not raise
+        s = pickle.dumps(cp)
+        pickle.loads(s)

@@ -1,5 +1,6 @@
 """Tests for history.py."""
 
+import numpy as np
 import pytest
 
 from skorch.history import History
@@ -189,7 +190,6 @@ class TestHistory:
         expected = "Key 'not-batches' was not found in history."
         assert msg == expected
 
-
     def test_history_too_many_indices(self, history):
         with pytest.raises(KeyError) as exc:
             # pylint: disable=pointless-statement
@@ -218,3 +218,109 @@ class TestHistory:
         new_history = History.from_file(str(history_f))
 
         assert history == new_history
+
+    @pytest.mark.parametrize('type_', [list, tuple])
+    def test_history_multiple_keys(self, history, type_):
+        dur_loss = history[-1, type_(['duration', 'total_loss'])]
+        # pylint: disable=unidiomatic-typecheck
+        assert type(dur_loss) is type_ and len(dur_loss) == 2
+
+        loss_loss = history[-1, 'batches', -1, type_(['loss', 'loss'])]
+        # pylint: disable=unidiomatic-typecheck
+        assert type(loss_loss) is type_ and len(loss_loss) == 2
+
+    def test_history_key_in_other_epoch(self):
+        h = History()
+        for has_valid in (True, False):
+            h.new_epoch()
+            h.new_batch()
+            h.record_batch('train_loss', 1)
+            if has_valid:
+                h.new_batch()
+                h.record_batch('valid_loss', 2)
+
+        with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
+            h[-1, 'batches', -1, 'valid_loss']
+
+    def test_history_no_epochs_index(self):
+        h = History()
+        with pytest.raises(IndexError):
+            # pylint: disable=pointless-statement
+            h[-1, 'batches']
+
+    def test_history_jagged_batches(self):
+        h = History()
+        for num_batch in (1, 2):
+            h.new_epoch()
+            for _ in range(num_batch):
+                h.new_batch()
+        # Make sure we can access this batch
+        assert h[-1, 'batches', 1] == {}
+
+    @pytest.mark.parametrize('value, check_warn', [
+        ([], False),
+        (np.array([]), True),
+    ])
+    def test_history_retrieve_empty_list(self, value, check_warn, recwarn):
+        h = History()
+        h.new_epoch()
+        h.record('foo', value)
+        h.new_batch()
+        h.record_batch('batch_foo', value)
+
+        # Make sure we can access our object
+        assert h[-1, 'foo'] is value
+        assert h[-1, 'batches', -1, 'batch_foo'] is value
+
+        # There should be no warning about comparison to an empty ndarray
+        if check_warn:
+            assert not recwarn.list
+
+    @pytest.mark.parametrize('has_epoch, epoch_slice', [
+        (False, slice(None)),
+        (True, slice(1, None)),
+    ])
+    def test_history_no_epochs_key(self, has_epoch, epoch_slice):
+        h = History()
+        if has_epoch:
+            h.new_epoch()
+
+        # Expect KeyError since the key was not found in any epochs
+        with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
+            h[epoch_slice, 'foo']
+        with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
+            h[epoch_slice, ['foo', 'bar']]
+
+    @pytest.mark.parametrize('has_batch, batch_slice', [
+        (False, slice(None)),
+        (True, slice(1, None)),
+    ])
+    def test_history_no_batches_key(self, has_batch, batch_slice):
+        h = History()
+        h.new_epoch()
+        if has_batch:
+            h.new_batch()
+
+        # Expect KeyError since the key was not found in any batches
+        with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
+            h[-1, 'batches', batch_slice, 'foo']
+        with pytest.raises(KeyError):
+            # pylint: disable=pointless-statement
+            h[-1, 'batches', batch_slice, ['foo', 'bar']]
+
+    @pytest.mark.parametrize('has_epoch, epoch_slice', [
+        (False, slice(None)),
+        (True, slice(1, None)),
+    ])
+    def test_history_no_epochs_batches(self, has_epoch, epoch_slice):
+        h = History()
+        if has_epoch:
+            h.new_epoch()
+
+        # Expect a list of zero epochs since 'batches' always exists
+        assert h[epoch_slice, 'batches'] == []
+        assert h[epoch_slice, 'batches', -1] == []
