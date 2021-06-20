@@ -3537,7 +3537,7 @@ class TestNeuralNet:
         class MyNet(NeuralNet):
             """Override train_step_single and validation_step"""
             def train_step_single(self, batch, **fit_params):
-                self._set_training(True)
+                self.module_.train()
                 x0, x1, yi = batch
                 x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
                 y_pred = self.module_(x0, x1)
@@ -3546,7 +3546,7 @@ class TestNeuralNet:
                 return {'loss': loss, 'y_pred': y_pred}
 
             def validation_step(self, batch, **fit_params):
-                self._set_training(False)
+                self.module_.eval()
                 x0, x1, yi = batch
                 x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
                 y_pred = self.module_(x0, x1)
@@ -3558,7 +3558,7 @@ class TestNeuralNet:
                 x0, x1 = batch
                 x0, x1 = to_tensor((x0, x1), device=self.device)
                 with torch.set_grad_enabled(training):
-                    self._set_training(training)
+                    self.module_.train(training)
                     return self.module_(x0, x1)
 
         net = MyNet(
