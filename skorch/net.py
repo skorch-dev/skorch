@@ -758,11 +758,24 @@ class NeuralNet:
           pass the named parameters to :meth:`.get_params_for_optimizer`.
 
         """
+        # Note: we have to filter out potential duplicate parameters. This can
+        # happen when a module references another module (e.g. the criterion
+        # references the module), thus yielding that module's parameters again.
+        # The parameter name can be difference, therefore we check only the
+        # identity of the parameter itself.
+        seen = set()
         for name in self._modules + self._criteria:
             module = getattr(self, name + '_')
             named_parameters = getattr(module, 'named_parameters', None)
-            if named_parameters:
-                yield from named_parameters()
+            if not named_parameters:
+                continue
+
+            for param_name, param in named_parameters():
+                if param in seen:
+                    continue
+
+                seen.add(param)
+                yield param_name, param
 
     def _initialize_optimizer(self, reason=None):
         with self._current_init_context('optimizer'):
