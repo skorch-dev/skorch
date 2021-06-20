@@ -53,6 +53,7 @@ intersphinx_mapping = {
     'sklearn': ('https://scikit-learn.org/stable/', None),
     'numpy': ('https://docs.scipy.org/doc/numpy/', None),
     'python': ('https://docs.python.org/3', None),
+    'mlflow': ('https://mlflow.org/docs/latest/', None),
     'gpytorch': ('https://docs.gpytorch.ai/en/stable/', None),
 }
 

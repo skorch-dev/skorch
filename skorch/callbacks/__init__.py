@@ -26,6 +26,7 @@ __all__ = [
     'Initializer',
     'LRScheduler',
     'LoadInitState',
+    'MlflowLogger',
     'NeptuneLogger',
     'ParamMapper',
     'PassthroughScoring',
