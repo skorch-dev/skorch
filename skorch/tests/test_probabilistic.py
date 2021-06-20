@@ -234,9 +234,9 @@ class BaseProbabilisticTests:
     # functional #
     ##############
 
-    def test_fit(self, gp_fit):
-        # fitting does not raise anything
-        pass
+    def test_fit(self, gp_fit, recwarn):
+        # fitting does not raise anything and triggers no warning
+        assert not recwarn.list
 
     def test_gp_learns(self, gp_fit):
         history = gp_fit.history
@@ -286,15 +286,13 @@ class BaseProbabilisticTests:
         pipe.set_params(**self.settable_params)
 
     def test_grid_search_works(self, gp, data, recwarn):
-        # FIXME creates a warning "optimizer contains a parameter group with
-        # duplicate parameters"
-        return
         X, y = data
         params = {
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
             'likelihood__max_plate_nesting': [1, 2],
         }
+        gp.set_params(verbose=0)
         gs = GridSearchCV(gp, params, refit=True, cv=3, scoring=self.scoring)
         gs.fit(X[:60], y[:60])  # for speed
 
@@ -549,9 +547,6 @@ class TestExactGPRegressor(BaseProbabilisticTests):
     )
 
     def test_grid_search_works_with_debug_turned_off(self, gp, data, recwarn):
-        # FIXME warning "optimizer contains a parameter group with duplicate
-        # parameters"
-        return
         with gpytorch.settings.debug(False):
             X, y = data
             params = {
