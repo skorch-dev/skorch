@@ -572,6 +572,44 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
 
+    def test_save_load_state_dict_no_duplicate_registration_after_initialize(
+            self, net_cls, module_cls, net_fit, tmpdir):
+        # #781
+        net = net_cls(module_cls).initialize()
+
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            net_fit.save_params(f_params=f)
+        del net_fit
+
+        with open(str(p), 'rb') as f:
+            net.load_params(f_params=f)
+
+        # check that there are no duplicates in _modules, _criteria, _optimizers
+        # pylint: disable=protected-access
+        assert net._modules == ['module']
+        assert net._criteria == ['criterion']
+        assert net._optimizers == ['optimizer']
+
+    def test_save_load_state_dict_no_duplicate_registration_after_clone(
+            self, net_fit, tmpdir):
+        # #781
+        net = clone(net_fit).initialize()
+
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            net_fit.save_params(f_params=f)
+        del net_fit
+
+        with open(str(p), 'rb') as f:
+            net.load_params(f_params=f)
+
+        # check that there are no duplicates in _modules, _criteria, _optimizers
+        # pylint: disable=protected-access
+        assert net._modules == ['module']
+        assert net._criteria == ['criterion']
+        assert net._optimizers == ['optimizer']
+
     @pytest.fixture(scope='module')
     def net_fit_adam(self, net_cls, module_cls, data):
         net = net_cls(
@@ -1425,6 +1463,15 @@ class TestNeuralNet:
         params = net.get_params(deep=True)
         # now initialized
         assert 'callbacks__myscore__scoring' in params
+
+    def test_get_params_no_unwanted_params(self, net, net_fit):
+        # #781
+        # make sure certain keys are not returned
+        keys_unwanted = {'_modules', '_criteria', '_optimizers'}
+        for net_ in (net, net_fit):
+            keys_found = set(net_.get_params())
+            overlap = keys_found & keys_unwanted
+            assert not overlap
 
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
         from skorch.callbacks import EpochTimer
