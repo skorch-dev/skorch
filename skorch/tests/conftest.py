@@ -183,3 +183,13 @@ try:
     tensorboard_installed = True
 except ImportError:
     pass
+
+mlflow_installed = False
+try:
+    # pylint: disable=unused-import
+    import mlflow
+
+    mlflow_installed = True
+except ImportError:
+    pass
+
