@@ -2707,6 +2707,29 @@ class TestNeuralNet:
         # module is not re-initialized, since virtual parameter
         assert len(side_effects) == 1
 
+    def test_module_referencing_another_module_no_duplicate_params(
+            self, net_cls, module_cls
+    ):
+        # When a module references another module, it will yield that modules'
+        # parameters. Therefore, if we collect all paramters, we have to make
+        # sure that there are no duplicate parameters.
+        class MyCriterion(torch.nn.NLLLoss):
+            """Criterion that references net.module_"""
+            def __init__(self, *args, themodule, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.themodule = themodule
+
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                kwargs = self.get_params_for('criterion')
+                kwargs['themodule'] = self.module_
+                self.criterion_ = self.criterion(**kwargs)
+                return self
+
+        net = MyNet(module_cls, criterion=MyCriterion).initialize()
+        params = [p for _, p in net.get_all_learnable_params()]
+        assert len(params) == len(set(params))
+
     def test_custom_optimizer_lr_is_associated_with_optimizer(
             self, net_cls, module_cls,
     ):
