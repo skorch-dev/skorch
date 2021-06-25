@@ -1140,3 +1140,105 @@ class TestTrainEndCheckpoint:
         # does not raise
         s = pickle.dumps(cp)
         pickle.loads(s)
+
+
+class TestInputShapeSetter:
+
+    @pytest.fixture
+    def input_shape_setter(self):
+        from skorch.callbacks import InputShapeSetter
+        return InputShapeSetter
+
+    @pytest.fixture
+    def module_cls(self):
+        import torch
+
+        class Module(torch.nn.Module):
+            def __init__(self, input_dim):
+                self.layer = torch.nn.Linear(input_dim, 2)
+            def forward(self, X):
+                return self.layer(X)
+
+        return Module
+
+    @pytest.fixture
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    def generate_data(self, n_input):
+        X, y = make_classification(
+            1000,
+            n_input,
+            n_informative=n_input // 2,
+            random_state=0,
+        )
+        return X.astype(np.float32), y
+
+    @pytest.fixture
+    def data_fixed(self):
+        return self.generate_data(n_input=10)
+
+    @pytest.fixture(params=[1, 10, 20])
+    def data_parametrized(self, request):
+        return self.generate_data(n_input=request.param)
+
+    def test_shape_set(self, net_cls, module_cls, input_shape_setter_cls, data_parametrized):
+        net = net_cls(module_cls, callbacks=[
+            input_shape_setter_cls(),
+        ])
+
+        X, y = *data_parametrized
+        n_input = X.shape[1]
+        net.fit(X, y)
+
+        assert net.module_.layer.weight.shape[0] == n_input
+
+    def test_parameter_name(self, net_cls, input_shape_setter_cls, data_parametrized):
+        class MyModule(torch.nn.Module):
+            def __init__(self, other_input_dim):
+                self.layer = torch.nn.Linear(other_input_dim, 2)
+            def forward(self, X):
+                return self.layer(X)
+
+        net = net_cls(MyModule, callbacks=[
+            input_shape_setter_cls(param_name='other_input_dim'),
+        ])
+
+        X, y = *data_parametrized
+        n_input = X.shape[1]
+        net.fit(X, y)
+
+        assert net.module_.layer.weight.shape[0] == n_input
+
+    def test_module_name(self, net_cls, module_cls, input_shape_setter_cls, data_parametrized):
+        class MyNet(net_cls):
+            def __init__(self, *args, module2, **kwargs):
+                self.module2 = module2
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self):
+                kwargs = self.params_for('module')
+                self.module_ = self.module(**kwargs)
+
+                kwargs = self.params_for('module2')
+                self.module2_ = self.module2(**kwargs)
+
+        net = MyNet(
+            module=module_cls,
+            module2=module_cls,
+            callbacks=[
+                input_shape_setter_cls(module_name='module'),
+                input_shape_setter_cls(module_name='module2'),
+            ],
+        )
+
+        X, y = *data_parametrized
+        n_input = X.shape[1]
+        net.fit(X, y)
+
+        assert net.module_.layer.weight.shape[0] == n_input
+        assert net.module2_.layer.weight.shape[0] == n_input
+
+    def test_no_module_reinit_partial_fit(self):
+        assert False
