@@ -18,8 +18,29 @@ from skorch.utils import is_torch_data_type
 gpytorch = pytest.importorskip('gpytorch')
 
 
-# PyTorch Modules are defined on the module root to make them pickleable.
+def get_batch_size(dist):
+    """Return the shape of the distribution
 
+    The method/attribute required to determine the shape depends on the kind of
+    distrubtion.
+
+    """
+    shape = getattr(dist, 'shape', None)
+    if shape:
+        return shape[0]
+
+    get_base_samples = getattr(dist, 'get_base_samples', None)
+    if get_base_samples:
+        return get_base_samples().shape[0]
+
+    shape = getattr(dist, 'batch_shape', None)
+    if shape:
+        return shape[0]
+
+    raise AttributeError(f"Could not determine shape of {dist}")
+
+
+# PyTorch Modules are defined on the module root to make them pickleable.
 
 class RbfModule(gpytorch.models.ExactGP):
     """Simple exact GP regression module"""
@@ -249,7 +270,7 @@ class BaseProbabilisticTests:
         for yi in y_forward:
             assert isinstance(yi, torch.distributions.distribution.Distribution)
 
-        total_shape = sum(p.shape()[0] for p in y_forward)
+        total_shape = sum(get_batch_size(p) for p in y_forward)
         assert total_shape == self.n_samples
 
     def test_predict(self, gp_fit, data):
