@@ -1204,6 +1204,22 @@ class TestInputShapeSetter:
 
         assert net.module_.layer.in_features == n_input
 
+    def test_shape_set_using_fn(
+        self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
+    ):
+        def input_dim_fn(X):
+            return X.shape[1]
+
+        net = net_cls(module_cls, max_epochs=2, callbacks=[
+            input_shape_setter_cls(input_dim_fn=input_dim_fn),
+        ])
+
+        X, y = data_parametrized
+        n_input = X.shape[1]
+        net.fit(X, y)
+
+        assert net.module_.layer.in_features == n_input
+
     def test_parameter_name(
         self, net_cls, input_shape_setter_cls, data_parametrized,
     ):
