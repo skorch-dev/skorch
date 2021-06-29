@@ -19,7 +19,8 @@ from skorch.utils import unfreeze_parameter
 
 
 __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
-           'Unfreezer', 'Initializer', 'LoadInitState', 'TrainEndCheckpoint']
+           'Unfreezer', 'Initializer', 'InputShapeSetter', 'LoadInitState',
+           'TrainEndCheckpoint']
 
 
 class Checkpoint(Callback):
@@ -761,3 +762,32 @@ class TrainEndCheckpoint(Callback):
         self.checkpoint_.save_model(net)
         self.checkpoint_._sink("Final checkpoint triggered", net.verbose)
         return self
+
+
+class InputShapeSetter(Callback):
+    """TODO"""
+    def __init__(
+        self,
+        module_name='module',
+        param_name='input_dim',
+        input_dim_fn=None,
+    ):
+        self.module_name = module_name
+        self.param_name = param_name
+        self.input_dim_fn = input_dim_fn
+
+    def get_input_dim(self, X):
+        if self.input_dim_fn is not None:
+            return self.input_dim_fn(X)
+        return X.shape[1]
+
+    def on_train_begin(self, net, X, y):
+        params = net.get_params()
+        input_dim = self.get_input_dim(X)
+        param_name = f'{self.module_name}__{self.param_name}'
+
+        if params.get(param_name, None) == input_dim:
+            return
+
+        kwargs = {param_name: input_dim}
+        net.set_params(**kwargs)
