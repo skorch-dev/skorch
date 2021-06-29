@@ -572,6 +572,44 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
 
+    def test_save_load_state_dict_no_duplicate_registration_after_initialize(
+            self, net_cls, module_cls, net_fit, tmpdir):
+        # #781
+        net = net_cls(module_cls).initialize()
+
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            net_fit.save_params(f_params=f)
+        del net_fit
+
+        with open(str(p), 'rb') as f:
+            net.load_params(f_params=f)
+
+        # check that there are no duplicates in _modules, _criteria, _optimizers
+        # pylint: disable=protected-access
+        assert net._modules == ['module']
+        assert net._criteria == ['criterion']
+        assert net._optimizers == ['optimizer']
+
+    def test_save_load_state_dict_no_duplicate_registration_after_clone(
+            self, net_fit, tmpdir):
+        # #781
+        net = clone(net_fit).initialize()
+
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            net_fit.save_params(f_params=f)
+        del net_fit
+
+        with open(str(p), 'rb') as f:
+            net.load_params(f_params=f)
+
+        # check that there are no duplicates in _modules, _criteria, _optimizers
+        # pylint: disable=protected-access
+        assert net._modules == ['module']
+        assert net._criteria == ['criterion']
+        assert net._optimizers == ['optimizer']
+
     @pytest.fixture(scope='module')
     def net_fit_adam(self, net_cls, module_cls, data):
         net = net_cls(
@@ -1425,6 +1463,15 @@ class TestNeuralNet:
         params = net.get_params(deep=True)
         # now initialized
         assert 'callbacks__myscore__scoring' in params
+
+    def test_get_params_no_unwanted_params(self, net, net_fit):
+        # #781
+        # make sure certain keys are not returned
+        keys_unwanted = {'_modules', '_criteria', '_optimizers'}
+        for net_ in (net, net_fit):
+            keys_found = set(net_.get_params())
+            overlap = keys_found & keys_unwanted
+            assert not overlap
 
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
         from skorch.callbacks import EpochTimer
@@ -2659,6 +2706,29 @@ class TestNeuralNet:
         net.set_params(myoptimizer__lr=123)
         # module is not re-initialized, since virtual parameter
         assert len(side_effects) == 1
+
+    def test_module_referencing_another_module_no_duplicate_params(
+            self, net_cls, module_cls
+    ):
+        # When a module references another module, it will yield that modules'
+        # parameters. Therefore, if we collect all paramters, we have to make
+        # sure that there are no duplicate parameters.
+        class MyCriterion(torch.nn.NLLLoss):
+            """Criterion that references net.module_"""
+            def __init__(self, *args, themodule, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.themodule = themodule
+
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                kwargs = self.get_params_for('criterion')
+                kwargs['themodule'] = self.module_
+                self.criterion_ = self.criterion(**kwargs)
+                return self
+
+        net = MyNet(module_cls, criterion=MyCriterion).initialize()
+        params = [p for _, p in net.get_all_learnable_params()]
+        assert len(params) == len(set(params))
 
     def test_custom_optimizer_lr_is_associated_with_optimizer(
             self, net_cls, module_cls,
