@@ -765,7 +765,39 @@ class TrainEndCheckpoint(Callback):
 
 
 class InputShapeSetter(Callback):
-    """TODO"""
+    """Sets the input dimension of the PyTorch module to the input dimension
+    of the training data. This can be of use when using a skorch model within
+    a sklearn pipeline and grid-searching feature transformers (or using
+    feature selection methods).
+
+    Basic usage:
+    >>> class MyModule(torch.nn.Module):
+    ...     def __init__(self, input_dim=1):
+    ...         super().__init__()
+    ...         self.layer = torch.nn.Linear(input_dim, 3)
+    ... # ...
+    >>> X1 = np.zeros(100, 5)
+    >>> X2 = np.zeros(100, 3)
+    >>> y = np.zeros(100)
+    >>> net = NeuralNetClassifier(MyModule, callbacks=[InputShapeSetter()])
+    >>> net.fit(X1, y) # sets self.module_ = module(input_dim=5)
+    >>> net.fit(X2, y) # sets self.module_ = module(input_dim=3)
+
+    Parameters
+    ----------
+    module_name : str (default='module')
+      Only needs change when you are using more than one module in your
+      skorch model (e.g., in case of GANs)
+
+    param_name : str (default='input_dim')
+      The parameter name is the parameter your model uses to define the
+      input dimension in its ``__init__`` method.
+
+    input_dim_fn : callable, None (default=None)
+      In case your ``X`` value is more complex and deriving the input
+      dimension is not as easy as ``X.shape[1]`` you can pass a callable
+      to this parameter which takes ``X`` and returns the input dimension.
+    """
     def __init__(
         self,
         module_name='module',
