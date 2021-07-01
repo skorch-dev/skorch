@@ -790,7 +790,7 @@ class InputShapeSetter(Callback):
     ----------
     module_name : str (default='module')
       Only needs change when you are using more than one module in your
-      skorch model (e.g., in case of GANs)
+      skorch model (e.g., in case of GANs).
 
     param_name : str (default='input_dim')
       The parameter name is the parameter your model uses to define the
