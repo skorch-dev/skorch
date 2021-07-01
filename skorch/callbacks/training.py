@@ -800,9 +800,9 @@ class InputShapeSetter(Callback):
     """
     def __init__(
         self,
-        module_name='module',
         param_name='input_dim',
         input_dim_fn=None,
+        module_name='module',
     ):
         self.module_name = module_name
         self.param_name = param_name
