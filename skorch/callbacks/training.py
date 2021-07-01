@@ -766,9 +766,12 @@ class TrainEndCheckpoint(Callback):
 
 class InputShapeSetter(Callback):
     """Sets the input dimension of the PyTorch module to the input dimension
-    of the training data. This can be of use when using a skorch model within
-    a sklearn pipeline and grid-searching feature transformers (or using
-    feature selection methods).
+    of the training data.
+    
+    This can be of use when the shape of X is not known beforehand,
+    e.g. when using a skorch model within an sklearn pipeline and
+    grid-searching feature transformers, or using feature selection
+    methods.
 
     Basic usage:
     >>> class MyModule(torch.nn.Module):
@@ -813,7 +816,7 @@ class InputShapeSetter(Callback):
             return self.input_dim_fn(X)
         return X.shape[1]
 
-    def on_train_begin(self, net, X, y):
+    def on_train_begin(self, net, X, y, **kwargs):
         params = net.get_params()
         input_dim = self.get_input_dim(X)
         param_name = f'{self.module_name}__{self.param_name}'
