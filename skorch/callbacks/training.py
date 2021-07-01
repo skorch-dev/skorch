@@ -816,7 +816,7 @@ class InputShapeSetter(Callback):
             return self.input_dim_fn(X)
         return X.shape[1]
 
-    def on_train_begin(self, net, X, y):
+    def on_train_begin(self, net, X, y, **kwargs):
         params = net.get_params()
         input_dim = self.get_input_dim(X)
         param_name = f'{self.module_name}__{self.param_name}'
