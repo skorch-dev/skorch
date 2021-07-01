@@ -783,14 +783,14 @@ class InputShapeSetter(Callback):
     >>> X2 = np.zeros(100, 3)
     >>> y = np.zeros(100)
     >>> net = NeuralNetClassifier(MyModule, callbacks=[InputShapeSetter()])
-    >>> net.fit(X1, y) # sets self.module_ = module(input_dim=5)
-    >>> net.fit(X2, y) # sets self.module_ = module(input_dim=3)
+    >>> net.fit(X1, y)  # self.module_.layer.in_features == 5
+    >>> net.fit(X2, y)  # self.module_.layer.in_features == 3
 
     Parameters
     ----------
     module_name : str (default='module')
       Only needs change when you are using more than one module in your
-      skorch model (e.g., in case of GANs)
+      skorch model (e.g., in case of GANs).
 
     param_name : str (default='input_dim')
       The parameter name is the parameter your model uses to define the
