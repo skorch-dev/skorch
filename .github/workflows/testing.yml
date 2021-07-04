@@ -27,6 +27,8 @@ jobs:
             torch_version: '1.7.1+cpu'
           - python_version: '3.6'
             torch_version: '1.7.1+cpu'
+          - python_version: '3.8'
+            torch_version: '1.7.1+cpu'
 
     steps:
     - uses: actions/checkout@v2
