@@ -18,7 +18,9 @@ from skorch.utils import is_torch_data_type
 
 gpytorch = pytest.importorskip('gpytorch')
 
-if LooseVersion(torch.__version__) == '1.7.1':
+# extract pytorch version without possible '+something' suffix
+pytorch_version, _, _ = torch.__version__.partition('+')
+if LooseVersion(pytorch_version) == '1.7.1':
     pytest.skip("gpytorch does not work with PyTorch 1.7.1", allow_module_level=True)
 
 
