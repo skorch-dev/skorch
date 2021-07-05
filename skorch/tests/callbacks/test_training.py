@@ -1207,7 +1207,11 @@ class TestInputShapeSetter:
     def test_shape_set_using_fn(
         self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
     ):
+        fn_calls = 0
+
         def input_dim_fn(X):
+            nonlocal fn_calls
+            fn_calls += 1
             return X.shape[1]
 
         net = net_cls(module_cls, max_epochs=2, callbacks=[
@@ -1219,6 +1223,7 @@ class TestInputShapeSetter:
         net.fit(X, y)
 
         assert net.module_.layer.in_features == n_input
+        assert fn_calls == 1
 
     def test_parameter_name(
         self, net_cls, input_shape_setter_cls, data_parametrized,
