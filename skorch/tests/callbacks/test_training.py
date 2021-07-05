@@ -1268,6 +1268,24 @@ class TestInputShapeSetter:
         assert net.module_.layer.in_features == n_input
         assert net.module2_.layer.in_features == n_input
 
+    def test_no_module_reinit_when_already_correct(
+        self, net_cls, module_cls, input_shape_setter_cls, data_fixed,
+    ):
+        with patch('skorch.classifier.NeuralNetClassifier.initialize_module',
+                   side_effect=net_cls.initialize_module, autospec=True):
+            net = net_cls(
+                module_cls, max_epochs=2, callbacks=[input_shape_setter_cls()],
+
+                # set the input dim to the correct shape beforehand
+                module__input_dim=data_fixed[0].shape[-1],
+            )
+
+            net.fit(*data_fixed)
+
+            # first initialization due to `initialize()` but not
+            # a second one since the input shape is already correct.
+            assert net.initialize_module.call_count == 1
+
     def test_no_module_reinit_partial_fit(
         self, net_cls, module_cls, input_shape_setter_cls, data_fixed,
     ):
