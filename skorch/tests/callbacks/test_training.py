@@ -1200,6 +1200,24 @@ class TestInputShapeSetter:
 
         assert net.module_.layer.in_features == n_input
 
+    def test_one_dimensional_x_raises(
+        self, net_cls, module_cls, input_shape_setter_cls,
+    ):
+        net = net_cls(module_cls, max_epochs=2, callbacks=[
+            input_shape_setter_cls(),
+        ])
+
+        X, y = np.zeros(10), np.zeros(10)
+
+        with pytest.raises(ValueError) as e:
+            net.fit(X, y)
+
+        assert (
+            "Expected at least two-dimensional input data for X. "
+            "If your data is one-dimensional, please use the `input_dim_fn` "
+            "parameter to infer the correct input shape."
+            ) in str(e)
+
     def test_shape_set_using_fn(
         self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
     ):

@@ -766,8 +766,9 @@ class TrainEndCheckpoint(Callback):
 
 class InputShapeSetter(Callback):
     """Sets the input dimension of the PyTorch module to the input dimension
-    of the training data.
-    
+    of the training data. By default the last dimension of X (``X.shape[-1]``)
+    will be used.
+
     This can be of use when the shape of X is not known beforehand,
     e.g. when using a skorch model within an sklearn pipeline and
     grid-searching feature transformers, or using feature selection
@@ -798,7 +799,7 @@ class InputShapeSetter(Callback):
 
     input_dim_fn : callable, None (default=None)
       In case your ``X`` value is more complex and deriving the input
-      dimension is not as easy as ``X.shape[1]`` you can pass a callable
+      dimension is not as easy as ``X.shape[-1]`` you can pass a callable
       to this parameter which takes ``X`` and returns the input dimension.
     """
     def __init__(
@@ -814,7 +815,14 @@ class InputShapeSetter(Callback):
     def get_input_dim(self, X):
         if self.input_dim_fn is not None:
             return self.input_dim_fn(X)
-        return X.shape[1]
+        if len(X.shape) < 2:
+            raise ValueError(
+                "Expected at least two-dimensional input data for X. "
+                "If your data is one-dimensional, please use the "
+                "`input_dim_fn` parameter to infer the correct "
+                "input shape."
+            )
+        return X.shape[-1]
 
     def on_train_begin(self, net, X, y, **kwargs):
         params = net.get_params()
