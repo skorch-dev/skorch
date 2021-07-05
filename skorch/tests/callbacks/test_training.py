@@ -1146,11 +1146,6 @@ class TestTrainEndCheckpoint:
 class TestInputShapeSetter:
 
     @pytest.fixture
-    def input_shape_setter(self):
-        from skorch.callbacks import InputShapeSetter
-        return InputShapeSetter
-
-    @pytest.fixture
     def module_cls(self):
         import torch
 
