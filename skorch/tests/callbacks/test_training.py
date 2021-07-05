@@ -9,6 +9,7 @@ from unittest.mock import call
 import numpy as np
 import pytest
 from sklearn.base import clone
+import torch
 
 
 class TestCheckpoint:
@@ -1228,8 +1229,6 @@ class TestInputShapeSetter:
     def test_parameter_name(
         self, net_cls, input_shape_setter_cls, data_parametrized,
     ):
-        import torch
-
         class MyModule(torch.nn.Module):
             def __init__(self, other_input_dim=22):
                 super().__init__()
@@ -1251,20 +1250,15 @@ class TestInputShapeSetter:
         self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
     ):
         class MyNet(net_cls):
-            def __init__(self, *args, module2, **kwargs):
-                self.module2 = module2
-                super().__init__(*args, **kwargs)
-
             def initialize_module(self):
                 kwargs = self.get_params_for('module')
                 self.module_ = self.module(**kwargs)
 
                 kwargs = self.get_params_for('module2')
-                self.module2_ = self.module2(**kwargs)
+                self.module2_ = self.module(**kwargs)
 
         net = MyNet(
             module=module_cls,
-            module2=module_cls,
             max_epochs=2,
             callbacks=[
                 input_shape_setter_cls(module_name='module'),
