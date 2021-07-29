@@ -789,10 +789,6 @@ class InputShapeSetter(Callback):
 
     Parameters
     ----------
-    module_name : str (default='module')
-      Only needs change when you are using more than one module in your
-      skorch model (e.g., in case of GANs).
-
     param_name : str (default='input_dim')
       The parameter name is the parameter your model uses to define the
       input dimension in its ``__init__`` method.
@@ -801,6 +797,10 @@ class InputShapeSetter(Callback):
       In case your ``X`` value is more complex and deriving the input
       dimension is not as easy as ``X.shape[-1]`` you can pass a callable
       to this parameter which takes ``X`` and returns the input dimension.
+
+    module_name : str (default='module')
+      Only needs change when you are using more than one module in your
+      skorch model (e.g., in case of GANs).
     """
     def __init__(
         self,
