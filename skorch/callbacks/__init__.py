@@ -24,6 +24,7 @@ __all__ = [
     'Freezer',
     'GradientNormClipping',
     'Initializer',
+    'InputShapeSetter',
     'LRScheduler',
     'LoadInitState',
     'MlflowLogger',

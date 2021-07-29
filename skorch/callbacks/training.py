@@ -19,7 +19,8 @@ from skorch.utils import unfreeze_parameter
 
 
 __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
-           'Unfreezer', 'Initializer', 'LoadInitState', 'TrainEndCheckpoint']
+           'Unfreezer', 'Initializer', 'InputShapeSetter', 'LoadInitState',
+           'TrainEndCheckpoint']
 
 
 class Checkpoint(Callback):
@@ -761,3 +762,75 @@ class TrainEndCheckpoint(Callback):
         self.checkpoint_.save_model(net)
         self.checkpoint_._sink("Final checkpoint triggered", net.verbose)
         return self
+
+
+class InputShapeSetter(Callback):
+    """Sets the input dimension of the PyTorch module to the input dimension
+    of the training data. By default the last dimension of X (``X.shape[-1]``)
+    will be used.
+
+    This can be of use when the shape of X is not known beforehand,
+    e.g. when using a skorch model within an sklearn pipeline and
+    grid-searching feature transformers, or using feature selection
+    methods.
+
+    Basic usage:
+    >>> class MyModule(torch.nn.Module):
+    ...     def __init__(self, input_dim=1):
+    ...         super().__init__()
+    ...         self.layer = torch.nn.Linear(input_dim, 3)
+    ... # ...
+    >>> X1 = np.zeros(100, 5)
+    >>> X2 = np.zeros(100, 3)
+    >>> y = np.zeros(100)
+    >>> net = NeuralNetClassifier(MyModule, callbacks=[InputShapeSetter()])
+    >>> net.fit(X1, y)  # self.module_.layer.in_features == 5
+    >>> net.fit(X2, y)  # self.module_.layer.in_features == 3
+
+    Parameters
+    ----------
+    param_name : str (default='input_dim')
+      The parameter name is the parameter your model uses to define the
+      input dimension in its ``__init__`` method.
+
+    input_dim_fn : callable, None (default=None)
+      In case your ``X`` value is more complex and deriving the input
+      dimension is not as easy as ``X.shape[-1]`` you can pass a callable
+      to this parameter which takes ``X`` and returns the input dimension.
+
+    module_name : str (default='module')
+      Only needs change when you are using more than one module in your
+      skorch model (e.g., in case of GANs).
+    """
+    def __init__(
+        self,
+        param_name='input_dim',
+        input_dim_fn=None,
+        module_name='module',
+    ):
+        self.module_name = module_name
+        self.param_name = param_name
+        self.input_dim_fn = input_dim_fn
+
+    def get_input_dim(self, X):
+        if self.input_dim_fn is not None:
+            return self.input_dim_fn(X)
+        if len(X.shape) < 2:
+            raise ValueError(
+                "Expected at least two-dimensional input data for X. "
+                "If your data is one-dimensional, please use the "
+                "`input_dim_fn` parameter to infer the correct "
+                "input shape."
+            )
+        return X.shape[-1]
+
+    def on_train_begin(self, net, X, y, **kwargs):
+        params = net.get_params()
+        input_dim = self.get_input_dim(X)
+        param_name = f'{self.module_name}__{self.param_name}'
+
+        if params.get(param_name, None) == input_dim:
+            return
+
+        kwargs = {param_name: input_dim}
+        net.set_params(**kwargs)
