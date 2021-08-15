@@ -598,8 +598,9 @@ def _sigmoid_then_2d(x):
     return y_proba
 
 
-def _transpose(x):
-    return x.T
+# TODO only needed if multiclass GP classfication is added
+# def _transpose(x):
+    # return x.T
 
 
 def _infer_predict_nonlinearity(net):
@@ -622,14 +623,15 @@ def _infer_predict_nonlinearity(net):
     if isinstance(criterion, BCEWithLogitsLoss):
         return _sigmoid_then_2d
 
-    likelihood = getattr(net, 'likelihood_', None)
-    if (
-            likelihood
-            and GPYTORCH_INSTALLED
-            and isinstance(likelihood, gpytorch.likelihoods.SoftmaxLikelihood)
-    ):
-        # SoftmaxLikelihood returns batch second order
-        return _transpose
+    # TODO only needed if multiclass GP classfication is added
+    # likelihood = getattr(net, 'likelihood_', None)
+    # if (
+    #         likelihood
+    #         and GPYTORCH_INSTALLED
+    #         and isinstance(likelihood, gpytorch.likelihoods.SoftmaxLikelihood)
+    # ):
+    #     # SoftmaxLikelihood returns batch second order
+    #     return _transpose
 
     return _identity
 
