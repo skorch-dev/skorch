@@ -296,9 +296,8 @@ class BaseProbabilisticTests:
         assert isinstance(y_proba, np.ndarray)
         assert y_proba.shape == (self.n_samples, self.n_targets)
 
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_fit_and_predict_with_cuda(self, gp, data):
-        if not torch.cuda.is_available():
-            pytest.skip()
 
         gp.set_params(device='cuda')
         X, y = data
