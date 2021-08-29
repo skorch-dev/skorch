@@ -28,6 +28,7 @@ from skorch.utils import check_is_fitted
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import to_numpy
+from skorch.utils import to_tensor
 
 
 warnings.warn("The API of the Gaussian Process estimators is experimental and may "
@@ -542,6 +543,51 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
         if not isinstance(self.module_, gpytorch.models.ExactGP):
             raise TypeError("{} requires 'module' to be a gpytorch.models.ExactGP."
                             .format(self.__class__.__name__))
+        return self
+
+    def fit(self, X, y=None, **fit_params):
+        """Initialize and fit the module.
+
+        If the module was already initialized, by calling fit, the
+        module will be re-initialized (unless ``warm_start`` is True).
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * scipy sparse CSR matrices
+            * a dictionary of the former three
+            * a list/tuple of the former three
+            * a Dataset
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        y : target data, compatible with skorch.dataset.Dataset
+          The same data types as for ``X`` are supported. If your X is
+          a Dataset that contains the target, ``y`` may be set to
+          None.
+
+        **fit_params : dict
+          Additional parameters passed to the ``forward`` method of
+          the module and to the ``self.train_split`` call.
+
+        """
+        if not self.warm_start or not self.initialized_:
+            self.initialize()
+
+        # set training data of the ExactGP module
+        self.module_.set_train_data(
+            inputs=to_tensor(X, device=self.device),
+            targets=to_tensor(y, device=self.device),
+            strict=False,
+        )
+
+        self.partial_fit(X, y, **fit_params)
         return self
 
 

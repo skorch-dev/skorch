@@ -50,8 +50,8 @@ def get_batch_size(dist):
 
 class RbfModule(gpytorch.models.ExactGP):
     """Simple exact GP regression module"""
-    def __init__(self, X, y, likelihood):
-        super().__init__(X, y, likelihood)
+    def __init__(self, likelihood):
+        super().__init__(None, None, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.RBFKernel()
 
@@ -516,7 +516,7 @@ class TestExactGPRegressor(BaseProbabilisticTests):
     supports_predict_proba = False
     supports_return_std = True
     supports_return_cov = True
-    settable_params = {'gp__module__y': torch.zeros(n_samples).float()}
+    settable_params = {'gp__likelihood__noise_prior': None}
     scoring = 'neg_mean_squared_error'
 
     @pytest.fixture
@@ -535,13 +535,9 @@ class TestExactGPRegressor(BaseProbabilisticTests):
         return RbfModule
 
     @pytest.fixture
-    def gp(self, gp_cls, module_cls, data):
-        X, y = data
+    def gp(self, gp_cls, module_cls):
         gpr = gp_cls(
             module_cls,
-            module__X=torch.from_numpy(X),
-            module__y=torch.from_numpy(y),
-
             optimizer=torch.optim.Adam,
             lr=0.1,
             max_epochs=20,
@@ -564,28 +560,6 @@ class TestExactGPRegressor(BaseProbabilisticTests):
     def test_deepcopy(self, gp_fit):
         # FIXME
         copy.deepcopy(gp_fit)  # doesn't raise
-
-    # grid search currently doesn't work with ExactGP because each grid search
-    # fit uses a different split of data but ExactGP is initialized with a fixed
-    # X and y that is not allowed to change
-    test_grid_search_works = pytest.mark.xfail(
-        BaseProbabilisticTests.test_grid_search_works, strict=True,
-    )
-
-    def test_grid_search_works_with_debug_turned_off(self, gp, data, recwarn):
-        with gpytorch.settings.debug(False):
-            X, y = data
-            params = {
-                'lr': [0.01, 0.02],
-                'max_epochs': [10, 20],
-                'likelihood__noise_prior': [None, gpytorch.priors.GammaPrior(1, 2)],
-            }
-            gs = GridSearchCV(gp, params, refit=True, cv=3, scoring=self.scoring)
-            gs.fit(X[:60], y[:60])  # for speed
-
-            # sklearn will catch fit failures and raise a warning, we should thus
-            # check that no warnings are generated
-            assert not recwarn.list
 
     def test_wrong_module_type_raises(self, gp_cls):
         # ExactGPRegressor requires the module to be an ExactGP, if it's not,

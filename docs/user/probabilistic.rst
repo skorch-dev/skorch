@@ -49,8 +49,10 @@ and thus don't need to be specified. For exact GPs, the module needs to be an
     from skorch.probabilistic import ExactGPRegressor
 
     class RbfModule(gpytorch.models.ExactGP):
-        def __init__(self, X_train, y_train, likelihood, noise_init=None):
-            super().__init__(X_train, y_train, likelihood)
+        def __init__(likelihood, self):
+            # detail: We don't set train_inputs and train_targets here skorch because
+            # will take care of that.
+            super().__init__()
             self.mean_module = gpytorch.means.ConstantMean()
             self.covar_module = gpytorch.kernels.RBFKernel()
 
@@ -59,12 +61,7 @@ and thus don't need to be specified. For exact GPs, the module needs to be an
             covar_x = self.covar_module(x)
             return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
-    gpr = ExactGPRegressor(
-        RbfModule,
-        module__X_train=X_train,
-        module__y_train=y_train,
-    )
-
+    gpr = ExactGPRegressor(RbfModule)
     gpr.fit(X_train, y_train)
     y_pred = gpr.predict(X_test)
 
