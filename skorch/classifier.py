@@ -117,7 +117,14 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
             raise ValueError(msg)
         if y is not None:
             # pylint: disable=attribute-defined-outside-init
-            self.classes_inferred_ = np.unique(y)
+            if isinstance(y,np.ndarray):
+                self.classes_inferred_ = np.unique(y)
+            elif isinstance(y,torch.Tensor):
+                self.classes_inferred_ = torch.unique(y)
+            else:
+                msg = (f"If y-values are given, they must be either numpy ndarray or "
+                       f"torch tensors, but not {type(y)}.")
+                raise ValueError(msg)
 
     # pylint: disable=arguments-differ
     def get_loss(self, y_pred, y_true, *args, **kwargs):
