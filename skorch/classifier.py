@@ -13,9 +13,8 @@ from skorch.callbacks import PrintLog
 from skorch.callbacks import EpochScoring
 from skorch.callbacks import PassthroughScoring
 from skorch.dataset import CVSplit
-from skorch.utils import get_dim
+from skorch.utils import get_dim, to_numpy
 from skorch.utils import is_dataset
-
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks
 
@@ -117,14 +116,7 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
             raise ValueError(msg)
         if y is not None:
             # pylint: disable=attribute-defined-outside-init
-            if isinstance(y,np.ndarray):
-                self.classes_inferred_ = np.unique(y)
-            elif isinstance(y,torch.Tensor):
-                self.classes_inferred_ = torch.unique(y)
-            else:
-                msg = (f"If y-values are given, they must be either numpy ndarray or "
-                       f"torch tensors, but not {type(y)}.")
-                raise ValueError(msg)
+            self.classes_inferred_ = np.unique(to_numpy(y))
 
     # pylint: disable=arguments-differ
     def get_loss(self, y_pred, y_true, *args, **kwargs):
