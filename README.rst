@@ -1,4 +1,4 @@
-.. image:: https://github.com/skorch-dev/skorch/blob/master/assets/skorch.svg
+.. image:: https://github.com/skorch-dev/skorch/blob/master/assets/skorch_bordered.svg
    :width: 30%
 
 ------------
