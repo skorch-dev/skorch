@@ -28,6 +28,34 @@ either pip or conda:
     # using conda
     conda install gpytorch -c gpytorch
 
+When to use GPyTorch with skorch
+--------------------------------
+
+Here we want to quickly explain when it would be a good idea for you to use
+GPyTorch with skorch. There are a couple of offerings in the Python ecosystem
+when it comes to Gaussian Processes. We cannot provide an exhaustive list of
+pros and cons of each possibility. There are, however, two obvious alternatives
+that are worth discussing: using the sklearn_ implementation and using GPyTorch
+without skorch.
+
+When to use skorch + GPyTorch over sklearn:
+
+* When you are more familiar with PyTorch than with sklearn
+* When the kernels provided by sklearn are not sufficient for your use case and
+  you would like to implement custom kernels with PyTorch
+* When you want to use the rich set of optimizers available in PyTorch
+* When sklearn is too slow and you want to use the GPU or scale across machines
+* When you like to use the skorch extras, e.g. callbacks
+
+When to use skorch + GPyTorch over pure GPyTorch
+
+* When you're already familiar with skorch and want an easy entry into GPs
+* When you like to use the skorch extras, e.g. callbacks and grid search
+* When you don't want to bother with writing your own training loop
+
+However, if you are researching GPs and would like to have control over every
+detail, using all the rich but very specific featues that GPyTorch has on offer,
+it is better to use it directly without skorch.
 
 Examples
 --------
@@ -191,3 +219,4 @@ Further examples
 To see all of this in action, we provide a notebook that shows using skorch with GPs on real world data: `Gaussian Processes notebook <https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Gaussian_Processes.ipynb)>`_.
 
 .. _GPyTorch: https://gpytorch.ai/
+.. _sklearn: https://scikit-learn.org/stable/modules/gaussian_process.html
