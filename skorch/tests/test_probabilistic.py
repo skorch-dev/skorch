@@ -14,6 +14,7 @@ import torch
 from torch.testing import assert_allclose
 
 from skorch.utils import is_torch_data_type
+from skorch.utils import to_numpy
 
 
 gpytorch = pytest.importorskip('gpytorch')
@@ -115,6 +116,14 @@ class BaseProbabilisticTests:
     using parameters shared by all likelihoods).
 
     """
+    #####################
+    # testing functions #
+    #####################
+
+    @staticmethod
+    def assert_values_differ(x):
+        x = to_numpy(x)
+        assert len(np.unique(x)) > 1
 
     ##########################
     # constants and fixtures #
@@ -285,6 +294,7 @@ class BaseProbabilisticTests:
 
         assert isinstance(y_pred, np.ndarray)
         assert y_pred.shape == (self.n_samples,)
+        self.assert_values_differ(y_pred)
 
     def test_predict_proba(self, gp_fit, data):
         if not self.supports_predict_proba:
@@ -295,6 +305,7 @@ class BaseProbabilisticTests:
 
         assert isinstance(y_proba, np.ndarray)
         assert y_proba.shape == (self.n_samples, self.n_targets)
+        self.assert_values_differ(y_proba)
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_fit_and_predict_with_cuda(self, gp, data):
@@ -302,7 +313,8 @@ class BaseProbabilisticTests:
         gp.set_params(device='cuda')
         X, y = data
         gp.fit(X, y)
-        gp.predict(X)
+        y_pred = gp.predict(X)
+        self.assert_values_differ(y_pred)
 
     def test_in_sklearn_pipeline(self, pipe, data):
         X, y = data
@@ -367,6 +379,7 @@ class BaseProbabilisticTests:
         # Expecting only 1 column containing predict class:
         # (number of samples,)
         assert y_pred.shape == (self.n_samples)
+        self.assert_values_differ(y_pred)
 
     @pytest.mark.skip
     def test_multioutput_predict_proba(self, gp_multioutput, data):
@@ -374,6 +387,7 @@ class BaseProbabilisticTests:
 
         # does not raise
         y_proba = gp_multioutput.predict_proba(X)
+        self.assert_values_differ(y_proba)
 
         # Expecting full output: (number of samples, number of output units)
         assert y_proba.shape == (self.n_samples, self.n_targets)
@@ -467,6 +481,10 @@ class BaseProbabilisticTests:
         samples = gp.initialize().sample(X, n_samples=n_samples)
         assert samples.shape == (n_samples, len(X))
 
+        # check that values are not all the same -- this can happen when
+        # posterior variances are skipped via a setting
+        self.assert_values_differ(samples)
+
     def test_confidence_region(self, gp_fit, data):
         X, _ = data
 
@@ -492,6 +510,7 @@ class BaseProbabilisticTests:
         # hence only test shape and that they're positive
         assert y_proba.shape == y_std.shape
         assert (y_std > 0).all()
+        self.assert_values_differ(y_std)
 
     def test_predict_return_cov(self, gp_fit, data):
         if not self.supports_return_cov:

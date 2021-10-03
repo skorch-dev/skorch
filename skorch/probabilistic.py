@@ -210,6 +210,51 @@ class GPBase(NeuralNet):
                 return (self.likelihood_(y_infer[0]),) + y_infer[1:]
             return self.likelihood_(y_infer)
 
+    def forward_iter(self, X, *args, **kwargs):
+        """Yield outputs of module forward calls on each batch of data.
+        The storage device of the yielded tensors is determined
+        by the ``device`` parameter.
+
+        Parameters
+        ----------
+        X : input data, compatible with skorch.dataset.Dataset
+          By default, you should be able to pass:
+
+            * numpy arrays
+            * torch tensors
+            * pandas DataFrame or Series
+            * scipy sparse CSR matrices
+            * a dictionary of the former three
+            * a list/tuple of the former three
+            * a Dataset
+
+          If this doesn't work with your data, you have to pass a
+          ``Dataset`` that can deal with the data.
+
+        training : bool (default=False)
+          Whether to set the module to train mode or not.
+
+        device : string (default='cpu')
+          The device to store each inference result on.
+          This defaults to CPU memory since there is genereally
+          more memory available there. For performance reasons
+          this might be changed to a specific CUDA device,
+          e.g. 'cuda:0'.
+
+        Yields
+        ------
+        yp : torch tensor
+          Result from a forward call on an individual batch.
+
+        """
+        # GPyTorch caches a couple things that don't depend on the test points
+        # the first time a prediction is made so that the next time a prediction
+        # is made, it doesn't have O(n^3) complexity. These caches get deleted
+        # in some cases, like if the model gets put back in training mode, but
+        # forward_iter doesn't do that, so it's okay.
+        with gpytorch.settings.fast_pred_var():
+            return super().forward_iter(X, *args, **kwargs)
+
     def forward(self, X, training=False, device='cpu'):
         """Gather and concatenate the output from forward call with
         input data.
@@ -275,6 +320,13 @@ class GPBase(NeuralNet):
 
         The GP doesn't need to be fitted but it must be initialized.
 
+        By default, samples all calculated including gradients. If you don't
+        need the gradients, call ``sample`` inside ``torch.no_grad()``.
+
+        If the probability distribution does not support the ``rsample`` method
+        (i.e. sampling with gradients), try ``sample`` (i.e. without gradients)
+        instead. One such distribution, at the time of writing, is Bernoulli.
+
         X : input data
           The samples where the GP is evaluated.
 
@@ -292,7 +344,16 @@ class GPBase(NeuralNet):
 
         """
         self.check_is_fitted()
-        samples = [p.sample(torch.Size([n_samples])) for p in self.forward_iter(X)]
+        samples = []
+        for p in self.forward_iter(X):
+            try:
+                sample = p.rsample(torch.Size([n_samples]))
+            except NotImplementedError:
+                # some distributions like Bernoulli have not implemented rsample
+                # (sampling with gradients), try sample instead.
+                sample = p.sample(torch.Size([n_samples]))
+            samples.append(sample)
+
         return torch.cat(samples, axis=axis)
 
     def confidence_region(self, X, sigmas=2):
@@ -371,22 +432,35 @@ class _GPRegressorPredictMixin:
                    "posterior.covariance_matrix'.")
             raise NotImplementedError(msg)
 
+        if return_std:
+            return self._predict_with_std(X)
+        return self._predict(X)
+
+    def _predict_with_std(self, X):
         nonlin = self._get_predict_nonlinearity()
         y_preds, y_stds = [], []
         for yi in self.forward_iter(X, training=False):
             posterior = yi[0] if isinstance(yi, tuple) else yi
             y_preds.append(to_numpy(nonlin(posterior.mean)))
-            if not return_std:
-                continue
-
             y_stds.append(to_numpy(nonlin(posterior.stddev)))
 
         y_pred = np.concatenate(y_preds, 0)
-        if not return_std:
-            return y_pred
-
         y_std = np.concatenate(y_stds, 0)
         return y_pred, y_std
+
+    def _predict(self, X):
+        # When return_std is False, turn on skip_posterior_variances -- this
+        # avoids doing the math for the posterior variances altogether, which
+        # will save a great deal of compute.
+        nonlin = self._get_predict_nonlinearity()
+        y_preds = []
+        with gpytorch.settings.skip_posterior_variances():
+            for yi in self.forward_iter(X, training=False):
+                posterior = yi[0] if isinstance(yi, tuple) else yi
+                y_preds.append(to_numpy(nonlin(posterior.mean)))
+
+        y_pred = np.concatenate(y_preds, 0)
+        return y_pred
 
 
 exact_gp_regr_doc_start = """Exact Gaussian Process regressor
