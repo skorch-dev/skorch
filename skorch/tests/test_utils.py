@@ -100,8 +100,8 @@ class TestToTensor:
                 ),
                 (torch.as_tensor(55), torch.as_tensor(55).to('cuda')),
                 (
-                    pack_padded_sequence(x, y),
-                    pack_padded_sequence(x, y).to('cuda')
+                    pack_padded_sequence(x, y.to('cpu')),
+                    pack_padded_sequence(x, y.to('cpu')).to('cuda')
                 ),
         ]:
             yield X, expected, device

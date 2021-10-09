@@ -1,4 +1,4 @@
-.. image:: https://github.com/skorch-dev/skorch/blob/master/assets/skorch.svg
+.. image:: https://github.com/skorch-dev/skorch/blob/master/assets/skorch_bordered.svg
    :width: 30%
 
 ------------
@@ -236,10 +236,10 @@ instructions for PyTorch, visit the `PyTorch website
 <http://pytorch.org/>`__. skorch officially supports the last four
 minor PyTorch versions, which currently are:
 
-- 1.5.1
 - 1.6.0
 - 1.7.1
 - 1.8.1
+- 1.9.0
 
 However, that doesn't mean that older versions don't work, just that
 they aren't tested. Since skorch mostly relies on the stable part of
