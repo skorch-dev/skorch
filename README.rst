@@ -31,7 +31,7 @@ Resources
 
 - `Documentation <https://skorch.readthedocs.io/en/latest/?badge=latest>`_
 - `Source Code <https://github.com/skorch-dev/skorch/>`_
-- `Instattion <https://github.com/skorch-dev/skorch#installation>`_
+- `Installation <https://github.com/skorch-dev/skorch#installation>`_
 
 ========
 Examples
