@@ -50,10 +50,11 @@ numpydoc_class_members_toctree = False
 
 intersphinx_mapping = {
     'pytorch': ('https://pytorch.org/docs/stable/', None),
-    'sklearn': ('http://scikit-learn.org/stable/', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'sklearn': ('https://scikit-learn.org/stable/', None),
+    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
     'python': ('https://docs.python.org/3', None),
     'mlflow': ('https://mlflow.org/docs/latest/', None),
+    'gpytorch': ('https://docs.gpytorch.ai/en/stable/', None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -118,7 +119,7 @@ html_theme = 'default'
 # html_theme_options = {}
 
 def setup(app):
-    app.add_stylesheet('css/my_theme.css')
+    app.add_css_file('css/my_theme.css')
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

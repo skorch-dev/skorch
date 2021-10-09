@@ -31,6 +31,7 @@ Resources
 
 - `Documentation <https://skorch.readthedocs.io/en/latest/?badge=latest>`_
 - `Source Code <https://github.com/skorch-dev/skorch/>`_
+- `Installation <https://github.com/skorch-dev/skorch#installation>`_
 
 ========
 Examples
@@ -127,6 +128,7 @@ skorch also provides many convenient features, among others:
 - `Parameter freezing/unfreezing <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.Freezer>`_
 - `Progress bar <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.ProgressBar>`_ (for CLI as well as jupyter)
 - `Automatic inference of CLI parameters <https://github.com/skorch-dev/skorch/tree/master/examples/cli>`_
+- `Integration with GPyTorch for Gaussian Processes <https://skorch.readthedocs.io/en/latest/user/probabilistic.html>`_
 
 ============
 Installation

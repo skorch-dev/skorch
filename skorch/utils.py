@@ -30,6 +30,13 @@ if LooseVersion(sklearn.__version__) >= '0.22.0':
 else:
     from sklearn.utils import safe_indexing
 
+GPYTORCH_INSTALLED = False
+try:
+    import gpytorch
+    GPYTORCH_INSTALLED = True
+except ImportError:
+    gpytorch = None
+
 
 class Ansi(Enum):
     BLUE = '\033[94m'
@@ -140,6 +147,9 @@ def to_numpy(X):
 def to_device(X, device):
     """Generic function to modify the device type of the tensor(s) or module.
 
+    PyTorch distribution objects are left untouched, since they don't support an
+    API to move between devices.
+
     Parameters
     ----------
     X : input data
@@ -165,6 +175,10 @@ def to_device(X, device):
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):
         return type(X)(to_device(x, device) for x in X)
+
+    if isinstance(X, torch.distributions.distribution.Distribution):
+        return X
+
     return X.to(device)
 
 
@@ -584,6 +598,11 @@ def _sigmoid_then_2d(x):
     return y_proba
 
 
+# TODO only needed if multiclass GP classfication is added
+# def _transpose(x):
+    # return x.T
+
+
 def _infer_predict_nonlinearity(net):
     """Infers the correct nonlinearity to apply for this net
 
@@ -603,6 +622,16 @@ def _infer_predict_nonlinearity(net):
 
     if isinstance(criterion, BCEWithLogitsLoss):
         return _sigmoid_then_2d
+
+    # TODO only needed if multiclass GP classfication is added
+    # likelihood = getattr(net, 'likelihood_', None)
+    # if (
+    #         likelihood
+    #         and GPYTORCH_INSTALLED
+    #         and isinstance(likelihood, gpytorch.likelihoods.SoftmaxLikelihood)
+    # ):
+    #     # SoftmaxLikelihood returns batch second order
+    #     return _transpose
 
     return _identity
 

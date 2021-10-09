@@ -52,6 +52,7 @@ User's Guide
    user/callbacks
    user/dataset
    user/save_load
+   user/probabilistic
    user/history
    user/toy
    user/helper
@@ -82,5 +83,5 @@ Indices and tables
 * :ref:`search`
 
 
-.. _pytorch: http://pytorch.org/
-.. _sklearn: http://scikit-learn.org/
+.. _pytorch: https://pytorch.org/
+.. _sklearn: https://scikit-learn.org/
