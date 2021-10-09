@@ -330,7 +330,6 @@ class TestEpochScoring:
         def myscore(net, X, y=None):
             nonlocal score_calls
             score_calls += 1
-            assert y is None
 
             # In case we use caching X is a dataset. We need to
             # extract X ourselves.
@@ -894,7 +893,6 @@ class TestBatchScoring:
         def myscore(net, X, y=None):  # pylint: disable=unused-argument
             nonlocal score_calls
             score_calls += 1
-            assert y is None
             return X.mean().data.item()
 
         # pylint: disable=unused-argument

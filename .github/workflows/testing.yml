@@ -15,9 +15,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python_version: ['3.6', '3.7', '3.8']
-        torch_version: ['1.4.0+cpu', '1.5.1+cpu', '1.6.0+cpu', '1.7.1+cpu']
+        python_version: ['3.6', '3.7', '3.8', '3.9']
+        torch_version: ['1.6.0+cpu', '1.7.1+cpu', '1.8.1+cpu', '1.9.0+cpu']
         os: [ubuntu-latest]
+        exclude:
+          - python_version: '3.9'
+            torch_version: '1.5.1+cpu'
+          - python_version: '3.9'
+            torch_version: '1.6.0+cpu'
+          - python_version: '3.9'
+            torch_version: '1.7.1+cpu'
 
     steps:
     - uses: actions/checkout@v2

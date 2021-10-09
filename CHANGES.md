@@ -9,14 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `load_best` attribute to `Checkpoint` callback to automatically load state of the best result at the end of training
+- Added a `get_all_learnable_params` method to retrieve the named parameters of all PyTorch modules defined on the net, including of criteria if applicable
+- Added `MlflowLogger` callback for logging to Mlflow (#769)
+- Added `InputShapeSetter` callback for automatically setting the input dimension of the PyTorch module
+- Added a new module to support Gaussian Processes through [GPyTorch](https://gpytorch.ai/). To learn more about it, read the [GP documentation](https://skorch.readthedocs.io/en/latest/user/probabilistic.html) or take a look at the [GP notebook](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Gaussian_Processes.ipynb). This feature is experimental, i.e. the API could be changed in the future in a backwards incompatible way.
+
+### Changed
+
+- Changed the signature of `validation_step`, `train_step_single`, `train_step`, `evaluation_step`, `on_batch_begin`, and `on_batch_end` such that instead of receiving `X` and `y`, they receive the whole batch; this makes it easier to deal with datasets that don't strictly return an `(X, y)` tuple, which is true for quite a few PyTorch datasets; please refer to the [migration guide](https://skorch.readthedocs.io/en/latest/user/FAQ.html#migration-from-0-9-to-0-10) if you encounter problems
+- Checking of arguments to `NeuralNet` is now during `.initialize()`, not during `__init__`, to avoid raising false positives for yet unknown module or optimizer attributes
+- Modules, criteria, and optimizers that are added to a net by the user are now first class: skorch takes care of setting train/eval mode, moving to the indicated device, and updating all learnable parameters during training (check the [docs](https://skorch.readthedocs.io/en/latest/user/customization.html#initialization-and-custom-modules) for more details)
+
+### Fixed
+
+- Fixed a few bugs in the `net.history` implementation (#776)
+- Fixed a bug in `TrainEndCheckpoint` that prevented it from being unpickled (#773)
+
+## [0.10.0] - 2021-03-23
+
+### Added
+
 - Added `SacredLogger` callback for logging to Sacred (#725)
 - CLI helper function now also supports normal (i.e. non-skorch) sklearn estimators
 - Disabling all callbacks is now supported (which allows reducing overhead, which is especially relevant for small models)
+- `LRScheduler` now correctly passes the value being monitored to `ReduceLROnPlateau`. (#738)
 - Add an example of using skorch with [optuna](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/optuna-example.ipynb) (#718)
 
 ### Changed
 
 - We no longer pass the `epoch` parameter to LR schedulers, since that parameter has been deprecated. We now rely on the scheduler to keep track of the epoch itself.
+- Changed implementation of `net.history` access to make it faster; this should result in a nice speedup when dealing with very small model/data but otherwise not have any noticeable effects; if you encounter bugs, though, please create an issue
 
 ### Fixed
 
@@ -34,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Removed support for schedulers with a `batch_step()` method in `LRScheduler`. 
+- Removed support for schedulers with a `batch_step()` method in `LRScheduler`.
 - Raise `FutureWarning` in `CVSplit` when `random_state` is not used. Will raise an exception in a future (#620)
 - The behavior of method `net.get_params` changed to make it more consistent with sklearn: it will no longer return "learned" attributes like `module_`; therefore, functions like `sklearn.base.clone`, when called with a fitted net, will no longer return a fitted net but instead an uninitialized net; if you want a copy of a fitted net, use `copy.deepcopy` instead;`net.get_params` is used under the hood by many sklearn functions and classes, such as `GridSearchCV`, whose behavior may thus be affected by the change. (#521, #527)
 - Raise `FutureWarning` when using `CyclicLR` scheduler, because the default behavior has changed from taking a step every batch to taking a step every epoch. (#626)
@@ -221,10 +244,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the net was configured to use the CPU (#354, #358)
 
 
-[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/skorch-dev/skorch/compare/v0.10.0...HEAD
 [0.4.0]: https://github.com/skorch-dev/skorch/compare/v0.3.0...v0.4.0
 [0.5.0]: https://github.com/skorch-dev/skorch/compare/v0.4.0...v0.5.0
 [0.6.0]: https://github.com/skorch-dev/skorch/compare/v0.5.0...v0.6.0
 [0.7.0]: https://github.com/skorch-dev/skorch/compare/v0.6.0...v0.7.0
 [0.8.0]: https://github.com/skorch-dev/skorch/compare/v0.7.0...v0.8.0
 [0.9.0]: https://github.com/skorch-dev/skorch/compare/v0.8.0...v0.9.0
+[0.10.0]: https://github.com/skorch-dev/skorch/compare/v0.9.0...v0.10.0

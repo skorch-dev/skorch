@@ -11,6 +11,7 @@ skorch
    helper
    history
    net
+   probabilistic
    regressor
    scoring
    toy

@@ -19,7 +19,8 @@ from skorch.utils import unfreeze_parameter
 
 
 __all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
-           'Unfreezer', 'Initializer', 'LoadInitState', 'TrainEndCheckpoint']
+           'Unfreezer', 'Initializer', 'InputShapeSetter', 'LoadInitState',
+           'TrainEndCheckpoint']
 
 
 class Checkpoint(Callback):
@@ -33,6 +34,11 @@ class Checkpoint(Callback):
     You can also specify your own metric to monitor or supply a
     callback that dynamically evaluates whether the model should
     be saved in this epoch.
+
+    As checkpointing is often used in conjunction with early stopping
+    there is a need to restore the state of the model to the best
+    checkpoint after training is done. The checkpoint callback will
+    do this for you if you wish.
 
     Some or all of the following can be saved:
 
@@ -123,6 +129,13 @@ class Checkpoint(Callback):
     dirname: str (default='')
       Directory where files are stored.
 
+    load_best: bool (default=False)
+      Load the best checkpoint automatically once training ended.
+      This can be particularly helpful in combination with early stopping
+      as it allows for scoring with the best model, even when early stopping
+      ended training a number of epochs later. Note that this will only
+      work when ``monitor != None``.
+
     event_name: str, (default='event_cp')
       Name of event to be placed in history when checkpoint is triggered.
       Pass ``None`` to disable placing events in history.
@@ -145,6 +158,7 @@ class Checkpoint(Callback):
             dirname='',
             event_name='event_cp',
             sink=noop,
+            load_best=False,
             **kwargs
     ):
         self.monitor = monitor
@@ -157,6 +171,7 @@ class Checkpoint(Callback):
         self.dirname = dirname
         self.event_name = event_name
         self.sink = sink
+        self.load_best = load_best
         self._check_kwargs(kwargs)
         vars(self).update(**kwargs)
         self._validate_filenames()
@@ -173,6 +188,12 @@ class Checkpoint(Callback):
         if self.dirname and not os.path.exists(self.dirname):
             os.makedirs(self.dirname, exist_ok=True)
         return self
+
+    def on_train_end(self, net, **kwargs):
+        if not self.load_best or self.monitor is None:
+            return
+        self._sink("Loading best checkpoint after training.", net.verbose)
+        net.load_params(checkpoint=self)
 
     def on_epoch_end(self, net, **kwargs):
         if "{}_best".format(self.monitor) in net.history[-1]:
@@ -512,7 +533,7 @@ class ParamMapper(Callback):
         return self
 
     def named_parameters(self, net):
-        return net.module_.named_parameters()
+        return net.get_all_learnable_params()
 
     def filter_parameters(self, patterns, params):
         pattern_fns = (
@@ -619,8 +640,11 @@ class LoadInitState(Callback):
                        X=None, y=None, **kwargs):
         if not self.did_load_:
             self.did_load_ = True
-            with suppress(Exception):
-                net.load_params(checkpoint=self.checkpoint)
+            with suppress(FileNotFoundError):
+                if isinstance(self.checkpoint, TrainEndCheckpoint):
+                    net.load_params(checkpoint=self.checkpoint.checkpoint_)
+                else:
+                    net.load_params(checkpoint=self.checkpoint)
 
 
 class TrainEndCheckpoint(Callback):
@@ -732,10 +756,81 @@ class TrainEndCheckpoint(Callback):
             **self._f_kwargs()
         )
         self.checkpoint_.initialize()
+        return self
 
     def on_train_end(self, net, **kwargs):
         self.checkpoint_.save_model(net)
         self.checkpoint_._sink("Final checkpoint triggered", net.verbose)
+        return self
 
-    def __getattr__(self, attr):
-        return getattr(self.checkpoint_, attr)
+
+class InputShapeSetter(Callback):
+    """Sets the input dimension of the PyTorch module to the input dimension
+    of the training data. By default the last dimension of X (``X.shape[-1]``)
+    will be used.
+
+    This can be of use when the shape of X is not known beforehand,
+    e.g. when using a skorch model within an sklearn pipeline and
+    grid-searching feature transformers, or using feature selection
+    methods.
+
+    Basic usage:
+    >>> class MyModule(torch.nn.Module):
+    ...     def __init__(self, input_dim=1):
+    ...         super().__init__()
+    ...         self.layer = torch.nn.Linear(input_dim, 3)
+    ... # ...
+    >>> X1 = np.zeros(100, 5)
+    >>> X2 = np.zeros(100, 3)
+    >>> y = np.zeros(100)
+    >>> net = NeuralNetClassifier(MyModule, callbacks=[InputShapeSetter()])
+    >>> net.fit(X1, y)  # self.module_.layer.in_features == 5
+    >>> net.fit(X2, y)  # self.module_.layer.in_features == 3
+
+    Parameters
+    ----------
+    param_name : str (default='input_dim')
+      The parameter name is the parameter your model uses to define the
+      input dimension in its ``__init__`` method.
+
+    input_dim_fn : callable, None (default=None)
+      In case your ``X`` value is more complex and deriving the input
+      dimension is not as easy as ``X.shape[-1]`` you can pass a callable
+      to this parameter which takes ``X`` and returns the input dimension.
+
+    module_name : str (default='module')
+      Only needs change when you are using more than one module in your
+      skorch model (e.g., in case of GANs).
+    """
+    def __init__(
+        self,
+        param_name='input_dim',
+        input_dim_fn=None,
+        module_name='module',
+    ):
+        self.module_name = module_name
+        self.param_name = param_name
+        self.input_dim_fn = input_dim_fn
+
+    def get_input_dim(self, X):
+        if self.input_dim_fn is not None:
+            return self.input_dim_fn(X)
+        if len(X.shape) < 2:
+            raise ValueError(
+                "Expected at least two-dimensional input data for X. "
+                "If your data is one-dimensional, please use the "
+                "`input_dim_fn` parameter to infer the correct "
+                "input shape."
+            )
+        return X.shape[-1]
+
+    def on_train_begin(self, net, X, y, **kwargs):
+        params = net.get_params()
+        input_dim = self.get_input_dim(X)
+        param_name = f'{self.module_name}__{self.param_name}'
+
+        if params.get(param_name, None) == input_dim:
+            return
+
+        kwargs = {param_name: input_dim}
+        net.set_params(**kwargs)

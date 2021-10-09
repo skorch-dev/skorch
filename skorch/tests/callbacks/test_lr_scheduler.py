@@ -290,25 +290,40 @@ class TestReduceLROnPlateau:
         score = mock_step.call_args_list[0][0][0]
         assert score == 55
 
-    @pytest.mark.parametrize('mode,score', [
-        ('min', np.inf),
-        ('max', -np.inf)
-    ])
-    def test_reduce_lr_monitor_max(
-            self, classifier_data, classifier_module, mode, score):
+    @pytest.mark.parametrize('mode', ['min', 'max'])
+    def test_reduce_lr_monitor_passes_monitored_loss(
+            self, classifier_data, classifier_module, mode):
         X, y = classifier_data
         net = NeuralNetClassifier(
             classifier_module,
             callbacks=[
                 ('scheduler', LRScheduler(
-                    ReduceLROnPlateau, monitor='train_loss', mode=mode)),
+                    ReduceLROnPlateau, monitor='valid_loss', mode=mode)),
             ],
             max_epochs=1,
         )
         net.fit(X, y)
 
+        expected = net.history_[-1, "valid_loss"]
         policy = dict(net.callbacks_)['scheduler'].lr_scheduler_
-        assert policy.best == score
+        assert policy.best == pytest.approx(expected)
+
+    def test_reduce_lr_raise_error_when_key_does_not_exist(
+            self, classifier_data, classifier_module):
+        X, y = classifier_data
+        net = NeuralNetClassifier(
+            classifier_module,
+            callbacks=[
+                ('scheduler', LRScheduler(
+                    ReduceLROnPlateau, monitor='bad_key')),
+            ],
+            max_epochs=1,
+        )
+        msg = ("'bad_key' was not found in history. A Scoring "
+               "callback with name='bad_key' should be placed before the "
+               "LRScheduler callback")
+        with pytest.raises(ValueError, match=msg):
+            net.fit(X, y)
 
 
 class TestWarmRestartLR():

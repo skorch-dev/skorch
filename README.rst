@@ -1,4 +1,4 @@
-.. image:: https://github.com/skorch-dev/skorch/blob/master/assets/skorch.svg
+.. image:: https://github.com/skorch-dev/skorch/blob/master/assets/skorch_bordered.svg
    :width: 30%
 
 ------------
@@ -31,6 +31,7 @@ Resources
 
 - `Documentation <https://skorch.readthedocs.io/en/latest/?badge=latest>`_
 - `Source Code <https://github.com/skorch-dev/skorch/>`_
+- `Installation <https://github.com/skorch-dev/skorch#installation>`_
 
 ========
 Examples
@@ -127,12 +128,13 @@ skorch also provides many convenient features, among others:
 - `Parameter freezing/unfreezing <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.Freezer>`_
 - `Progress bar <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.ProgressBar>`_ (for CLI as well as jupyter)
 - `Automatic inference of CLI parameters <https://github.com/skorch-dev/skorch/tree/master/examples/cli>`_
+- `Integration with GPyTorch for Gaussian Processes <https://skorch.readthedocs.io/en/latest/user/probabilistic.html>`_
 
 ============
 Installation
 ============
 
-skorch requires Python 3.5 or higher.
+skorch requires Python 3.6 or higher.
 
 conda installation
 ==================
@@ -234,22 +236,22 @@ instructions for PyTorch, visit the `PyTorch website
 <http://pytorch.org/>`__. skorch officially supports the last four
 minor PyTorch versions, which currently are:
 
-- 1.4.0
-- 1.5.1
 - 1.6.0
 - 1.7.1
+- 1.8.1
+- 1.9.0
 
 However, that doesn't mean that older versions don't work, just that
 they aren't tested. Since skorch mostly relies on the stable part of
 the PyTorch API, older PyTorch versions should work fine.
 
 In general, running this to install PyTorch should work (assuming CUDA
-10.2):
+11.1):
 
 .. code:: bash
 
     # using conda:
-    conda install pytorch cudatoolkit==10.2 -c pytorch
+    conda install pytorch cudatoolkit==11.1 -c pytorch
     # using pip
     pip install torch
 
@@ -261,14 +263,14 @@ External resources
   <https://neptune.ai/blog/model-training-libraries-pytorch-ecosystem>`_
   "8 Creators and Core Contributors Talk About Their Model Training
   Libraries From PyTorch Ecosystem" 2020
-- @BenjaminBossan: `talk
+- @BenjaminBossan: `talk 1
   <https://www.youtube.com/watch?v=Qbu_DCBjVEk>`_ "skorch: A
   scikit-learn compatible neural network library" at PyCon/PyData 2019
 - @githubnemo: `poster <https://github.com/githubnemo/skorch-poster>`_
   for the PyTorch developer conference 2019
-- @thomasjpfan: `talk <https://www.youtube.com/watch?v=0J7FaLk0bmQ>`_
+- @thomasjpfan: `talk 2 <https://www.youtube.com/watch?v=0J7FaLk0bmQ>`_
   "Skorch: A Union of Scikit learn and PyTorch" at SciPy 2019
-- @thomasjpfan: `talk <https://www.youtube.com/watch?v=yAXsxf2CQ8M>`_
+- @thomasjpfan: `talk 3 <https://www.youtube.com/watch?v=yAXsxf2CQ8M>`_
   "Skorch - A Union of Scikit-learn and PyTorch" at PyData 2018
 
 =============

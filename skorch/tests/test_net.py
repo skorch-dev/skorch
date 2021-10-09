@@ -11,6 +11,7 @@ from functools import partial
 import os
 from pathlib import Path
 import pickle
+import re
 from unittest.mock import Mock
 from unittest.mock import patch
 import sys
@@ -172,7 +173,7 @@ class TestNeuralNet:
 
     def test_net_init_one_unknown_argument(self, net_cls, module_cls):
         with pytest.raises(TypeError) as e:
-            net_cls(module_cls, unknown_arg=123)
+            net_cls(module_cls, unknown_arg=123).initialize()
 
         expected = ("__init__() got unexpected argument(s) unknown_arg. "
                     "Either you made a typo, or you added new arguments "
@@ -183,7 +184,7 @@ class TestNeuralNet:
     def test_net_init_two_unknown_arguments(self, net_cls, module_cls):
         with pytest.raises(TypeError) as e:
             net_cls(module_cls, lr=0.1, mxa_epochs=5,
-                    warm_start=False, bathc_size=20)
+                    warm_start=False, bathc_size=20).initialize()
 
         expected = ("__init__() got unexpected argument(s) "
                     "bathc_size, mxa_epochs. "
@@ -203,7 +204,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, name, suggestion):
         # forgot to use double-underscore notation
         with pytest.raises(TypeError) as e:
-            net_cls(module_cls, **{name: 123})
+            net_cls(module_cls, **{name: 123}).initialize()
 
         tmpl = "Got an unexpected argument {}, did you mean {}?"
         expected = tmpl.format(name, suggestion)
@@ -218,7 +219,7 @@ class TestNeuralNet:
                 max_epochs=7,  # correct
                 iterator_train_shuffle=True,  # uses _ instead of __
                 optimizerlr=0.5,  # missing __
-            )
+            ).initialize()
         expected = ("Got an unexpected argument iterator_train_shuffle, "
                     "did you mean iterator_train__shuffle?\n"
                     "Got an unexpected argument optimizerlr, "
@@ -233,7 +234,7 @@ class TestNeuralNet:
                 module_cls,
                 foobar=123,
                 iterator_train_shuffle=True,
-            )
+            ).initialize()
         expected = ("__init__() got unexpected argument(s) foobar. "
                     "Either you made a typo, or you added new arguments "
                     "in a subclass; if that is the case, the subclass "
@@ -279,7 +280,7 @@ class TestNeuralNet:
 
         # warning expected here
         with pytest.warns(UserWarning, match=expected):
-            net_cls(module_cls, iterator_valid__shuffle=True)
+            net_cls(module_cls, iterator_valid__shuffle=True).initialize()
 
     def test_fit(self, net_fit):
         # fitting does not raise anything
@@ -486,12 +487,14 @@ class TestNeuralNet:
             pickle.load(f)
 
     def test_save_params_invalid_argument_name_raises(self, net_fit):
-        msg = "save_params got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        msg = ("save_params got an unexpected argument 'foobar', "
+               "did you mean 'f_foobar'?")
         with pytest.raises(TypeError, match=msg):
             net_fit.save_params(foobar='some-file.pt')
 
     def test_load_params_invalid_argument_name_raises(self, net_fit):
-        msg = "load_params got an unexpected argument 'foobar', did you mean 'f_foobar'?"
+        msg = ("load_params got an unexpected argument 'foobar', "
+               "did you mean 'f_foobar'?")
         with pytest.raises(TypeError, match=msg):
             net_fit.load_params(foobar='some-file.pt')
 
@@ -508,28 +511,28 @@ class TestNeuralNet:
     def test_save_params_no_state_dict_raises(self, net_fit):
         msg = ("You are trying to save 'f_max_epochs' but for that to work, the net "
                "needs to have an attribute called 'net.max_epochs_' that is a PyTorch "
-               "Module; make sure that it exists and check for typos.")
+               "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.save_params(f_max_epochs='some-file.pt')
 
     def test_load_params_no_state_dict_raises(self, net_fit):
         msg = ("You are trying to load 'f_max_epochs' but for that to work, the net "
                "needs to have an attribute called 'net.max_epochs_' that is a PyTorch "
-               "Module; make sure that it exists and check for typos.")
+               "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.load_params(f_max_epochs='some-file.pt')
 
     def test_save_params_unknown_attribute_raises(self, net_fit):
         msg = ("You are trying to save 'f_unknown' but for that to work, the net "
                "needs to have an attribute called 'net.unknown_' that is a PyTorch "
-               "Module; make sure that it exists and check for typos.")
+               "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.save_params(f_unknown='some-file.pt')
 
     def test_load_params_unknown_attribute_raises(self, net_fit):
         msg = ("You are trying to load 'f_unknown' but for that to work, the net "
                "needs to have an attribute called 'net.unknown_' that is a PyTorch "
-               "Module; make sure that it exists and check for typos.")
+               "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.load_params(f_unknown='some-file.pt')
 
@@ -569,6 +572,44 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
 
+    def test_save_load_state_dict_no_duplicate_registration_after_initialize(
+            self, net_cls, module_cls, net_fit, tmpdir):
+        # #781
+        net = net_cls(module_cls).initialize()
+
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            net_fit.save_params(f_params=f)
+        del net_fit
+
+        with open(str(p), 'rb') as f:
+            net.load_params(f_params=f)
+
+        # check that there are no duplicates in _modules, _criteria, _optimizers
+        # pylint: disable=protected-access
+        assert net._modules == ['module']
+        assert net._criteria == ['criterion']
+        assert net._optimizers == ['optimizer']
+
+    def test_save_load_state_dict_no_duplicate_registration_after_clone(
+            self, net_fit, tmpdir):
+        # #781
+        net = clone(net_fit).initialize()
+
+        p = tmpdir.mkdir('skorch').join('testmodel.pkl')
+        with open(str(p), 'wb') as f:
+            net_fit.save_params(f_params=f)
+        del net_fit
+
+        with open(str(p), 'rb') as f:
+            net.load_params(f_params=f)
+
+        # check that there are no duplicates in _modules, _criteria, _optimizers
+        # pylint: disable=protected-access
+        assert net._modules == ['module']
+        assert net._criteria == ['criterion']
+        assert net._optimizers == ['optimizer']
+
     @pytest.fixture(scope='module')
     def net_fit_adam(self, net_cls, module_cls, data):
         net = net_cls(
@@ -577,16 +618,33 @@ class TestNeuralNet:
         net.fit(*data)
         return net
 
+    @pytest.fixture(scope='module')
+    def criterion_with_params_cls(self):
+        class MyCriterion(nn.Module):
+            """Criterion with learnable parameters"""
+            def __init__(self):
+                super().__init__()
+                self.lin = nn.Linear(2, 1)
+
+            def forward(self, y_pred, y_true):
+                return ((self.lin(y_pred) - y_true.float()) ** 2).sum()
+        return MyCriterion
+
     @pytest.fixture
-    def net_fit_criterion(self, net_fit_adam, module_cls):
+    def net_fit_criterion(self, net_cls, module_cls, criterion_with_params_cls, data):
         """Replace criterion by a module so that it has learnt parameters"""
-        criterion = net_fit_adam.criterion_
-        net_fit_adam.criterion_ = module_cls()
-        yield net_fit_adam
-        net_fit_adam.criterion_ = criterion
+        net = net_cls(
+            module_cls,
+            criterion=criterion_with_params_cls,
+            max_epochs=2,
+            lr=0.1,
+            optimizer=torch.optim.Adam,
+        )
+        net.fit(*data)
+        return net
 
     def test_save_load_state_dict_file_with_history_optimizer_criterion(
-            self, net_cls, module_cls, net_fit_criterion, tmpdir):
+            self, net_cls, module_cls, criterion_with_params_cls, net_fit_criterion, tmpdir):
 
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = skorch_tmpdir.join('testmodel.pkl')
@@ -606,8 +664,8 @@ class TestNeuralNet:
             orig_steps = [v['step'] for v in
                           net_fit_criterion.optimizer_.state_dict()['state'].values()]
             orig_loss = np.array(net_fit_criterion.history[:, 'train_loss'])
-            orig_criterion_weight = dict(net_fit_criterion.criterion_.named_parameters())[
-                'sequential.0.weight']
+            orig_criterion_weight = dict(
+                net_fit_criterion.criterion_.named_parameters())['lin.weight']
             del net_fit_criterion
 
         with ExitStack() as stack:
@@ -616,7 +674,10 @@ class TestNeuralNet:
             c_fp = stack.enter_context(open(str(c), 'rb'))
             h_fp = stack.enter_context(open(str(h), 'r'))
             new_net = net_cls(
-                module_cls, criterion=module_cls, optimizer=torch.optim.Adam).initialize()
+                module_cls,
+                criterion=criterion_with_params_cls,
+                optimizer=torch.optim.Adam,
+            ).initialize()
             new_net.load_params(
                 f_params=p_fp, f_optimizer=o_fp, f_criterion=c_fp, f_history=h_fp)
 
@@ -627,7 +688,7 @@ class TestNeuralNet:
             assert np.allclose(orig_loss, new_loss)
             assert orig_steps == new_steps
             new_criterion_weight = dict(new_net.criterion_.named_parameters())[
-                'sequential.0.weight']
+                'lin.weight']
             assert (orig_criterion_weight == new_criterion_weight).all()
 
     def test_save_load_state_dict_str_with_history_optimizer(
@@ -779,7 +840,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, tmpdir):
         from skorch.exceptions import NotInitializedError
 
-        net = net_cls(module_cls).initialize_module()
+        net = net_cls(module_cls)._initialize_module()
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = skorch_tmpdir.join('testmodel.pkl')
         o = skorch_tmpdir.join('optimizer.pkl')
@@ -795,15 +856,15 @@ class TestNeuralNet:
             self, net_cls, module_cls, tmpdir):
         from skorch.exceptions import NotInitializedError
 
-        net = net_cls(module_cls).initialize_module()
+        net = net_cls(module_cls).initialize()
         skorch_tmpdir = tmpdir.mkdir('skorch')
         p = skorch_tmpdir.join('testmodel.pkl')
-        o = skorch_tmpdir.join('optimizer.pkl')
-
         net.save_params(f_params=str(p))
 
+        net = net_cls(module_cls)  # not initialized
+        o = skorch_tmpdir.join('optimizer.pkl')
         with pytest.raises(NotInitializedError) as exc:
-            net.load_params(f_params=str(p), f_optimizer=o)
+            net.load_params(f_optimizer=str(o))
         expected = ("Cannot load state of an un-initialized model. "
                     "Please initialize first by calling .initialize() "
                     "or by fitting the model with .fit(...).")
@@ -1052,25 +1113,32 @@ class TestNeuralNet:
         (
             {'module__input_units': 12, 'module__hidden_units': 34},
             ("Re-initializing module because the following "
-             "parameters were re-set: hidden_units, input_units.\n"
+             "parameters were re-set: module__hidden_units, module__input_units.\n"
+             "Re-initializing criterion.\n"
              "Re-initializing optimizer.")
         ),
         (
-            {'module__input_units': 12, 'module__hidden_units': 34,
+            {'criterion__reduce': False, 'criterion__size_average': True},
+            ("Re-initializing criterion because the following "
+             "parameters were re-set: criterion__reduce, criterion__size_average.\n"
+             "Re-initializing optimizer.")
+        ),
+        (
+            {'module__input_units': 12, 'criterion__reduce': True,
              'optimizer__momentum': 0.56},
             ("Re-initializing module because the following "
-             "parameters were re-set: hidden_units, input_units.\n"
+             "parameters were re-set: module__input_units.\n"
+             "Re-initializing criterion.\n"
              "Re-initializing optimizer.")
         ),
     ])
     def test_reinitializing_module_optimizer_message(
             self, net_cls, module_cls, kwargs, expected, capsys):
-        # When net is initialized, if module or optimizer need to be
-        # re-initialized, alert the user to the fact what parameters
-        # were responsible for re-initialization. Note that when the
-        # module parameters but not optimizer parameters were changed,
-        # the optimizer is re-initialized but not because the
-        # optimizer parameters changed.
+        # When net is initialized, if module, criterion, or optimizer need to be
+        # re-initialized, alert the user to the fact what parameters were
+        # responsible for re-initialization. Note that when the module/criterion
+        # parameters but not optimizer parameters were changed, the optimizer is
+        # re-initialized but not because the optimizer parameters changed.
         net = net_cls(module_cls).initialize()
         net.set_params(**kwargs)
         msg = capsys.readouterr()[0].strip()
@@ -1083,7 +1151,7 @@ class TestNeuralNet:
         {'optimizer__lr': 0.12},
         {'module__input_units': 12, 'lr': 0.56},
     ])
-    def test_reinitializing_module_optimizer_no_message(
+    def test_reinitializing_module_optimizer_not_initialized_no_message(
             self, net_cls, module_cls, kwargs, capsys):
         # When net is *not* initialized, set_params on module or
         # optimizer should not trigger a message.
@@ -1091,6 +1159,34 @@ class TestNeuralNet:
         net.set_params(**kwargs)
         msg = capsys.readouterr()[0].strip()
         assert msg == ""
+
+    @pytest.mark.parametrize('kwargs, expected', [
+        ({}, ""),  # no param, no message
+        ({'lr': 0.12}, ""),  # virtual param
+        ({'optimizer__lr': 0.12}, ""),  # virtual param
+        ({'module__input_units': 12}, "Re-initializing optimizer."),
+        ({'module__input_units': 12, 'lr': 0.56}, "Re-initializing optimizer."),
+    ])
+    def test_reinitializing_module_optimizer_when_initialized_message(
+            self, net_cls, module_cls, kwargs, expected, capsys):
+        # When the not *is* initialized, set_params on module should trigger a
+        # message
+        net = net_cls(module_cls).initialize()
+        net.set_params(**kwargs)
+        msg = capsys.readouterr()[0].strip()
+        # don't check the whole message since it may contain other bits not
+        # tested here
+        assert expected in msg
+
+    def test_set_params_on_uninitialized_net_doesnt_initialize(self, net_cls, module_cls):
+        # It used to be the case that setting a parameter on, say, the module
+        # would always (re-)initialize the module, even if the whole net was not
+        # initialized yet. This is unnecessary at best and can break things at
+        # worst.
+        net = net_cls(module_cls)
+        net.set_params(module__input_units=12)
+        assert not net.initialized_
+        assert not hasattr(net, 'module_')
 
     def test_optimizer_param_groups(self, net_cls, module_cls):
         net = net_cls(
@@ -1129,19 +1225,33 @@ class TestNeuralNet:
         assert net.module_.sequential[0].out_features == 123
 
     def test_criterion_init_with_params(self, net_cls, module_cls):
-        mock = Mock()
-        net = net_cls(module_cls, criterion=mock, criterion__spam='eggs')
+        call_count = 0
+        class MyCriterion(nn.Module):
+            def __init__(self, spam=None):
+                nonlocal call_count
+                super().__init__()
+                self.spam = spam
+                call_count += 1
+
+        net = net_cls(module_cls, criterion=MyCriterion, criterion__spam='eggs')
         net.initialize()
-        assert mock.call_count == 1
-        assert mock.call_args_list[0][1]['spam'] == 'eggs'
+        assert call_count == 1
+        assert net.criterion_.spam == 'eggs'
 
     def test_criterion_set_params(self, net_cls, module_cls):
-        mock = Mock()
-        net = net_cls(module_cls, criterion=mock)
+        call_count = 0
+        class MyCriterion(nn.Module):
+            def __init__(self, spam=None):
+                nonlocal call_count
+                super().__init__()
+                self.spam = spam
+                call_count += 1
+
+        net = net_cls(module_cls, criterion=MyCriterion)
         net.initialize()
         net.set_params(criterion__spam='eggs')
-        assert mock.call_count == 2
-        assert mock.call_args_list[1][1]['spam'] == 'eggs'
+        assert call_count == 2
+        assert net.criterion_.spam == 'eggs'
 
     def test_criterion_non_module(self, net_cls, module_cls, data):
         # test non-nn.Module classes passed as criterion
@@ -1353,6 +1463,15 @@ class TestNeuralNet:
         params = net.get_params(deep=True)
         # now initialized
         assert 'callbacks__myscore__scoring' in params
+
+    def test_get_params_no_unwanted_params(self, net, net_fit):
+        # #781
+        # make sure certain keys are not returned
+        keys_unwanted = {'_modules', '_criteria', '_optimizers'}
+        for net_ in (net, net_fit):
+            keys_found = set(net_.get_params())
+            overlap = keys_found & keys_unwanted
+            assert not overlap
 
     def test_get_params_with_uninit_callbacks(self, net_cls, module_cls):
         from skorch.callbacks import EpochTimer
@@ -2074,6 +2193,12 @@ class TestNeuralNet:
                "which does not exist.")
         assert exc.value.args[0] == msg
 
+    def test_set_params_on_init_net_normal_param_works(self, net_cls, module_cls):
+        # setting "normal" arguments like max_epoch works on an initialized net
+        net = net_cls(module_cls).initialize()
+        net.set_params(max_epochs=3, callbacks=[])  # does not raise
+        net.initialize()
+
     def test_set_params_with_unknown_key_raises(self, net):
         with pytest.raises(ValueError) as exc:
             net.set_params(foo=123)
@@ -2161,7 +2286,6 @@ class TestNeuralNet:
         net.fit(*data)
 
     def test_callback_on_grad_computed(self, net_cls, module_cls, data):
-
         module = module_cls()
         expected_names = set(name for name, _ in module.named_parameters())
 
@@ -2182,7 +2306,8 @@ class TestNeuralNet:
 
         net = net_cls(module_cls).initialize()
         Xi = to_tensor(data[0][:3], device='cpu')
-        y_eval = net.evaluation_step(Xi, training=training)
+        batch = Xi, None
+        y_eval = net.evaluation_step(batch, training=training)
 
         assert y_eval.requires_grad is training
 
@@ -2213,6 +2338,7 @@ class TestNeuralNet:
         assert train_batch_size == expected_train_batch_size
         assert valid_batch_size == expected_valid_batch_size
 
+        # pylint: disable=unsubscriptable-object
         train_kwargs = train_loader_mock.call_args[1]
         valid_kwargs = valid_loader_mock.call_args[1]
         assert train_kwargs['batch_size'] == expected_train_batch_size
@@ -2325,6 +2451,7 @@ class TestNeuralNet:
 
         net.fit(train_ds, None)
 
+        # pylint: disable=unsubscriptable-object
         train_loader_ds = train_loader_mock.call_args[0][0]
         valid_loader_ds = valid_loader_mock.call_args[0][0]
 
@@ -2439,21 +2566,23 @@ class TestNeuralNet:
                 super().__init__(*args, **kwargs)
                 self.acc_steps = acc_steps
 
-            def initialize(self):
+            def initialize_optimizer(self):
                 # This is not necessary for gradient accumulation but
                 # only for testing purposes
-                super().initialize()
+                super().initialize_optimizer()
+                # pylint: disable=access-member-before-definition
                 self.true_optimizer_ = self.optimizer_
                 mock_optimizer.step.side_effect = self.true_optimizer_.step
                 mock_optimizer.zero_grad.side_effect = self.true_optimizer_.zero_grad
                 self.optimizer_ = mock_optimizer
+                return self
 
             def get_loss(self, *args, **kwargs):
                 loss = super().get_loss(*args, **kwargs)
                 # because only every nth step is optimized
                 return loss / self.acc_steps
 
-            def train_step(self, Xi, yi, **fit_params):
+            def train_step(self, batch, **fit_params):
                 """Perform gradient accumulation
 
                 Only optimize every 2nd batch.
@@ -2461,7 +2590,7 @@ class TestNeuralNet:
                 """
                 # note that n_train_batches starts at 1 for each epoch
                 n_train_batches = len(self.history[-1, 'batches'])
-                step = self.train_step_single(Xi, yi, **fit_params)
+                step = self.train_step_single(batch, **fit_params)
 
                 if n_train_batches % self.acc_steps == 0:
                     self.optimizer_.step()
@@ -2481,92 +2610,167 @@ class TestNeuralNet:
         calls_zero_grad = mock_optimizer.zero_grad.call_count
         assert calls_total == calls_step == calls_zero_grad
 
-    def test_setattr_module(self, net_cls, module_cls):
-        net = net_cls(module_cls)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule' not in net.cuda_dependent_attributes_
-
-        class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = module_cls
-
-        net = MyNet(module_cls)
-        assert 'mymodule' in net.prefixes_
-        assert 'mymodule_' in net.cuda_dependent_attributes_
-
-        del net.mymodule
+    def test_setattr_custom_module(self, net_cls, module_cls):
+        # creating a custom module should result in its regiestration
+        net = net_cls(module_cls).initialize()
         assert 'mymodule' not in net.prefixes_
         assert 'mymodule_' not in net.cuda_dependent_attributes_
-
-    def test_setattr_module_instance(self, net_cls, module_cls):
-        net = net_cls(module_cls)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule' not in net.cuda_dependent_attributes_
+        assert 'mymodule' not in net._modules
 
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = module_cls()
+            def initialize_module(self):
+                super().initialize_module()
+                self.mymodule_ = module_cls()
+                return self
 
-        net = MyNet(module_cls)
+        net = MyNet(module_cls).initialize()
         assert 'mymodule' in net.prefixes_
         assert 'mymodule_' in net.cuda_dependent_attributes_
+        assert 'mymodule' in net._modules
 
-        del net.mymodule
+        del net.mymodule_
         assert 'mymodule' not in net.prefixes_
         assert 'mymodule_' not in net.cuda_dependent_attributes_
+        assert 'mymodule' not in net._modules
 
-    def test_setattr_optimizer(self, net_cls, module_cls):
-        net = net_cls(module_cls)
-        assert 'myoptimizer' not in net.prefixes_
-        assert 'myoptimizer' not in net.cuda_dependent_attributes_
+    def test_setattr_custom_criterion(self, net_cls, module_cls):
+        # creating a custom criterion should result in its regiestration
+        net = net_cls(module_cls).initialize()
+        assert 'mycriterion' not in net.prefixes_
+        assert 'mycriterion_' not in net.cuda_dependent_attributes_
+        assert 'mycriterion' not in net._criteria
 
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.myoptimizer = torch.optim.SGD
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                self.mycriterion_ = module_cls()
+                return self
 
-        net = MyNet(module_cls)
-        assert 'myoptimizer' in net.prefixes_
-        assert 'myoptimizer_' in net.cuda_dependent_attributes_
+        net = MyNet(module_cls).initialize()
+        assert 'mycriterion' in net.prefixes_
+        assert 'mycriterion_' in net.cuda_dependent_attributes_
+        assert 'mycriterion' in net._criteria
 
-        del net.myoptimizer
+        del net.mycriterion_
+        assert 'mycriterion' not in net.prefixes_
+        assert 'mycriterion_' not in net.cuda_dependent_attributes_
+        assert 'mycriterion' not in net._criteria
+
+    def test_setattr_custom_optimizer(self, net_cls, module_cls):
+        # creating a custom optimizer should result in its regiestration
+        net = net_cls(module_cls).initialize()
         assert 'myoptimizer' not in net.prefixes_
         assert 'myoptimizer_' not in net.cuda_dependent_attributes_
+        assert 'myoptimizer' not in net.prefixes_
 
-    def test_setattr_ending_in_underscore(self, net_cls, module_cls):
-        # attributes whose name ends in underscore should not be
-        # registered
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
+            def initialize_optimizer(self):
+                super().initialize_optimizer()
+                self.myoptimizer_ = torch.optim.SGD(self.module_.parameters(), lr=1)
+                return self
+
+        net = MyNet(module_cls).initialize()
+        assert 'myoptimizer' in net.prefixes_
+        assert 'myoptimizer_' in net.cuda_dependent_attributes_
+        assert 'myoptimizer' in net.prefixes_
+
+        del net.myoptimizer_
+        assert 'myoptimizer' not in net.prefixes_
+        assert 'myoptimizer_' not in net.cuda_dependent_attributes_
+        assert 'myoptimizer' not in net.prefixes_
+
+    def test_custom_optimizer_virtual_params(self, net_cls, module_cls):
+        # creating a custom optimizer should lead to its parameters being
+        # virtual
+        side_effects = []
+
+        class MyNet(net_cls):
+            def initialize_module(self):
+                side_effects.append(True)
+                return super().initialize_module()
+
+            def initialize_optimizer(self):
+                super().initialize_optimizer()
+                self.myoptimizer_ = torch.optim.SGD(self.module_.parameters(), lr=1)
+                return self
+
+        net = MyNet(module_cls).initialize()
+
+        # module initialized once
+        assert len(side_effects) == 1
+
+        net.set_params(optimizer__lr=123)
+        # module is not re-initialized, since virtual parameter
+        assert len(side_effects) == 1
+
+        net.set_params(myoptimizer__lr=123)
+        # module is not re-initialized, since virtual parameter
+        assert len(side_effects) == 1
+
+    def test_module_referencing_another_module_no_duplicate_params(
+            self, net_cls, module_cls
+    ):
+        # When a module references another module, it will yield that modules'
+        # parameters. Therefore, if we collect all paramters, we have to make
+        # sure that there are no duplicate parameters.
+        class MyCriterion(torch.nn.NLLLoss):
+            """Criterion that references net.module_"""
+            def __init__(self, *args, themodule, **kwargs):
                 super().__init__(*args, **kwargs)
-                self.mymodule_ = module_cls
+                self.themodule = themodule
 
-        net = MyNet(module_cls)
-        assert 'mymodule' not in net.prefixes_
-        assert 'mymodule_' not in net.prefixes_
-        assert 'mymodule_' not in net.cuda_dependent_attributes_
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                kwargs = self.get_params_for('criterion')
+                kwargs['themodule'] = self.module_
+                self.criterion_ = self.criterion(**kwargs)
+                return self
 
-    def test_setattr_no_duplicates(self, net_cls, module_cls):
+        net = MyNet(module_cls, criterion=MyCriterion).initialize()
+        params = [p for _, p in net.get_all_learnable_params()]
+        assert len(params) == len(set(params))
+
+    def test_custom_optimizer_lr_is_associated_with_optimizer(
+            self, net_cls, module_cls,
+    ):
+        # the 'lr' parameter belongs to the default optimizer, not any custom
+        # optimizer
+        class MyNet(net_cls):
+            def initialize_optimizer(self):
+                super().initialize_optimizer()
+                self.myoptimizer_ = torch.optim.SGD(self.module_.parameters(), lr=1)
+                return self
+
+        net = MyNet(module_cls, lr=123).initialize()
+        assert net.optimizer_.state_dict()['param_groups'][0]['lr'] == 123
+        assert net.myoptimizer_.state_dict()['param_groups'][0]['lr'] == 1
+
+        net.set_params(lr=456)
+        assert net.optimizer_.state_dict()['param_groups'][0]['lr'] == 456
+        assert net.myoptimizer_.state_dict()['param_groups'][0]['lr'] == 1
+
+    def test_setattr_custom_module_no_duplicates(self, net_cls, module_cls):
         # the 'module' attribute is set twice but that shouldn't lead
         # to duplicates in prefixes_ or cuda_dependent_attributes_
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.module = module_cls
+            def initialize_module(self):
+                super().initialize_module()
+                self.module_ = module_cls()  # same attribute name
+                return self
 
-        net = MyNet(module_cls)
+        net = MyNet(module_cls).initialize()
         assert net.prefixes_.count('module') == 1
         assert net.cuda_dependent_attributes_.count('module_') == 1
 
-    def test_setattr_non_torch_attribute(self, net_cls, module_cls):
+    def test_setattr_in_initialize_non_torch_attribute(self, net_cls, module_cls):
         # attributes that are not torch modules or optimizers should
         # not be registered
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
+            def initialize_module(self):
+                super().initialize_module()
                 self.num = 123
+                self.num_ = 123
+                return self
 
         net = MyNet(module_cls)
         assert 'num' not in net.prefixes_
@@ -2578,11 +2782,12 @@ class TestNeuralNet:
         assert 'mymodule' not in net.cuda_dependent_attributes_
 
         class MyNet(net_cls):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.mymodule = module_cls
+            def initialize_module(self):
+                super().initialize_module()
+                self.mymodule_ = module_cls()
+                return self
 
-        net = MyNet(module_cls)
+        net = MyNet(module_cls).initialize()
         assert 'mymodule' in net.prefixes_
         assert 'mymodule_' in net.cuda_dependent_attributes_
 
@@ -2593,15 +2798,16 @@ class TestNeuralNet:
     def net_custom_module_cls(self, net_cls, module_cls):
         class MyNet(net_cls):
             """Net with custom attribute mymodule"""
-            def __init__(self, *args, mymodule=module_cls, **kwargs):
-                self.mymodule = mymodule
+            def __init__(self, *args, custom=module_cls, **kwargs):
+                self.custom = custom
                 super().__init__(*args, **kwargs)
 
             def initialize_module(self, *args, **kwargs):
                 super().initialize_module(*args, **kwargs)
 
-                params = self.get_params_for('mymodule')
-                self.mymodule_ = self.mymodule(**params)
+                params = self.get_params_for('custom')
+                # pylint: disable=attribute-defined-outside-init
+                self.custom_ = self.custom(**params)
 
                 return self
 
@@ -2610,32 +2816,594 @@ class TestNeuralNet:
     def test_set_params_on_custom_module(self, net_custom_module_cls, module_cls):
         # set_params requires the prefixes_ attribute to be correctly
         # set, which is what is tested here
-        net = net_custom_module_cls(module_cls, mymodule__hidden_units=77).initialize()
-        hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
+        net = net_custom_module_cls(module_cls, custom__hidden_units=77).initialize()
+        hidden_units = net.custom_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 77
 
-        net.set_params(mymodule__hidden_units=99)
-        hidden_units = net.mymodule_.state_dict()['sequential.3.weight'].shape[1]
+        net.set_params(custom__hidden_units=99)
+        hidden_units = net.custom_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 99
 
     def test_save_load_state_dict_custom_module(
             self, net_custom_module_cls, module_cls, tmpdir):
-        # test that we can store and load an arbitrary attribute like 'mymodule'
+        # test that we can store and load an arbitrary attribute like 'custom'
         net = net_custom_module_cls(module_cls).initialize()
-        weights_before = net.mymodule_.state_dict()['sequential.3.weight']
-        tmpdir_mymodule = str(tmpdir.mkdir('skorch').join('mymodule.pkl'))
-        net.save_params(f_mymodule=tmpdir_mymodule)
+        weights_before = net.custom_.state_dict()['sequential.3.weight']
+        tmpdir_custom = str(tmpdir.mkdir('skorch').join('custom.pkl'))
+        net.save_params(f_custom=tmpdir_custom)
         del net
 
         # initialize a new net, weights should differ
         net_new = net_custom_module_cls(module_cls).initialize()
-        weights_new = net_new.mymodule_.state_dict()['sequential.3.weight']
+        weights_new = net_new.custom_.state_dict()['sequential.3.weight']
         assert not (weights_before == weights_new).all()
 
         # after loading, weights should be the same again
-        net_new.load_params(f_mymodule=tmpdir_mymodule)
-        weights_loaded = net_new.mymodule_.state_dict()['sequential.3.weight']
+        net_new.load_params(f_custom=tmpdir_custom)
+        weights_loaded = net_new.custom_.state_dict()['sequential.3.weight']
         assert (weights_before == weights_loaded).all()
+
+    def test_custom_module_params_passed_to_optimizer(
+            self, net_custom_module_cls, module_cls):
+        # custom module parameters should automatically be passed to the optimizer
+        net = net_custom_module_cls(module_cls).initialize()
+        optimizer = net.optimizer_
+
+        module0 = net.module_
+        module1 = net.custom_
+        num_params_optimizer = len(optimizer.param_groups[0]['params'])
+        num_params_expected = len(module0.state_dict()) + len(module1.state_dict())
+        assert num_params_optimizer == num_params_expected
+
+    def test_criterion_params_passed_to_optimizer_if_any(self, net_fit_criterion):
+        # the parameters of the criterion should be passed to the optimizer if
+        # there are any
+        optimizer = net_fit_criterion.optimizer_
+
+        num_params_module = len(net_fit_criterion.module_.state_dict())
+        num_params_criterion = len(net_fit_criterion.criterion_.state_dict())
+        num_params_optimizer = len(optimizer.param_groups[0]['params'])
+
+        assert num_params_criterion > 0
+        assert num_params_optimizer == num_params_module + num_params_criterion
+
+    def test_set_params_on_custom_module_triggers_reinit_of_criterion_and_optimizer(
+            self, net_custom_module_cls, module_cls,
+    ):
+        # When a custom module is re-initialized because of set_params, the
+        # criterion and optimizer should also be re-initialized, as with a
+        # normal module.
+        init_side_effects = []  # record initialize calls
+
+        class MyNet(net_custom_module_cls):
+            """Records initialize_* calls"""
+            def initialize_module(self):
+                super().initialize_module()
+                init_side_effects.append('module')
+                return self
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                init_side_effects.append('criterion')
+                return self
+
+            def initialize_optimizer(self):
+                super().initialize_optimizer()
+                init_side_effects.append('optimizer')
+                return self
+
+        net = MyNet(module_cls).initialize()
+
+        # just normal initialization behavior
+        assert init_side_effects == ['module', 'criterion', 'optimizer']
+
+        # still just normal behavior
+        net.set_params(module__hidden_units=123)
+        assert init_side_effects == ['module', 'criterion', 'optimizer'] * 2
+
+        # setting custom module should also re-initialize
+        net.set_params(custom__num_hidden=3)
+        assert init_side_effects == ['module', 'criterion', 'optimizer'] * 3
+
+        # setting normal and custom module should re-initialize, but only once
+        net.set_params(module__num_hidden=1, custom__dropout=0.7)
+        assert init_side_effects == ['module', 'criterion', 'optimizer'] * 4
+
+    def test_set_params_on_custom_criterion_triggers_reinit_of_optimizer(
+            self, net_cls, module_cls,
+    ):
+        # When a custom criterion is re-initialized because of set_params, the
+        # optimizer should also be re-initialized, as with a normal criterion.
+        init_side_effects = []  # record initialize calls
+
+        class MyNet(net_cls):
+            """Records initialize_* calls"""
+            def __init__(self, *args, mycriterion, **kwargs):
+                self.mycriterion = mycriterion
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self):
+                super().initialize_module()
+                init_side_effects.append('module')
+                return self
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                params = self.get_params_for('mycriterion')
+                self.mycriterion_ = self.mycriterion(**params)
+                init_side_effects.append('criterion')
+                return self
+
+            def initialize_optimizer(self):
+                super().initialize_optimizer()
+                init_side_effects.append('optimizer')
+                return self
+
+        net = MyNet(module_cls, mycriterion=nn.NLLLoss).initialize()
+
+        # just normal initialization behavior
+        assert init_side_effects == ['module'] + ['criterion', 'optimizer']
+
+        # still just normal behavior
+        net.set_params(criterion__ignore_index=123)
+        assert init_side_effects == ['module'] + ['criterion', 'optimizer'] * 2
+
+        # setting custom module should also re-initialize
+        net.set_params(mycriterion__ignore_index=456)
+        assert init_side_effects == ['module'] + ['criterion', 'optimizer'] * 3
+
+        # setting normal and custom module should re-initialize, but only once
+        net.set_params(criterion__size_average=True, mycriterion__reduce=False)
+        assert init_side_effects == ['module'] + ['criterion', 'optimizer'] * 4
+
+    def test_set_params_on_custom_module_with_default_module_params_msg(
+            self, net_cls, module_cls, capsys,
+    ):
+        # say we have module and module2, with module having some non-default
+        # params, e.g. module__num_hidden=3; when setting params on module2,
+        # that non-default value should not be given as a reason for
+        # re-initialization.
+        class MyNet(net_cls):
+            def initialize_module(self):
+                super().initialize_module()
+                self.module2_ = module_cls()
+                return self
+
+        net = MyNet(module_cls, module__hidden_units=7).initialize()
+        net.set_params(module2__num_hidden=3)
+
+        msg = capsys.readouterr()[0]
+        # msg should not be about hidden_units, since that wasn't changed, but
+        # about num_hidden
+        expected = ("Re-initializing module because the following parameters "
+                    "were re-set: module2__num_hidden.")
+        assert msg.startswith(expected)
+
+    def test_set_params_on_custom_criterion_with_default_criterion_params_msg(
+            self, net_cls, module_cls, capsys,
+    ):
+        # say we have criterion and criterion2, with criterion having some non-default
+        # params, e.g. criterion__num_hidden=3; when setting params on criterion2,
+        # that non-default value should not be given as a reason for
+        # re-initialization.
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                self.criterion2_ = module_cls()
+                return self
+
+        net = MyNet(module_cls, criterion__reduce=False).initialize()
+        net.set_params(criterion2__num_hidden=3)
+
+        msg = capsys.readouterr()[0]
+        # msg should not be about hidden_units, since that wasn't changed, but
+        # about num_hidden
+        expected = ("Re-initializing criterion because the following parameters "
+                    "were re-set: criterion2__num_hidden.")
+        assert msg.startswith(expected)
+
+    def test_modules_reinit_when_both_initialized_but_custom_module_changed(
+            self, net_cls, module_cls,
+    ):
+        # When the default module and the custom module are already initialized,
+        # initialize() should just leave them. However, when we change a
+        # parameter on the custom module, both should be re-initialized.
+        class MyNet(net_cls):
+            def __init__(self, *args, module2, **kwargs):
+                self.module2 = module2
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self):
+                super().initialize_module()
+                params = self.get_params_for('module2')
+                is_init = isinstance(self.module2, nn.Module)
+
+                if is_init and not params:
+                    # no need to initialize
+                    self.module2_ = self.module2
+                    return
+
+                if is_init:
+                    module2 = type(self.module2)
+                else:
+                    module2 = self.module2
+                self.module2_ = module2(**params)
+                return self
+
+        module = module_cls()
+        module2 = module_cls()
+
+        # all default params, hence no re-initilization
+        net = MyNet(module=module, module2=module2).initialize()
+        assert net.module_ is module
+        assert net.module2_ is module2
+
+        # module2 non default param, hence re-initilization
+        net = MyNet(module=module, module2=module2, module2__num_hidden=3).initialize()
+        assert net.module_ is module
+        assert net.module2_ is not module2
+
+    def test_criteria_reinit_when_both_initialized_but_custom_criterion_changed(
+            self, net_cls, module_cls,
+    ):
+        # When the default criterion and the custom criterion are already initialized,
+        # initialize() should just leave them. However, when we change a
+        # parameter on the custom criterion, both should be re-initialized.
+        class MyNet(net_cls):
+            def __init__(self, *args, criterion2, **kwargs):
+                self.criterion2 = criterion2
+                super().__init__(*args, **kwargs)
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                params = self.get_params_for('criterion2')
+                is_init = isinstance(self.criterion2, nn.Module)
+
+                if is_init and not params:
+                    # no need to initialize
+                    self.criterion2_ = self.criterion2
+                    return
+
+                if is_init:
+                    criterion2 = type(self.criterion2)
+                else:
+                    criterion2 = self.criterion2
+                self.criterion2_ = criterion2(**params)
+                return self
+
+        criterion = module_cls()
+        criterion2 = module_cls()
+
+        # all default params, hence no re-initilization
+        net = MyNet(module_cls, criterion=criterion, criterion2=criterion2).initialize()
+        assert net.criterion_ is criterion
+        assert net.criterion2_ is criterion2
+
+        # criterion2 non default param, hence re-initilization
+        net = MyNet(
+            module_cls,
+            criterion=criterion,
+            criterion2=criterion2,
+            criterion2__num_hidden=3,
+        ).initialize()
+        assert net.criterion_ is criterion
+        assert net.criterion2_ is not criterion2
+
+    def test_custom_module_is_init_when_default_module_already_is(
+            self, net_cls, module_cls,
+    ):
+        # Assume that the module is already initialized, which is something we
+        # allow, but the custom module isn't. After calling initialize(), the
+        # custom module should be initialized and not skipped just because the
+        # default module already was initialized.
+        class MyNet(net_cls):
+            def initialize_module(self):
+                super().initialize_module()
+                self.module2_ = module_cls()
+                return self
+
+        module = module_cls()
+        net = MyNet(module=module).initialize()  # module already initialized
+
+        assert net.module_ is module  # normal module_ not changed
+        assert hasattr(net, 'module2_')  # there is a module2_
+
+    def test_custom_criterion_is_init_when_default_criterion_already_is(
+            self, net_cls, module_cls,
+    ):
+        # Assume that the criterion is already initialized, which is something we
+        # allow, but the custom criterion isn't. After calling initialize(), the
+        # custom criterion should be initialized and not skipped just because the
+        # default criterion already was initialized.
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                self.criterion2_ = module_cls()
+                return self
+
+        criterion = module_cls()
+        # criterion already initialized
+        net = MyNet(module_cls, criterion=criterion).initialize()
+
+        assert net.criterion_ is criterion  # normal criterion_ not changed
+        assert hasattr(net, 'criterion2_')  # there is a criterion2_
+
+    def test_setting_custom_module_outside_initialize_raises(self, net_cls, module_cls):
+        from skorch.exceptions import SkorchAttributeError
+
+        # all modules should be set within an initialize method
+        class MyNet(net_cls):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.foo_ = module_cls()
+
+        msg = ("Trying to set torch compoment 'foo_' outside of an initialize method. "
+               "Consider defining it inside 'initialize_module'")
+        with pytest.raises(SkorchAttributeError, match=msg):
+            MyNet(module_cls)
+
+    def test_setting_custom_optimizer_outside_initialize_raises(
+            self, net_cls, module_cls
+    ):
+        from skorch.exceptions import SkorchAttributeError
+
+        # all optimzers should be set within an initialize method
+        class MyNet(net_cls):
+            def initialize(self):
+                super().initialize()
+                self.opti = torch.optim.Adam(self.module_.parameters())
+                return self
+
+        msg = ("Trying to set torch compoment 'opti' outside of an initialize method. "
+               "Consider defining it inside 'initialize_optimizer'")
+        with pytest.raises(SkorchAttributeError, match=msg):
+            MyNet(module_cls).initialize()
+
+    def test_setting_custom_module_without_trailing_underscore_raises(
+            self, net_cls, module_cls,
+    ):
+        from skorch.exceptions import SkorchAttributeError
+
+        # all initialized modules should end on an underscore
+        class MyNet(net_cls):
+            def initialize_module(self):
+                super().initialize_module()
+                self.mymodule = module_cls()
+                return self
+
+        msg = ("Names of initialized modules or optimizers should end "
+               "with an underscore (e.g. 'mymodule_')")
+        with pytest.raises(SkorchAttributeError, match=re.escape(msg)):
+            MyNet(module_cls).initialize()
+
+    def test_moving_custom_modules_to_device(self, net_cls):
+        # testing that custom modules and criteria are moved to the indicated
+        # device, not just the normal module/criterion; we override .to(device)
+        # here to be able to test this even without GPU
+
+        device_side_effects = []  # record module name and device
+
+        class MyModule(nn.Module):
+            """Custom module that records .to calls"""
+            def __init__(self, name):
+                super().__init__()
+                self.name = name
+                self.lin = nn.Linear(5, 5)  # module needs parameters
+
+            def to(self, device):
+                device_side_effects.append((self.name, device))
+                return self
+
+        class MyNet(net_cls):
+            """Net with custom mymodule and mycriterion"""
+            def __init__(self, *args, mymodule, mycriterion, **kwargs):
+                self.mymodule = mymodule
+                self.mycriterion = mycriterion
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self):
+                super().initialize_module()
+                params = self.get_params_for('mymodule')
+                self.mymodule_ = MyModule(**params)
+                return self
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                params = self.get_params_for('mycriterion')
+                self.mycriterion_ = MyModule(**params)
+                return self
+
+        MyNet(
+            module=MyModule,
+            module__name='module-normal',
+            mymodule=MyModule,
+            mymodule__name='module-custom',
+
+            criterion=MyModule,
+            criterion__name='criterion-normal',
+            mycriterion=MyModule,
+            mycriterion__name='criterion-custom',
+
+            device='foo',
+        ).initialize()
+
+        expected = [('module-normal', 'foo'), ('module-custom', 'foo'),
+                    ('criterion-normal', 'foo'), ('criterion-custom', 'foo')]
+        assert device_side_effects == expected
+
+    def test_set_params_on_custom_module_preserves_its_device(self, net_cls):
+        # when a custom module or criterion is re-created because of set_params,
+        # it should be moved to the indicated device
+        class MyNet(net_cls):
+            """Net with custom module and criterion"""
+            def __init__(self, *args, mymodule, mycriterion, **kwargs):
+                self.mymodule = mymodule
+                self.mycriterion = mycriterion
+                super().__init__(*args, **kwargs)
+
+            def initialize_module(self):
+                super().initialize_module()
+                params = self.get_params_for('mymodule')
+                self.mymodule_ = self.mymodule(**params)
+                return self
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                params = self.get_params_for('mycriterion')
+                self.mycriterion_ = self.mycriterion(**params)
+                return self
+
+        class MyModule(nn.Module):
+            """Custom module to test device even without GPU"""
+            def __init__(self, x=1):
+                super().__init__()
+                self.lin = nn.Linear(x, 1)  # modules need parameters
+                self.device = 'cpu'
+
+            def to(self, device):
+                self.device = device
+                return self
+
+        # first normal CPU
+        net = MyNet(
+            module=MyModule,
+            mymodule=MyModule,
+            criterion=MyModule,
+            mycriterion=MyModule,
+        ).initialize()
+        assert net.mymodule_.device == 'cpu'
+        assert net.mycriterion_.device == 'cpu'
+
+        # now try other device
+        net = MyNet(
+            module=MyModule,
+            mymodule=MyModule,
+            device='foo',
+            criterion=MyModule,
+            mycriterion=MyModule,
+        ).initialize()
+        assert net.mymodule_.device == 'foo'
+        assert net.mycriterion_.device == 'foo'
+
+        net.set_params(mymodule__x=3)
+        assert net.mymodule_.device == 'foo'
+        assert net.mycriterion_.device == 'foo'
+
+    def test_custom_modules_and_criteria_training_mode_set_correctly(
+            self, net_cls, module_cls, data,
+    ):
+        # custom modules and criteria should be set to training/eval mode
+        # correctly depending on the stage of training/validation/inference
+        from skorch.callbacks import Callback
+
+        class MyNet(net_cls):
+            """Net with custom mymodule and mycriterion"""
+            def initialize_module(self):
+                super().initialize_module()
+                self.mymodule_ = module_cls()
+                return self
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                self.mycriterion_ = module_cls()
+                return self
+
+            def evaluation_step(self, batch, training=False):
+                y_pred = super().evaluation_step(batch, training=training)
+                assert_net_training_mode(self, training=training)
+                return y_pred
+
+            def on_batch_end(self, net, batch, training, **kwargs):
+                assert_net_training_mode(net, training=training)
+
+        def assert_net_training_mode(net, training=True):
+            if training:
+                check = lambda module: module.training is True
+            else:
+                check = lambda module: module.training is False
+            assert check(net.module_)
+            assert check(net.mymodule_)
+            assert check(net.criterion_)
+            assert check(net.mycriterion_)
+
+        X, y = data
+        net = MyNet(module_cls, max_epochs=1)
+        net.fit(X, y)
+        net.predict(X)
+
+    def test_custom_optimizer_performs_updates(self, net_cls, module_cls, data):
+        # make sure that updates are actually performed by a custom optimizer
+        from skorch.utils import to_tensor
+
+        # custom optimizers should actually perform updates
+        # pylint: disable=attribute-defined-outside-init
+        class MyNet(net_cls):
+            """A net with 2 modules with their respective optimizers"""
+            def initialize_module(self):
+                super().initialize_module()
+                self.module2_ = module_cls()
+                return self
+
+            def initialize_optimizer(self):
+                self.optimizer_ = self.optimizer(self.module_.parameters(), self.lr)
+                self.optimizer2_ = self.optimizer(self.module2_.parameters(), self.lr)
+                return self
+
+            def infer(self, x, **fit_params):
+                # prediction is just mean of the two modules
+                x = to_tensor(x, device=self.device)
+                return 0.5 * (self.module_(x) + self.module2_(x))
+
+        net = MyNet(module_cls, max_epochs=1, lr=0.5).initialize()
+        params1_before = copy.deepcopy(list(net.module_.parameters()))
+        params2_before = copy.deepcopy(list(net.module2_.parameters()))
+
+        net.partial_fit(*data)
+        params1_after = list(net.module_.parameters())
+        params2_after = list(net.module2_.parameters())
+
+        assert not any(
+            (p_b == p_a).all() for p_b, p_a in zip(params1_before, params1_after))
+        assert not any(
+            (p_b == p_a).all() for p_b, p_a in zip(params2_before, params2_after))
+
+    def test_optimizer_initialized_after_module_moved_to_device(self, net_cls):
+        # it is recommended to initialize the optimizer with the module params
+        # _after_ the module has been moved to its device, see:
+        # https://discuss.pytorch.org/t/effect-of-calling-model-cuda-after-constructing-an-optimizer/15165/6
+
+        side_effects = []  # record module name and device
+
+        class MyModule(nn.Module):
+            """Custom module that records .to calls"""
+            def __init__(self, x=1):
+                super().__init__()
+                self.lin = nn.Linear(x, 1)  # module needs parameters
+
+            def to(self, device):
+                side_effects.append('moved-to-device')
+                return self
+
+        class MyOptimizer(torch.optim.SGD):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                side_effects.append('optimizer-init')
+
+        net = net_cls(
+            module=MyModule,
+            criterion=MyModule,
+            optimizer=MyOptimizer,
+        ).initialize()
+
+        # first move module and criterion to device, then initialize optimizer
+        expected = ['moved-to-device', 'moved-to-device', 'optimizer-init']
+        assert side_effects == expected
+
+        net.set_params(module__x=2)
+        # after set_params on module, re-initialization and moving of device
+        # should happen again, with the same order as before
+        expected = ['moved-to-device', 'moved-to-device', 'optimizer-init'] * 2
+        assert side_effects == expected
 
     @pytest.mark.parametrize("needs_y, train_split, raises", [
         (False, None, ExitStack()),  # ExitStack = does not raise
@@ -2745,7 +3513,8 @@ class TestNeuralNet:
         ).initialize()
 
         rv = np.random.random((20, 5))
-        net.forward_iter = lambda *args, **kwargs: (torch.as_tensor(rv) for _ in range(2))
+        net.forward_iter = (
+            lambda *args, **kwargs: (torch.as_tensor(rv) for _ in range(2)))
 
         # 2 batches, mock return value has shape 20,5 thus y_proba has
         # shape 40,5
@@ -2764,6 +3533,82 @@ class TestNeuralNet:
 
         with pytest.raises(TypeError, match=msg):
             net.predict_proba(np.zeros((3, 3)))
+
+    def test_customize_net_with_custom_dataset_that_returns_3_values(self, data):
+        # Test if it's possible to easily customize NeuralNet to work
+        # with Datasets that don't return 2 values. This way, a user
+        # can more easily customize the net and use his or her own
+        # datasets.
+        from skorch import NeuralNet
+        from skorch.utils import to_tensor
+
+        class MyDataset(torch.utils.data.Dataset):
+            """Returns 3 elements instead of 2"""
+            def __init__(self, X, y):
+                self.X = X
+                self.y = y
+
+            def __getitem__(self, i):
+                x = self.X[i]
+                if self.y is None:
+                    return x[:5], x[5:]
+                y = self.y[i]
+                return x[:5], x[5:], y
+
+            def __len__(self):
+                return len(self.X)
+
+        class MyModule(nn.Module):
+            """Module that takes 2 inputs"""
+            def __init__(self):
+                super().__init__()
+                self.lin = nn.Linear(20, 2)
+
+            def forward(self, x0, x1):
+                x = torch.cat((x0, x1), axis=1)
+                return self.lin(x)
+
+        class MyNet(NeuralNet):
+            """Override train_step_single and validation_step"""
+            def train_step_single(self, batch, **fit_params):
+                self.module_.train()
+                x0, x1, yi = batch
+                x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
+                y_pred = self.module_(x0, x1)
+                loss = self.criterion_(y_pred, yi)
+                loss.backward()
+                return {'loss': loss, 'y_pred': y_pred}
+
+            def validation_step(self, batch, **fit_params):
+                self.module_.eval()
+                x0, x1, yi = batch
+                x0, x1, yi = to_tensor((x0, x1, yi), device=self.device)
+                y_pred = self.module_(x0, x1)
+                loss = self.criterion_(y_pred, yi)
+                return {'loss': loss, 'y_pred': y_pred}
+
+            def evaluation_step(self, batch, training=False):
+                self.check_is_fitted()
+                x0, x1 = batch
+                x0, x1 = to_tensor((x0, x1), device=self.device)
+                with torch.set_grad_enabled(training):
+                    self.module_.train(training)
+                    return self.module_(x0, x1)
+
+        net = MyNet(
+            MyModule,
+            lr=0.1,
+            dataset=MyDataset,
+            criterion=nn.CrossEntropyLoss,
+        )
+        X, y = data[0][:100], data[1][:100]
+        net.fit(X, y)
+
+        # net learns
+        assert net.history[-1, 'train_loss'] < 0.75 * net.history[0, 'train_loss']
+
+        y_pred = net.predict(X)
+        assert y_pred.shape == (100, 2)
 
 
 class TestNetSparseInput:

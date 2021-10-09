@@ -1,8 +1,16 @@
-"""Neural net classes."""
+"""Neural net base class
+
+This is the most flexible class, not making assumptions on the kind of
+task being peformed. Subclass this to create more specialized and
+sklearn-conforming classes like NeuralNetClassifier.
+
+"""
 
 import fnmatch
+from functools import partial
 from itertools import chain
 from collections import OrderedDict
+from contextlib import contextmanager
 import tempfile
 import warnings
 
@@ -14,12 +22,13 @@ from torch.utils.data import DataLoader
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
 from skorch.callbacks import PassthroughScoring
+from skorch.callbacks.base import _issue_warning_if_on_batch_override
 from skorch.dataset import Dataset
 from skorch.dataset import CVSplit
 from skorch.dataset import get_len
 from skorch.dataset import unpack_data
-from skorch.dataset import uses_placeholder_y
 from skorch.exceptions import DeviceWarning
+from skorch.exceptions import SkorchAttributeError
 from skorch.history import History
 from skorch.setter import optimizer_setter
 from skorch.utils import _identity
@@ -35,16 +44,6 @@ from skorch.utils import params_for
 from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-
-
-_PYTORCH_COMPONENTS = {'criterion', 'module', 'optimizer'}
-"""Special names that mark pytorch components.
-
-These special names are used to recognize whether an attribute that is
-being set in the net should be added to prefixes_ and
-cuda_dependent_attributes_
-
-"""
 
 
 # pylint: disable=too-many-instance-attributes
@@ -237,11 +236,33 @@ class NeuralNet:
       The complete (i.e. default and other), initialized callbacks, in
       a tuple with unique names.
 
-    """
-    prefixes_ = ['module', 'iterator_train', 'iterator_valid', 'optimizer',
-                 'criterion', 'callbacks', 'dataset']
+    _modules : list of str
+      List of names of all modules that are torch modules. This list is
+      collected dynamically when the net is initialized. Typically, there is no
+      reason for a user to modify this list.
 
-    cuda_dependent_attributes_ = ['module_', 'optimizer_', 'criterion_']
+    _criteria : list of str
+      List of names of all criteria that are torch modules. This list is
+      collected dynamically when the net is initialized. Typically, there is no
+      reason for a user to modify this list.
+
+    _optimizers : list of str
+      List of names of all optimizers. This list is collected dynamically when
+      the net is initialized. Typically, there is no reason for a user to modify
+      this list.
+
+    """
+    prefixes_ = ['iterator_train', 'iterator_valid', 'callbacks', 'dataset']
+
+    cuda_dependent_attributes_ = []
+
+    # This attribute keeps track of which initialization method is being used.
+    # It should not be changed manually.
+    init_context_ = None
+
+    _modules = []
+    _criteria = []
+    _optimizers = []
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -284,7 +305,7 @@ class NeuralNet:
         initialized = kwargs.pop('initialized_', False)
         virtual_params = kwargs.pop('virtual_params_', dict())
 
-        kwargs = self._check_kwargs(kwargs)
+        self._kwargs = kwargs
         vars(self).update(kwargs)
 
         self.history_ = history
@@ -329,43 +350,40 @@ class NeuralNet:
         * on_batch_end
 
         """
+        # TODO: remove after some deprecation period, e.g. skorch 0.12
+        if not self.history:  # perform check only at the start
+            _issue_warning_if_on_batch_override(self.callbacks_)
+
         getattr(self, method_name)(self, **cb_kwargs)
         for _, cb in self.callbacks_:
             getattr(cb, method_name)(self, **cb_kwargs)
 
     # pylint: disable=unused-argument
-    def on_train_begin(self, net,
-                       X=None, y=None, **kwargs):
+    def on_train_begin(self, net, X=None, y=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_train_end(self, net,
-                     X=None, y=None, **kwargs):
+    def on_train_end(self, net, X=None, y=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_epoch_begin(self, net,
-                       dataset_train=None, dataset_valid=None, **kwargs):
+    def on_epoch_begin(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         self.history.new_epoch()
         self.history.record('epoch', len(self.history))
 
     # pylint: disable=unused-argument
-    def on_epoch_end(self, net,
-                     dataset_train=None, dataset_valid=None, **kwargs):
+    def on_epoch_end(self, net, dataset_train=None, dataset_valid=None, **kwargs):
         pass
 
     # pylint: disable=unused-argument
-    def on_batch_begin(self, net,
-                       Xi=None, yi=None, training=False, **kwargs):
+    def on_batch_begin(self, net, batch=None, training=False, **kwargs):
         self.history.new_batch()
 
-    def on_batch_end(self, net,
-                     Xi=None, yi=None, training=False, **kwargs):
+    def on_batch_end(self, net, batch=None, training=False, **kwargs):
         pass
 
-    def on_grad_computed(self, net, named_parameters,
-                         Xi=None, yi=None,
-                         training=False, **kwargs):
+    def on_grad_computed(
+            self, net, named_parameters, batch=None, training=False, **kwargs):
         pass
 
     def _yield_callbacks(self):
@@ -377,6 +395,18 @@ class NeuralNet:
           * callbacks with and without name
           * initialized and uninitialized callbacks
           * puts PrintLog(s) last
+
+        Yields
+        ------
+        name : str
+          Name of the callback.
+
+        cb : Callback or Callback instance
+          The callback itself
+
+        named_by_user : bool
+          Whether the name was given by the user or determined
+          automatically.
 
         """
         print_logs = []
@@ -444,10 +474,6 @@ class NeuralNet:
         not unique, a ValueError is raised.
 
         """
-        if self.callbacks == "disable":
-            self.callbacks_ = []
-            return self
-
         callbacks_ = []
 
         class Dummy:
@@ -477,57 +503,70 @@ class NeuralNet:
             cb.initialize()
             callbacks_.append((name, cb))
 
+        # pylint: disable=attribute-defined-outside-init
         self.callbacks_ = callbacks_
-
         return self
 
-    def initialize_criterion(self):
-        """Initializes the criterion."""
-        criterion_params = self.get_params_for('criterion')
-        self.criterion_ = self.criterion(**criterion_params)
-        if isinstance(self.criterion_, torch.nn.Module):
-            self.criterion_ = to_device(self.criterion_, self.device)
-        return self
+    def initialized_instance(self, instance_or_cls, kwargs):
+        """Return an instance initiliazed with the given parameters
 
-    def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
-        """Returns a message that informs about re-initializing a compoment.
+        This is a helper method that deals with several possibilities for a
+        component that might need to be initialized:
 
-        Sometimes, the module or optimizer need to be
-        re-initialized. Not only should the user receive a message
-        about this but also should they be informed about what
-        parameters, if any, caused it.
+        * It is already an instance that's good to go
+        * It is an instance but it needs to be re-initialized
+        * It's not an instance and needs to be initialized
+
+        For the majority of use cases, this comes down to just comes down to
+        just initializing the class with its arguments.
+
+        Parameters
+        ----------
+        instance_or_cls
+          The instance or class or callable to be initialized, e.g.
+          ``self.module``.
+
+        kwargs : dict
+          The keyword arguments to initialize the instance or class. Can be an
+          empty dict.
+
+        Returns
+        -------
+        instance
+          The initialized component.
 
         """
-        msg = "Re-initializing {}".format(name)
-        if triggered_directly and kwargs:
-            msg += (" because the following parameters were re-set: {}."
-                    .format(', '.join(sorted(kwargs))))
-        else:
-            msg += "."
-        return msg
+        is_init = isinstance(instance_or_cls, torch.nn.Module)
+        if is_init and not kwargs:
+            return instance_or_cls
+        if is_init:
+            return type(instance_or_cls)(**kwargs)
+        return instance_or_cls(**kwargs)
+
+    def initialize_criterion(self):
+        """Initializes the criterion.
+
+        If the criterion is already initialized and no parameter was changed, it
+        will be left as is.
+
+        """
+        kwargs = self.get_params_for('criterion')
+        criterion = self.initialized_instance(self.criterion, kwargs)
+        # pylint: disable=attribute-defined-outside-init
+        self.criterion_ = criterion
+        return self
 
     def initialize_module(self):
         """Initializes the module.
 
-        Note that if the module has learned parameters, those will be
-        reset.
+        If the module is already initialized and no parameter was changed, it
+        will be left as is.
 
         """
         kwargs = self.get_params_for('module')
-        module = self.module
-        is_initialized = isinstance(module, torch.nn.Module)
-
-        if kwargs or not is_initialized:
-            if is_initialized:
-                module = type(module)
-
-            if (is_initialized or self.initialized_) and self.verbose:
-                msg = self._format_reinit_msg("module", kwargs)
-                print(msg)
-
-            module = module(**kwargs)
-
-        self.module_ = to_device(module, self.device)
+        module = self.initialized_instance(self.module, kwargs)
+        # pylint: disable=attribute-defined-outside-init
+        self.module_ = module
         return self
 
     def _is_virtual_param(self, key):
@@ -552,54 +591,234 @@ class NeuralNet:
     def initialize_virtual_params(self):
         self.virtual_params_ = {}
 
-    def initialize_optimizer(self, triggered_directly=True):
+    def initialize_optimizer(self, triggered_directly=None):
         """Initialize the model optimizer. If ``self.optimizer__lr``
         is not set, use ``self.lr`` instead.
 
         Parameters
         ----------
-        triggered_directly : bool (default=True)
-          Only relevant when optimizer is re-initialized.
-          Initialization of the optimizer can be triggered directly
-          (e.g. when lr was changed) or indirectly (e.g. when the
-          module was re-initialized). If and only if the former
-          happens, the user should receive a message informing them
-          about the parameters that caused the re-initialization.
+        triggered_directly
+          Deprecated, don't use it anymore.
 
         """
+        # handle deprecated paramter
+        if triggered_directly is not None:
+            warnings.warn(
+                "The 'triggered_directly' argument to 'initialize_optimizer' is "
+                "deprecated, please don't use it anymore.", DeprecationWarning)
+
+        named_parameters = self.get_all_learnable_params()
         args, kwargs = self.get_params_for_optimizer(
-            'optimizer', self.module_.named_parameters())
+            'optimizer', named_parameters)
 
-        if self.initialized_ and self.verbose:
-            msg = self._format_reinit_msg(
-                "optimizer", kwargs, triggered_directly=triggered_directly)
-            print(msg)
-
-        if 'lr' not in kwargs:
-            kwargs['lr'] = self.lr
-
+        # pylint: disable=attribute-defined-outside-init
         self.optimizer_ = self.optimizer(*args, **kwargs)
-
-        self._register_virtual_param(
-            ['optimizer__param_groups__*__*', 'optimizer__*', 'lr'],
-            optimizer_setter,
-        )
+        return self
 
     def initialize_history(self):
         """Initializes the history."""
         self.history_ = History()
+        return self
 
-    def initialize(self):
-        """Initializes all components of the :class:`.NeuralNet` and
-        returns self.
+    def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
+        """Returns a message that informs about re-initializing a compoment.
+
+        Sometimes, the module or optimizer need to be
+        re-initialized. Not only should the user receive a message
+        about this but also should they be informed about what
+        parameters, if any, caused it.
 
         """
-        self.initialize_virtual_params()
-        self.initialize_callbacks()
-        self.initialize_criterion()
-        self.initialize_module()
-        self.initialize_optimizer()
-        self.initialize_history()
+        msg = "Re-initializing {}".format(name)
+        if triggered_directly and kwargs:
+            msg += (" because the following parameters were re-set: {}"
+                    .format(', '.join(sorted(kwargs))))
+        msg += "."
+        return msg
+
+    @contextmanager
+    def _current_init_context(self, name):
+        try:
+            self.init_context_ = name
+            yield
+        finally:
+            self.init_context_ = None
+
+    def _initialize_virtual_params(self):
+        # this init context is for consistency and not being used at the moment
+        with self._current_init_context('virtual_params'):
+            self.initialize_virtual_params()
+            return self
+
+    def _initialize_callbacks(self):
+        # this init context is for consistency and not being used at the moment
+        with self._current_init_context('callbacks'):
+            if self.callbacks == "disable":
+                self.callbacks_ = []
+                return self
+            self.initialize_callbacks()
+            return self
+
+    def _initialize_criterion(self, reason=None):
+        # _initialize_criterion and _initialize_module share the same logic
+        with self._current_init_context('criterion'):
+            kwargs = {}
+            for criterion_name in self._criteria:
+                kwargs.update(self.get_params_for(criterion_name))
+
+            has_init_criterion = any(
+                isinstance(getattr(self, criterion_name + '_', None), torch.nn.Module)
+                for criterion_name in self._criteria)
+
+            # check if a re-init message is required
+            if kwargs or reason or has_init_criterion:
+                if self.initialized_ and self.verbose:
+                    if reason:
+                        # re-initialization was triggered indirectly
+                        msg = reason
+                    else:
+                        # re-initialization was triggered directly
+                        msg = self._format_reinit_msg("criterion", kwargs)
+                    print(msg)
+
+            self.initialize_criterion()
+
+            # deal with device
+            for name in self._criteria:
+                criterion = getattr(self, name + '_')
+                if isinstance(criterion, torch.nn.Module):
+                    setattr(self, name + '_', to_device(criterion, self.device))
+
+            return self
+
+    def _initialize_module(self, reason=None):
+        # _initialize_criterion and _initialize_module share the same logic
+        with self._current_init_context('module'):
+            kwargs = {}
+            for module_name in self._modules:
+                kwargs.update(self.get_params_for(module_name))
+
+            has_init_module = any(
+                isinstance(getattr(self, module_name + '_', None), torch.nn.Module)
+                for module_name in self._modules)
+
+            if kwargs or reason or has_init_module:
+                if self.initialized_ and self.verbose:
+                    if reason:
+                        # re-initialization was triggered indirectly
+                        msg = reason
+                    else:
+                        # re-initialization was triggered directly
+                        msg = self._format_reinit_msg("module", kwargs)
+                    print(msg)
+
+            self.initialize_module()
+
+            # deal with device
+            for name in self._modules:
+                module = getattr(self, name + '_')
+                if isinstance(module, torch.nn.Module):
+                    setattr(self, name + '_', to_device(module, self.device))
+
+            return self
+
+    def get_all_learnable_params(self):
+        """Yield the learnable parameters of all modules
+
+        Typically, this will yield the ``named_parameters`` of the standard
+        module of the net. However, if you add custom modules or if your
+        criterion has learnable parameters, these are returned as well.
+
+        If you want your optimizer to only update the parameters of some but not
+        all modules, you should override :meth:`.initialize_module` and match
+        the corresponding modules and optimizers there:
+
+        .. code:: python
+
+            class MyNet(NeuralNet):
+
+                def initialize_optimizer(self, *args, **kwargs):
+                    # first initialize the normal optimizer
+                    named_params = self.module_.named_parameters()
+                    args, kwargs = self.get_params_for_optimizer('optimizer', named_params)
+                    self.optimizer_ = self.optimizer(*args, **kwargs)
+
+                    # next add an another optimizer called 'optimizer2_' that is
+                    # only responsible for training 'module2_'
+                    named_params = self.module2_.named_parameters()
+                    args, kwargs = self.get_params_for_optimizer('optimizer2', named_params)
+                    self.optimizer2_ = torch.optim.SGD(*args, **kwargs)
+                    return self
+
+        Yields
+        ------
+        named_parameters : generator of parameter name and parameter
+          A generator over all module parameters, yielding both the name of the
+          parameter as well as the parameter itself. Use this, for instance, to
+          pass the named parameters to :meth:`.get_params_for_optimizer`.
+
+        """
+        # Note: we have to filter out potential duplicate parameters. This can
+        # happen when a module references another module (e.g. the criterion
+        # references the module), thus yielding that module's parameters again.
+        # The parameter name can be difference, therefore we check only the
+        # identity of the parameter itself.
+        seen = set()
+        for name in self._modules + self._criteria:
+            module = getattr(self, name + '_')
+            named_parameters = getattr(module, 'named_parameters', None)
+            if not named_parameters:
+                continue
+
+            for param_name, param in named_parameters():
+                if param in seen:
+                    continue
+
+                seen.add(param)
+                yield param_name, param
+
+    def _initialize_optimizer(self, reason=None):
+        with self._current_init_context('optimizer'):
+            if self.initialized_ and self.verbose:
+                if reason:
+                    # re-initialization was triggered indirectly
+                    msg = reason
+                else:
+                    # re-initialization was triggered directly
+                    msg = self._format_reinit_msg("optimizer", triggered_directly=False)
+                print(msg)
+
+            self.initialize_optimizer()
+
+            # register the virtual params for all optimizers
+            for name in self._optimizers:
+                param_pattern = [name + '__param_groups__*__*', name + '__*']
+                if name == 'optimizer':  # 'lr' is short for optimizer__lr
+                    param_pattern.append('lr')
+                setter = partial(
+                    optimizer_setter,
+                    optimizer_attr=name + '_',
+                    optimizer_name=name,
+                )
+                self._register_virtual_param(param_pattern, setter)
+            return self
+
+    def _initialize_history(self):
+        # this init context is for consistency and not being used at the moment
+        with self._current_init_context('history'):
+            self.initialize_history()
+            return self
+
+    def initialize(self):
+        """Initializes all of its components and returns self."""
+        self._initialize_virtual_params()
+        self._initialize_callbacks()
+        self._initialize_module()
+        self._initialize_criterion()
+        self._initialize_optimizer()
+        self._initialize_history()
+
+        self._check_kwargs(self._kwargs)
 
         self.initialized_ = True
         return self
@@ -607,7 +826,22 @@ class NeuralNet:
     def check_data(self, X, y=None):
         pass
 
-    def validation_step(self, Xi, yi, **fit_params):
+    def _set_training(self, training=True):
+        """Set training/evaluation mode on all modules and criteria that are torch
+        Modules.
+
+        Parameters
+        ----------
+        training : bool (default=True)
+          Whether to set to training mode (True) or evaluation mode (False).
+
+        """
+        for module_name in self._modules + self._criteria:
+            module = getattr(self, module_name + '_')
+            if isinstance(module, torch.nn.Module):
+                module.train(training)
+
+    def validation_step(self, batch, **fit_params):
         """Perform a forward step using batched data and return the
         resulting loss.
 
@@ -616,27 +850,25 @@ class NeuralNet:
 
         Parameters
         ----------
-        Xi : input data
-          A batch of the input data.
-
-        yi : target data
-          A batch of the target data.
+        batch
+          A single batch returned by the data loader.
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
           the module and to the ``self.train_split`` call.
 
         """
-        self.module_.eval()
+        self._set_training(False)
+        Xi, yi = unpack_data(batch)
         with torch.no_grad():
             y_pred = self.infer(Xi, **fit_params)
             loss = self.get_loss(y_pred, yi, X=Xi, training=False)
         return {
             'loss': loss,
             'y_pred': y_pred,
-            }
+        }
 
-    def train_step_single(self, Xi, yi, **fit_params):
+    def train_step_single(self, batch, **fit_params):
         """Compute y_pred, loss value, and update net's gradients.
 
         The module is set to be in train mode (e.g. dropout is
@@ -644,33 +876,30 @@ class NeuralNet:
 
         Parameters
         ----------
-        Xi : input data
-          A batch of the input data.
-
-        yi : target data
-          A batch of the target data.
+        batch
+          A single batch returned by the data loader.
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
           the module and to the ``self.train_split`` call.
 
+        Returns
+        -------
+        step : dict
+          A dictionary ``{'loss': loss, 'y_pred': y_pred}``, where the
+          float ``loss`` is the result of the loss function and
+          ``y_pred`` the prediction generated by the PyTorch module.
+
         """
-        self.module_.train()
+        self._set_training(True)
+        Xi, yi = unpack_data(batch)
         y_pred = self.infer(Xi, **fit_params)
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
-
-        self.notify(
-            'on_grad_computed',
-            named_parameters=TeeGenerator(self.module_.named_parameters()),
-            X=Xi,
-            y=yi
-        )
-
         return {
             'loss': loss,
             'y_pred': y_pred,
-            }
+        }
 
     def get_train_step_accumulator(self):
         """Return the train step accumulator.
@@ -688,7 +917,52 @@ class NeuralNet:
         """
         return FirstStepAccumulator()
 
-    def train_step(self, Xi, yi, **fit_params):
+    def _zero_grad_optimizer(self, set_to_none=None):
+        """Zero out the gradient of all optimizers.
+
+        Parameters
+        ----------
+        set_to_none : bool or None (default=None)
+          Whether to zero out gradients (default) or to set them to None by
+          passing True. Note that since this option is only available starting
+          from PyTorch 1.7, it is ignored by default (i.e. when its value is
+          None). For skorch to pass this value to the ``zero_grad`` call,
+          override this method and set the value to True or False.
+
+          The advantages and disadvantages of setting this value to True are
+          discussed here:
+
+          https://pytorch.org/docs/stable/optim.html#torch.optim.Optimizer.zero_grad
+
+        """
+        for name in self._optimizers:
+            optimizer = getattr(self, name + '_')
+            if set_to_none is None:
+                optimizer.zero_grad()
+            else:
+                optimizer.zero_grad(set_to_none=set_to_none)
+
+    def _step_optimizer(self, step_fn):
+        """Perform a ``step`` call on all optimizers.
+
+        Parameters
+        ----------
+        step_fn : callable or None
+          If None, just call ``optimizer.step()`` without arguments. Else, this
+          will be passed as the training step closure to the optimizer(s). Note
+          that this could lead to the function being called multiple times. If
+          more fine-grained control is desired instead, please override the
+          :meth:`.train_step` method.
+
+        """
+        for name in self._optimizers:
+            optimizer = getattr(self, name + '_')
+            if step_fn is None:
+                optimizer.step()
+            else:
+                optimizer.step(step_fn)
+
+    def train_step(self, batch, **fit_params):
         """Prepares a loss function callable and pass it to the optimizer,
         hence performing one optimization step.
 
@@ -701,40 +975,64 @@ class NeuralNet:
 
         Parameters
         ----------
-        Xi : input data
-          A batch of the input data.
-
-        yi : target data
-          A batch of the target data.
+        batch
+          A single batch returned by the data loader.
 
         **fit_params : dict
           Additional parameters passed to the ``forward`` method of
           the module and to the train_split call.
 
+        Returns
+        -------
+        step : dict
+          A dictionary ``{'loss': loss, 'y_pred': y_pred}``, where the
+          float ``loss`` is the result of the loss function and
+          ``y_pred`` the prediction generated by the PyTorch module.
+
         """
         step_accumulator = self.get_train_step_accumulator()
 
         def step_fn():
-            self.optimizer_.zero_grad()
-            step = self.train_step_single(Xi, yi, **fit_params)
+            self._zero_grad_optimizer()
+            step = self.train_step_single(batch, **fit_params)
             step_accumulator.store_step(step)
+
+            self.notify(
+                'on_grad_computed',
+                named_parameters=TeeGenerator(self.get_all_learnable_params()),
+                batch=batch,
+            )
             return step['loss']
 
-        self.optimizer_.step(step_fn)
+        self._step_optimizer(step_fn)
         return step_accumulator.get_step()
 
-    def evaluation_step(self, Xi, training=False):
+    def evaluation_step(self, batch, training=False):
         """Perform a forward step to produce the output used for
         prediction and scoring.
 
-        Therefore the module is set to evaluation mode by default
+        Therefore, the module is set to evaluation mode by default
         beforehand which can be overridden to re-enable features
         like dropout by setting ``training=True``.
 
+        Parameters
+        ----------
+        batch
+          A single batch returned by the data loader.
+
+        training : bool (default=False)
+          Whether to set the module to train mode or not.
+
+        Returns
+        -------
+        y_infer
+          The prediction generated by the module.
+
         """
         self.check_is_fitted()
+        Xi, _ = unpack_data(batch)
         with torch.set_grad_enabled(training):
-            self.module_.train(training)
+            self._set_training(training)
             return self.infer(Xi)
 
     def fit_loop(self, X, y=None, epochs=None, **fit_params):
@@ -789,9 +1087,8 @@ class NeuralNet:
             self.run_single_epoch(dataset_train, training=True, prefix="train",
                                   step_fn=self.train_step, **fit_params)
 
-            if dataset_valid is not None:
-                self.run_single_epoch(dataset_valid, training=False, prefix="valid",
-                                      step_fn=self.validation_step, **fit_params)
+            self.run_single_epoch(dataset_valid, training=False, prefix="valid",
+                                  step_fn=self.validation_step, **fit_params)
 
             self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
@@ -801,32 +1098,33 @@ class NeuralNet:
 
         Parameters
         ----------
-        dataset : torch Dataset
-            The initialized dataset to loop over.
+        dataset : torch Dataset or None
+          The initialized dataset to loop over. If None, skip this step.
 
         training : bool
-            Whether to set the module to train mode or not.
+          Whether to set the module to train mode or not.
 
         prefix : str
-            Prefix to use when saving to the history.
+          Prefix to use when saving to the history.
 
         step_fn : callable
-            Function to call for each batch.
+          Function to call for each batch.
 
         **fit_params : dict
-            Additional parameters passed to the ``step_fn``.
+          Additional parameters passed to the ``step_fn``.
         """
-        is_placeholder_y = uses_placeholder_y(dataset)
+        if dataset is None:
+            return
 
         batch_count = 0
-        for data in self.get_iterator(dataset, training=training):
-            Xi, yi = unpack_data(data)
-            yi_res = yi if not is_placeholder_y else None
-            self.notify("on_batch_begin", X=Xi, y=yi_res, training=training)
-            step = step_fn(Xi, yi, **fit_params)
+        for batch in self.get_iterator(dataset, training=training):
+            self.notify("on_batch_begin", batch=batch, training=training)
+            step = step_fn(batch, **fit_params)
             self.history.record_batch(prefix + "_loss", step["loss"].item())
-            self.history.record_batch(prefix + "_batch_size", get_len(Xi))
-            self.notify("on_batch_end", X=Xi, y=yi_res, training=training, **step)
+            batch_size = (get_len(batch[0]) if isinstance(batch, (tuple, list))
+                          else get_len(batch))
+            self.history.record_batch(prefix + "_batch_size", batch_size)
+            self.notify("on_batch_end", batch=batch, training=training, **step)
             batch_count += 1
 
         self.history.record(prefix + "_batch_count", batch_count)
@@ -977,9 +1275,8 @@ class NeuralNet:
         """
         dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
-        for data in iterator:
-            Xi = unpack_data(data)[0]
-            yp = self.evaluation_step(Xi, training=training)
+        for batch in iterator:
+            yp = self.evaluation_step(batch, training=training)
             yield to_device(yp, device=device)
 
     def forward(self, X, training=False, device='cpu'):
@@ -1203,10 +1500,6 @@ class NeuralNet:
 
         """
         y_true = to_tensor(y_true, device=self.device)
-
-        if isinstance(self.criterion_, torch.nn.Module):
-            self.criterion_.train(training)
-
         return self.criterion_(y_pred, y_true)
 
     def get_dataset(self, X, y=None):
@@ -1413,6 +1706,11 @@ class NeuralNet:
             pgroups.append({'params': [p for _, p in params]})
 
         args = (pgroups,)
+
+        # 'lr' is an optimizer param that can be set without the 'optimizer__'
+        # prefix because it's so common
+        if 'lr' not in kwargs:
+            kwargs['lr'] = self.lr
         return args, kwargs
 
     def get_params_for_optimizer(self, prefix, named_parameters):
@@ -1507,7 +1805,10 @@ class NeuralNet:
         # special treatment.
         params_cb = self._get_params_callbacks(deep=deep)
         params.update(params_cb)
-        return params
+
+        # don't include the following attributes
+        to_exclude = {'_modules', '_criteria', '_optimizers'}
+        return {key: val for key, val in params.items() if key not in to_exclude}
 
     def _check_kwargs(self, kwargs):
         """Check argument names passed at initialization.
@@ -1549,6 +1850,9 @@ class NeuralNet:
             # see https://github.com/skorch-dev/skorch/pull/590 for
             # why this must be sorted
             for prefix in sorted(self.prefixes_, key=lambda s: (-len(s), s)):
+                if key == prefix:
+                    # e.g. someone did net.set_params(callbacks=[])
+                    break
                 if key.startswith(prefix):
                     if not key.startswith(prefix + '__'):
                         missing_dunder_kwargs.append((prefix, key))
@@ -1599,8 +1903,13 @@ class NeuralNet:
                 virtual_params[key] = val
             elif key.startswith('callbacks'):
                 cb_params[key] = val
+                self._kwargs[key] = val
             elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
+                self._kwargs[key] = val
+            elif '__' in key:
+                special_params[key] = val
+                self._kwargs[key] = val
             else:
                 normal_params[key] = val
 
@@ -1615,39 +1924,74 @@ class NeuralNet:
                     "caused this error.")
             setattr(self, key, val)
 
-        # Below: Re-initialize parts of the net if necessary.
-
         if cb_params:
             # callbacks need special treatmeant since they are list of tuples
-            self.initialize_callbacks()
+            self._initialize_callbacks()
             self._set_params_callback(**cb_params)
+            vars(self).update(cb_params)
 
-        if any('criterion' in key.split('__', 1)[0] for key in special_params):
-            self.initialize_criterion()
+        # If the net is not initialized or there are no special params, we can
+        # exit as this point, because the special_params have been set as
+        # attributes and will be applied by initialize() at a later point in
+        # time.
+        if not self.initialized_ or not special_params:
+            return self
 
-        module_triggers_optimizer_reinit = False
-        if any('module' in key.split('__', 1)[0] for key in special_params):
-            self.initialize_module()
-            module_triggers_optimizer_reinit = True
+        # if net is initialized, checking kwargs is possible
+        self._check_kwargs(self._kwargs)
 
-        optimizer_changed = (
-            any('optimizer' in key.split('__', 1)[0] for key in special_params)
-            or 'lr' in normal_params
-        )
-        if module_triggers_optimizer_reinit or optimizer_changed:
-            # Model selectors such as GridSearchCV will set the
-            # parameters before .initialize() is called, therefore we
-            # need to make sure that we have an initialized model here
-            # as the optimizer depends on it.
-            if not hasattr(self, 'module_'):
-                self.initialize_module()
+        ######################################################
+        # Below: Re-initialize parts of the net if necessary #
+        ######################################################
 
-            # If we reached this point but the optimizer was not
-            # changed, it means that optimizer initialization was
-            # triggered indirectly.
-            self.initialize_optimizer(triggered_directly=optimizer_changed)
+        # if there are module params, reinit module, criterion, optimizer
+        # if there are criterion params, reinit criterion, optimizer
+        # optimizer params don't need to be checked, as they are virtual
+        reinit_module = False
+        reinit_criterion = False
+        reinit_optimizer = False
 
-        vars(self).update(kwargs)
+        component_names = {key.split('__', 1)[0] for key in special_params}
+        for prefix in component_names:
+            if prefix in self._modules:
+                reinit_module = True
+                reinit_criterion = True
+                reinit_optimizer = True
+
+                module_params = {k: v for k, v in special_params.items()
+                                 if k.startswith(prefix)}
+                msg_module = self._format_reinit_msg(
+                    "module", module_params, triggered_directly=True)
+                msg_criterion = self._format_reinit_msg(
+                    "criterion", triggered_directly=False)
+                msg_optimizer = self._format_reinit_msg(
+                    "optimizer", triggered_directly=False)
+
+                # if any module is modified, everything needs to be
+                # re-initialized, no need to check any further
+                break
+
+            if prefix in self._criteria:
+                reinit_criterion = True
+                reinit_optimizer = True
+
+                criterion_params = {k: v for k, v in special_params.items()
+                                    if k.startswith(prefix)}
+                msg_criterion = self._format_reinit_msg(
+                    "criterion", criterion_params, triggered_directly=True)
+                msg_optimizer = self._format_reinit_msg(
+                    "optimizer", triggered_directly=False)
+
+        if not (reinit_module or reinit_criterion or reinit_optimizer):
+            raise ValueError("Something went wrong, please open an issue on "
+                             "https://github.com/skorch-dev/skorch/issues")
+
+        if reinit_module:
+            self._initialize_module(reason=msg_module)
+        if reinit_criterion:
+            self._initialize_criterion(reason=msg_criterion)
+        if reinit_optimizer:
+            self._initialize_optimizer(reason=msg_optimizer)
 
         return self
 
@@ -1727,22 +2071,29 @@ class NeuralNet:
     def _register_attribute(
             self,
             name,
+            attr,
             prefixes=True,
             cuda_dependent_attributes=True,
     ):
-        """Add attribute name to prefixes_ and
-        cuda_dependent_attributes_.
+        """Add attribute name to prefixes_ and cuda_dependent_attributes_,
+        keep track of modules, criteria, and optimizers.
 
-        The first is to take care that the attribute works correctly
-        with set_params, e.g. when it comes to re-initialization.
+        Keeping track of prefxies is to take care that the attribute works
+        correctly with set_params, e.g. when it comes to re-initialization.
 
-        The second is to make sure that nets trained with CUDA can be
-        loaded without CUDA.
+        Keeping track of cuda dependent attributes is to make sure that nets
+        trained with CUDA can be loaded without CUDA.
 
         This method takes care of not mutating the lists.
 
         Parameters
         ----------
+        name : str
+          Name of the attribute.
+
+        attr : torch.nn.Module or torch.optim.Optimizer
+          The attribute itself.
+
         prefixes : bool (default=True)
           Whether to add to prefixes_.
 
@@ -1750,7 +2101,9 @@ class NeuralNet:
           Whether to add to cuda_dependent_attributes_.
 
         """
-        # copy the lists to avoid mutation
+        name = name.rstrip('_')  # module_ -> module
+
+        # Always copy the collections to avoid mutation
         if prefixes:
             self.prefixes_ = self.prefixes_[:] + [name]
 
@@ -1758,14 +2111,23 @@ class NeuralNet:
             self.cuda_dependent_attributes_ = (
                 self.cuda_dependent_attributes_[:] + [name + '_'])
 
+        # make sure to not double register -- this should never happen, but
+        # still better to check
+        if (self.init_context_ == 'module') and (name not in self._modules):
+            self._modules = self._modules[:] + [name]
+        elif (self.init_context_ == 'criterion') and (name not in self._criteria):
+            self._criteria = self._criteria[:] + [name]
+        elif (self.init_context_ == 'optimizer') and (name not in self._optimizers):
+            self._optimizers = self._optimizers[:] + [name]
+
     def _unregister_attribute(
             self,
             name,
             prefixes=True,
             cuda_dependent_attributes=True,
     ):
-        """Remove attribute name from prefixes_ and
-        cuda_dependent_attributes_.
+        """Remove attribute name from prefixes_, cuda_dependent_attributes_ and the
+        _modules/_criteria/_optimizers list if applicable.
 
         Use this to remove PyTorch components that are not needed
         anymore. This is mostly a clean up job, so as to not leave
@@ -1775,6 +2137,9 @@ class NeuralNet:
 
         Parameters
         ----------
+        name : str
+          Name of the attribute.
+
         prefixes : bool (default=True)
           Whether to remove from prefixes_.
 
@@ -1782,6 +2147,8 @@ class NeuralNet:
           Whether to remove from cuda_dependent_attributes_.
 
         """
+        name = name.rstrip('_')  # module_ -> module
+
         # copy the lists to avoid mutation
         if prefixes:
             self.prefixes_ = [p for p in self.prefixes_ if p != name]
@@ -1790,6 +2157,34 @@ class NeuralNet:
             self.cuda_dependent_attributes_ = [
                 a for a in self.cuda_dependent_attributes_ if a != name + '_']
 
+        if name in self._modules:
+            self._modules = [p for p in self._modules if p != name]
+        if name in self._criteria:
+            self._criteria = [p for p in self._criteria if p != name]
+        if name in self._optimizers:
+            self._optimizers = [p for p in self._optimizers if p != name]
+
+    def _check_settable_attr(self, name, attr):
+        """Check whether this attribute is valid for it to be settable.
+
+        E.g. for it to work with set_params.
+
+        """
+        if (self.init_context_ is None) and isinstance(attr, torch.nn.Module):
+            msg = ("Trying to set torch compoment '{}' outside of an initialize method."
+                   " Consider defining it inside 'initialize_module'".format(name))
+            raise SkorchAttributeError(msg)
+
+        if (self.init_context_ is None) and isinstance(attr, torch.optim.Optimizer):
+            msg = ("Trying to set torch compoment '{}' outside of an initialize method."
+                   " Consider defining it inside 'initialize_optimizer'".format(name))
+            raise SkorchAttributeError(msg)
+
+        if not name.endswith('_'):
+            msg = ("Names of initialized modules or optimizers should end "
+                   "with an underscore (e.g. '{}_')".format(name))
+            raise SkorchAttributeError(msg)
+
     def __setattr__(self, name, attr):
         """Set an attribute on the net
 
@@ -1797,20 +2192,25 @@ class NeuralNet:
         is created, those attributes are added to ``prefixes_`` and
         ``cuda_dependent_attributes_`` automatically.
 
+        These components are also tracked to correctly set the device.
+
         """
         # If it's a
         # 1. known attribute or
         # 2. special param like module__num_units or
-        # 3. not a torch module/optimizer instance or class
+        # 3. the net is being __init__-ialized
+        # 4. not a torch module/optimizer instance or class
         # just setattr as usual.
         # For a discussion why we chose this implementation, see here:
         # https://github.com/skorch-dev/skorch/pull/597
-        is_known = name.endswith('_') or (name in self.prefixes_)
+        is_known = name in self.prefixes_ or name.rstrip('_') in self.prefixes_
         is_special_param = '__' in name
-        is_torch_component = any(c in name for c in _PYTORCH_COMPONENTS)
+        first_init = not hasattr(self, 'initialized_')
+        is_torch_component = isinstance(attr, (torch.nn.Module, torch.optim.Optimizer))
 
-        if not (is_known or is_special_param) and is_torch_component:
-            self._register_attribute(name)
+        if not (is_known or is_special_param or first_init) and is_torch_component:
+            self._check_settable_attr(name, attr)
+            self._register_attribute(name, attr)
         super().__setattr__(name, attr)
 
     def __delattr__(self, name):
@@ -1897,7 +2297,8 @@ class NeuralNet:
             **kwargs)
 
         if not kwargs_module and not kwargs_other:
-            print("Nothing to save")
+            if self.verbose:
+                print("Nothing to save")
             return
 
         msg_init = (
@@ -1907,11 +2308,11 @@ class NeuralNet:
         msg_module = (
             "You are trying to save 'f_{name}' but for that to work, the net "
             "needs to have an attribute called 'net.{name}_' that is a PyTorch "
-            "Module; make sure that it exists and check for typos.")
+            "Module or Optimizer; make sure that it exists and check for typos.")
 
         for attr, f_name in kwargs_module.items():
             # valid attrs can be 'module_', 'optimizer_', etc.
-            if attr[:-1] in self.prefixes_:
+            if attr.endswith('_') and not self.initialized_:
                 self.check_is_fitted([attr], msg=msg_init)
             module = self._get_module(attr, msg=msg_module)
             torch.save(module.state_dict(), f_name)
@@ -2011,7 +2412,8 @@ class NeuralNet:
         kwargs_module, kwargs_other = _check_f_arguments('load_params', **kwargs_full)
 
         if not kwargs_module and not kwargs_other:
-            print("Nothing to load")
+            if self.verbose:
+                print("Nothing to load")
             return
 
         # only valid key in kwargs_other is f_history
@@ -2026,11 +2428,11 @@ class NeuralNet:
         msg_module = (
             "You are trying to load 'f_{name}' but for that to work, the net "
             "needs to have an attribute called 'net.{name}_' that is a PyTorch "
-            "Module; make sure that it exists and check for typos.")
+            "Module or Optimizer; make sure that it exists and check for typos.")
 
         for attr, f_name in kwargs_module.items():
             # valid attrs can be 'module_', 'optimizer_', etc.
-            if attr[:-1] in self.prefixes_:
+            if attr.endswith('_') and not self.initialized_:
                 self.check_is_fitted([attr], msg=msg_init)
             module = self._get_module(attr, msg=msg_module)
             state_dict = _get_state_dict(f_name)

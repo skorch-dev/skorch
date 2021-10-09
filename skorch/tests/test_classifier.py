@@ -141,7 +141,7 @@ class TestNeuralNet:
         net = net_cls(
             module_cls, max_epochs=0, classes=classes).fit(*data).fit(*data)
         with pytest.raises(AttributeError) as exc:
-            net.classes_
+            net.classes_  # pylint: disable=pointless-statement
 
         msg = exc.value.args[0]
         expected = "NeuralNetClassifier has no attribute 'classes_'"

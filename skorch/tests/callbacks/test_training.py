@@ -1,6 +1,7 @@
 """Tests for callbacks in training.py"""
 
 from functools import partial
+import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
 from unittest.mock import call
@@ -8,6 +9,7 @@ from unittest.mock import call
 import numpy as np
 import pytest
 from sklearn.base import clone
+import torch
 
 
 class TestCheckpoint:
@@ -320,7 +322,7 @@ class TestCheckpoint:
         assert pickle_dump_mock.call_count == len(net.history)
         save_params_mock.assert_has_calls(
             [
-                call(f_module=str(f_params)),  # params is turned into module 
+                call(f_module=str(f_params)),  # params is turned into module
                 call(f_optimizer=str(f_optimizer)),
                 call(f_criterion=str(f_criterion)),
                 call(f_history=str(f_history)),
@@ -397,6 +399,48 @@ class TestCheckpoint:
         save_params_mock.assert_has_calls(
             [call(f_mymodule='mymodule.pt')] * len(net.history)
         )
+
+    @pytest.fixture
+    def load_params(self):
+        import torch
+        return torch.load
+
+    @pytest.mark.parametrize('load_best_flag', [False, True])
+    def test_automatically_load_checkpoint(
+            self, net_cls, checkpoint_cls, data, tmp_path,
+            load_params, load_best_flag,
+    ):
+        # checkpoint once at the beginning of training.
+        # when restoring at the end of training, the parameters
+        # of the net should not differ. If we do not restore
+        # then the parameters must differ.
+        path_cb = tmp_path / 'params_cb.pt'
+        path_net = tmp_path / 'params_net.pt'
+
+        def save_once_monitor(net):
+            return len(net.history) == 1
+
+        net = net_cls(
+            max_epochs=3,
+            callbacks=[
+                checkpoint_cls(
+                    monitor=save_once_monitor,
+                    f_params=path_cb,
+                    load_best=load_best_flag,
+                ),
+            ],
+        )
+
+        net.fit(*data)
+        net.save_params(path_net)
+
+        params_cb = load_params(path_cb)
+        params_net = load_params(path_net)
+
+        if load_best_flag:
+            assert params_cb == params_net
+        else:
+            assert params_cb != params_net
 
 
 
@@ -1083,3 +1127,198 @@ class TestTrainEndCheckpoint:
 
         assert save_params_mock.call_count == 1
         save_params_mock.assert_has_calls([call(f_mymodule='train_end_mymodule.pt')])
+
+    def test_pickle_uninitialized_callback(self, trainendcheckpoint_cls):
+        # isuue 773
+        cp = trainendcheckpoint_cls()
+        # does not raise
+        s = pickle.dumps(cp)
+        pickle.loads(s)
+
+    def test_pickle_initialized_callback(self, trainendcheckpoint_cls):
+        # issue 773
+        cp = trainendcheckpoint_cls().initialize()
+        # does not raise
+        s = pickle.dumps(cp)
+        pickle.loads(s)
+
+
+class TestInputShapeSetter:
+
+    @pytest.fixture
+    def module_cls(self):
+        import torch
+
+        class Module(torch.nn.Module):
+            def __init__(self, input_dim=3):
+                super().__init__()
+                self.layer = torch.nn.Linear(input_dim, 2)
+            def forward(self, X):
+                return self.layer(X)
+
+        return Module
+
+    @pytest.fixture
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def input_shape_setter_cls(self):
+        from skorch.callbacks import InputShapeSetter
+        return InputShapeSetter
+
+    def generate_data(self, n_input):
+        from sklearn.datasets import make_classification
+        X, y = make_classification(
+            1000,
+            n_input,
+            n_informative=n_input,
+            n_redundant=0,
+            random_state=0,
+        )
+        return X.astype(np.float32), y
+
+    @pytest.fixture
+    def data_fixed(self):
+        return self.generate_data(n_input=10)
+
+    @pytest.fixture(params=[2, 10, 20])
+    def data_parametrized(self, request):
+        return self.generate_data(n_input=request.param)
+
+    def test_shape_set(
+        self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
+    ):
+        net = net_cls(module_cls, max_epochs=2, callbacks=[
+            input_shape_setter_cls(),
+        ])
+
+        X, y = data_parametrized
+        n_input = X.shape[1]
+        net.fit(X, y)
+
+        assert net.module_.layer.in_features == n_input
+
+    def test_one_dimensional_x_raises(
+        self, net_cls, module_cls, input_shape_setter_cls,
+    ):
+        net = net_cls(module_cls, max_epochs=2, callbacks=[
+            input_shape_setter_cls(),
+        ])
+
+        X, y = np.zeros(10), np.zeros(10)
+
+        with pytest.raises(ValueError) as e:
+            net.fit(X, y)
+
+        assert (
+            "Expected at least two-dimensional input data for X. "
+            "If your data is one-dimensional, please use the `input_dim_fn` "
+            "parameter to infer the correct input shape."
+            ) in str(e)
+
+    def test_shape_set_using_fn(
+        self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
+    ):
+        fn_calls = 0
+
+        def input_dim_fn(X):
+            nonlocal fn_calls
+            fn_calls += 1
+            return X.shape[1]
+
+        net = net_cls(module_cls, max_epochs=2, callbacks=[
+            input_shape_setter_cls(input_dim_fn=input_dim_fn),
+        ])
+
+        X, y = data_parametrized
+        n_input = X.shape[1]
+        net.fit(X, y)
+
+        assert net.module_.layer.in_features == n_input
+        assert fn_calls == 1
+
+    def test_parameter_name(
+        self, net_cls, input_shape_setter_cls, data_parametrized,
+    ):
+        class MyModule(torch.nn.Module):
+            def __init__(self, other_input_dim=22):
+                super().__init__()
+                self.layer = torch.nn.Linear(other_input_dim, 2)
+            def forward(self, X):
+                return self.layer(X)
+
+        net = net_cls(MyModule, max_epochs=2, callbacks=[
+            input_shape_setter_cls(param_name='other_input_dim'),
+        ])
+
+        X, y = data_parametrized
+        n_input = X.shape[1]
+        net.fit(X, y)
+
+        assert net.module_.layer.in_features == n_input
+
+    def test_module_name(
+        self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
+    ):
+        class MyNet(net_cls):
+            def initialize_module(self):
+                kwargs = self.get_params_for('module')
+                self.module_ = self.module(**kwargs)
+
+                kwargs = self.get_params_for('module2')
+                self.module2_ = self.module(**kwargs)
+
+        net = MyNet(
+            module=module_cls,
+            max_epochs=2,
+            callbacks=[
+                input_shape_setter_cls(module_name='module'),
+                input_shape_setter_cls(module_name='module2'),
+            ],
+        )
+
+        X, y = data_parametrized
+        n_input = X.shape[1]
+        net.fit(X, y)
+
+        assert net.module_.layer.in_features == n_input
+        assert net.module2_.layer.in_features == n_input
+
+    def test_no_module_reinit_when_already_correct(
+        self, net_cls, module_cls, input_shape_setter_cls, data_fixed,
+    ):
+        with patch('skorch.classifier.NeuralNetClassifier.initialize_module',
+                   side_effect=net_cls.initialize_module, autospec=True):
+            net = net_cls(
+                module_cls, max_epochs=2, callbacks=[input_shape_setter_cls()],
+
+                # set the input dim to the correct shape beforehand
+                module__input_dim=data_fixed[0].shape[-1],
+            )
+
+            net.fit(*data_fixed)
+
+            # first initialization due to `initialize()` but not
+            # a second one since the input shape is already correct.
+            assert net.initialize_module.call_count == 1
+
+    def test_no_module_reinit_partial_fit(
+        self, net_cls, module_cls, input_shape_setter_cls, data_fixed,
+    ):
+        with patch('skorch.classifier.NeuralNetClassifier.initialize_module',
+                   side_effect=net_cls.initialize_module, autospec=True):
+            net = net_cls(
+                module_cls, max_epochs=2, callbacks=[input_shape_setter_cls()],
+            )
+
+            net.fit(*data_fixed)
+            # first initialization due to `initialize()`, second
+            # by setting the input dimension in `on_train_begin`
+            assert net.initialize_module.call_count == 2
+
+            net.partial_fit(*data_fixed)
+            # no re-initialization when there was no change in
+            # input dimension.
+            assert net.initialize_module.call_count == 2

@@ -1,3 +1,5 @@
+"""Tests for scoring.py"""
+
 import pytest
 import numpy as np
 import torch
@@ -95,7 +97,7 @@ class TestLossScoring:
         assert np.allclose(score_value, loss_value.item())
 
     def test_scored_net_with_reduction_none(
-        self, scored_net_cls, module_cls, reduction, data
+            self, scored_net_cls, module_cls, reduction, data
     ):
         X, y = data
         net = scored_net_cls(
@@ -109,7 +111,7 @@ class TestLossScoring:
         assert np.allclose(output.sum(), loss_value)
 
     def test_score_unknown_reduction_raises(
-        self, loss_scoring_fn, net_fit, data
+            self, loss_scoring_fn, net_fit, data
     ):
         X, y = data
         net_fit.set_params(criterion__reduction="unk")

@@ -143,18 +143,20 @@ class LRScheduler(Callback):
         )
 
     def on_epoch_end(self, net, **kwargs):
-        if not self.step_every == 'epoch':
+        if self.step_every != 'epoch':
             return
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             if callable(self.monitor):
                 score = self.monitor(net)
             else:
-                if self.lr_scheduler_.mode == 'max':
-                    score = -np.inf
-                elif self.lr_scheduler_.mode == 'min':
-                    score = np.inf
-                else:
+                try:
                     score = net.history[-1, self.monitor]
+                except KeyError as e:
+                    raise ValueError(
+                        f"'{self.monitor}' was not found in history. A "
+                        f"Scoring callback with name='{self.monitor}' "
+                        "should be placed before the LRScheduler callback"
+                    ) from e
 
             self.lr_scheduler_.step(score)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
@@ -166,7 +168,7 @@ class LRScheduler(Callback):
             self.lr_scheduler_.step()
 
     def on_batch_end(self, net, training, **kwargs):
-        if not training or not self.step_every == 'batch':
+        if not training or self.step_every != 'batch':
             return
         if self.event_name is not None and hasattr(
                 self.lr_scheduler_, "get_last_lr"):
@@ -242,7 +244,7 @@ class WarmRestartLR(_LRScheduler):
 
     def _get_current_lr(self, min_lr, max_lr, period, epoch):
         return min_lr + 0.5 * (max_lr - min_lr) * (
-                1 + np.cos(epoch * np.pi / period))
+            1 + np.cos(epoch * np.pi / period))
 
     def get_lr(self):
         epoch_idx = float(self.last_epoch)

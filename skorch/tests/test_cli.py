@@ -337,6 +337,7 @@ class TestCli:
 
         kwargs_set_params = estimator.set_params.call_args_list[1][1]
         assert kwargs_set_params['foo'] == 'bar'
+        # pylint: disable=comparison-with-callable
         assert kwargs_set_params['baz'] == cos
 
         assert help_.call_count == 0
@@ -350,10 +351,10 @@ class TestCli:
 
         # cmd line args have precedence over defaults
         assert net.batch_size == 123
-        assert net.module_.hidden_units == 55
-        assert isinstance(net.module_.nonlin, nn.Hardtanh)
-        assert net.module_.nonlin.min_val == 1
-        assert net.module_.nonlin.max_val == 2
+        assert net.module__hidden_units == 55
+        assert isinstance(net.module__nonlin, nn.Hardtanh)
+        assert net.module__nonlin.min_val == 1
+        assert net.module__nonlin.max_val == 2
 
     def test_parse_args_pipe_custom_defaults(self, parse_args, pipe):
         defaults = {'net__batch_size': 256, 'net__module__hidden_units': 55}
@@ -364,10 +365,10 @@ class TestCli:
 
         # cmd line args have precedence over defaults
         assert net.batch_size == 123
-        assert net.module_.hidden_units == 55
-        assert isinstance(net.module_.nonlin, nn.Hardtanh)
-        assert net.module_.nonlin.min_val == 1
-        assert net.module_.nonlin.max_val == 2
+        assert net.module__hidden_units == 55
+        assert isinstance(net.module__nonlin, nn.Hardtanh)
+        assert net.module__nonlin.min_val == 1
+        assert net.module__nonlin.max_val == 2
 
     def test_parse_args_sklearn_pipe_custom_defaults(self, parse_args, pipe_sklearn):
         defaults = {'features__scale__copy': 123, 'clf__fit_intercept': 456}
