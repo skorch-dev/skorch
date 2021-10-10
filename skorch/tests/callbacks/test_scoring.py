@@ -401,7 +401,7 @@ class TestEpochScoring:
             pass
 
         rawsplit = lambda ds: (ds, ds)
-        cvsplit = CVSplit(2, random_state=0)
+        cvsplit = CVSplit(2)
 
         def split_ignore_y(ds, y):
             return rawsplit(ds)
