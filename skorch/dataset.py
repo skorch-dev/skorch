@@ -252,12 +252,10 @@ class CVSplit:
                              "but CVSplit got {}".format(cv))
 
         if not self._is_float(cv) and random_state is not None:
-            # TODO: raise a ValueError instead of a warning
-            warnings.warn(
+            raise ValueError(
                 "Setting a random_state has no effect since cv is not a float. "
-                "This will raise an error in a future. You should leave "
-                "random_state to its default (None), or set cv to a float value.",
-                FutureWarning
+                "You should leave random_state to its default (None), or set cv "
+                "to a float value.",
             )
 
         self.cv = cv

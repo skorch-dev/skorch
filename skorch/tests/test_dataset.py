@@ -823,29 +823,16 @@ class TestCVSplit:
         assert np.allclose(X[n:], X_valid)
         assert np.allclose(y[n:], y_valid)
 
-    @pytest.mark.parametrize(
-        'args, kwargs, expect_warning',
-        [
-            ([], {}, False),
-            ([], {"random_state": 0}, True),
-            ([10], {"random_state": 0}, True),
-            ([0.7], {"random_state": 0}, False),
-            ([[]], {}, False),
-            ([[]], {"random_state": 0}, True),
-        ])
-    def test_random_state_not_used_warning(
-            self, cv_split_cls, args, kwargs, expect_warning):
-        with pytest.warns(None) as record:
-            cv_split_cls(*args, **kwargs)
+    def test_random_state_not_used_raises(self, cv_split_cls):
+        # Since there is no randomness involved, raise a ValueError when
+        # random_state is set, same as sklearn is now doing.
+        msg = (
+            r"Setting a random_state has no effect since cv is not a float. "
+            r"You should leave random_state to its default \(None\), or set cv "
+            r"to a float value."
+        )
+        with pytest.raises(ValueError, match=msg):
+            cv_split_cls(5, random_state=0)
 
-        if expect_warning:
-            assert len(record) == 1
-            warning = record[0].message
-            assert isinstance(warning, FutureWarning)
-            assert warning.args[0] == (
-                "Setting a random_state has no effect since cv is not a float. "
-                "This will raise an error in a future. You should leave "
-                "random_state to its default (None), or set cv to a float value."
-            )
-        else:
-            assert not record
+    def test_random_state_and_float_does_not_raise(self, cv_split_cls):
+        cv_split_cls(0.5, random_state=0)  # does not raise
