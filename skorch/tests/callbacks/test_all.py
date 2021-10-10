@@ -47,6 +47,11 @@ class TestAllCallbacks:
         with pytest.raises(ValueError) as exc:
             base_cls().set_params(foo=123)
 
-        # TODO: check error message more precisely, depending on what
-        # the intended message shouldb e from sklearn side
-        assert exc.value.args[0].startswith('Invalid parameter foo for')
+        msg_start = (
+            "Invalid parameter foo for estimator <skorch.callbacks.base.Callback")
+        msg_end = (
+            "Check the list of available parameters with "
+            "`estimator.get_params().keys()`.")
+        msg = exc.value.args[0]
+        assert msg.startswith(msg_start)
+        assert msg.endswith(msg_end)
