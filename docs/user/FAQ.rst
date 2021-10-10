@@ -408,10 +408,10 @@ the **greatest** score.
 Migration guide
 ---------------
 
-Migration from 0.9 to 0.10
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Migration from 0.10 to 0.11
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-With skorch 0.10, we pushed the tuple unpacking of values returned by
+With skorch 0.11, we pushed the tuple unpacking of values returned by
 the iterator to methods lower down the call chain. This way, it is
 much easier to work with iterators that don't return exactly two
 values, as per the convention.
