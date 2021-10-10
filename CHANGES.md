@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.11.0] - 2021-10-11
+
+### Added
+
 - Added `load_best` attribute to `Checkpoint` callback to automatically load state of the best result at the end of training
 - Added a `get_all_learnable_params` method to retrieve the named parameters of all PyTorch modules defined on the net, including of criteria if applicable
 - Added `MlflowLogger` callback for logging to Mlflow (#769)
@@ -252,3 +260,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.8.0]: https://github.com/skorch-dev/skorch/compare/v0.7.0...v0.8.0
 [0.9.0]: https://github.com/skorch-dev/skorch/compare/v0.8.0...v0.9.0
 [0.10.0]: https://github.com/skorch-dev/skorch/compare/v0.9.0...v0.10.0
+[0.11.0]: https://github.com/skorch-dev/skorch/compare/v0.10.0...v0.11.0
