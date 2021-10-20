@@ -367,6 +367,11 @@ class EarlyStopping(Callback):
       sent to. By default, the output is printed to stdout, but the
       sink could also be a logger or :func:`~skorch.utils.noop`.
 
+    restore_best_weights: bool (default=False)
+        Whether to restore model weights from the epoch with the best value of
+        the monitored quantity. If False, the model weights obtained at the
+        last step of training are used.
+
     """
     def __init__(
             self,
@@ -376,6 +381,7 @@ class EarlyStopping(Callback):
             threshold_mode='rel',
             lower_is_better=True,
             sink=print,
+            restore_best_weights=False,
     ):
         self.monitor = monitor
         self.lower_is_better = lower_is_better
@@ -385,6 +391,7 @@ class EarlyStopping(Callback):
         self.misses_ = 0
         self.dynamic_threshold_ = None
         self.sink = sink
+        self.restore_best_weights = restore_best_weights
 
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
@@ -393,6 +400,8 @@ class EarlyStopping(Callback):
                              .format(self.threshold_mode))
         self.misses_ = 0
         self.dynamic_threshold_ = np.inf if self.lower_is_better else -np.inf
+        self.best_model_weights_ = None
+        self.best_epoch_ = 0
 
     def on_epoch_end(self, net, **kwargs):
         current_score = net.history[-1, self.monitor]
@@ -401,11 +410,19 @@ class EarlyStopping(Callback):
         else:
             self.misses_ = 0
             self.dynamic_threshold_ = self._calc_new_threshold(current_score)
+            if self.restore_best_weights:
+                self.best_model_weights_ = net.module.state_dict()
+                self.best_epoch_ = net.history[-1, "epoch"]
         if self.misses_ == self.patience:
             if net.verbose:
                 self._sink("Stopping since {} has not improved in the last "
                            "{} epochs.".format(self.monitor, self.patience),
                            verbose=net.verbose)
+                if self.restore_best_weights:
+                    net.module.load_state_dict(self.best_model_weights_)
+                    self._sink("Restoring best model from epoch {}.".format(
+                        self.best_epoch_
+                    ), verbose=net.verbose)
             raise KeyboardInterrupt
 
     def _is_score_improved(self, score):
