@@ -469,6 +469,67 @@ class TestEarlyStopping:
                 return super().forward(x) * 0 + 0.5
         return BrokenClassifier
 
+    def test_weights_restore(
+        self, net_clf_cls, classifier_data,
+            early_stopping_cls):
+        patience = 5
+        max_epochs = 8
+
+        side_effect = []
+        def sink(x):
+            side_effect.append(x)
+
+        early_stopping_cb = early_stopping_cls(
+            patience=patience,
+            sink=sink,
+            restore_best_weights=True,
+        )
+
+        from skorch.toy import MLPModule
+        class BrokenMLPModule(MLPModule):
+            def forward(self, x):
+                return super().forward(x) * 0 + 0.5
+
+        broken_classifier_module = BrokenMLPModule(
+           input_units=20,
+           hidden_units=10,
+           num_hidden=2,
+           dropout=0.5,
+           output_nonlin=torch.nn.Softmax(dim=-1),
+        )
+
+        net = net_clf_cls(
+            broken_classifier_module,
+            callbacks=[
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
+        pre_fit_module_weights = net.module.state_dict()
+        net.fit(*classifier_data)
+
+        assert len(net.history) == patience + 1 < max_epochs
+
+        # check correct output message
+        assert len(side_effect) == 2
+        msg = side_effect[0]
+        expected_msg = ("Stopping since valid_loss has not improved in "
+                        "the last 5 epochs.")
+        assert msg == expected_msg
+
+        msg = side_effect[1]
+        expected_msg = ("Restoring best model from epoch 1.")
+        assert msg == expected_msg
+
+        assert all(
+            torch.equal(i, j)
+            for i, j in zip(
+                net.module.state_dict().values(),
+                pre_fit_module_weights.values()
+            )
+        )
+
+
     def test_typical_use_case_nonstop(
             self, net_clf_cls, classifier_module, classifier_data,
             early_stopping_cls):
