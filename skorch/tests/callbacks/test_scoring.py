@@ -387,7 +387,7 @@ class TestEpochScoring:
         # received at the scoring side as well. For the caching case
         # we only receive datasets.
         import skorch
-        from skorch.dataset import CVSplit
+        from skorch.dataset import ValidSplit
         import torch.utils.data.dataset
         from torch.utils.data.dataset import Subset
 
@@ -401,7 +401,7 @@ class TestEpochScoring:
             pass
 
         rawsplit = lambda ds: (ds, ds)
-        cvsplit = CVSplit(2, random_state=0)
+        cvsplit = ValidSplit(2, random_state=0)
 
         def split_ignore_y(ds, y):
             return rawsplit(ds)

@@ -24,7 +24,7 @@ from skorch.callbacks import PrintLog
 from skorch.callbacks import PassthroughScoring
 from skorch.callbacks.base import _issue_warning_if_on_batch_override
 from skorch.dataset import Dataset
-from skorch.dataset import CVSplit
+from skorch.dataset import ValidSplit
 from skorch.dataset import get_len
 from skorch.dataset import unpack_data
 from skorch.exceptions import DeviceWarning
@@ -134,7 +134,7 @@ class NeuralNet:
       to pass an initialzed ``Dataset``, in which case no additional
       arguments may be passed.
 
-    train_split : None or callable (default=skorch.dataset.CVSplit(5))
+    train_split : None or callable (default=skorch.dataset.ValidSplit(5))
       If None, there is no train/validation split. Else, train_split
       should be a function or callable that is called with X and y
       data and should return the tuple ``dataset_train, dataset_valid``.
@@ -276,7 +276,7 @@ class NeuralNet:
             iterator_train=DataLoader,
             iterator_valid=DataLoader,
             dataset=Dataset,
-            train_split=CVSplit(5),
+            train_split=ValidSplit(5),
             callbacks=None,
             predict_nonlinearity='auto',
             warm_start=False,
