@@ -371,7 +371,7 @@ class EarlyStopping(Callback):
       Whether to restore module weights from the epoch with the best value of
       the monitored quantity. If False, the module weights obtained at the
       last step of training are used. Note that only the module is restored and
-      that the ``Checkpoint`` callback with the :func:`~Checkpoint.load_best`
+      that the ``Checkpoint`` callback with the :attr:`~Checkpoint.load_best`
       argument set to ``True``.
 
     """
