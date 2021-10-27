@@ -852,8 +852,5 @@ class TestValidSplit:
 
     def test_cvsplit_deprecation(self):
         from skorch.dataset import CVSplit
-        with pytest.warns(
-            DeprecationWarning,
-            match="is deprecated, use the new name ValidSplit instead",
-        ):
+        with pytest.warns(DeprecationWarning, match="is deprecated, use the new name ValidSplit instead"):
             CVSplit()

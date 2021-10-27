@@ -333,9 +333,6 @@ class ValidSplit:
 # TODO remove in skorch 0.13
 class CVSplit(ValidSplit):
     def __init__(self, *args, **kwargs):
-        warnings.warn(
-            f"{self.__class__.__name__} is deprecated, use the new name ValidSplit instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        warnings.warn(f"{self.__class__.__name__} is deprecated, use the new name ValidSplit instead"
+        ,DeprecationWarning, stacklevel=2)
         super().__init__(*args, **kwargs)

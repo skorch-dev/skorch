@@ -6,7 +6,7 @@ This module contains classes and functions related to data handling.
 
 
 ValidSplit
-----------
+-------
 
 This class is responsible for performing the :class:`.NeuralNet`\'s
 internal cross validation. For this, it sticks closely to the sklearn
