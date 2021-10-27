@@ -497,10 +497,56 @@ class TestEarlyStopping:
 
         assert len(net.history) == max_epochs
 
-    @pytest.mark.parametrize("restore_best_weights", [False, True])
+    def test_weights_restore(
+        self, net_clf_cls, broken_classifier_module, classifier_data,
+            early_stopping_cls):
+        patience = 5
+        max_epochs = 8
+
+        side_effect = []
+        def sink(x):
+            side_effect.append(x)
+
+        early_stopping_cb = early_stopping_cls(
+            patience=patience,
+            sink=sink,
+            load_best=True,
+        )
+
+        net = net_clf_cls(
+            broken_classifier_module,
+            callbacks=[
+                early_stopping_cb,
+            ],
+            max_epochs=max_epochs,
+        )
+        pre_fit_module_weights = net.module.state_dict()
+        net.fit(*classifier_data)
+
+        assert len(net.history) == patience + 1 < max_epochs
+
+        # check correct output message
+        assert len(side_effect) == 2
+        msg = side_effect[0]
+        expected_msg = ("Stopping since valid_loss has not improved in "
+                        "the last 5 epochs.")
+        assert msg == expected_msg
+
+        msg = side_effect[1]
+        expected_msg = ("Restoring best model from epoch 1.")
+        assert msg == expected_msg
+
+        assert all(
+            torch.equal(i, j)
+            for i, j in zip(
+                net.module.state_dict().values(),
+                pre_fit_module_weights.values()
+            )
+        )
+    
     def test_typical_use_case_stopping(
             self, net_clf_cls, broken_classifier_module, classifier_data,
-            early_stopping_cls, restore_best_weights):
+            early_stopping_cls):
         patience = 5
         max_epochs = 8
         side_effect = []
@@ -511,7 +557,6 @@ class TestEarlyStopping:
         early_stopping_cb = early_stopping_cls(
             patience=patience,
             sink=sink,
-            restore_best_weights=restore_best_weights,
         )
 
         net = net_clf_cls(
@@ -521,33 +566,16 @@ class TestEarlyStopping:
             ],
             max_epochs=max_epochs,
         )
-        if restore_best_weights:
-            pre_fit_module_weights = net.module.state_dict()
         net.fit(*classifier_data)
 
         assert len(net.history) == patience + 1 < max_epochs
 
         # check correct output message
-        assert len(side_effect) == 2 if restore_best_weights else 1
+        assert len(side_effect) == 1
         msg = side_effect[0]
         expected_msg = ("Stopping since valid_loss has not improved in "
                         "the last 5 epochs.")
         assert msg == expected_msg
-
-        if restore_best_weights:
-            # check best model resotration message
-            msg = side_effect[1]
-            expected_msg = ("Restoring best model from epoch 1.")
-            assert msg == expected_msg
-
-            # check inital model state was restored
-            assert all(
-                torch.equal(i, j)
-                for i, j in zip(
-                    net.module.state_dict().values(),
-                    pre_fit_module_weights.values()
-                )
-            )
 
     def test_custom_scoring_nonstop(
             self, net_clf_cls, classifier_module, classifier_data,
