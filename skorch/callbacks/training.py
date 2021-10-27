@@ -358,19 +358,21 @@ class EarlyStopping(Callback):
       Ignore score improvements smaller than `threshold`.
 
     threshold_mode : str (default='rel')
-        One of `rel`, `abs`. Decides whether the `threshold` value is
-        interpreted in absolute terms or as a fraction of the best
-        score so far (relative)
+      One of `rel`, `abs`. Decides whether the `threshold` value is
+      interpreted in absolute terms or as a fraction of the best
+      score so far (relative)
 
     sink : callable (default=print)
       The target that the information about early stopping is
       sent to. By default, the output is printed to stdout, but the
       sink could also be a logger or :func:`~skorch.utils.noop`.
 
-    restore_best_weights: bool (default=False)
-        Whether to restore model weights from the epoch with the best value of
-        the monitored quantity. If False, the model weights obtained at the
-        last step of training are used.
+    load_best: bool (default=False)
+      Whether to restore module weights from the epoch with the best value of
+      the monitored quantity. If False, the module weights obtained at the
+      last step of training are used. Note that only the module is restored and
+      that the ``Checkpoint`` callback with the :func:`~Checkpoint.load_best`
+      argument set to ``True``.
 
     """
     def __init__(
@@ -381,7 +383,7 @@ class EarlyStopping(Callback):
             threshold_mode='rel',
             lower_is_better=True,
             sink=print,
-            restore_best_weights=False,
+            load_best=False,
     ):
         self.monitor = monitor
         self.lower_is_better = lower_is_better
@@ -391,7 +393,7 @@ class EarlyStopping(Callback):
         self.misses_ = 0
         self.dynamic_threshold_ = None
         self.sink = sink
-        self.restore_best_weights = restore_best_weights
+        self.load_best = load_best
 
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
@@ -410,16 +412,16 @@ class EarlyStopping(Callback):
         else:
             self.misses_ = 0
             self.dynamic_threshold_ = self._calc_new_threshold(current_score)
-            if self.restore_best_weights:
-                self.best_model_weights_ = net.module.state_dict()
-                self.best_epoch_ = net.history[-1, "epoch"]
+            self.best_epoch_ = net.history[-1, "epoch"]
+            if self.load_best:
+                self.best_model_weights_ = net.module_.state_dict()
         if self.misses_ == self.patience:
             if net.verbose:
                 self._sink("Stopping since {} has not improved in the last "
                            "{} epochs.".format(self.monitor, self.patience),
                            verbose=net.verbose)
-                if self.restore_best_weights:
-                    net.module.load_state_dict(self.best_model_weights_)
+                if self.load_best:
+                    net.module_.load_state_dict(self.best_model_weights_)
                     self._sink("Restoring best model from epoch {}.".format(
                         self.best_epoch_
                     ), verbose=net.verbose)
