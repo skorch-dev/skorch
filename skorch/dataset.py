@@ -1,4 +1,4 @@
-"""Contains custom skorch Dataset and CVSplit."""
+"""Contains custom skorch Dataset and ValidSplit."""
 import warnings
 from functools import partial
 from numbers import Number
@@ -198,7 +198,7 @@ class Dataset(torch.utils.data.Dataset):
         return self.transform(Xi, yi)
 
 
-class CVSplit:
+class ValidSplit:
     """Class that performs the internal train/valid split on a dataset.
 
     The ``cv`` argument here works similarly to the regular sklearn ``cv``
@@ -249,7 +249,7 @@ class CVSplit:
 
         if isinstance(cv, Number) and (cv <= 0):
             raise ValueError("Numbers less than 0 are not allowed for cv "
-                             "but CVSplit got {}".format(cv))
+                             "but ValidSplit got {}".format(cv))
 
         if not self._is_float(cv) and random_state is not None:
             # TODO: raise a ValueError instead of a warning
@@ -328,4 +328,14 @@ class CVSplit:
 
     def __repr__(self):
         # pylint: disable=useless-super-delegation
-        return super(CVSplit, self).__repr__()
+        return super(ValidSplit, self).__repr__()
+
+# TODO remove in skorch 0.13
+class CVSplit(ValidSplit):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            f"{self.__class__.__name__} is deprecated, use the new name ValidSplit instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)

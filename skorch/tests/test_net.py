@@ -1946,12 +1946,12 @@ class TestNeuralNet:
 
     def test_fit_with_dataset_without_explicit_y(
             self, net_cls, module_cls, dataset_cls, data):
-        from skorch.dataset import CVSplit
+        from skorch.dataset import ValidSplit
 
         net = net_cls(
             module_cls,
             max_epochs=1,
-            train_split=CVSplit(stratified=False),
+            train_split=ValidSplit(stratified=False),
         )
         ds = dataset_cls(*data)
         net.fit(ds, None)  # does not raise
@@ -1960,11 +1960,11 @@ class TestNeuralNet:
 
     def test_fit_with_dataset_stratified_without_explicit_y_raises(
             self, net_cls, module_cls, dataset_cls, data):
-        from skorch.dataset import CVSplit
+        from skorch.dataset import ValidSplit
 
         net = net_cls(
             module_cls,
-            train_split=CVSplit(stratified=True),
+            train_split=ValidSplit(stratified=True),
         )
         ds = dataset_cls(*data)
         with pytest.raises(ValueError) as exc:
@@ -3419,7 +3419,7 @@ class TestNeuralNet:
         from skorch.net import NeuralNet
         from skorch.toy import MLPModule
 
-        # By default, `train_split=CVSplit(5)` in the `NeuralNet` definition
+        # By default, `train_split=ValidSplit(5)` in the `NeuralNet` definition
         kwargs = {} if train_split == 'default' else {
             'train_split': train_split}
 

@@ -110,8 +110,8 @@ class TestNetWithoutY:
 
     @pytest.fixture
     def train_split(self):
-        from skorch.dataset import CVSplit
-        return CVSplit(0.2, stratified=False)
+        from skorch.dataset import ValidSplit
+        return ValidSplit(0.2, stratified=False)
 
     @pytest.fixture(params=net_fixture_params)
     def net_1d(self, request, net_cls_1d, train_split):
@@ -513,7 +513,7 @@ class TestTrainSplitIsUsed:
         assert mock.call_args_list[1][1]['training'] is False
 
 
-class TestCVSplit:
+class TestValidSplit:
     num_samples = 100
 
     @staticmethod
@@ -547,8 +547,8 @@ class TestCVSplit:
 
     @pytest.fixture
     def cv_split_cls(self):
-        from skorch.dataset import CVSplit
-        return CVSplit
+        from skorch.dataset import ValidSplit
+        return ValidSplit
 
     def test_reproducible(self, cv_split_cls, data):
         dataset_train0, dataset_valid0 = cv_split_cls(5)(data)
@@ -622,7 +622,7 @@ class TestCVSplit:
             cv_split_cls(cv)
 
         expected = ("Numbers less than 0 are not allowed for cv "
-                    "but CVSplit got {}".format(cv))
+                    "but ValidSplit got {}".format(cv))
         assert exc.value.args[0] == expected
 
     @pytest.mark.parametrize('cv', [5, 0.2])
@@ -849,3 +849,11 @@ class TestCVSplit:
             )
         else:
             assert not record
+
+    def test_cvsplit_deprecation(self):
+        from skorch.dataset import CVSplit
+        with pytest.warns(
+            DeprecationWarning,
+            match="is deprecated, use the new name ValidSplit instead",
+        ):
+            CVSplit()
