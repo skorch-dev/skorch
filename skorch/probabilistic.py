@@ -17,7 +17,7 @@ import numpy as np
 import torch
 
 from skorch.net import NeuralNet
-from skorch.dataset import CVSplit
+from skorch.dataset import ValidSplit
 from skorch.dataset import unpack_data
 from skorch.callbacks import EpochScoring
 from skorch.callbacks import EpochTimer
@@ -794,7 +794,7 @@ class GPBinaryClassifier(GPBase):
             *args,
             likelihood=gpytorch.likelihoods.BernoulliLikelihood,
             criterion=gpytorch.mlls.VariationalELBO,
-            train_split=CVSplit(5, stratified=True),
+            train_split=ValidSplit(5, stratified=True),
             threshold=0.5,
             **kwargs
     ):
@@ -932,7 +932,7 @@ class GPBinaryClassifier(GPBase):
 #             *args,
 #             likelihood=gpytorch.likelihoods.SoftmaxLikelihood,
 #             criterion=gpytorch.mlls.VariationalELBO,
-#             train_split=CVSplit(5, stratified=True),
+#             train_split=ValidSplit(5, stratified=True),
 #             classes=None,
 #             **kwargs
 #     ):

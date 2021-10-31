@@ -5,8 +5,8 @@ Dataset
 This module contains classes and functions related to data handling.
 
 
-CVSplit
--------
+ValidSplit
+----------
 
 This class is responsible for performing the :class:`.NeuralNet`\'s
 internal cross validation. For this, it sticks closely to the sklearn
@@ -14,7 +14,7 @@ standards. For more information on how sklearn handles cross
 validation, look `here
 <http://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators>`_.
 
-The first argument that :class:`.CVSplit` takes is ``cv``. It works
+The first argument that :class:`.ValidSplit` takes is ``cv``. It works
 analogously to the ``cv`` argument from sklearn
 :class:`~sklearn.model_selection.GridSearchCV`,
 :func:`~sklearn.model_selection.cross_val_score`, etc. For those not
@@ -27,7 +27,7 @@ familiar, here is a short explanation of what you may pass:
 - An object to be used as a cross-validation generator.
 - An iterable yielding train, validation splits.
 
-Furthermore, :class:`.CVSplit` takes a ``stratified`` argument that
+Furthermore, :class:`.ValidSplit` takes a ``stratified`` argument that
 determines whether a stratified split should be made (only makes sense
 for discrete targets), and a ``random_state`` argument, which is used
 in case the cross validation split has a random component.
