@@ -546,33 +546,33 @@ class TestValidSplit:
         return dataset_cls(X, y)
 
     @pytest.fixture
-    def cv_split_cls(self):
+    def valid_split_cls(self):
         from skorch.dataset import ValidSplit
         return ValidSplit
 
-    def test_reproducible(self, cv_split_cls, data):
-        dataset_train0, dataset_valid0 = cv_split_cls(5)(data)
-        dataset_train1, dataset_valid1 = cv_split_cls(5)(data)
+    def test_reproducible(self, valid_split_cls, data):
+        dataset_train0, dataset_valid0 = valid_split_cls(5)(data)
+        dataset_train1, dataset_valid1 = valid_split_cls(5)(data)
         self.assert_datasets_equal(dataset_train0, dataset_train1)
         self.assert_datasets_equal(dataset_valid0, dataset_valid1)
 
     @pytest.mark.parametrize('cv', [2, 4, 5, 10])
-    def test_different_kfolds(self, cv_split_cls, cv, data):
+    def test_different_kfolds(self, valid_split_cls, cv, data):
         if self.num_samples % cv != 0:
             raise ValueError("Num samples not divisible by {}".format(cv))
 
-        dataset_train, dataset_valid = cv_split_cls(cv)(data)
+        dataset_train, dataset_valid = valid_split_cls(cv)(data)
         assert len(dataset_train) + len(dataset_valid) == self.num_samples
         assert len(dataset_valid) == self.num_samples // cv
 
     @pytest.mark.parametrize('cv', [5, 0.2])
-    def test_stratified(self, cv_split_cls, data, cv):
+    def test_stratified(self, valid_split_cls, data, cv):
         num_expected = self.num_samples // 4
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
         data.y = y
 
-        dataset_train, dataset_valid = cv_split_cls(
+        dataset_train, dataset_valid = valid_split_cls(
             cv, stratified=True)(data, y)
         y_train = data_from_dataset(dataset_train)[1]
         y_valid = data_from_dataset(dataset_valid)[1]
@@ -581,58 +581,58 @@ class TestValidSplit:
         assert y_valid.sum() == 0.2 * num_expected
 
     @pytest.mark.parametrize('cv', [0.1, 0.2, 0.5, 0.75])
-    def test_different_fractions(self, cv_split_cls, cv, data):
+    def test_different_fractions(self, valid_split_cls, cv, data):
         if not (self.num_samples * cv).is_integer() != 0:
             raise ValueError("Num samples cannot be evenly distributed for "
                              "fraction {}".format(cv))
 
-        dataset_train, dataset_valid = cv_split_cls(cv)(data)
+        dataset_train, dataset_valid = valid_split_cls(cv)(data)
         assert len(dataset_train) + len(dataset_valid) == self.num_samples
         assert len(dataset_valid) == self.num_samples * cv
 
     @pytest.mark.parametrize('cv', [0.1, 0.2, 0.5, 0.75])
-    def test_fraction_no_y(self, cv_split_cls, data, cv):
+    def test_fraction_no_y(self, valid_split_cls, data, cv):
         if not (self.num_samples * cv).is_integer() != 0:
             raise ValueError("Num samples cannot be evenly distributed for "
                              "fraction {}".format(cv))
 
         m = int(cv * self.num_samples)
         n = int((1 - cv) * self.num_samples)
-        dataset_train, dataset_valid = cv_split_cls(
+        dataset_train, dataset_valid = valid_split_cls(
             cv, stratified=False)(data, None)
         assert len(dataset_valid) == m
         assert len(dataset_train) == n
 
-    def test_fraction_no_classifier(self, cv_split_cls, data):
+    def test_fraction_no_classifier(self, valid_split_cls, data):
         y = np.random.random(self.num_samples)
         data.y = y
 
         cv = 0.2
         m = int(cv * self.num_samples)
         n = int((1 - cv) * self.num_samples)
-        dataset_train, dataset_valid = cv_split_cls(
+        dataset_train, dataset_valid = valid_split_cls(
             cv, stratified=False)(data, y)
 
         assert len(dataset_valid) == m
         assert len(dataset_train) == n
 
     @pytest.mark.parametrize('cv', [0, -0.001, -0.2, -3])
-    def test_bad_values_raise(self, cv_split_cls, cv):
+    def test_bad_values_raise(self, valid_split_cls, cv):
         with pytest.raises(ValueError) as exc:
-            cv_split_cls(cv)
+            valid_split_cls(cv)
 
         expected = ("Numbers less than 0 are not allowed for cv "
                     "but ValidSplit got {}".format(cv))
         assert exc.value.args[0] == expected
 
     @pytest.mark.parametrize('cv', [5, 0.2])
-    def test_not_stratified(self, cv_split_cls, data, cv):
+    def test_not_stratified(self, valid_split_cls, data, cv):
         num_expected = self.num_samples // 4
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
         data.y = y
 
-        dataset_train, dataset_valid = cv_split_cls(
+        dataset_train, dataset_valid = valid_split_cls(
             cv, stratified=False)(data, y)
         y_train = data_from_dataset(dataset_train)[1]
         y_valid = data_from_dataset(dataset_valid)[1]
@@ -640,23 +640,23 @@ class TestValidSplit:
         # when not stratified, we cannot know the distribution of targets
         assert y_train.sum() + y_valid.sum() == num_expected
 
-    def test_predefined_split(self, cv_split_cls, data):
+    def test_predefined_split(self, valid_split_cls, data):
         from sklearn.model_selection import PredefinedSplit
         indices = (data.y > 0).astype(int)
         split = PredefinedSplit(indices)
 
-        dataset_train, dataset_valid = cv_split_cls(split)(data)
+        dataset_train, dataset_valid = valid_split_cls(split)(data)
         y_train = data_from_dataset(dataset_train)[1]
         y_valid = data_from_dataset(dataset_valid)[1]
 
         assert (y_train > 0).all()
         assert (y_valid == 0).all()
 
-    def test_with_y_none(self, cv_split_cls, data):
+    def test_with_y_none(self, valid_split_cls, data):
         data.y = None
         m = self.num_samples // 5
         n = self.num_samples - m
-        dataset_train, dataset_valid = cv_split_cls(5)(data)
+        dataset_train, dataset_valid = valid_split_cls(5)(data)
 
         assert len(dataset_train) == n
         assert len(dataset_valid) == m
@@ -667,45 +667,45 @@ class TestValidSplit:
         assert y_train is None
         assert y_valid is None
 
-    def test_with_torch_tensors(self, cv_split_cls, data):
+    def test_with_torch_tensors(self, valid_split_cls, data):
         data.X = to_tensor(data.X, device='cpu')
         data.y = to_tensor(data.y, device='cpu')
         m = self.num_samples // 5
         n = self.num_samples - m
-        dataset_train, dataset_valid = cv_split_cls(5)(data)
+        dataset_train, dataset_valid = valid_split_cls(5)(data)
 
         assert len(dataset_valid) == m
         assert len(dataset_train) == n
 
-    def test_with_torch_tensors_and_stratified(self, cv_split_cls, data):
+    def test_with_torch_tensors_and_stratified(self, valid_split_cls, data):
         num_expected = self.num_samples // 4
         data.X = to_tensor(data.X, device='cpu')
         y = np.hstack([np.repeat([0, 0, 0], num_expected),
                        np.repeat([1], num_expected)])
         data.y = to_tensor(y, device='cpu')
 
-        dataset_train, dataset_valid = cv_split_cls(5, stratified=True)(data, y)
+        dataset_train, dataset_valid = valid_split_cls(5, stratified=True)(data, y)
         y_train = data_from_dataset(dataset_train)[1]
         y_valid = data_from_dataset(dataset_valid)[1]
 
         assert y_train.sum() == 0.8 * num_expected
         assert y_valid.sum() == 0.2 * num_expected
 
-    def test_with_list_of_arrays(self, cv_split_cls, data):
+    def test_with_list_of_arrays(self, valid_split_cls, data):
         data.X = [data.X, data.X]
         m = self.num_samples // 5
         n = self.num_samples - m
 
-        dataset_train, dataset_valid = cv_split_cls(5)(data)
+        dataset_train, dataset_valid = valid_split_cls(5)(data)
         X_train, y_train = data_from_dataset(dataset_train)
         X_valid, y_valid = data_from_dataset(dataset_valid)
 
         assert len(X_train[0]) == len(X_train[1]) == len(y_train) == n
         assert len(X_valid[0]) == len(X_valid[1]) == len(y_valid) == m
 
-    def test_with_dict(self, cv_split_cls, data):
+    def test_with_dict(self, valid_split_cls, data):
         data.X = {'1': data.X, '2': data.X}
-        dataset_train, dataset_valid = cv_split_cls(5)(data)
+        dataset_train, dataset_valid = valid_split_cls(5)(data)
 
         m = self.num_samples // 5
         n = self.num_samples - m
@@ -717,14 +717,14 @@ class TestValidSplit:
         assert len(X_valid['1']) == len(X_valid['2']) == len(y_valid) == m
 
     @pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
-    def test_with_pandas(self, cv_split_cls, data):
+    def test_with_pandas(self, valid_split_cls, data):
         import pandas as pd
 
         data.X = pd.DataFrame(
             data.X,
             columns=[str(i) for i in range(data.X.shape[1])],
         )
-        dataset_train, dataset_valid = cv_split_cls(5)(data)
+        dataset_train, dataset_valid = valid_split_cls(5)(data)
 
         m = self.num_samples // 5
         X_train, y_train = data_from_dataset(dataset_train)
@@ -734,13 +734,13 @@ class TestValidSplit:
         assert len(y_train) + len(y_valid) == self.num_samples
         assert len(X_valid) == len(y_valid) == m
 
-    def test_y_str_val_stratified(self, cv_split_cls, data):
+    def test_y_str_val_stratified(self, valid_split_cls, data):
         y = np.array(['a', 'a', 'a', 'b'] * (self.num_samples // 4))
         if len(data.X) != len(y):
             raise ValueError
         data.y = y
 
-        dataset_train, dataset_valid = cv_split_cls(
+        dataset_train, dataset_valid = valid_split_cls(
             5, stratified=True)(data, y)
         y_train = data_from_dataset(dataset_train)[1]
         y_valid = data_from_dataset(dataset_valid)[1]
@@ -748,49 +748,49 @@ class TestValidSplit:
         assert np.isclose(np.mean(y_train == 'b'), 0.25)
         assert np.isclose(np.mean(y_valid == 'b'), 0.25)
 
-    def test_y_list_of_arr_does_not_raise(self, cv_split_cls, data):
+    def test_y_list_of_arr_does_not_raise(self, valid_split_cls, data):
         y = [np.zeros(self.num_samples), np.ones(self.num_samples)]
         data.y = y
-        cv_split_cls(5, stratified=False)(data)
+        valid_split_cls(5, stratified=False)(data)
 
-    def test_y_list_of_arr_stratified(self, cv_split_cls, data):
+    def test_y_list_of_arr_stratified(self, valid_split_cls, data):
         y = [np.zeros(self.num_samples), np.ones(self.num_samples)]
         data.y = y
         with pytest.raises(ValueError) as exc:
-            cv_split_cls(5, stratified=True)(data, y)
+            valid_split_cls(5, stratified=True)(data, y)
 
         expected = "Stratified CV requires explicitly passing a suitable y."
         assert exc.value.args[0] == expected
 
-    def test_y_dict_does_not_raise(self, cv_split_cls, data):
+    def test_y_dict_does_not_raise(self, valid_split_cls, data):
         y = {'a': np.zeros(self.num_samples), 'b': np.ones(self.num_samples)}
         data.y = y
 
-        cv_split_cls(5, stratified=False)(data)
+        valid_split_cls(5, stratified=False)(data)
 
-    def test_y_dict_stratified_raises(self, cv_split_cls, data):
+    def test_y_dict_stratified_raises(self, valid_split_cls, data):
         X = data[0]
         y = {'a': np.zeros(len(X)), 'b': np.ones(len(X))}
 
         with pytest.raises(ValueError):
             # an sklearn error is raised
-            cv_split_cls(5, stratified=True)(X, y)
+            valid_split_cls(5, stratified=True)(X, y)
 
     @pytest.mark.parametrize('cv', [5, 0.2])
     @pytest.mark.parametrize('X', [np.zeros((100, 10)), torch.zeros((100, 10))])
-    def test_y_none_stratified(self, cv_split_cls, data, cv, X):
+    def test_y_none_stratified(self, valid_split_cls, data, cv, X):
         data.X = X
         with pytest.raises(ValueError) as exc:
-            cv_split_cls(cv, stratified=True)(data, None)
+            valid_split_cls(cv, stratified=True)(data, None)
 
         expected = "Stratified CV requires explicitly passing a suitable y."
         assert exc.value.args[0] == expected
 
     def test_shuffle_split_reproducible_with_random_state(
-            self, cv_split_cls, dataset_cls):
+            self, valid_split_cls, dataset_cls):
         n = self.num_samples
         X, y = np.random.random((n, 10)), np.random.randint(0, 10, size=n)
-        cv = cv_split_cls(0.2, stratified=False)
+        cv = valid_split_cls(0.2, stratified=False)
 
         dst0, dsv0 = cv(dataset_cls(X, y))
         dst1, dsv1 = cv(dataset_cls(X, y))
@@ -805,7 +805,7 @@ class TestValidSplit:
         assert not np.allclose(yt0, yt1)
         assert not np.allclose(yv0, yv1)
 
-    def test_group_kfold(self, cv_split_cls, data):
+    def test_group_kfold(self, valid_split_cls, data):
         from sklearn.model_selection import GroupKFold
 
         X, y = data.X, data.y
@@ -813,7 +813,7 @@ class TestValidSplit:
         groups = np.asarray(
             [0 for _ in range(n)] + [1 for _ in range(self.num_samples - n)])
 
-        dataset_train, dataset_valid = cv_split_cls(
+        dataset_train, dataset_valid = valid_split_cls(
             GroupKFold(n_splits=2))(data, groups=groups)
         X_train, y_train = data_from_dataset(dataset_train)
         X_valid, y_valid = data_from_dataset(dataset_valid)
@@ -823,32 +823,19 @@ class TestValidSplit:
         assert np.allclose(X[n:], X_valid)
         assert np.allclose(y[n:], y_valid)
 
-    @pytest.mark.parametrize(
-        'args, kwargs, expect_warning',
-        [
-            ([], {}, False),
-            ([], {"random_state": 0}, True),
-            ([10], {"random_state": 0}, True),
-            ([0.7], {"random_state": 0}, False),
-            ([[]], {}, False),
-            ([[]], {"random_state": 0}, True),
-        ])
-    def test_random_state_not_used_warning(
-            self, cv_split_cls, args, kwargs, expect_warning):
-        with pytest.warns(None) as record:
-            cv_split_cls(*args, **kwargs)
+    def test_random_state_not_used_raises(self, valid_split_cls):
+        # Since there is no randomness involved, raise a ValueError when
+        # random_state is set, same as sklearn is now doing.
+        msg = (
+            r"Setting a random_state has no effect since cv is not a float. "
+            r"You should leave random_state to its default \(None\), or set cv "
+            r"to a float value."
+        )
+        with pytest.raises(ValueError, match=msg):
+            valid_split_cls(5, random_state=0)
 
-        if expect_warning:
-            assert len(record) == 1
-            warning = record[0].message
-            assert isinstance(warning, FutureWarning)
-            assert warning.args[0] == (
-                "Setting a random_state has no effect since cv is not a float. "
-                "This will raise an error in a future. You should leave "
-                "random_state to its default (None), or set cv to a float value."
-            )
-        else:
-            assert not record
+    def test_random_state_and_float_does_not_raise(self, valid_split_cls):
+        valid_split_cls(0.5, random_state=0)  # does not raise
 
     def test_cvsplit_deprecation(self):
         from skorch.dataset import CVSplit

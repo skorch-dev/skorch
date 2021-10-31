@@ -775,6 +775,7 @@ class InputShapeSetter(Callback):
     methods.
 
     Basic usage:
+
     >>> class MyModule(torch.nn.Module):
     ...     def __init__(self, input_dim=1):
     ...         super().__init__()

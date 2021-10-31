@@ -401,7 +401,7 @@ class TestEpochScoring:
             pass
 
         rawsplit = lambda ds: (ds, ds)
-        validsplit = ValidSplit(2, random_state=0)
+        valid_split = ValidSplit(2)
 
         def split_ignore_y(ds, y):
             return rawsplit(ds)
@@ -416,12 +416,12 @@ class TestEpochScoring:
             ((MySkorchDataset(*data), None), rawsplit, MySkorchDataset, True),
 
             # Test a split that splits datasets using torch Subset
-            (data, validsplit, np.ndarray, False),
-            (data, validsplit, Subset, True),
-            ((MyTorchDataset(*data), None), validsplit, Subset, False),
-            ((MyTorchDataset(*data), None), validsplit, Subset, True),
-            ((MySkorchDataset(*data), None), validsplit, np.ndarray, False),
-            ((MySkorchDataset(*data), None), validsplit, Subset, True),
+            (data, valid_split, np.ndarray, False),
+            (data, valid_split, Subset, True),
+            ((MyTorchDataset(*data), None), valid_split, Subset, False),
+            ((MyTorchDataset(*data), None), valid_split, Subset, True),
+            ((MySkorchDataset(*data), None), valid_split, np.ndarray, False),
+            ((MySkorchDataset(*data), None), valid_split, Subset, True),
         ]
 
         for input_data, train_split, expected_type, caching in table:
