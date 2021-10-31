@@ -2,8 +2,8 @@
 set -e
 
 PYTORCH_VERSION=${PYTORCH_VERSION:-""}
-PYTHON_VERSION="3.7"
-TWINE_VERSION="1.12.1"
+PYTHON_VERSION="3.9"
+TWINE_VERSION=">3,<4.0.0dev"
 CONDA_ENV="skorch-deploy"
 CONDA_ENV_YML="environment.yml"
 
