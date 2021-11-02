@@ -358,9 +358,9 @@ class EarlyStopping(Callback):
       Ignore score improvements smaller than `threshold`.
 
     threshold_mode : str (default='rel')
-      One of `rel`, `abs`. Decides whether the `threshold` value is
-      interpreted in absolute terms or as a fraction of the best
-      score so far (relative)
+        One of `rel`, `abs`. Decides whether the `threshold` value is
+        interpreted in absolute terms or as a fraction of the best
+        score so far (relative)
 
     sink : callable (default=print)
       The target that the information about early stopping is
@@ -370,9 +370,9 @@ class EarlyStopping(Callback):
     load_best: bool (default=False)
       Whether to restore module weights from the epoch with the best value of
       the monitored quantity. If False, the module weights obtained at the
-      last step of training are used. Note that only the module is restored and
-      that the ``Checkpoint`` callback with the :attr:`~Checkpoint.load_best`
-      argument set to ``True``.
+      last step of training are used. Note that only the module is restored.
+      Use the ``Checkpoint`` callback with the :attr:`~Checkpoint.load_best`
+      argument set to ``True`` if you need to restore the whole object.
 
     """
     def __init__(
@@ -420,12 +420,14 @@ class EarlyStopping(Callback):
                 self._sink("Stopping since {} has not improved in the last "
                            "{} epochs.".format(self.monitor, self.patience),
                            verbose=net.verbose)
-                if self.load_best:
-                    net.module_.load_state_dict(self.best_model_weights_)
-                    self._sink("Restoring best model from epoch {}.".format(
-                        self.best_epoch_
-                    ), verbose=net.verbose)
             raise KeyboardInterrupt
+
+    def on_train_end(self, net, **kwargs):
+        if self.load_best:
+            net.module_.load_state_dict(self.best_model_weights_)
+            self._sink("Restoring best model from epoch {}.".format(
+                self.best_epoch_
+            ), verbose=net.verbose)
 
     def _is_score_improved(self, score):
         if self.lower_is_better:

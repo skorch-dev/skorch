@@ -498,12 +498,13 @@ class TestEarlyStopping:
         assert len(net.history) == max_epochs
 
     def test_weights_restore(
-        self, net_clf_cls, broken_classifier_module, classifier_data,
+            self, net_clf_cls, broken_classifier_module, classifier_data,
             early_stopping_cls):
         patience = 5
         max_epochs = 8
 
         side_effect = []
+
         def sink(x):
             side_effect.append(x)
 
@@ -543,7 +544,7 @@ class TestEarlyStopping:
                 pre_fit_module_weights.values()
             )
         )
-    
+
     def test_typical_use_case_stopping(
             self, net_clf_cls, broken_classifier_module, classifier_data,
             early_stopping_cls):
@@ -554,10 +555,7 @@ class TestEarlyStopping:
         def sink(x):
             side_effect.append(x)
 
-        early_stopping_cb = early_stopping_cls(
-            patience=patience,
-            sink=sink,
-        )
+        early_stopping_cb = early_stopping_cls(patience=patience, sink=sink)
 
         net = net_clf_cls(
             broken_classifier_module,
