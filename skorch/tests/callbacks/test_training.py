@@ -5,13 +5,17 @@ import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
 from unittest.mock import call
+from copy import deepcopy
 
 import numpy as np
 import pytest
 from sklearn.base import clone
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import log_loss
 import torch
+from torch.utils.data import TensorDataset
 
-from skorch.toy import MLPModule
+from skorch.helper import predefined_split
 
 
 class TestCheckpoint:
@@ -466,18 +470,10 @@ class TestEarlyStopping:
     @pytest.fixture
     def broken_classifier_module(self, classifier_module):
         """Return a classifier that does not improve over time."""
-        class BrokenClassifier(MLPModule):
+        class BrokenClassifier(classifier_module.func):
             def forward(self, x):
                 return super().forward(x) * 0 + 0.5
-
-        broken_classifier_module = BrokenClassifier(
-           input_units=20,
-           hidden_units=10,
-           num_hidden=2,
-           dropout=0.5,
-           output_nonlin=torch.nn.Softmax(dim=-1),
-        )
-        return broken_classifier_module
+        return BrokenClassifier
 
     def test_typical_use_case_nonstop(
             self, net_clf_cls, classifier_module, classifier_data,
@@ -498,10 +494,11 @@ class TestEarlyStopping:
         assert len(net.history) == max_epochs
 
     def test_weights_restore(
-            self, net_clf_cls, broken_classifier_module, classifier_data,
+            self, net_clf_cls, classifier_module, classifier_data,
             early_stopping_cls):
-        patience = 5
-        max_epochs = 8
+        patience = 3
+        max_epochs = 20
+        seed = 1
 
         side_effect = []
 
@@ -512,38 +509,72 @@ class TestEarlyStopping:
             patience=patience,
             sink=sink,
             load_best=True,
+            monitor="valid_acc",
+            lower_is_better=False,
         )
 
+        # Split dataset to have a fixed validation
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            *classifier_data, random_state=seed)
+        tr_dataset = TensorDataset(
+            torch.as_tensor(X_tr).float(), torch.as_tensor(y_tr))
+        val_dataset = TensorDataset(
+            torch.as_tensor(X_val).float(), torch.as_tensor(y_val))
+
+        # Fix the network once with early stoppping and fixed seed
         net = net_clf_cls(
-            broken_classifier_module,
-            callbacks=[
-                early_stopping_cb,
-            ],
+            classifier_module,
+            callbacks=[early_stopping_cb],
             max_epochs=max_epochs,
+            train_split=predefined_split(val_dataset),
         )
-        pre_fit_module_weights = net.module.state_dict()
-        net.fit(*classifier_data)
+        torch.manual_seed(seed)
+        net.fit(tr_dataset, y=None)
 
-        assert len(net.history) == patience + 1 < max_epochs
+        # Check training was stopped before the end
+        assert len(net.history) < max_epochs
 
-        # check correct output message
+        # check correct output messages
         assert len(side_effect) == 2
+
         msg = side_effect[0]
-        expected_msg = ("Stopping since valid_loss has not improved in "
-                        "the last 5 epochs.")
+        expected_msg = ("Stopping since valid_acc has not improved in "
+                        "the last 3 epochs.")
         assert msg == expected_msg
 
         msg = side_effect[1]
-        expected_msg = ("Restoring best model from epoch 1.")
-        assert msg == expected_msg
+        expected_msg = ("Restoring best model from epoch ")
+        assert expected_msg in msg
 
+        # Extract epoch reloaded by early stopping
+        loaded_epoch = int(msg.split()[-1][:-1])
+
+        # Recompute validation loss and store it together with module weights
+        y_proba = net.predict_proba(val_dataset)
+        es_weights = deepcopy(net.module_.state_dict())
+        es_loss = log_loss(y_val, y_proba)
+
+        # Retrain same classifier without ES, using the fetched epochs number
+        net = net_clf_cls(
+            classifier_module,
+            max_epochs=loaded_epoch,
+            train_split=predefined_split(val_dataset),
+        )
+        torch.manual_seed(seed)
+        net.fit(tr_dataset, y=None)
+
+        # Check that weights obtained match
         assert all(
-            torch.equal(i, j)
-            for i, j in zip(
-                net.module.state_dict().values(),
-                pre_fit_module_weights.values()
+            torch.equal(wi, wj)
+            for wi, wj in zip(
+                net.module_.state_dict().values(),
+                es_weights.values()
             )
         )
+
+        # Check validation loss obtained match
+        y_proba_2 = net.predict_proba(val_dataset)
+        assert es_loss == log_loss(y_val, y_proba_2)
 
     def test_typical_use_case_stopping(
             self, net_clf_cls, broken_classifier_module, classifier_data,
