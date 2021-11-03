@@ -7,6 +7,7 @@ from contextlib import suppress
 from fnmatch import fnmatch
 from functools import partial
 from itertools import product
+from copy import deepcopy
 
 import numpy as np
 from skorch.callbacks import Callback
@@ -414,7 +415,7 @@ class EarlyStopping(Callback):
             self.dynamic_threshold_ = self._calc_new_threshold(current_score)
             self.best_epoch_ = net.history[-1, "epoch"]
             if self.load_best:
-                self.best_model_weights_ = net.module_.state_dict()
+                self.best_model_weights_ = deepcopy(net.module_.state_dict())
         if self.misses_ == self.patience:
             if net.verbose:
                 self._sink("Stopping since {} has not improved in the last "
