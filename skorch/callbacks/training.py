@@ -396,6 +396,11 @@ class EarlyStopping(Callback):
         self.sink = sink
         self.load_best = load_best
 
+    def __getstate__(self):
+        # Avoids to save the module_ weights twice when pickling
+        self.best_model_weights_ = None
+        return self.__dict__
+
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
         if self.threshold_mode not in ['rel', 'abs']:
@@ -424,7 +429,10 @@ class EarlyStopping(Callback):
             raise KeyboardInterrupt
 
     def on_train_end(self, net, **kwargs):
-        if self.load_best and self.best_epoch_ != net.history[-1, "epoch"]:
+        if (
+            self.load_best and self.best_epoch_ != net.history[-1, "epoch"] and
+            self.best_model_weights_ is not None
+        ):
             net.module_.load_state_dict(self.best_model_weights_)
             self._sink("Restoring best model from epoch {}.".format(
                 self.best_epoch_
