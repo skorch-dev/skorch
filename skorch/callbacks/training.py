@@ -424,7 +424,7 @@ class EarlyStopping(Callback):
             raise KeyboardInterrupt
 
     def on_train_end(self, net, **kwargs):
-        if self.load_best:
+        if self.load_best and self.best_epoch_ != net.history[-1, "epoch"]:
             net.module_.load_state_dict(self.best_model_weights_)
             self._sink("Restoring best model from epoch {}.".format(
                 self.best_epoch_

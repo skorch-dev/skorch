@@ -543,21 +543,18 @@ class TestEarlyStopping:
         assert msg == expected_msg
 
         msg = side_effect[1]
-        expected_msg = ("Restoring best model from epoch ")
+        expected_msg = "Restoring best model from epoch "
         assert expected_msg in msg
-
-        # Extract epoch reloaded by early stopping
-        loaded_epoch = int(msg.split()[-1][:-1])
 
         # Recompute validation loss and store it together with module weights
         y_proba = net.predict_proba(val_dataset)
         es_weights = deepcopy(net.module_.state_dict())
         es_loss = log_loss(y_val, y_proba)
 
-        # Retrain same classifier without ES, using the fetched epochs number
+        # Retrain same classifier without ES, using the best epochs number
         net = net_clf_cls(
             classifier_module,
-            max_epochs=loaded_epoch,
+            max_epochs=early_stopping_cb.best_epoch_,
             train_split=predefined_split(val_dataset),
         )
         torch.manual_seed(seed)
