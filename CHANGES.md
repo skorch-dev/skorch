@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added `load_best` attribute to `EarlyStopping` callback to automatically load module weights of the best result at the end of training
 
 ### Changed
 
@@ -18,7 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `load_best` attribute to `Checkpoint` callback to automatically load state of the best result at the end of training
-- Added `load_best` attribute to `EarlyStopping` callback to automatically load module weights of the best result at the end of training
 - Added a `get_all_learnable_params` method to retrieve the named parameters of all PyTorch modules defined on the net, including of criteria if applicable
 - Added `MlflowLogger` callback for logging to Mlflow (#769)
 - Added `InputShapeSetter` callback for automatically setting the input dimension of the PyTorch module
