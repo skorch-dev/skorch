@@ -398,8 +398,9 @@ class EarlyStopping(Callback):
 
     def __getstate__(self):
         # Avoids to save the module_ weights twice when pickling
-        self.best_model_weights_ = None
-        return self.__dict__
+        state = super().__getstate__()
+        state['best_model_weights_'] = None
+        return state
 
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
@@ -430,8 +431,8 @@ class EarlyStopping(Callback):
 
     def on_train_end(self, net, **kwargs):
         if (
-            self.load_best and self.best_epoch_ != net.history[-1, "epoch"] and
-            self.best_model_weights_ is not None
+            self.load_best and (self.best_epoch_ != net.history[-1, "epoch"])
+            and (self.best_model_weights_ is not None)
         ):
             net.module_.load_state_dict(self.best_model_weights_)
             self._sink("Restoring best model from epoch {}.".format(
