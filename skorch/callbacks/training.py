@@ -398,7 +398,7 @@ class EarlyStopping(Callback):
 
     def __getstate__(self):
         # Avoids to save the module_ weights twice when pickling
-        state = self.__dict__
+        state = self.__dict__.copy()
         state['best_model_weights_'] = None
         return state
 
