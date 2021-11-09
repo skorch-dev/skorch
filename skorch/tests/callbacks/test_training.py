@@ -5,11 +5,17 @@ import pickle
 from unittest.mock import Mock
 from unittest.mock import patch
 from unittest.mock import call
+from copy import deepcopy
 
 import numpy as np
 import pytest
 from sklearn.base import clone
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import log_loss
 import torch
+from torch.utils.data import TensorDataset
+
+from skorch.helper import predefined_split
 
 
 class TestCheckpoint:
@@ -486,6 +492,94 @@ class TestEarlyStopping:
         net.fit(*classifier_data)
 
         assert len(net.history) == max_epochs
+
+    def test_weights_restore(
+            self, net_clf_cls, classifier_module, classifier_data,
+            early_stopping_cls):
+        patience = 3
+        max_epochs = 20
+        seed = 1
+
+        side_effect = []
+
+        def sink(x):
+            side_effect.append(x)
+
+        early_stopping_cb = early_stopping_cls(
+            patience=patience,
+            sink=sink,
+            load_best=True,
+            monitor="valid_acc",
+            lower_is_better=False,
+        )
+
+        # Split dataset to have a fixed validation
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            *classifier_data, random_state=seed)
+        tr_dataset = TensorDataset(
+            torch.as_tensor(X_tr).float(), torch.as_tensor(y_tr))
+        val_dataset = TensorDataset(
+            torch.as_tensor(X_val).float(), torch.as_tensor(y_val))
+
+        # Fix the network once with early stoppping and fixed seed
+        net1 = net_clf_cls(
+            classifier_module,
+            callbacks=[early_stopping_cb],
+            max_epochs=max_epochs,
+            train_split=predefined_split(val_dataset),
+        )
+        torch.manual_seed(seed)
+        net1.fit(tr_dataset, y=None)
+
+        # Check training was stopped before the end
+        assert len(net1.history) < max_epochs
+
+        # check correct output messages
+        assert len(side_effect) == 2
+
+        msg = side_effect[0]
+        expected_msg = ("Stopping since valid_acc has not improved in "
+                        "the last 3 epochs.")
+        assert msg == expected_msg
+
+        msg = side_effect[1]
+        expected_msg = "Restoring best model from epoch "
+        assert expected_msg in msg
+
+        # Recompute validation loss and store it together with module weights
+        y_proba = net1.predict_proba(val_dataset)
+        es_weights = deepcopy(net1.module_.state_dict())
+        es_loss = log_loss(y_val, y_proba)
+
+        # Retrain same classifier without ES, using the best epochs number
+        net2 = net_clf_cls(
+            classifier_module,
+            max_epochs=early_stopping_cb.best_epoch_,
+            train_split=predefined_split(val_dataset),
+        )
+        torch.manual_seed(seed)
+        net2.fit(tr_dataset, y=None)
+
+        # Check that weights obtained match
+        assert all(
+            torch.equal(wi, wj)
+            for wi, wj in zip(
+                net2.module_.state_dict().values(),
+                es_weights.values()
+            )
+        )
+
+        # Check validation loss obtained match
+        y_proba_2 = net2.predict_proba(val_dataset)
+        assert es_loss == log_loss(y_val, y_proba_2)
+
+        # Check best_model_weights_ is transformed into None when pickling
+        del net1.callbacks[0].sink
+        net1_pkl = pickle.dumps(net1)
+
+        reloaded_net1 = pickle.loads(net1_pkl)
+        assert reloaded_net1.callbacks[0].best_epoch_ == net1.callbacks[0].best_epoch_
+        assert reloaded_net1.callbacks[0].best_model_weights_ is None
 
     def test_typical_use_case_stopping(
             self, net_clf_cls, broken_classifier_module, classifier_data,

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added `load_best` attribute to `EarlyStopping` callback to automatically load module weights of the best result at the end of training
 
 ### Changed
 

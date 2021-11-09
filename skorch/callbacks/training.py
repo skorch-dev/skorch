@@ -7,6 +7,7 @@ from contextlib import suppress
 from fnmatch import fnmatch
 from functools import partial
 from itertools import product
+from copy import deepcopy
 
 import numpy as np
 from skorch.callbacks import Callback
@@ -367,6 +368,13 @@ class EarlyStopping(Callback):
       sent to. By default, the output is printed to stdout, but the
       sink could also be a logger or :func:`~skorch.utils.noop`.
 
+    load_best: bool (default=False)
+      Whether to restore module weights from the epoch with the best value of
+      the monitored quantity. If False, the module weights obtained at the
+      last step of training are used. Note that only the module is restored.
+      Use the ``Checkpoint`` callback with the :attr:`~Checkpoint.load_best`
+      argument set to ``True`` if you need to restore the whole object.
+
     """
     def __init__(
             self,
@@ -376,6 +384,7 @@ class EarlyStopping(Callback):
             threshold_mode='rel',
             lower_is_better=True,
             sink=print,
+            load_best=False,
     ):
         self.monitor = monitor
         self.lower_is_better = lower_is_better
@@ -385,6 +394,13 @@ class EarlyStopping(Callback):
         self.misses_ = 0
         self.dynamic_threshold_ = None
         self.sink = sink
+        self.load_best = load_best
+
+    def __getstate__(self):
+        # Avoids to save the module_ weights twice when pickling
+        state = self.__dict__.copy()
+        state['best_model_weights_'] = None
+        return state
 
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
@@ -393,6 +409,8 @@ class EarlyStopping(Callback):
                              .format(self.threshold_mode))
         self.misses_ = 0
         self.dynamic_threshold_ = np.inf if self.lower_is_better else -np.inf
+        self.best_model_weights_ = None
+        self.best_epoch_ = 0
 
     def on_epoch_end(self, net, **kwargs):
         current_score = net.history[-1, self.monitor]
@@ -401,12 +419,25 @@ class EarlyStopping(Callback):
         else:
             self.misses_ = 0
             self.dynamic_threshold_ = self._calc_new_threshold(current_score)
+            self.best_epoch_ = net.history[-1, "epoch"]
+            if self.load_best:
+                self.best_model_weights_ = deepcopy(net.module_.state_dict())
         if self.misses_ == self.patience:
             if net.verbose:
                 self._sink("Stopping since {} has not improved in the last "
                            "{} epochs.".format(self.monitor, self.patience),
                            verbose=net.verbose)
             raise KeyboardInterrupt
+
+    def on_train_end(self, net, **kwargs):
+        if (
+            self.load_best and (self.best_epoch_ != net.history[-1, "epoch"])
+            and (self.best_model_weights_ is not None)
+        ):
+            net.module_.load_state_dict(self.best_model_weights_)
+            self._sink("Restoring best model from epoch {}.".format(
+                self.best_epoch_
+            ), verbose=net.verbose)
 
     def _is_score_improved(self, score):
         if self.lower_is_better:
