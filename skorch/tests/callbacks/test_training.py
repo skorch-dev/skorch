@@ -6,7 +6,6 @@ from unittest.mock import Mock
 from unittest.mock import patch
 from unittest.mock import call
 from copy import deepcopy
-import tempfile
 
 import numpy as np
 import pytest
@@ -575,14 +574,12 @@ class TestEarlyStopping:
         assert es_loss == log_loss(y_val, y_proba_2)
 
         # Check best_model_weights_ is transformed into None when pickling
-        with tempfile.NamedTemporaryFile() as tmp_file:
-            del net1.callbacks[0].sink
-            pickle.dump(net1, tmp_file)
-            tmp_file.flush()
+        del net1.callbacks[0].sink
+        net1_pkl = pickle.dumps(net1)
 
-            reloaded_net1 = pickle.load(open(tmp_file.name, 'rb'))
-            assert reloaded_net1.callbacks[0].best_epoch_ == net1.callbacks[0].best_epoch_
-            assert reloaded_net1.callbacks[0].best_model_weights_ is None
+        reloaded_net1 = pickle.loads(net1_pkl)
+        assert reloaded_net1.callbacks[0].best_epoch_ == net1.callbacks[0].best_epoch_
+        assert reloaded_net1.callbacks[0].best_model_weights_ is None
 
     def test_typical_use_case_stopping(
             self, net_clf_cls, broken_classifier_module, classifier_data,
