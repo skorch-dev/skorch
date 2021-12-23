@@ -12,6 +12,7 @@ from sklearn.base import TransformerMixin
 import torch
 
 from skorch.cli import parse_args  # pylint: disable=unused-import
+from skorch.dataset import unpack_data
 from skorch.utils import _make_split
 from skorch.utils import is_torch_data_type
 from skorch.utils import to_tensor
@@ -508,3 +509,83 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
             )
 
         return signature
+
+
+class AccelerateMixin:
+    """Mixin class to add support for huggingface's accelerate
+
+    *Experimental*
+
+    Examples
+    --------
+    >>> from skorch import NeuralNetClassifier
+    >>> from skorch.helper import AccelerateMixin
+    >>> from accelerate import Accelerator
+
+    >>> class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
+    >>>     pass
+
+    >>> accelerator = Accelerator(...)
+    >>> net = AcceleratedNet(
+    ...     MyModule,
+    ...     accelerator=accelerator,
+    ...     device=None,
+    ...     callbacks__print_log__sink=accelerator.print)
+    >>> net.fit(X, y)
+
+    """
+    def __init__(self, *args, accelerator, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.accelerator = accelerator
+
+        if self.accelerator.device_placement and (self.device is not None):
+            raise ValueError(
+                "When device placement is performed be accelerator, set device=None")
+
+    def _initialize_criterion(self, *args, **kwargs):
+        super()._initialize_criterion(*args, **kwargs)
+
+        with self._current_init_context('criterion'):
+            for name in self._criteria:
+                criterion = getattr(self, name + '_')
+                if isinstance(criterion, torch.nn.Module):
+                    self.accelerator.prepare(criterion)
+
+            return self
+
+    def _initialize_module(self, *args, **kwargs):
+        super()._initialize_module(*args, **kwargs)
+
+        with self._current_init_context('module'):
+            for name in self._modules:
+                module = getattr(self, name + '_')
+                if isinstance(module, torch.nn.Module):
+                    self.accelerator.prepare(module)
+
+        return self
+
+    def _initialize_optimizer(self, *args, **kwargs):
+        super()._initialize_optimizer(*args, **kwargs)
+
+        with self._current_init_context('optimizer'):
+            for name in self._optimizers:
+                optimizer = getattr(self, name + '_')
+                if isinstance(optimizer, torch.optim.Optimizer):
+                    self.accelerator.prepare(optimizer)
+        return self
+
+    def train_step_single(self, batch, **fit_params):
+        self._set_training(True)
+        Xi, yi = unpack_data(batch)
+        y_pred = self.infer(Xi, **fit_params)
+        loss = self.get_loss(y_pred, yi, X=Xi, training=True)
+        self.accelerator.backward(loss)
+        return {
+            'loss': loss,
+            'y_pred': y_pred,
+        }
+
+    def get_iterator(self, *args, **kwargs):
+        iterator = super().get_iterator(*args, **kwargs)
+        iterator = self.accelerator.prepare(iterator)
+        return iterator

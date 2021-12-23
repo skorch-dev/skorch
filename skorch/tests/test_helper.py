@@ -708,3 +708,47 @@ class TestDataFrameTransformer:
             'col_cats': {"dtype": torch.int32, "input_units": 2},
         }
         assert result == expected
+
+
+class TestAccelerate:
+    @pytest.fixture(scope='module')
+    def data(self, classifier_data):
+        return classifier_data
+
+    @pytest.fixture(scope='module')
+    def module_cls(self, classifier_module):
+        return classifier_module
+
+    @pytest.fixture(scope='module')
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        from skorch.helper import AccelerateMixin
+
+        class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
+            pass
+
+        return AcceleratedNet
+
+    @pytest.fixture
+    def accelerator(self):
+        pytest.importorskip('accelerate')
+
+        from accelerate import Accelerator
+
+        accelerator = Accelerator(fp16=True)
+        return accelerator
+
+    @pytest.fixture
+    def net(self, net_cls, module_cls, accelerator):
+        return net_cls(
+            module_cls,
+            max_epochs=10,
+            lr=0.1,
+            accelerator=accelerator,
+            device=None,
+            callbacks__print_log__sink=accelerator.print,
+        )
+
+    def test_fit_fp16(self, net, data):
+        X, y = data
+        net.fit(X, y)  # does not raise
