@@ -19,8 +19,8 @@ jobs:
         torch_version: ['1.7.1+cpu', '1.8.1+cpu', '1.9.1+cpu', '1.10.0+cpu']
         os: [ubuntu-latest]
         exclude:
-          - python_version: '3.9'
-            torch_version: '1.5.1+cpu'
+          - python_version: '3.7'
+            torch_version: '1.8.1+cpu'
           - python_version: '3.9'
             torch_version: '1.6.0+cpu'
           - python_version: '3.9'
