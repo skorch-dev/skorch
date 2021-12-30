@@ -23,8 +23,8 @@ gpytorch = pytest.importorskip('gpytorch')
 pytorch_version, _, _ = torch.__version__.partition('+')
 # Keep up to date with the gpytorch's supported versions:
 # https://github.com/cornellius-gp/gpytorch#installation
-if LooseVersion(pytorch_version) >= "1.9":
-    pytest.skip("gpytorch does not work with PyTorch 1.7.1 or 1.8.1", allow_module_level=True)
+if LooseVersion(pytorch_version) < '1.9':
+    pytest.skip("gpytorch does not support PyTorch versions < 1.9", allow_module_level=True)
 
 
 def get_batch_size(dist):
