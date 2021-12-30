@@ -21,7 +21,9 @@ gpytorch = pytest.importorskip('gpytorch')
 
 # extract pytorch version without possible '+something' suffix
 pytorch_version, _, _ = torch.__version__.partition('+')
-if LooseVersion(pytorch_version) in ('1.7.1', '1.8.1'):
+# Keep up to date with the gpytorch's supported versions:
+# https://github.com/cornellius-gp/gpytorch#installation
+if LooseVersion(pytorch_version) >= "1.9":
     pytest.skip("gpytorch does not work with PyTorch 1.7.1 or 1.8.1", allow_module_level=True)
 
 
