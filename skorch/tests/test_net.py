@@ -1756,10 +1756,9 @@ class TestNeuralNet:
     )
   ),
 )"""
-        if LooseVersion(torch.__version__) >= '1.2':
-            expected = expected.replace("Softmax()", "Softmax(dim=-1)")
-            expected = expected.replace("Dropout(p=0.5)",
-                                        "Dropout(p=0.5, inplace=False)")
+        expected = expected.replace("Softmax()", "Softmax(dim=-1)")
+        expected = expected.replace("Dropout(p=0.5)",
+                                    "Dropout(p=0.5, inplace=False)")
         assert result == expected
 
     def test_repr_fitted_works(self, net_cls, module_cls, data):
