@@ -19,7 +19,7 @@ up Dask workers that, using this environment variable, each see one
 GPU only.  On the PyTorch side, we'll have to make sure to set the
 device to ``cuda`` when we initialize the :class:`.NeuralNet` class.
 
-Let's run through the steps.  First, install Dask and dask.distrubted::
+Let's run through the steps.  First, install Dask and dask.distributed::
 
   pip install dask distributed
 
