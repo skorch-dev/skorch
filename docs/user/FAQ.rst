@@ -1,3 +1,6 @@
+.. meta::
+    :keywords: gridsearch
+
 ===
 FAQ
 ===
