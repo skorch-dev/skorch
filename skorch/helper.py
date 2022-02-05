@@ -512,9 +512,24 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
 
 
 class AccelerateMixin:
-    """Mixin class to add support for huggingface's accelerate
+    """Mixin class to add support for huggingface accelerate
 
-    *Experimental*
+    This is an *experimental* feature.
+
+    Use this mixin class with one of the neural net classes (e.g. ``NeuralNet``,
+    ``NeuralNetClassifier``, or ``NeuralNetRegressor``) and pass an instance of
+    ``Accelerator`` for mixed precision, multi-GPU, or TPU training.
+
+    skorch does not itself provide any facilities to enable these training
+    features. A lot of them can still be implemented by the user with a little
+    bit of extra work but it can be a daunting task. That is why this helper
+    class was added: Using this mixin in conjunction with the accelerate library
+    should cover a lot of common use cases.
+
+    Since accelerate is still quite young and backwards compatiblity breaking
+    features might be added, we treat its integration as an experimental
+    feature. When accelerate's API stabilizes, we will consider adding it to
+    skorch proper.
 
     Examples
     --------
@@ -533,14 +548,24 @@ class AccelerateMixin:
     ...     callbacks__print_log__sink=accelerator.print)
     >>> net.fit(X, y)
 
+    Parameters
+    ----------
+    accelerator : accelerate.Accelerator
+      In addition to the usual parameters, pass an instance of
+      ``accelerate.Accelerator`` with the desired settings.
+
     """
     def __init__(self, *args, accelerator, **kwargs):
         super().__init__(*args, **kwargs)
         self.accelerator = accelerator
 
+    def _check_kwargs(self, kwargs):
+        super()._check_kwargs(kwargs)
+
         if self.accelerator.device_placement and (self.device is not None):
             raise ValueError(
-                "When device placement is performed be accelerator, set device=None")
+                "When device placement is performed by the accelerator, set device=None"
+            )
 
     def _initialize_criterion(self, *args, **kwargs):
         super()._initialize_criterion(*args, **kwargs)
