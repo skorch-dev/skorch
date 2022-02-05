@@ -479,7 +479,7 @@ class TestEpochScoring:
         with pytest.raises(ValueError, match=msg):
                 net.fit(*data)
 
-    @pytest.mark.parametrize('use_caching, count', [(False, 1), (True, 0)])
+    @pytest.mark.parametrize('use_caching, count', [(False, 5), (True, 2)])
     def test_with_caching_get_iterator_not_called(
             self, net_cls, module_cls, train_split, caching_scoring_cls, data,
             use_caching, count,
@@ -499,10 +499,11 @@ class TestEpochScoring:
         net.fit(*data)
 
         # expected count should be:
-        # max_epochs * (1 (train) + 1 (valid) + 0 or 1 (from scoring,
-        # depending on caching))
-        count_expected = max_epochs * (1 + 1 + count)
-        assert net.get_iterator.call_count == count_expected
+        # fit loop: 1 (train) + 1 (valid) = 2
+        # scoring:
+        #   without cahching: 0
+        #   with caching: 1 per epoch = 3
+        assert net.get_iterator.call_count == count
 
     def test_subclassing_epoch_scoring(
             self, classifier_module, classifier_data):

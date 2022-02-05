@@ -25,7 +25,6 @@ https://github.com/keras-team/keras/blob/0de2adf04b37aa972c955e69caf6917372b70a5
 """
 
 import argparse
-import os
 import time
 
 import numpy as np
@@ -34,11 +33,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 from sklearn.utils import shuffle
+import torch
+from torch import nn
+
 from skorch.utils import to_device
 from skorch import NeuralNetClassifier
 from skorch.callbacks import EpochScoring
-import torch
-from torch import nn
 
 
 BATCH_SIZE = 128
@@ -49,8 +49,8 @@ MAX_EPOCHS = 12
 def get_data(num_samples):
     mnist = fetch_openml('mnist_784')
     torch.manual_seed(0)
-    X = mnist.data.astype('float32').reshape(-1, 1, 28, 28)
-    y = mnist.target.astype('int64')
+    X = mnist.data.values.astype('float32').reshape(-1, 1, 28, 28)
+    y = mnist.target.values.astype('int64')
     X, y = shuffle(X, y)
     X, y = X[:num_samples], y[:num_samples]
     X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_state=0)
@@ -61,7 +61,7 @@ def get_data(num_samples):
 
 class ClassifierModule(nn.Module):
     def __init__(self):
-        super(ClassifierModule, self).__init__()
+        super().__init__()
 
         self.cnn = nn.Sequential(
             nn.Conv2d(1, 32, (3, 3)),
@@ -134,9 +134,7 @@ def report(losses, batch_sizes, y, y_proba, epoch, time, training=True):
 def train_torch(
         model,
         X,
-        X_test,
         y,
-        y_test,
         batch_size,
         device,
         lr,
@@ -144,18 +142,19 @@ def train_torch(
 ):
     model = to_device(model, device)
 
-    idx_train, idx_valid = next(iter(StratifiedKFold(
-        5, random_state=0).split(np.arange(len(X)), y)))
+    idx_train, idx_valid = next(iter(StratifiedKFold(5).split(np.arange(len(X)), y)))
     X_train, X_valid, y_train, y_valid = (
         X[idx_train], X[idx_valid], y[idx_train], y[idx_valid])
     dataset_train = torch.utils.data.TensorDataset(
         torch.tensor(X_train),
         torch.tensor(y_train),
     )
+    iterator_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size)
     dataset_valid = torch.utils.data.TensorDataset(
         torch.tensor(X_valid),
         torch.tensor(y_valid),
     )
+    iterator_valid = torch.utils.data.DataLoader(dataset_valid, batch_size=batch_size)
 
     optimizer = torch.optim.Adadelta(model.parameters(), lr=lr)
     criterion = nn.NLLLoss()
@@ -163,7 +162,7 @@ def train_torch(
     for epoch in range(max_epochs):
         train_out = train_step(
             model,
-            dataset_train,
+            iterator_train,
             batch_size=batch_size,
             device=device,
             criterion=criterion,
@@ -173,7 +172,7 @@ def train_torch(
 
         valid_out = valid_step(
             model,
-            dataset_valid,
+            iterator_valid,
             batch_size=batch_size,
             device=device,
             criterion=criterion,
@@ -185,13 +184,13 @@ def train_torch(
     return model
 
 
-def train_step(model, dataset, device, criterion, batch_size, optimizer):
+def train_step(model, iterator, device, criterion, batch_size, optimizer):
     model.train()
     y_preds = []
     losses = []
     batch_sizes = []
     tic = time.time()
-    for Xi, yi in torch.utils.data.DataLoader(dataset, batch_size=batch_size):
+    for Xi, yi in iterator:
         Xi, yi = to_device(Xi, device), to_device(yi, device)
         optimizer.zero_grad()
         y_pred = model(Xi)
@@ -212,16 +211,14 @@ def train_step(model, dataset, device, criterion, batch_size, optimizer):
     }
 
 
-def valid_step(model, dataset, device, criterion, batch_size):
+def valid_step(model, iterator, device, criterion, batch_size):
     model.eval()
     y_preds = []
     losses = []
     batch_sizes = []
     tic = time.time()
     with torch.no_grad():
-        for Xi, yi in torch.utils.data.DataLoader(
-                dataset, batch_size=batch_size,
-        ):
+        for Xi, yi in iterator:
             Xi, yi = to_device(Xi, device), to_device(yi, device)
             y_pred = model(Xi)
             y_pred = torch.log(y_pred)
@@ -255,13 +252,11 @@ def performance_torch(
     model = train_torch(
         model,
         X_train,
-        X_test,
         y_train,
-        y_test,
         batch_size=batch_size,
         device=device,
         max_epochs=max_epochs,
-        lr=0.1,
+        lr=lr,
     )
 
     X_test = torch.tensor(X_test).to(device)
@@ -275,29 +270,27 @@ def main(device, num_samples):
     # trigger potential cuda call overhead
     torch.zeros(1).to(device)
 
-    if True:
-        print("\nTesting skorch performance")
-        tic = time.time()
-        score_skorch = performance_skorch(
-            *data,
-            batch_size=BATCH_SIZE,
-            max_epochs=MAX_EPOCHS,
-            lr=LEARNING_RATE,
-            device=device,
-        )
-        time_skorch = time.time() - tic
+    print("\nTesting skorch performance")
+    tic = time.time()
+    score_skorch = performance_skorch(
+        *data,
+        batch_size=BATCH_SIZE,
+        max_epochs=MAX_EPOCHS,
+        lr=LEARNING_RATE,
+        device=device,
+    )
+    time_skorch = time.time() - tic
 
-    if True:
-        print("\nTesting pure torch performance")
-        tic = time.time()
-        score_torch = performance_torch(
-            *data,
-            batch_size=BATCH_SIZE,
-            max_epochs=MAX_EPOCHS,
-            lr=LEARNING_RATE,
-            device=device,
-        )
-        time_torch = time.time() - tic
+    print("\nTesting pure torch performance")
+    tic = time.time()
+    score_torch = performance_torch(
+        *data,
+        batch_size=BATCH_SIZE,
+        max_epochs=MAX_EPOCHS,
+        lr=LEARNING_RATE,
+        device=device,
+    )
+    time_torch = time.time() - tic
 
     print("time skorch: {:.4f}, time torch: {:.4f}".format(
         time_skorch, time_torch))
