@@ -3619,7 +3619,7 @@ class TestNeuralNet:
         class MyNet(net_cls):
             def run_single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
                 # code as in skorch<=0.11
-                # first argument is should now be an iterator, not a dataset
+                # first argument should now be an iterator, not a dataset
                 if dataset is None:
                     return
 
