@@ -479,3 +479,7 @@ lines of code to accomplish this, as shown below:
 Your old code should still work for the time being but will give a
 ``DeprecationWarning``. Starting from skorch v0.13, old code will raise an error
 instead.
+
+If it is necessary to have access to the ``Dataset`` inside of
+``run_single_epoch``, you can access it on the ``DataLoader`` object using
+``iterator.dataset``.

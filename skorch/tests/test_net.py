@@ -3623,6 +3623,10 @@ class TestNeuralNet:
                 if dataset is None:
                     return
 
+                # make sure that the "dataset" (really the DataLoader) can still
+                # access the Dataset if needed
+                assert hasattr(dataset, 'dataset')
+
                 batch_count = 0
                 for batch in self.get_iterator(dataset, training=training):
                     self.notify("on_batch_begin", batch=batch, training=training)
