@@ -520,6 +520,12 @@ class AccelerateMixin:
     ``NeuralNetClassifier``, or ``NeuralNetRegressor``) and pass an instance of
     ``Accelerator`` for mixed precision, multi-GPU, or TPU training.
 
+    Install the accelerate library using:
+
+    .. code-block::
+
+      python -m pip install accelerate
+
     skorch does not itself provide any facilities to enable these training
     features. A lot of them can still be implemented by the user with a little
     bit of extra work but it can be a daunting task. That is why this helper
@@ -536,10 +542,10 @@ class AccelerateMixin:
     >>> from skorch import NeuralNetClassifier
     >>> from skorch.helper import AccelerateMixin
     >>> from accelerate import Accelerator
-
+    >>>
     >>> class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
-    >>>     pass
-
+    ...     '''NeuralNetClassifier with accelerate support'''
+    >>>
     >>> accelerator = Accelerator(...)
     >>> net = AcceleratedNet(
     ...     MyModule,
@@ -547,6 +553,8 @@ class AccelerateMixin:
     ...     device=None,
     ...     callbacks__print_log__sink=accelerator.print)
     >>> net.fit(X, y)
+
+    The same approach works with all the other skorch net classes.
 
     Parameters
     ----------

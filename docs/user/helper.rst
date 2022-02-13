@@ -48,6 +48,53 @@ argument ``idx=0``, the default) and one for y (with argument
     gs.fit(X_sl, y_sl)
 
 
+AccelerateMixin
+---------------
+
+This mixin class can be used to add support for huggingface accelerate_ to
+skorch. E.g., this allows you to use mixed precision training (AMP), multi-GPU
+training, or training with a TPU. For the time being, this feature should be
+considered experimental.
+
+To use this feature, create a new subclass of the neural net class you want to
+use and inherit from the mixin class. E.g., if you want to use a
+:class:`.NeuralNet`, it would look like this:
+
+.. code:: python
+
+    from skorch import NeuralNet
+    from skorch.helper import AccelerateMixin
+
+    class AcceleratedNet(AccelerateMixin, NeuralNet):
+        """NeuralNetClassifier with accelerate support"""
+
+The same would work for :class:`.NeuralNetClassifier`,
+:class:`.NeuralNetRegressor`, etc. Then pass an instance of Accelerator_ with
+the desired parameters and you're good to go:
+
+.. code:: python
+
+    from accelerate import Accelerator
+
+    accelerator = Accelerator(...)
+    net = AcceleratedNet(
+        MyModule,
+        accelerator=accelerator,
+        device=None,
+        callbacks__print_log__sink=accelerator.print)
+    net.fit(X, y)
+
+accelerate_ recommends to leave the device handling to the Accelerator_, which
+is why we set ``device=None`` (thus telling skorch not to change the device).
+Furthermore, using ``accelerator.print`` should avoid printing the same output
+multiple times when training concurrently on multiple machines.
+
+To install accelerate_, run the following command inside your Python environment:
+
+    .. code:: bash
+
+      python -m pip install accelerate
+
 Command line interface helpers
 ------------------------------
 
@@ -201,6 +248,8 @@ callbacks through the command line (but you can modify existing ones
 as usual).
 
 
+.. _accelerate: https://github.com/huggingface/accelerate
+.. _Accelerator: https://huggingface.co/docs/accelerate/accelerator.html
 .. _fire: https://github.com/google/python-fire
 .. _numpydoc: https://github.com/numpy/numpydoc
 .. _example: https://github.com/skorch-dev/skorch/tree/master/examples/cli
