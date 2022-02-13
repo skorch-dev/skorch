@@ -444,3 +444,42 @@ this is how to make the transition:
         ...
 
 The same goes for the other three methods.
+
+Migration from 0.11 to 0.12
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In skorch 0.12, we made a change regarding the training step. Now, we initialize
+the :class:`torch.utils.data.DataLoader` only once per fit call instead of once
+per epoch. This is accomplished by calling
+:py:meth:`skorch.net.NeuralNet.get_iterator` only once at the beginning of the
+training process. For the majority of the users, this should make no difference
+in practice.
+
+However, you might be affected if you wrote a custom
+:py:meth:`skorch.net.NeuralNet.run_single_epoch`. The first argument to this
+method is now the initialized ``DataLoader`` instead of a ``Dataset``.
+Therefore, this method should no longer call
+:py:meth:`skorch.net.NeuralNet.get_iterator`. You only need to change a few
+lines of code to accomplish this, as shown below:
+
+.. code:: python
+
+    # before
+    def run_single_epoch(self, dataset, ...):
+        ...
+        for batch in self.get_iterator(dataset, training=training):
+            ...
+
+    # after
+    def run_single_epoch(self, iterator, ...):
+        ...
+        for batch in iterator:
+            ...
+
+Your old code should still work for the time being but will give a
+``DeprecationWarning``. Starting from skorch v0.13, old code will raise an error
+instead.
+
+If it is necessary to have access to the ``Dataset`` inside of
+``run_single_epoch``, you can access it on the ``DataLoader`` object using
+``iterator.dataset``.

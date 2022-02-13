@@ -1080,26 +1080,30 @@ class NeuralNet:
             'dataset_train': dataset_train,
             'dataset_valid': dataset_valid,
         }
+        iterator_train = self.get_iterator(dataset_train, training=True)
+        iterator_valid = None
+        if dataset_valid is not None:
+            iterator_valid = self.get_iterator(dataset_valid, training=False)
 
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
-            self.run_single_epoch(dataset_train, training=True, prefix="train",
+            self.run_single_epoch(iterator_train, training=True, prefix="train",
                                   step_fn=self.train_step, **fit_params)
 
-            self.run_single_epoch(dataset_valid, training=False, prefix="valid",
+            self.run_single_epoch(iterator_valid, training=False, prefix="valid",
                                   step_fn=self.validation_step, **fit_params)
 
             self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
 
-    def run_single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
+    def run_single_epoch(self, iterator, training, prefix, step_fn, **fit_params):
         """Compute a single epoch of train or validation.
 
         Parameters
         ----------
-        dataset : torch Dataset or None
-          The initialized dataset to loop over. If None, skip this step.
+        iterator : torch DataLoader or None
+          The initialized ``DataLoader`` to loop over. If None, skip this step.
 
         training : bool
           Whether to set the module to train mode or not.
@@ -1112,12 +1116,13 @@ class NeuralNet:
 
         **fit_params : dict
           Additional parameters passed to the ``step_fn``.
+
         """
-        if dataset is None:
+        if iterator is None:
             return
 
         batch_count = 0
-        for batch in self.get_iterator(dataset, training=training):
+        for batch in iterator:
             self.notify("on_batch_begin", batch=batch, training=training)
             step = step_fn(batch, **fit_params)
             self.history.record_batch(prefix + "_loss", step["loss"].item())
@@ -1632,6 +1637,19 @@ class NeuralNet:
           mini-batches.
 
         """
+        # TODO: remove in skorch v0.13, see #835
+        if isinstance(dataset, DataLoader):
+            msg = (
+                "get_iterator was called with a DataLoader instance but it should be "
+                "called with a Dataset instead. Probably, you implemented a custom "
+                "run_single_epoch method. Its first argument is now a DataLoader, "
+                "not a Dataset. For more information, look here: "
+                "https://skorch.readthedocs.io/en/latest/user/FAQ.html"
+                "#migration-from-0-11-to-0-12. This will raise an error in skorch v0.13"
+            )
+            warnings.warn(msg, DeprecationWarning)
+            return dataset
+
         if training:
             kwargs = self.get_params_for('iterator_train')
             iterator = self.iterator_train

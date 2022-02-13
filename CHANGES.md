@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `load_best` attribute to `EarlyStopping` callback to automatically load module weights of the best result at the end of training
 
 ### Changed
+- Initialize data loaders for training and validation dataset once per fit call instead of once per epoch ([migration guide](https://skorch.readthedocs.io/en/stable/user/FAQ.html#migration-from-0-11-to-0-12))
 
 ### Fixed
 
