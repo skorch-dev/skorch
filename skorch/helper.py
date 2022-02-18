@@ -551,7 +551,7 @@ class AccelerateMixin:
     ...     MyModule,
     ...     accelerator=accelerator,
     ...     device=None,
-    ...     callbacks__print_log__sink=accelerator.print)
+    ... )
     >>> net.fit(X, y)
 
     The same approach works with all the other skorch net classes.
@@ -562,9 +562,17 @@ class AccelerateMixin:
       In addition to the usual parameters, pass an instance of
       ``accelerate.Accelerator`` with the desired settings.
 
+    callbacks__print_log__sink : 'auto' or callable
+      If 'auto', uses the ``print`` function of the accelerator, if it has one.
+      This avoids printing the same output multiple times when training
+      concurrently on multiple machines. If the accelerator does not have a
+      ``print`` function, use Python's ``print`` function instead.
+
     """
-    def __init__(self, *args, accelerator, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, accelerator, callbacks__print_log__sink='auto', **kwargs):
+        super().__init__(
+            *args, callbacks__print_log__sink=callbacks__print_log__sink, **kwargs
+        )
         self.accelerator = accelerator
 
     def _check_kwargs(self, kwargs):
@@ -574,6 +582,13 @@ class AccelerateMixin:
             raise ValueError(
                 "When device placement is performed by the accelerator, set device=None"
             )
+
+    def _initialize_callbacks(self):
+        if self.callbacks__print_log__sink == 'auto':
+            print_func = getattr(self.accelerator, 'print', print)
+            self.callbacks__print_log__sink = print_func
+        super()._initialize_callbacks()
+        return self
 
     def _initialize_criterion(self, *args, **kwargs):
         super()._initialize_criterion(*args, **kwargs)

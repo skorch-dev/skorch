@@ -81,13 +81,11 @@ the desired parameters and you're good to go:
         MyModule,
         accelerator=accelerator,
         device=None,
-        callbacks__print_log__sink=accelerator.print)
+    )
     net.fit(X, y)
 
 accelerate_ recommends to leave the device handling to the Accelerator_, which
 is why we set ``device=None`` (thus telling skorch not to change the device).
-Furthermore, using ``accelerator.print`` should avoid printing the same output
-multiple times when training concurrently on multiple machines.
 
 To install accelerate_, run the following command inside your Python environment:
 

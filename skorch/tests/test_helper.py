@@ -2,6 +2,7 @@
 import pickle
 from distutils.version import LooseVersion
 from functools import partial
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -760,10 +761,7 @@ class TestAccelerate:
             fp16 = mixed_precision == 'fp16'
             accelerator = accelerator_cls(fp16=fp16)
 
-        net = net_cls(
-            accelerator=accelerator,
-            callbacks__print_log__sink=accelerator.print,
-        )
+        net = net_cls(accelerator=accelerator)
         X, y = data
         net.fit(X, y)  # does not raise
 
@@ -780,6 +778,36 @@ class TestAccelerate:
         msg = "When device placement is performed by the accelerator, set device=None"
         with pytest.raises(ValueError, match=msg):
             net.fit(*data)
+
+    def test_print_log_sink_auto_uses_accelerator_print(self, net_cls, accelerator_cls):
+        # the net defaults to using the accelerator's print function
+        accelerator = accelerator_cls()
+        net = net_cls(accelerator=accelerator)
+        net.initialize()
+        print_log = dict(net.callbacks_)['print_log']
+        assert print_log.sink == accelerator.print
+
+    def test_print_log_sink_can_be_overwritten(self, net_cls, accelerator_cls):
+        # users can still set their own sinks for print log
+        accelerator = accelerator_cls()
+        net = net_cls(accelerator=accelerator, callbacks__print_log__sink=123)
+        net.initialize()
+        print_log = dict(net.callbacks_)['print_log']
+        assert print_log.sink == 123
+
+    def test_print_log_sink_uses_print_if_accelerator_has_no_print(
+            self, net_cls, accelerator_cls
+    ):
+        # we should not depend on the accelerator having a print function
+
+        # we need to use Mock here because Accelerator does not allow attr
+        # deletion
+        accelerator = Mock(spec=accelerator_cls())
+        delattr(accelerator, 'print')
+        net = net_cls(accelerator=accelerator)
+        net.initialize()
+        print_log = dict(net.callbacks_)['print_log']
+        assert print_log.sink is print
 
     def test_all_components_prepared(self, module_cls, data):
         # We cannot test whether accelerate is really performing its job.
@@ -858,7 +886,6 @@ class TestAccelerate:
             device=None,
             accelerator=accelerator,
             max_epochs=2,
-            callbacks__print_log__sink=accelerator.print,
         )
         X, y = data
         # does not raise
