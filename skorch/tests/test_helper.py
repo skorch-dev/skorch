@@ -764,6 +764,7 @@ class TestAccelerate:
         net = net_cls(accelerator=accelerator)
         X, y = data
         net.fit(X, y)  # does not raise
+        assert np.isfinite(net.history[:, "train_loss"]).all()
 
     def test_force_cpu(self, net_cls, accelerator_cls, data):
         accelerator = accelerator_cls(device_placement=False, cpu=True)
