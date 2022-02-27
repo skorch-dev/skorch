@@ -743,7 +743,6 @@ class TestAccelerate:
             module=module_cls,
             max_epochs=2,
             lr=0.1,
-            device=None,
         )
 
     @pytest.mark.parametrize('mixed_precision', ['no', 'fp16', 'bf16'])

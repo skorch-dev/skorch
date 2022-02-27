@@ -80,12 +80,12 @@ the desired parameters and you're good to go:
     net = AcceleratedNet(
         MyModule,
         accelerator=accelerator,
-        device=None,
     )
     net.fit(X, y)
 
 accelerate_ recommends to leave the device handling to the Accelerator_, which
-is why we set ``device=None`` (thus telling skorch not to change the device).
+is why ``device`` defautls to ``None`` (thus telling skorch not to change the
+device).
 
 To install accelerate_, run the following command inside your Python environment:
 

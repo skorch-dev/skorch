@@ -547,11 +547,7 @@ class AccelerateMixin:
     ...     '''NeuralNetClassifier with accelerate support'''
     >>>
     >>> accelerator = Accelerator(...)
-    >>> net = AcceleratedNet(
-    ...     MyModule,
-    ...     accelerator=accelerator,
-    ...     device=None,
-    ... )
+    >>> net = AcceleratedNet(MyModule,  accelerator=accelerator)
     >>> net.fit(X, y)
 
     The same approach works with all the other skorch net classes.
@@ -562,6 +558,11 @@ class AccelerateMixin:
       In addition to the usual parameters, pass an instance of
       ``accelerate.Accelerator`` with the desired settings.
 
+    device : str, torch.device, or None (default=None)
+      The compute device to be used. When using accelerate, it is recommended to
+      leave device handling to accelerate. Therefore, it is best to leave this
+      argument to be None, which means that skorch does not set the device.
+
     callbacks__print_log__sink : 'auto' or callable
       If 'auto', uses the ``print`` function of the accelerator, if it has one.
       This avoids printing the same output multiple times when training
@@ -569,9 +570,19 @@ class AccelerateMixin:
       ``print`` function, use Python's ``print`` function instead.
 
     """
-    def __init__(self, *args, accelerator, callbacks__print_log__sink='auto', **kwargs):
+    def __init__(
+            self,
+            *args,
+            accelerator,
+            device=None,
+            callbacks__print_log__sink='auto',
+            **kwargs
+    ):
         super().__init__(
-            *args, callbacks__print_log__sink=callbacks__print_log__sink, **kwargs
+            *args,
+            device=device,
+            callbacks__print_log__sink=callbacks__print_log__sink,
+            **kwargs
         )
         self.accelerator = accelerator
 
