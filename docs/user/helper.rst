@@ -66,7 +66,7 @@ use and inherit from the mixin class. E.g., if you want to use a
     from skorch.helper import AccelerateMixin
 
     class AcceleratedNet(AccelerateMixin, NeuralNet):
-        """NeuralNetClassifier with accelerate support"""
+        """NeuralNet with accelerate support"""
 
 The same would work for :class:`.NeuralNetClassifier`,
 :class:`.NeuralNetRegressor`, etc. Then pass an instance of Accelerator_ with
@@ -89,9 +89,16 @@ device).
 
 To install accelerate_, run the following command inside your Python environment:
 
-    .. code:: bash
+.. code:: bash
 
       python -m pip install accelerate
+
+.. note::
+
+    Under the hood, accelerate uses :class:`~torch.cuda.amp.GradScaler`,
+    which does not support passing the training step as a closure.
+    Therefore, if your optimizer requires that (e.g.
+    :class:`torch.optim.LBFGS`), you cannot use accelerate.
 
 Command line interface helpers
 ------------------------------

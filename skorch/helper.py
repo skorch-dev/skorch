@@ -532,10 +532,19 @@ class AccelerateMixin:
     class was added: Using this mixin in conjunction with the accelerate library
     should cover a lot of common use cases.
 
-    Since accelerate is still quite young and backwards compatiblity breaking
-    features might be added, we treat its integration as an experimental
-    feature. When accelerate's API stabilizes, we will consider adding it to
-    skorch proper.
+    .. note::
+
+        Under the hood, accelerate uses :class:`~torch.cuda.amp.GradScaler`,
+        which does not support passing the training step as a closure.
+        Therefore, if your optimizer requires that (e.g.
+        :class:`torch.optim.LBFGS`), you cannot use accelerate.
+
+    .. warning::
+
+        Since accelerate is still quite young and backwards compatiblity
+        breaking features might be added, we treat its integration as an
+        experimental feature. When accelerate's API stabilizes, we will consider
+        adding it to skorch proper.
 
     Examples
     --------
@@ -649,3 +658,14 @@ class AccelerateMixin:
         iterator = super().get_iterator(*args, **kwargs)
         iterator = self.accelerator.prepare(iterator)
         return iterator
+
+    def _step_optimizer(self, step_fn):
+        # We cannot step_fn as a 'closure' to .step because GradScaler doesn't
+        # suppor it:
+        # https://pytorch.org/docs/stable/amp.html#torch.cuda.amp.GradScaler.step
+        # Therefore, we need to call step_fn explicitly and step without
+        # argument.
+        step_fn()
+        for name in self._optimizers:
+            optimizer = getattr(self, name + '_')
+            optimizer.step()
