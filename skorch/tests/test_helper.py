@@ -770,6 +770,7 @@ class TestAccelerate:
         net = net_cls(accelerator=accelerator)
         net.set_params(device='cpu')
         net.fit(*data)  # does not raise
+        assert np.isfinite(net.history[:, "train_loss"]).all()
 
     def test_device_placement(self, net_cls, accelerator_cls, data):
         accelerator = accelerator_cls(device_placement=True)
@@ -803,6 +804,7 @@ class TestAccelerate:
         # we need to use Mock here because Accelerator does not allow attr
         # deletion
         accelerator = Mock(spec=accelerator_cls())
+        accelerator.prepare = lambda x: x
         delattr(accelerator, 'print')
         net = net_cls(accelerator=accelerator)
         net.initialize()

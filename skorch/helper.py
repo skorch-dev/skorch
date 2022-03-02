@@ -608,9 +608,9 @@ class AccelerateMixin:
             for name in self._criteria:
                 criterion = getattr(self, name + '_')
                 if isinstance(criterion, torch.nn.Module):
-                    self.accelerator.prepare(criterion)
+                    setattr(self, name + '_', self.accelerator.prepare(criterion))
 
-            return self
+        return self
 
     def _initialize_module(self, *args, **kwargs):
         super()._initialize_module(*args, **kwargs)
@@ -619,7 +619,7 @@ class AccelerateMixin:
             for name in self._modules:
                 module = getattr(self, name + '_')
                 if isinstance(module, torch.nn.Module):
-                    self.accelerator.prepare(module)
+                    setattr(self, name + '_', self.accelerator.prepare(module))
 
         return self
 
@@ -630,7 +630,8 @@ class AccelerateMixin:
             for name in self._optimizers:
                 optimizer = getattr(self, name + '_')
                 if isinstance(optimizer, torch.optim.Optimizer):
-                    self.accelerator.prepare(optimizer)
+                    setattr(self, name + '_', self.accelerator.prepare(optimizer))
+
         return self
 
     def train_step_single(self, batch, **fit_params):
