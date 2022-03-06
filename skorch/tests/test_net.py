@@ -3647,6 +3647,7 @@ class TestNeuralNet:
         # does not raise
         net.predict(X)
 
+
 class TestNetSparseInput:
     @pytest.fixture(scope='module')
     def net_cls(self):
