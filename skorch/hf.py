@@ -315,7 +315,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
 
     def __getstate__(self):
         # The 'trainer' attribute cannot be pickled. To still allow pickling, we
-        # set it to None, since it's not actually required from transforming.
+        # set it to None, since it's not actually required for transforming.
         # This might get fixed in a future release of tokenizers
         # https://github.com/huggingface/tokenizers/issues/941
         state = super().__getstate__()
