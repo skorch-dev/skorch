@@ -12,7 +12,6 @@ should not depend on them.
 from copy import deepcopy
 from operator import itemgetter
 
-import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from skorch.utils import check_is_fitted
