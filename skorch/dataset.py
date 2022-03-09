@@ -70,11 +70,11 @@ def _len(x):
 
 
 def get_len(data):
-    if hasattr(data, 'convert_to_tensors'):
-        # this might be expensive but huggingface BatchEncodings are lists of
-        # lists and thus their length would be determined incorrectly otherwise,
-        # returning the sequence length instead of the number of samples.
-        data = data.convert_to_tensors('pt')
+    if isinstance(data, Mapping) and (data.get('input_ids') is not None):
+        # Special casing Huggingface BatchEncodings because they are lists of
+        # lists and thus their length would be determined incorrectly, returning
+        # the sequence length instead of the number of samples.
+        return len(data['input_ids'])
     lens = [_apply_to_data(data, _len, unpack_dict=True)]
     lens = list(flatten(lens))
     len_set = set(lens)
