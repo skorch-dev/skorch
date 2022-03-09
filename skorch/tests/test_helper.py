@@ -835,6 +835,9 @@ class TestAccelerate:
                 loss.backward(**kwargs)
                 loss.backward_was_called = True
 
+            def unwrap_model(self, model):
+                return model
+
         # pylint: disable=missing-class-docstring
         class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
             def get_iterator(self, *args, **kwargs):
