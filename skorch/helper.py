@@ -669,3 +669,8 @@ class AccelerateMixin:
         for name in self._optimizers:
             optimizer = getattr(self, name + '_')
             optimizer.step()
+
+    # pylint: disable=unused-argument
+    def on_train_end(self, net, X=None, y=None, **kwargs):
+        super().on_train_end(net, X=X, y=y, **kwargs)
+        self.module_ = self.accelerator.unwrap_model(self.module_)
