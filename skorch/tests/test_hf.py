@@ -386,9 +386,13 @@ class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
 
 
 class TestHuggingfacePretrainedTokenizer(_HuggingfaceTokenizersBaseTest):
-    @pytest.fixture(scope='module')
-    def tokenizer(self, data):
-        # return one tokenizer per setting
+    @pytest.fixture(scope='module', params=['as string', 'as instance'])
+    def tokenizer(self, request, data):
+        from transformers import AutoTokenizer
         from skorch.hf import HuggingfacePretrainedTokenizer
 
-        return HuggingfacePretrainedTokenizer('bert-base-cased').fit(data)
+        if request.param == 'as string':
+            return HuggingfacePretrainedTokenizer('bert-base-cased').fit(data)
+
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        return HuggingfacePretrainedTokenizer(tokenizer).fit(data)

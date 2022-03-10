@@ -9,6 +9,7 @@ should not depend on them.
 
 """
 
+import os
 from copy import deepcopy
 from operator import itemgetter
 
@@ -594,21 +595,28 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
     Examples
     --------
     >>> from skorch.hf import HuggingfacePretrainedTokenizer
+    >>> # pass the model name to be downloaded
     >>> hf_tokenizer = HuggingfacePretrainedTokenizer('bert-base-uncased')
     >>> data = ['hello there', 'this is a text']
-    >>> hf_tokenizer.fit(data)
+    >>> hf_tokenizer.fit(data)  # only loads the model
+    >>> hf_tokenizer.transform(data)
+
+    >>> # pass pretrained tokenizer as object
+    >>> my_tokenizer = ...
+    >>> hf_tokenizer = HuggingfacePretrainedTokenizer(my_tokenizer)
+    >>> hf_tokenizer.fit(data)  # only loads the model
     >>> hf_tokenizer.transform(data)
 
     Parameters
     ----------
-    pretrained_model_name_or_path : str or os.PathLike
-
+    tokenizer : str or os.PathLike or transformers.PreTrainedTokenizerFast
       If a string, the model id of a predefined tokenizer hosted inside a model
       repo on huggingface.co. Valid model ids can be located at the root-level,
       like bert-base-uncased, or namespaced under a user or organization name,
       like dbmdz/bert-base-german-cased. If a path, A path to a directory
       containing vocabulary files required by the tokenizer, e.g.,
-      ./my_model_directory/.
+      ./my_model_directory/. Else, should be an instantiated
+      ``PreTrainedTokenizerFast``.
 
     max_length : int (default=256)
       Maximum number of tokens used per sequence.
@@ -654,7 +662,7 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
 
     def __init__(
             self,
-            pretrained_model_name_or_path,
+            tokenizer,
             max_length=256,
             return_tensors='pt',
             return_attention_mask=True,
@@ -662,7 +670,7 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
             return_length=False,
             verbose=0,
     ):
-        self.pretrained_model_name_or_path = pretrained_model_name_or_path
+        self.tokenizer = tokenizer
         self.max_length = max_length
         self.return_tensors = return_tensors
         self.return_attention_mask = return_attention_mask
@@ -695,8 +703,11 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
                 "Iterable over raw text documents expected, string object received."
             )
 
-        self.fast_tokenizer_ = self._transformers.AutoTokenizer.from_pretrained(
-            self.pretrained_model_name_or_path
-        )
-        self.fixed_vocabulary_ = False
+        if isinstance(self.tokenizer, (str, os.PathLike)):
+            self.fast_tokenizer_ = self._transformers.AutoTokenizer.from_pretrained(
+                self.tokenizer
+            )
+        else:
+            self.fast_tokenizer_ = self.tokenizer
+        self.fixed_vocabulary_ = True
         return self
