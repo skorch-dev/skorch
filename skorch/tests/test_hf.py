@@ -172,13 +172,119 @@ class _HuggingfaceTokenizersBaseTest:
         clone(tokenizer)  # does not raise
 
 
-class TestHuggingfaceTokenizer(_HuggingfaceTokenizersBaseTest):
+class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
+    """Test with (mostly) uninitialized instances of tokenizer etc. being
+    passed
+
+    """
     from tokenizers import Tokenizer
     from tokenizers.models import BPE, WordLevel, WordPiece, Unigram
     from tokenizers import normalizers
     from tokenizers import pre_tokenizers
     from tokenizers.normalizers import Lowercase, NFD, StripAccents
-    from tokenizers.pre_tokenizers import Whitespace, Digits
+    from tokenizers.pre_tokenizers import CharDelimiterSplit, Digits, Whitespace
+    from tokenizers.processors import ByteLevel, TemplateProcessing
+    from tokenizers.trainers import BpeTrainer, UnigramTrainer
+    from tokenizers.trainers import WordPieceTrainer, WordLevelTrainer
+
+    # Test one of the main tokenizer types: BPE, WordLevel, WordPiece, Unigram.
+    # Individual settings like vocab size or choice of pre_tokenizer may not
+    # necessarily make sense.
+    settings = {
+        'setting0': {
+            'tokenizer': Tokenizer,
+            'model': BPE,
+            'model__unk_token': "[UNK]",
+            'trainer': BpeTrainer,
+            'trainer__vocab_size': 50,
+            'trainer__special_tokens': SPECIAL_TOKENS,
+            'trainer__show_progress': False,
+            'normalizer': None,
+            'pre_tokenizer': CharDelimiterSplit,
+            'pre_tokenizer__delimiter': ' ',
+            'post_processor': ByteLevel,
+            'max_length': 100,
+        },
+        'setting1': {
+            'tokenizer': Tokenizer,
+            'tokenizer__model': WordLevel,  # model set via tokenizer__model
+            'model__unk_token': "[UNK]",
+            'trainer': 'auto',  # infer trainer
+            'trainer__vocab_size': 100,
+            'trainer__special_tokens': SPECIAL_TOKENS,
+            'trainer__show_progress': False,
+            'normalizer': Lowercase,
+            'pre_tokenizer': Whitespace,
+            'post_processor': None,
+            'max_length': 100,
+        },
+        'setting2': {
+            'tokenizer': Tokenizer,
+            'model': WordPiece(unk_token="[UNK]"),  # initialized model passed
+            'trainer__vocab_size': 150,
+            'trainer__special_tokens': SPECIAL_TOKENS,
+            'trainer__show_progress': False,
+            # sequences: no kwargs
+            'normalizer': normalizers.Sequence([NFD(), Lowercase(), StripAccents()]),
+            'pre_tokenizer': pre_tokenizers.Sequence(
+                [Whitespace(), Digits(individual_digits=True)]
+            ),
+            'post_processor': TemplateProcessing(
+                single="[CLS] $A [SEP]",
+                pair="[CLS] $A [SEP] $B:1 [SEP]:1",
+                special_tokens=[("[CLS]", 1), ("[SEP]", 2)],
+            ),
+            'max_length': 200,
+        },
+        'setting4': {
+            'tokenizer': Tokenizer(model=Unigram()),
+        },
+    }
+
+    @pytest.fixture(params=settings.keys())
+    def tokenizer(self, request, data):
+        # return one tokenizer per setting
+        from skorch.hf import HuggingfaceTokenizer
+
+        return HuggingfaceTokenizer(**self.settings[request.param]).fit(data)
+
+    def test_get_params(self):
+        from skorch.hf import HuggingfaceTokenizer
+
+        tokenizer = HuggingfaceTokenizer(**self.settings['setting0'])
+        params = tokenizer.get_params(deep=True)
+        assert 'model__dropout' not in params
+
+        tokenizer.set_params(model__dropout=0.123)
+        params = tokenizer.get_params(deep=True)
+        assert 'model__dropout' in params
+
+    def test_set_params(self, data):
+        from skorch.hf import HuggingfaceTokenizer
+
+        tokenizer = HuggingfaceTokenizer(**self.settings['setting0'])
+        tokenizer.set_params(
+            model__dropout=0.123,
+            trainer__vocab_size=123,
+            pre_tokenizer__delimiter='*',
+            max_length=456,
+        )
+        tokenizer.fit(data)
+
+        assert tokenizer.tokenizer_.model.dropout == pytest.approx(0.123)
+        assert len(tokenizer.vocabulary_) == pytest.approx(123, abs=5)
+        assert tokenizer.tokenizer_.pre_tokenizer.delimiter == '*'
+        assert tokenizer.max_length == 456
+
+
+class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
+    """Test with initialized instances of tokenizer etc. being passed"""
+    from tokenizers import Tokenizer
+    from tokenizers.models import BPE, WordLevel, WordPiece, Unigram
+    from tokenizers import normalizers
+    from tokenizers import pre_tokenizers
+    from tokenizers.normalizers import Lowercase, NFD, StripAccents
+    from tokenizers.pre_tokenizers import Digits, Whitespace
     from tokenizers.processors import ByteLevel, TemplateProcessing
     from tokenizers.trainers import BpeTrainer, UnigramTrainer
     from tokenizers.trainers import WordPieceTrainer, WordLevelTrainer

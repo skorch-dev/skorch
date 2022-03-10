@@ -14,7 +14,7 @@ from operator import itemgetter
 
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from skorch.utils import check_is_fitted
+from skorch.utils import check_is_fitted, params_for
 
 
 class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
@@ -143,7 +143,6 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
     >>> from tokenizers.normalizers import Lowercase, NFD, StripAccents
     >>> from tokenizers.pre_tokenizers import Whitespace
     >>> from tokenizers.processors import TemplateProcessing
-    >>> from tokenizers.trainers import WordPieceTrainer
     >>> bert_tokenizer = Tokenizer(WordPiece(unk_token="[UNK]"))
     >>> normalizer = normalizers.Sequence([NFD(), Lowercase(), StripAccents()])
     >>> pre_tokenizer = Whitespace()
@@ -155,27 +154,54 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
     ...        ("[SEP]", 2),
     ...    ],
     ... )
-    >>> trainer = WordPieceTrainer(
-    ...     vocab_size=30522, special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"]
-    ... )
     >>> from skorch.hf import HuggingfaceTokenizer
     >>> hf_tokenizer = HuggingfaceTokenizer(
     ...     tokenizer=bert_tokenizer,
-    ...     trainer=trainer,
     ...     pre_tokenizer=pre_tokenizer,
     ...     post_processor=post_processor,
+    ...     trainer__vocab_size=30522,
+    ...     trainer__special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"],
     ... )
     >>> data = ['hello there', 'this is a text']
     >>> hf_tokenizer.fit(data)
     >>> hf_tokenizer.transform(data)
+
+    In general, you can pass both initialized objects and uninitialized objects
+    as parameters:
+
+    .. code:: python
+
+        # initialized
+        HuggingfaceTokenizer(tokenizer=Tokenizer(model=WordPiece()))
+        # uninitialized
+        HuggingfaceTokenizer(tokenizer=Tokenizer, model=WordPiece)
+
+    Both approaches work equally well and allow you to, for instance, grid
+    search on the tokenizer parameters. However, it is recommended *not* to pass
+    an initialized trainer. This is because the trainer will then be saved as an
+    attribute on the object, which can be wasteful. Instead, it is best to leave
+    the default ``trainer='auto'``, which results in the trainer being derived
+    from the model.
+
+    .. note::
+
+        If you want to train the ``HuggingfaceTokenizer`` in parallel (e.g.
+        during a grid search), you should probably set the environment variable
+        ``TOKENIZERS_PARALLELISM=false``. Otherwise, you may experience slow
+        downs or deadlocks.
 
     Parameters
     ----------
     tokenizer : tokenizers.Tokenizer
       The tokenizer to train.
 
-    trainer : tokenizers.trainers.Trainer
-      Class responsible for training the tokenizer.
+    model : tokenizers.models.Model
+      The model represents the actual tokenization algorithm, e.g. ``BPE``.
+
+    trainer : tokenizers.trainers.Trainer or 'auto' (default='auto')
+      Class responsible for training the tokenizer. If 'auto', the correct
+      trainer will be inferred from the used model using
+      ``model.get_trainer()``.
 
     normalizer : tokenizers.normalizers.Normalizer or None (default=None)
       Optional normalizer, e.g. for casting the text to lowercase.
@@ -226,11 +252,17 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
 
     """
     import transformers as _transformers
+    import tokenizers as _tokenizers
+
+    prefixes_ = [
+        'model', 'normalizer', 'post_processor', 'pre_tokenizer', 'tokenizer', 'trainer'
+    ]
 
     def __init__(
             self,
             tokenizer,
-            trainer,
+            model=None,
+            trainer='auto',
             normalizer=None,
             pre_tokenizer=None,
             post_processor=None,
@@ -241,8 +273,10 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
             return_length=False,
             pad_token='[PAD]',
             verbose=0,
+            **kwargs,
     ):
         self.tokenizer = tokenizer
+        self.model = model
         self.trainer = trainer
         self.normalizer = normalizer
         self.pre_tokenizer = pre_tokenizer
@@ -254,6 +288,191 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
         self.return_length = return_length
         self.pad_token = pad_token
         self.verbose = verbose
+
+        self._kwargs = kwargs
+        vars(self).update(kwargs)
+
+    def _check_kwargs(self, kwargs):
+        """Check argument names passed at initialization.
+
+        Raises
+        ------
+        TypeError
+          Raises a TypeError if one or more arguments don't seem to
+          match or are malformed.
+
+        Returns
+        -------
+        kwargs: dict
+          Return the passed keyword arguments.
+
+        """
+        # This whole method is taken from NeuralNet
+
+        # check for wrong arguments
+        unexpected_kwargs = []
+        missing_dunder_kwargs = []
+        for key in kwargs:
+            if key.endswith('_'):
+                continue
+
+            # see https://github.com/skorch-dev/skorch/pull/590 for
+            # why this must be sorted
+            for prefix in sorted(self.prefixes_, key=lambda s: (-len(s), s)):
+                if key == prefix:
+                    break
+                if key.startswith(prefix):
+                    if not key.startswith(prefix + '__'):
+                        missing_dunder_kwargs.append((prefix, key))
+                    break
+            else:  # no break means key didn't match a prefix
+                unexpected_kwargs.append(key)
+
+        msgs = []
+        if unexpected_kwargs:
+            tmpl = ("__init__() got unexpected argument(s) {}. "
+                    "Either you made a typo, or you added new arguments "
+                    "in a subclass; if that is the case, the subclass "
+                    "should deal with the new arguments explicitly.")
+            msg = tmpl.format(', '.join(sorted(unexpected_kwargs)))
+            msgs.append(msg)
+
+        for prefix, key in sorted(missing_dunder_kwargs, key=lambda tup: tup[1]):
+            tmpl = "Got an unexpected argument {}, did you mean {}?"
+            suffix = key[len(prefix):].lstrip('_')
+            suggestion = prefix + '__' + suffix
+            msgs.append(tmpl.format(key, suggestion))
+
+        if msgs:
+            full_msg = '\n'.join(msgs)
+            raise TypeError(full_msg)
+
+        return kwargs
+
+    def initialized_instance(self, instance_or_cls, kwargs):
+        """Return an instance initialized with the given parameters
+
+        This is a helper method that deals with several possibilities for a
+        component that might need to be initialized:
+
+        * It is already an instance that's good to go
+        * It is an instance but it needs to be re-initialized
+        * It's not an instance and needs to be initialized
+
+        For the majority of use cases, this comes down to just comes down to
+        just initializing the class with its arguments.
+
+        Parameters
+        ----------
+        instance_or_cls
+          The instance or class or callable to be initialized.
+
+        kwargs : dict
+          The keyword arguments to initialize the instance or class. Can be an
+          empty dict.
+
+        Returns
+        -------
+        instance
+          The initialized component.
+
+        """
+        # This whole method is taken from NeuralNet
+        if instance_or_cls is None:
+            return None
+
+        is_init = not isinstance(instance_or_cls, type)
+        if is_init and not kwargs:
+            return instance_or_cls
+        if is_init:
+            if self.verbose:
+                print(f"Re-initializing {instance_or_cls}")
+            return type(instance_or_cls)(**kwargs)
+        return instance_or_cls(**kwargs)
+
+    def get_params_for(self, prefix):
+        """Collect and return init parameters for an attribute."""
+        return params_for(prefix, self.__dict__)
+
+    def initialize_model(self):
+        kwargs = self.get_params_for('model')
+        model = self.model
+        if model is None:
+            model = getattr(self, 'tokenizer__model', None)
+        if model is None:
+            # no model defined, should already be set on tokenizer
+            return model
+        return self.initialized_instance(model, kwargs)
+
+    def initialize_tokenizer(self, model):
+        kwargs = self.get_params_for('tokenizer')
+        if model is not None:
+            kwargs['model'] = model
+        tokenizer = self.initialized_instance(self.tokenizer, kwargs)
+        return deepcopy(tokenizer)
+
+    def initialize_normalizer(self):
+        kwargs = self.get_params_for('normalizer')
+        return self.initialized_instance(self.normalizer, kwargs)
+
+    def initialize_pre_tokenizer(self):
+        kwargs = self.get_params_for('pre_tokenizer')
+        return self.initialized_instance(self.pre_tokenizer, kwargs)
+
+    def initialize_post_processor(self):
+        kwargs = self.get_params_for('post_processor')
+        return self.initialized_instance(self.post_processor, kwargs)
+
+    def _get_tokenizer_model(self, tokenizer):
+        return tokenizer.model
+
+    def initialize_trainer(self):
+        """Initialize the trainer
+
+        Infer the trainer type from the model if necessary.
+
+        """
+        kwargs = self.get_params_for('trainer')
+        trainer = self.trainer
+        if trainer is None:
+            # The 'trainer' attribute cannot be pickled. To still allow
+            # pickling, we set it to None, since it's not actually required from
+            # transforming. If the user tries to train, however, we need a
+            # trainer. Thus, raise a helpful error message.
+            # This might get fixed in a future release of tokenizers
+            # https://github.com/huggingface/tokenizers/issues/941
+            msg = (
+                f"Tried to fit {self.__class__.__name__} but trainer is None; either "
+                "you passed the wrong value during initialization or you loaded this "
+                "transformer with pickle, which deletes the trainer; if so, please "
+                "set the trainer again, e.g. 'tokenizer.trainer = mytrainer'"
+            )
+            raise TypeError(msg)
+
+        if trainer == 'auto':
+            trainer = self.tokenizer_.model.get_trainer()
+
+        return self.initialized_instance(trainer, kwargs)
+
+    def initialize(self):
+        """Initialize the individual tokenizer components"""
+        self._check_kwargs(self._kwargs)
+
+        model = self.initialize_model()
+        tokenizer = self.initialize_tokenizer(model)
+        normalizer = self.initialize_normalizer()
+        pre_tokenizer = self.initialize_pre_tokenizer()
+        post_processor = self.initialize_post_processor()
+
+        if normalizer is not None:
+            tokenizer.normalizer = normalizer
+        if pre_tokenizer is not None:
+            tokenizer.pre_tokenizer = pre_tokenizer
+        if post_processor is not None:
+            tokenizer.post_processor = post_processor
+        self.tokenizer_ = tokenizer
+
+        return self
 
     def fit(self, X, y=None, **fit_params):
         """Train the tokenizer on given data
@@ -279,35 +498,14 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
                 "Iterable over raw text documents expected, string object received."
             )
 
-        tokenizer = deepcopy(self.tokenizer)
-        if self.normalizer:
-            tokenizer.normalizer = self.normalizer
-        if self.pre_tokenizer:
-            tokenizer.pre_tokenizer = self.pre_tokenizer
-        if self.post_processor:
-            tokenizer.post_processor = self.post_processor
-
-        if self.trainer is None:
-            # The 'trainer' attribute cannot be pickled. To still allow
-            # pickling, we set it to None, since it's not actually required from
-            # transforming. If the user tries to train, however, we need a
-            # trainer. Thus, raise a helpful error message.
-            # This might get fixed in a future release of tokenizers
-            # https://github.com/huggingface/tokenizers/issues/941
-            msg = (
-                f"Tried to fit {self.__class__.__name__} but trainer is None; either "
-                "you passed the wrong value during initialization or you loaded this "
-                "transformer with pickle, which deletes the trainer; if so, please "
-                "set the trainer again, e.g. 'tokenizer.trainer = mytrainer'"
-            )
-            raise TypeError(msg)
+        self.initialize()
 
         X = list(X)
-        tokenizer.train_from_iterator(X, self.trainer)
-        tokenizer.add_special_tokens([self.pad_token])
-        self.tokenizer_ = tokenizer
+        trainer = self.initialize_trainer()
+        self.tokenizer_.train_from_iterator(X, trainer)
+        self.tokenizer_.add_special_tokens([self.pad_token])
         self.fast_tokenizer_ = self._transformers.PreTrainedTokenizerFast(
-            tokenizer_object=tokenizer,
+            tokenizer_object=self.tokenizer_,
             pad_token=self.pad_token,
         )
         self.fixed_vocabulary_ = False
@@ -319,8 +517,65 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
         # This might get fixed in a future release of tokenizers
         # https://github.com/huggingface/tokenizers/issues/941
         state = super().__getstate__()
-        state['trainer'] = None
+        if state['trainer'] != 'auto':
+            state['trainer'] = None
         return state
+
+    def get_params(self, deep=False):
+        params = super().get_params(deep=deep)
+        params.update(self._kwargs)
+        return params
+
+    def set_params(self, **kwargs):
+        """Set the parameters of this class.
+
+        Valid parameter keys can be listed with ``get_params()``.
+
+        Returns
+        -------
+        self
+
+        """
+        # similar to NeuralNet.set_params
+        normal_params, special_params = {}, {}
+
+        for key, val in kwargs.items():
+            if any(key.startswith(prefix) for prefix in self.prefixes_):
+                special_params[key] = val
+                self._kwargs[key] = val
+            elif '__' in key:
+                special_params[key] = val
+                self._kwargs[key] = val
+            else:
+                normal_params[key] = val
+
+        BaseEstimator.set_params(self, **normal_params)
+
+        for key, val in special_params.items():
+            if key.endswith('_'):
+                raise ValueError(
+                    "Something went wrong here. Please open an issue on "
+                    "https://github.com/skorch-dev/skorch/issues detailing what "
+                    "caused this error.")
+            setattr(self, key, val)
+
+        # If the transformer is not initialized or there are no special params,
+        # we can exit as this point, because the special_params have been set as
+        # attributes and will be applied by initialize() at a later point in
+        # time.
+        if not hasattr(self, 'tokenizer_') or not special_params:
+            return self
+
+        # if transformer is initialized, checking kwargs is possible
+        self._check_kwargs(self._kwargs)
+
+        # Re-initializing of tokenizer necessary
+        self.initialize()
+        if self.verbose:
+            print(
+                f"{self.__class__.__name__} was re-initialized, please fit it (again)"
+            )
+        return self
 
 
 class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
