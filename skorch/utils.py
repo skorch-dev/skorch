@@ -172,9 +172,6 @@ def to_device(X, device):
     if device is None:
         return X
 
-    if isinstance(X, dict):
-        return {key: to_device(val, device) for key, val in X.items()}
-
     if isinstance(X, Mapping):
         # dict-like but not a dict
         return type(X)({key: to_device(val, device) for key, val in X.items()})
