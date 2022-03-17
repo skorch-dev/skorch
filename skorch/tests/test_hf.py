@@ -86,6 +86,10 @@ class _HuggingfaceTokenizersBaseTest:
             assert val.shape[1] == tokenizer.max_length
             assert isinstance(val, torch.Tensor)
 
+    def test_with_numpy_array(self, tokenizer, data):
+        # does not raise
+        tokenizer.transform(np.array(data))
+
     def test_inverse_transform(self, tokenizer, data):
         # Inverse transform does not necessarily result in the exact same
         # output; therefore, we test text similarity.

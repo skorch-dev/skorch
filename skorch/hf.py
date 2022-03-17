@@ -67,6 +67,7 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
             raise ValueError(
                 "Iterable over raw text documents expected, string object received."
             )
+        X = list(X)  # transformers tokenizer does not accept arrays
 
         verbose = bool(getattr(self, 'verbose'))
 
@@ -498,10 +499,10 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
             raise ValueError(
                 "Iterable over raw text documents expected, string object received."
             )
+        X = list(X)    # transformers tokenizer does not accept arrays
 
         self.initialize()
 
-        X = list(X)
         trainer = self.initialize_trainer()
         self.tokenizer_.train_from_iterator(X, trainer)
         self.tokenizer_.add_special_tokens([self.pad_token])
@@ -702,6 +703,7 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
             raise ValueError(
                 "Iterable over raw text documents expected, string object received."
             )
+        X = list(X)  # transformers tokenizer does not accept arrays
 
         if isinstance(self.tokenizer, (str, os.PathLike)):
             self.fast_tokenizer_ = self._transformers.AutoTokenizer.from_pretrained(
