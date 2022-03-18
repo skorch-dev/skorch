@@ -75,7 +75,7 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
         return_tensors = None
         truncation = False
         padding = False
-        if self.return_tensors not in (str, None):
+        if self.return_tensors is not None:
             return_tensors = self.return_tensors
             padding = 'max_length'
             truncation = True
