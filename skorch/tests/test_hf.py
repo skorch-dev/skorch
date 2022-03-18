@@ -138,9 +138,8 @@ class _HuggingfaceTokenizersBaseTest:
 
         assert 'attention_mask' not in Xt
 
-    @pytest.mark.parametrize('return_tensors', [None, str])
-    def test_return_lists(self, tokenizer, data, return_tensors):
-        with temporary_set_param(tokenizer, 'return_tensors', return_tensors):
+    def test_return_lists(self, tokenizer, data):
+        with temporary_set_param(tokenizer, 'return_tensors', None):
             Xt = tokenizer.transform(data)
 
         assert set(Xt) == {'input_ids', 'attention_mask'}
