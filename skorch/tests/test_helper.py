@@ -1,5 +1,8 @@
 """Test for helper.py"""
 import pickle
+from distutils.version import LooseVersion
+from functools import partial
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -708,3 +711,188 @@ class TestDataFrameTransformer:
             'col_cats': {"dtype": torch.int32, "input_units": 2},
         }
         assert result == expected
+
+
+class TestAccelerate:
+    @pytest.fixture(scope='module')
+    def data(self, classifier_data):
+        return classifier_data
+
+    @pytest.fixture(scope='module')
+    def module_cls(self, classifier_module):
+        return classifier_module
+
+    @pytest.fixture
+    def accelerator_cls(self):
+        pytest.importorskip('accelerate')
+
+        from accelerate import Accelerator
+
+        return Accelerator
+
+    @pytest.fixture
+    def net_cls(self, module_cls):
+        from skorch import NeuralNetClassifier
+        from skorch.helper import AccelerateMixin
+
+        class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
+            pass
+
+        return partial(
+            AcceleratedNet,
+            module=module_cls,
+            max_epochs=2,
+            lr=0.1,
+        )
+
+    @pytest.mark.parametrize('mixed_precision', ['no', 'fp16', 'bf16'])
+    def test_mixed_precision(self, net_cls, accelerator_cls, data, mixed_precision):
+        # Only test if training works at all, no specific test of whether the
+        # indicated precision is actually used, since that depends on the
+        # underlying hardware.
+        import accelerate
+
+        if LooseVersion(accelerate.__version__) > '0.5.1':
+            accelerator = accelerator_cls(mixed_precision=mixed_precision)
+        elif mixed_precision == 'bf16':
+            pytest.skip('bf16 only supported in accelerate version > 0.5.1')
+        else:
+            fp16 = mixed_precision == 'fp16'
+            accelerator = accelerator_cls(fp16=fp16)
+
+        net = net_cls(accelerator=accelerator)
+        X, y = data
+        net.fit(X, y)  # does not raise
+        assert np.isfinite(net.history[:, "train_loss"]).all()
+
+    def test_force_cpu(self, net_cls, accelerator_cls, data):
+        accelerator = accelerator_cls(device_placement=False, cpu=True)
+        net = net_cls(accelerator=accelerator)
+        net.set_params(device='cpu')
+        net.fit(*data)  # does not raise
+        assert np.isfinite(net.history[:, "train_loss"]).all()
+
+    def test_device_placement(self, net_cls, accelerator_cls, data):
+        accelerator = accelerator_cls(device_placement=True)
+        net = net_cls(accelerator=accelerator)
+        net.set_params(device='cpu')
+        msg = "When device placement is performed by the accelerator, set device=None"
+        with pytest.raises(ValueError, match=msg):
+            net.fit(*data)
+
+    def test_print_log_sink_auto_uses_accelerator_print(self, net_cls, accelerator_cls):
+        # the net defaults to using the accelerator's print function
+        accelerator = accelerator_cls()
+        net = net_cls(accelerator=accelerator)
+        net.initialize()
+        print_log = dict(net.callbacks_)['print_log']
+        assert print_log.sink == accelerator.print
+
+    def test_print_log_sink_can_be_overwritten(self, net_cls, accelerator_cls):
+        # users can still set their own sinks for print log
+        accelerator = accelerator_cls()
+        net = net_cls(accelerator=accelerator, callbacks__print_log__sink=123)
+        net.initialize()
+        print_log = dict(net.callbacks_)['print_log']
+        assert print_log.sink == 123
+
+    def test_print_log_sink_uses_print_if_accelerator_has_no_print(
+            self, net_cls, accelerator_cls
+    ):
+        # we should not depend on the accelerator having a print function
+
+        # we need to use Mock here because Accelerator does not allow attr
+        # deletion
+        accelerator = Mock(spec=accelerator_cls())
+        accelerator.prepare = lambda x: x
+        delattr(accelerator, 'print')
+        net = net_cls(accelerator=accelerator)
+        net.initialize()
+        print_log = dict(net.callbacks_)['print_log']
+        assert print_log.sink is print
+
+    def test_all_components_prepared(self, module_cls, data):
+        # We cannot test whether accelerate is really performing its job.
+        # Instead, we test that all modules and optimizers, even custom
+        # user-defined ones, are properly prepared. We also test that
+        # loss.backward() is called. This means that we do test implementation
+        # details of accelerate that may change in the future.
+        from skorch import NeuralNetClassifier
+        from skorch.helper import AccelerateMixin
+
+        # pylint: disable=missing-class-docstring
+        class MockAccelerator:
+            def __init__(self):
+                self.device_placement = True
+                self.print = print
+
+            def prepare(self, *args):
+                for arg in args:
+                    arg.is_prepared = True
+                return args if len(args) > 1 else args[0]
+
+            def backward(self, loss, **kwargs):
+                loss.backward(**kwargs)
+                loss.backward_was_called = True
+
+            def unwrap_model(self, model):
+                return model
+
+        # pylint: disable=missing-class-docstring
+        class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
+            def get_iterator(self, *args, **kwargs):
+                iterator = super().get_iterator(*args, **kwargs)
+                assert iterator.is_prepared
+                return iterator
+
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                kwargs = self.get_params_for('criterion')
+                # pylint: disable=attribute-defined-outside-init
+                self.criterion2_ = self.criterion(**kwargs)
+                return self
+
+            def initialize_module(self):
+                super().initialize_module()
+                kwargs = self.get_params_for('module')
+                # pylint: disable=attribute-defined-outside-init
+                self.module2_ = self.module(**kwargs)
+                return self
+
+            def initialize_optimizer(self, *args, **kwargs):
+                super().initialize_optimizer(*args, **kwargs)
+                named_parameters = self.module2_.named_parameters()
+                args, kwargs = self.get_params_for_optimizer(
+                    'optimizer', named_parameters)
+                # pylint: disable=attribute-defined-outside-init
+                self.optimizer2_ = self.optimizer(*args, **kwargs)
+                return self
+
+            def infer(self, *args, **kwargs):
+                # check that all modules and criteria are prepared
+                assert self.module_.is_prepared
+                assert self.module2_.is_prepared
+                assert self.criterion_.is_prepared
+                assert self.criterion2_.is_prepared
+                return super().infer(*args, **kwargs)
+
+            def train_step_single(self, *args, **kwargs):
+                # check that all optimizers are prepared and that
+                # loss.backward() was called
+                assert self.optimizer_.is_prepared
+                assert self.optimizer2_.is_prepared
+                output = super().train_step_single(*args, **kwargs)
+                assert output['loss'].backward_was_called
+                return output
+
+        accelerator = MockAccelerator()
+        net = AcceleratedNet(
+            module_cls,
+            device=None,
+            accelerator=accelerator,
+            max_epochs=2,
+        )
+        X, y = data
+        # does not raise
+        net.fit(X, y)
+        net.predict(X)

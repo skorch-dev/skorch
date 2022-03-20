@@ -1,3 +1,4 @@
+accelerate
 fire
 flaky
 future>=0.17.1
