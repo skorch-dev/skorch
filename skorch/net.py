@@ -204,10 +204,10 @@ class NeuralNet:
       regardless of the verbose setting.
 
     device : str, torch.device, or None (default='cpu')
-      The compute device to be used. If set to 'cuda', data in torch
-      tensors will be pushed to cuda tensors before being sent to the
-      module. If set to None, then all compute devices will be left
-      unmodified.
+      The compute device to be used. If set to 'cuda' in order to use
+      GPU acceleration, data in torch tensors will be pushed to cuda
+      tensors before being sent to the module. If set to None, then
+      all compute devices will be left unmodified.
 
     Attributes
     ----------
