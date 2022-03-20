@@ -24,7 +24,7 @@ either pip or conda:
 .. code:: bash
 
     # using pip
-    pip install -U gpytorch
+    python -m pip install -U gpytorch
     # using conda
     conda install gpytorch -c gpytorch
 
