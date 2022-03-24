@@ -812,6 +812,8 @@ class NeuralNet:
 
     def initialize(self):
         """Initializes all of its components and returns self."""
+        self.check_training_readiness()
+
         self._initialize_virtual_params()
         self._initialize_callbacks()
         self._initialize_module()
@@ -824,13 +826,14 @@ class NeuralNet:
         self.initialized_ = True
         return self
 
-    def check_ready_to_train(self):
+    def check_training_readiness(self):
         """Check that the net is ready to train"""
         is_trimmed_for_prediction = getattr(self, '_trimmed_for_prediction', False)
         if is_trimmed_for_prediction:
             msg = (
                 "The net's attributes were trimmed for prediction, thus it cannot "
-                "be used for training anymore")
+                "be used for training anymore"
+            )
             raise SkorchTrainingImpossibleError(msg)
 
     def check_data(self, X, y=None):
@@ -1082,7 +1085,7 @@ class NeuralNet:
 
         """
         self.check_data(X, y)
-        self.check_ready_to_train()
+        self.check_training_readiness()
         epochs = epochs if epochs is not None else self.max_epochs
 
         dataset_train, dataset_valid = self.get_split_datasets(
