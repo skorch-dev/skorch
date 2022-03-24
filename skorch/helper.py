@@ -674,3 +674,72 @@ class AccelerateMixin:
     def on_train_end(self, net, X=None, y=None, **kwargs):
         super().on_train_end(net, X=X, y=y, **kwargs)
         self.module_ = self.accelerator.unwrap_model(self.module_)
+
+
+def trim_for_prediction(net, trim_criterion=True, trim_history=True):
+    """Remove all attributes not required for prediction.
+
+    Use this function after you finished training your net, with the goal of
+    reducing its size. All attributes only required during training (e.g. the
+    optimizer) are set to None. This can lead to a considerable decrease in
+    memory footprint. It also makes it more likely that the net can be loaded
+    with different library versions.
+
+    After calling this function with, the net can only be used for prediction
+    (e.g. ``net.predict`` or ``net.predict_proba``) but no longer for training
+    (e.g. ``net.fit(X, y)``).
+
+    This operation is irreversible. Once the net has been trimmed for
+    prediction, it is not possible to restore the original state. Morevoer, this
+    operation mutates the passed net. If need the unmodified net, please create
+    a deepcopy before trimming:
+
+    .. code:: python
+
+        from copy import deepcopy
+        net = NeuralNet(...)
+        net.fit(X, y)
+        # training finished
+        net_original = deepcopy(net)
+        trim_for_prediction(net)
+        net.predict(X)
+
+    Parameters
+    ----------
+    net : NeuralNetClassifier
+      The net to be trimmed. Trimming is performed inplace.
+
+    trim_criterion : bool (default=True)
+      Whether to trim the criterion/criteria. Typically, those are not needed
+      for prediction and can thus be deleted safely.
+
+    trim_history : bool (default=True)
+      Whether to trim the history. The history contains metrics from training
+      and is thus typically not needed for prediction,
+
+    """
+    # pylint: disable=protected-access
+    if getattr(net, '_trimmed_for_prediction', False):
+        return
+
+    net.check_is_fitted()
+    net._trimmed_for_prediction = True
+
+    net._set_training(False)
+    net.callbacks.clear()
+    net.callbacks_.clear()
+
+    # could hold a reference to y
+    net.train_split = None
+
+    if trim_history:
+        net.history.clear()
+
+    attrs_to_trim = net._optimizers[:]
+    if trim_criterion:
+        attrs_to_trim += net._criteria[:]
+
+    for name in attrs_to_trim:
+        setattr(net, name + '_', None)
+        if hasattr(net, name):
+            setattr(net, name, None)

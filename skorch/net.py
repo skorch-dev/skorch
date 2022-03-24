@@ -29,6 +29,7 @@ from skorch.dataset import get_len
 from skorch.dataset import unpack_data
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import SkorchAttributeError
+from skorch.exceptions import SkorchTrainingImpossibleError
 from skorch.history import History
 from skorch.setter import optimizer_setter
 from skorch.utils import _identity
@@ -823,6 +824,15 @@ class NeuralNet:
         self.initialized_ = True
         return self
 
+    def check_ready_to_train(self):
+        """Check that the net is ready to train"""
+        is_trimmed_for_prediction = getattr(self, '_trimmed_for_prediction', False)
+        if is_trimmed_for_prediction:
+            msg = (
+                "The net's attributes were trimmed for prediction, thus it cannot "
+                "be used for training anymore")
+            raise SkorchTrainingImpossibleError(msg)
+
     def check_data(self, X, y=None):
         pass
 
@@ -1072,6 +1082,7 @@ class NeuralNet:
 
         """
         self.check_data(X, y)
+        self.check_ready_to_train()
         epochs = epochs if epochs is not None else self.max_epochs
 
         dataset_train, dataset_valid = self.get_split_datasets(
