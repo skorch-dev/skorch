@@ -1,9 +1,11 @@
 """Tests for dataset.py."""
 
+import unittest
 from unittest.mock import Mock
 
 import numpy as np
 import pytest
+from scipy import sparse
 from sklearn.datasets import make_classification
 import torch
 import torch.utils.data
@@ -11,7 +13,6 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from scipy import sparse
 from skorch.utils import data_from_dataset
 from skorch.utils import is_torch_data_type
 from skorch.utils import to_tensor
@@ -64,6 +65,14 @@ class TestGetLen:
     def test_inconsistent_lengths(self, get_len, data):
         with pytest.raises(ValueError):
             get_len(data)
+
+    def test_get_len_transformers_tokenizer(self, get_len):
+        transformers = pytest.importorskip('transformers')
+
+        X = ['hello there'] * 10
+        tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
+        tokens = tokenizer(X)
+        assert get_len(tokens) == 10
 
 
 class TestNetWithoutY:
@@ -379,6 +388,79 @@ class TestNetWithPandas:
         net.fit(X, y)
         y_proba = net.predict_proba(X)
         assert np.allclose(y_proba.sum(1), 1)
+
+
+class TestNetWithTokenizers:
+    """Huggingface tokenizers should work without special adjustments"""
+    @pytest.fixture(scope='session')
+    def tokenizer(self):
+        transformers = pytest.importorskip('transformers')
+        tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
+        return tokenizer
+
+    @pytest.fixture(scope='session')
+    def data(self, tokenizer):
+        """A simple dataset that the model should be able to learn (or overfit)
+        on
+
+        """
+        X = [paragraph for paragraph in unittest.__doc__.split('\n') if paragraph]
+        Xt = tokenizer(
+            X,
+            max_length=12,
+            padding='max_length',
+            truncation=True,
+            return_token_type_ids=False,
+            return_tensors='pt',
+        )
+        y = np.array(['test' in x.lower() for x in X], dtype=np.int64)
+        return Xt, y
+
+    @pytest.fixture(scope='session')
+    def module_cls(self, tokenizer):
+        """Return a simple module using embedding + linear + softmax instead of
+        a full-fledged BERT module.
+
+        """
+        class MyModule(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.emb = nn.Embedding(tokenizer.vocab_size, 6)
+                self.dense = nn.Linear(6, 2)
+                self.sm = nn.Softmax(dim=-1)
+
+            # pylint: disable=arguments-differ
+            def forward(self, input_ids, attention_mask):
+                assert input_ids.shape == attention_mask.shape
+                X = self.emb(input_ids).mean(1)
+                return self.sm(self.dense(X))
+
+        return MyModule
+
+    @pytest.fixture(scope='session')
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture(scope='module')
+    def net(self, net_cls, module_cls):
+        return net_cls(
+            module_cls,
+            optimizer=torch.optim.Adam,
+            max_epochs=5,
+            batch_size=8,
+            lr=0.1,
+        )
+
+    def test_fit_predict_proba(self, net, data):
+        X, y = data
+        net.fit(X, y)
+        y_proba = net.predict_proba(X)
+        assert np.allclose(y_proba.sum(1), 1)
+
+        train_losses = net.history[:, 'train_loss']
+        # make sure the network trained successfully with an arbitrary wide margin
+        assert train_losses[0] > 5 * train_losses[-1]
 
 
 class TestDataset:

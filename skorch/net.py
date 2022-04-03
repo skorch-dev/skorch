@@ -7,6 +7,7 @@ sklearn-conforming classes like NeuralNetClassifier.
 """
 
 import fnmatch
+from collections.abc import Mapping
 from functools import partial
 from itertools import chain
 from collections import OrderedDict
@@ -1358,7 +1359,7 @@ class NeuralNet:
 
         """
         x = to_tensor(x, device=self.device)
-        if isinstance(x, dict):
+        if isinstance(x, Mapping):
             x_dict = self._merge_x_and_fit_params(x, fit_params)
             return self.module_(**x_dict)
         return self.module_(x, **fit_params)
