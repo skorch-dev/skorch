@@ -91,7 +91,7 @@ def to_tensor(X, device, accept_sparse=False):
     if is_torch_data_type(X):
         return to_device(X, device)
     if hasattr(X, 'convert_to_tensors'):
-        # transformers BatchEncoding
+        # huggingface transformers BatchEncoding
         return X.convert_to_tensors('pt')
     if isinstance(X, Mapping):
         return {key: to_tensor_(val) for key, val in X.items()}
