@@ -608,6 +608,13 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
     >>> hf_tokenizer.fit(data)  # only loads the model
     >>> hf_tokenizer.transform(data)
 
+    >>> # use hyper params from pretrained tokenizer to fit on own data
+    >>> hf_tokenizer = HuggingfacePretrainedTokenizer(
+    ...     'bert-base-uncased', train=True, vocab_size=12345)
+    >>> data = ...
+    >>> hf_tokenizer.fit(data)  # fits new tokenizer on data
+    >>> hf_tokenizer.transform(data)
+
     Parameters
     ----------
     tokenizer : str or os.PathLike or transformers.PreTrainedTokenizerFast
@@ -618,6 +625,17 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
       containing vocabulary files required by the tokenizer, e.g.,
       ./my_model_directory/. Else, should be an instantiated
       ``PreTrainedTokenizerFast``.
+
+    train : bool (default=False)
+      Whether to use the pre-trained tokenizer directly as is or to retrain it
+      on your data. If you just want to use the pre-trained tokenizer without
+      further modification, leave this parameter as False. However, if you want
+      to fit the tokenizer on your own data (completely from scratch, forgetting
+      what it has learned previously), set this argument to True. The latter
+      option is useful if you want to use the same hyper-parameters as the
+      pre-trained tokenizer but want the vocabulary to be fitted to your
+      dataset. The vocabulary size of this new tokenizer can be set explicitly
+      by passing the ``vocab_size`` argument.
 
     max_length : int (default=256)
       Maximum number of tokens used per sequence.
@@ -643,6 +661,12 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
       A special token used to make arrays of tokens the same size for batching
       purpose. Will then be ignored by attention mechanisms.
 
+    vocab_size : int or None (default=None)
+      Change this parameter only if you use ``train=True``. In that case, this
+      parameter will determine the vocabulary size of the newly trained
+      tokenizer. If you set ``train=True`` but leave this parameter as None, the
+      same vocabulary size as the one from the initial toknizer will be used.
+
     verbose : int (default=0)
       Whether the tokenizer should print more information and warnings.
 
@@ -664,19 +688,23 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
     def __init__(
             self,
             tokenizer,
+            train=False,
             max_length=256,
             return_tensors='pt',
             return_attention_mask=True,
             return_token_type_ids=False,
             return_length=False,
             verbose=0,
+            vocab_size=None,
     ):
         self.tokenizer = tokenizer
+        self.train = train
         self.max_length = max_length
         self.return_tensors = return_tensors
         self.return_attention_mask = return_attention_mask
         self.return_token_type_ids = return_token_type_ids
         self.return_length = return_length
+        self.vocab_size = vocab_size
         self.verbose = verbose
 
     def fit(self, X, y=None, **fit_params):
@@ -703,7 +731,9 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
             raise ValueError(
                 "Iterable over raw text documents expected, string object received."
             )
-        X = list(X)  # transformers tokenizer does not accept arrays
+
+        if not self.train and (self.vocab_size is not None):
+            raise ValueError("Setting vocab_size has no effect if train=False")
 
         if isinstance(self.tokenizer, (str, os.PathLike)):
             self.fast_tokenizer_ = self._transformers.AutoTokenizer.from_pretrained(
@@ -711,5 +741,18 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
             )
         else:
             self.fast_tokenizer_ = self.tokenizer
-        self.fixed_vocabulary_ = True
+
+        if not self.train:
+            self.fixed_vocabulary_ = True
+        else:
+            X = list(X)  # transformers tokenizer does not accept arrays
+            vocab_size = (
+                self.fast_tokenizer_.vocab_size if self.vocab_size is None
+                else self.vocab_size
+            )
+            self.fast_tokenizer_ = self.fast_tokenizer_.train_new_from_iterator(
+                X, vocab_size=vocab_size
+            )
+            self.fixed_vocabulary_ = False
+
         return self

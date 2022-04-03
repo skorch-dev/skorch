@@ -251,6 +251,9 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
 
         return HuggingfaceTokenizer(**self.settings[request.param]).fit(data)
 
+    def test_fixed_vocabulary(self, tokenizer):
+        assert tokenizer.fixed_vocabulary_ is False
+
     def test_get_params(self):
         from skorch.hf import HuggingfaceTokenizer
 
@@ -351,6 +354,9 @@ class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
 
         return HuggingfaceTokenizer(**self.settings[request.param]).fit(data)
 
+    def test_fixed_vocabulary(self, tokenizer):
+        assert tokenizer.fixed_vocabulary_ is False
+
     @pytest.mark.xfail
     def test_clone(self, tokenizer):
         # This might get fixed in a future release of tokenizers
@@ -399,3 +405,65 @@ class TestHuggingfacePretrainedTokenizer(_HuggingfaceTokenizersBaseTest):
 
         tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
         return HuggingfacePretrainedTokenizer(tokenizer).fit(data)
+
+    def test_no_training_but_vocab_size_set_raises(self, data):
+        # Raise an error when user sets vocab_size but has train=False, since it
+        # doesn't do anything.
+        from transformers import AutoTokenizer
+        from skorch.hf import HuggingfacePretrainedTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        hf_tokenizer = HuggingfacePretrainedTokenizer(
+            tokenizer, train=False, vocab_size=123
+        )
+
+        msg = "Setting vocab_size has no effect if train=False"
+        with pytest.raises(ValueError, match=msg):
+            hf_tokenizer.fit(data)
+
+    def test_fixed_vocabulary(self, tokenizer):
+        assert tokenizer.fixed_vocabulary_ is True
+
+
+class TestHuggingfacePretrainedTokenizerWithFit(_HuggingfaceTokenizersBaseTest):
+    vocab_size = 123
+
+    @pytest.fixture(scope='module', params=['as string', 'as instance'])
+    def tokenizer(self, request, data):
+        from transformers import AutoTokenizer
+        from skorch.hf import HuggingfacePretrainedTokenizer
+
+        kwargs = {'train': True, 'vocab_size': self.vocab_size}
+
+        if request.param == 'as string':
+            return HuggingfacePretrainedTokenizer('bert-base-cased', **kwargs).fit(data)
+
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        return HuggingfacePretrainedTokenizer(tokenizer, **kwargs).fit(data)
+
+    def test_fit_with_generator(self, tokenizer, data):
+        # does not raise
+        tokenizer.fit(row for row in data)
+
+    def test_vocab_size_argument_honored(self, tokenizer):
+        vocab_size = len(tokenizer.vocabulary_)
+        assert vocab_size == self.vocab_size
+
+    def test_vocab_size_argument_none(self, data):
+        # If not set explicitly, the vocab size should be the same one as of the
+        # original tokenizer. However, for this test, we don't have enough data
+        # to reach that vocab size (28996). Therefore, we test instead that the
+        # vocab size is considerably greater than the one seen when we set
+        # vocab_size explictly.
+        from transformers import AutoTokenizer
+        from skorch.hf import HuggingfacePretrainedTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        hf_tokenizer = HuggingfacePretrainedTokenizer(tokenizer, train=True).fit(data)
+
+        # The vocab_size is much bigger than in the previous test
+        vocab_size = len(hf_tokenizer.vocabulary_)
+        assert vocab_size >= 100 + self.vocab_size
+
+    def test_fixed_vocabulary(self, tokenizer):
+        assert tokenizer.fixed_vocabulary_ is False
