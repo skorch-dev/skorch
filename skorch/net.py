@@ -1255,6 +1255,60 @@ class NeuralNet:
         attributes = attributes or ['module_']
         check_is_fitted(self, attributes, *args, **kwargs)
 
+    def trim_for_prediction(self):
+        """Remove all attributes not required for prediction.
+
+        Use this method after you finished training your net, with the goal of
+        reducing its size. All attributes only required during training (e.g.
+        the optimizer) are set to None. This can lead to a considerable decrease
+        in memory footprint. It also makes it more likely that the net can be
+        loaded with different library versions.
+
+        After calling this function, the net can only be used for prediction
+        (e.g. ``net.predict`` or ``net.predict_proba``) but no longer for
+        training (e.g. ``net.fit(X, y)`` will raise an exception).
+
+        This operation is irreversible. Once the net has been trimmed for
+        prediction, it is no longer possible to restore the original state.
+        Morevoer, this operation mutates the net. If you need the unmodified
+        net, create a deepcopy before trimming:
+
+        .. code:: python
+
+            from copy import deepcopy
+            net = NeuralNet(...)
+            net.fit(X, y)
+            # training finished
+            net_original = deepcopy(net)
+            net.trim_for_prediction()
+            net.predict(X)
+
+        """
+        # pylint: disable=protected-access
+        if getattr(self, '_trimmed_for_prediction', False):
+            return
+
+        self.check_is_fitted()
+        # pylint: disable=attribute-defined-outside-init
+        self._trimmed_for_prediction = True
+        self._set_training(False)
+
+        if isinstance(self.callbacks, list):
+            self.callbacks.clear()
+        self.callbacks_.clear()
+
+        # could hold a reference to y
+        self.train_split = None
+
+        self.history.clear()
+
+        attrs_to_trim = self._optimizers[:] + self._criteria[:]
+
+        for name in attrs_to_trim:
+            setattr(self, name + '_', None)
+            if hasattr(self, name):
+                setattr(self, name, None)
+
     def forward_iter(self, X, training=False, device='cpu'):
         """Yield outputs of module forward calls on each batch of data.
         The storage device of the yielded tensors is determined

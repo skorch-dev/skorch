@@ -3697,3 +3697,138 @@ class TestNetSparseInput:
         score_end = net.history[-1]['train_loss']
 
         assert score_start > 1.25 * score_end
+
+
+class TestTrimForPrediction:
+    @pytest.fixture
+    def net_untrained(self, classifier_module):
+        """A net with a custom 'module2_' criterion and a progress bar callback"""
+        from skorch import NeuralNetClassifier
+        from skorch.callbacks import ProgressBar
+
+        net = NeuralNetClassifier(
+            classifier_module,
+            max_epochs=2,
+            callbacks=[ProgressBar()],
+        )
+        return net
+
+    @pytest.fixture
+    def net(self, net_untrained, classifier_data):
+        X, y = classifier_data
+        return net_untrained.fit(X[:100], y[:100])
+
+    @pytest.fixture
+    def net_2_criteria(self, classifier_module, classifier_data):
+        """A net with a custom 'module2_' criterion and disabled callbacks"""
+        # Check that not only the standard components are trimmed and that
+        # callbacks don't need to be lists.
+
+        from skorch import NeuralNetClassifier
+
+        class MyNet(NeuralNetClassifier):
+            def initialize_criterion(self):
+                super().initialize_criterion()
+                # pylint: disable=attribute-defined-outside-init
+                self.criterion2_ = classifier_module()
+                return self
+
+        X, y = classifier_data
+        net = MyNet(classifier_module,  max_epochs=2, callbacks='disable')
+        net.fit(X, y)
+        return net
+
+    def test_trimmed_net_less_memory(self, net):
+        # very rough way of checking for smaller memory footprint
+        size_before = len(pickle.dumps(net))
+        net.trim_for_prediction()
+        size_after = len(pickle.dumps(net))
+        # check if there is at least 10% size gain
+        assert 0.9 * size_before > size_after
+
+    def test_trim_untrained_net_raises(self, net_untrained):
+        from skorch.exceptions import NotInitializedError
+
+        with pytest.raises(NotInitializedError):
+            net_untrained.trim_for_prediction()
+
+    def test_try_fitting_trimmed_net_raises(self, net, classifier_data):
+        from skorch.exceptions import SkorchTrainingImpossibleError
+
+        X, y = classifier_data
+        msg = (
+            "The net's attributes were trimmed for prediction, thus it cannot "
+            "be used for training anymore")
+
+        net.trim_for_prediction()
+        with pytest.raises(SkorchTrainingImpossibleError, match=msg):
+            net.fit(X, y)
+
+    def test_try_trimmed_net_partial_fit_raises(
+            self, net, classifier_data
+    ):
+        from skorch.exceptions import SkorchTrainingImpossibleError
+
+        X, y = classifier_data
+        msg = (
+            "The net's attributes were trimmed for prediction, thus it cannot "
+            "be used for training anymore"
+        )
+
+        net.trim_for_prediction()
+        with pytest.raises(SkorchTrainingImpossibleError, match=msg):
+            net.partial_fit(X, y)
+
+    def test_inference_works(self, net, classifier_data):
+        # does not raise
+        net.trim_for_prediction()
+        X, _ = classifier_data
+        net.predict(X)
+        net.predict_proba(X)
+        net.forward(X)
+
+    def test_trim_twice_works(self, net):
+        # does not raise
+        net.trim_for_prediction()
+        net.trim_for_prediction()
+
+    def test_callbacks_trimmed(self, net):
+        net.trim_for_prediction()
+        assert not net.callbacks
+        assert not net.callbacks_
+
+    def test_optimizer_trimmed(self, net):
+        net.trim_for_prediction()
+        assert net.optimizer is None
+        assert net.optimizer_ is None
+
+    def test_criteria_trimmed(self, net_2_criteria):
+        net_2_criteria.trim_for_prediction()
+        assert net_2_criteria.criterion is None
+        assert net_2_criteria.criterion_ is None
+        assert net_2_criteria.criterion2_ is None
+
+    def test_history_trimmed(self, net):
+        net.trim_for_prediction()
+        assert not net.history
+
+    def test_module_training(self, net):
+        # pylint: disable=protected-access
+        net._set_training(True)
+        net.trim_for_prediction()
+        assert net.module_.training is False
+
+    def test_can_be_pickled(self, net):
+        pickle.dumps(net)
+        net.trim_for_prediction()
+        pickle.dumps(net)
+
+    def test_can_be_copied(self, net):
+        copy.deepcopy(net)
+        net.trim_for_prediction()
+        copy.deepcopy(net)
+
+    def test_can_be_cloned(self, net):
+        clone(net)
+        net.trim_for_prediction()
+        clone(net)
