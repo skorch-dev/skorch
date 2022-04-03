@@ -4,7 +4,7 @@ Should not have any dependency on other skorch packages.
 
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from distutils.version import LooseVersion
 from enum import Enum
@@ -90,7 +90,10 @@ def to_tensor(X, device, accept_sparse=False):
 
     if is_torch_data_type(X):
         return to_device(X, device)
-    if isinstance(X, dict):
+    if hasattr(X, 'convert_to_tensors'):
+        # huggingface transformers BatchEncoding
+        return X.convert_to_tensors('pt')
+    if isinstance(X, Mapping):
         return {key: to_tensor_(val) for key, val in X.items()}
     if isinstance(X, (list, tuple)):
         return [to_tensor_(x) for x in X]
@@ -123,7 +126,7 @@ def to_numpy(X):
     if isinstance(X, np.ndarray):
         return X
 
-    if isinstance(X, dict):
+    if isinstance(X, Mapping):
         return {key: to_numpy(val) for key, val in X.items()}
 
     if is_pandas_ndframe(X):
@@ -169,8 +172,9 @@ def to_device(X, device):
     if device is None:
         return X
 
-    if isinstance(X, dict):
-        return {key: to_device(val, device) for key, val in X.items()}
+    if isinstance(X, Mapping):
+        # dict-like but not a dict
+        return type(X)({key: to_device(val, device) for key, val in X.items()})
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):
@@ -200,7 +204,7 @@ def is_pandas_ndframe(x):
 
 def flatten(arr):
     for item in arr:
-        if isinstance(item, (tuple, list, dict)):
+        if isinstance(item, (tuple, list, Mapping)):
             yield from flatten(item)
         else:
             yield item
@@ -257,7 +261,7 @@ def check_indexing(data):
     if data is None:
         return _indexing_none
 
-    if isinstance(data, dict):
+    if isinstance(data, Mapping):
         # dictionary of containers
         return _indexing_dict
 

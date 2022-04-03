@@ -1,5 +1,6 @@
 """Contains custom skorch Dataset and ValidSplit."""
 import warnings
+from collections.abc import Mapping
 from functools import partial
 from numbers import Number
 
@@ -40,7 +41,7 @@ def _apply_to_data(data, func, unpack_dict=False):
     """
     apply_ = partial(_apply_to_data, func=func, unpack_dict=unpack_dict)
 
-    if isinstance(data, dict):
+    if isinstance(data, Mapping):
         if unpack_dict:
             return [apply_(v) for v in data.values()]
         return {k: apply_(v) for k, v in data.items()}
@@ -69,6 +70,11 @@ def _len(x):
 
 
 def get_len(data):
+    if isinstance(data, Mapping) and (data.get('input_ids') is not None):
+        # Special casing Huggingface BatchEncodings because they are lists of
+        # lists and thus their length would be determined incorrectly, returning
+        # the sequence length instead of the number of samples.
+        return len(data['input_ids'])
     lens = [_apply_to_data(data, _len, unpack_dict=True)]
     lens = list(flatten(lens))
     len_set = set(lens)
