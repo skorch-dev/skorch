@@ -459,6 +459,7 @@ class TestNetWithTokenizers:
         assert np.allclose(y_proba.sum(1), 1)
 
         train_losses = net.history[:, 'train_loss']
+        # make sure the network trained successfully with an arbitrary wide margin
         assert train_losses[0] > 5 * train_losses[-1]
 
 
