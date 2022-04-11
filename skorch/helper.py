@@ -3,12 +3,7 @@
 They should not be used in skorch directly.
 
 """
-try:
-    # python >= 3.3
-    from collections.abc import Sequence
-except:
-    from collections import Sequence
-
+from collections.abc import Sequence
 from functools import partial
 
 import numpy as np
