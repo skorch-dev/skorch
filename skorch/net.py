@@ -1297,9 +1297,8 @@ class NeuralNet:
             self.callbacks.clear()
         self.callbacks_.clear()
 
-        # could hold a reference to y
         self.train_split = None
-
+        self.iterator_train = None
         self.history.clear()
 
         attrs_to_trim = self._optimizers[:] + self._criteria[:]

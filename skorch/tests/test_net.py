@@ -3812,6 +3812,10 @@ class TestTrimForPrediction:
         net.trim_for_prediction()
         assert not net.history
 
+    def test_train_iterator_trimmed(self, net):
+        net.trim_for_prediction()
+        assert net.iterator_train is None
+
     def test_module_training(self, net):
         # pylint: disable=protected-access
         net._set_training(True)
