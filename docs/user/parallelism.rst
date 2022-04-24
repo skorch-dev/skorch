@@ -21,7 +21,7 @@ device to ``cuda`` when we initialize the :class:`.NeuralNet` class.
 
 Let's run through the steps.  First, install Dask and dask.distributed::
 
-  pip install dask distributed
+  python -m pip install dask distributed
 
 Next, assuming you have two GPUs on your machine, let's start up a
 Dask scheduler and two Dask workers.  Make sure the Dask workers are
