@@ -52,6 +52,12 @@ it on a toy classification dataset using skorch
     net.fit(X, y)
     y_proba = net.predict_proba(X)
 
+.. note::
+
+    The use of ``softmax`` might result in numerical instability. If you have
+    that issue, it is recommended to return the model output without applying
+    any non-linearity (i.e. remove ``F.softmax`` in the example above) in
+    conjunction with :class:`~torch.nn.CrossEntropyLoss` as ``criterion``.
 
 In an sklearn Pipeline
 ----------------------
