@@ -22,3 +22,7 @@ class SkorchWarning(UserWarning):
 
 class DeviceWarning(SkorchWarning):
     """A problem with a device (e.g. CUDA) was detected."""
+
+
+class SkorchTrainingImpossibleError(SkorchException):
+    """The net cannot be used for training"""
