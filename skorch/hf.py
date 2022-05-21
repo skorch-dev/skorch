@@ -13,6 +13,7 @@ import os
 from copy import deepcopy
 from operator import itemgetter
 
+import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from skorch.utils import check_is_fitted, params_for
@@ -45,9 +46,14 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
         """
         return [t for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))]
 
+    def fit(self, X, y=None, **fit_params):
+        raise NotImplementedError
+
     def transform(self, X):
         """Transform the given data
 
+        Parameters
+        ----------
         X : iterable of str
           A list/array of strings or an iterable which generates either strings.
 
@@ -62,6 +68,8 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
           nets.
 
         """
+        check_is_fitted(self, ['fast_tokenizer_'])
+
         # from sklearn, triggers a parameter validation
         if isinstance(X, str):
             raise ValueError(
@@ -110,17 +118,12 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
           The decoded text.
 
         """
-        Xt = []
-        for x in X['input_ids']:
-            Xt.append(
-                self.fast_tokenizer_.decode(
-                    x, skip_special_tokens=True, clean_up_tokenization_spaces=True
-                )
-            )
-        return Xt
+        check_is_fitted(self, ['fast_tokenizer_'])
 
-    def fit(self, X, y=None, **fit_params):
-        raise NotImplementedError
+        Xt = self.fast_tokenizer_.batch_decode(
+            X['input_ids'], skip_special_tokens=True, clean_up_tokenization_spaces=True
+        )
+        return np.asarray(Xt)
 
 
 class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
@@ -479,6 +482,8 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
     def fit(self, X, y=None, **fit_params):
         """Train the tokenizer on given data
 
+        Parameters
+        ----------
         X : iterable of str
           A list/array of strings or an iterable which generates either strings.
 
@@ -710,6 +715,8 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
     def fit(self, X, y=None, **fit_params):
         """Load the pretrained tokenizer
 
+        Parameters
+        ----------
         X : iterable of str
           This parameter is ignored.
 
