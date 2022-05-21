@@ -145,8 +145,8 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        Xt : np.ndarray of np.ndarray of str
-          Array containing, in each row, an array of strings corresponding to
+        Xt : np.ndarray
+          2d array containing, in each row, an array of strings corresponding to
           the tokenized input text.
 
         """
