@@ -125,6 +125,41 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
         )
         return np.asarray(Xt)
 
+    def tokenize(self, X, **kwargs):
+        """Convenience method to use the trained tokenizer for tokenization
+
+        The input text is not encoded into integers, instead the strings are
+        kept.
+
+        Use this method if you're mainly interested in splitting the text into
+        tokens using the trained Hugging Face tokenizer.
+
+        Parameters
+        ----------
+        X : iterable of str
+          A list/array of strings or an iterable which generates either strings.
+
+        kwargs : dict
+          Additional arguments, passed directly to the ``decode`` method of the
+          tokenizer, e.g. ``skip_special_tokens=True``.
+
+        Returns
+        -------
+        Xt : np.ndarray of np.ndarray of str
+          Array containing, in each row, an array of strings corresponding to
+          the tokenized input text.
+
+        """
+        check_is_fitted(self, ['fast_tokenizer_'])
+
+        encoded = self.transform(X)
+        tokenizer = self.fast_tokenizer_
+        Xt = []
+        for token_ids in encoded['input_ids']:
+            tokens = [tokenizer.decode(token_id, **kwargs) for token_id in token_ids]
+            Xt.append(tokens)
+        return np.asarray(Xt)
+
 
 class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
     """Wraps a Huggingface tokenizer to work as an sklearn transformer

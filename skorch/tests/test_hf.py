@@ -101,6 +101,21 @@ class _HuggingfaceTokenizersBaseTest:
             assert text_similarity(x_orig, x_dec) > cutoff
             assert text_similarity(x_orig, x_other) < cutoff
 
+    def test_tokenize(self, tokenizer, data):
+        tokens = tokenizer.tokenize(data)
+        assert tokens.shape == (len(data), tokenizer.max_length)
+        assert isinstance(tokens[0][0], str)
+
+    def test_tokenize_skip_special_tokens(self, tokenizer, data):
+        # Check that the tokens don't contain pad tokens. Only works if we
+        # actually know the pad token.
+        if not hasattr(tokenizer, 'pad_token'):
+            return
+
+        tokens = tokenizer.tokenize(data, skip_special_tokens=True)
+        last_col = tokens[:, -1]
+        assert not (last_col == tokenizer.pad_token).any()
+
     def test_vocabulary(self, tokenizer):
         assert isinstance(tokenizer.vocabulary_, dict)
 
