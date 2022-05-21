@@ -135,6 +135,13 @@ def to_numpy(X):
     if isinstance(X, (tuple, list)):
         return type(X)(to_numpy(x) for x in X)
 
+    if hasattr(X, 'dataset') and hasattr(X, 'idx') and hasattr(X, 'indices'):
+        # We probably deal with a SliceDataset. Cannot use isinstance because we
+        # don't want to depend on helper.py.
+        if np.isscalar(X[0]):
+            return np.array([X[i] for i in range(len(X))])
+        return np.array([to_numpy(X[i]) for i in range(len(X))])
+
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a numpy array.")
 
