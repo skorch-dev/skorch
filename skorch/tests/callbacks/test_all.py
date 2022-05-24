@@ -46,12 +46,14 @@ class TestAllCallbacks:
     def test_set_params_with_unknown_key_raises(self, base_cls):
         with pytest.raises(ValueError) as exc:
             base_cls().set_params(foo=123)
-
-        msg_start = (
-            "Invalid parameter foo for estimator <skorch.callbacks.base.Callback")
-        msg_end = (
-            "Check the list of available parameters with "
-            "`estimator.get_params().keys()`.")
         msg = exc.value.args[0]
-        assert msg.startswith(msg_start)
-        assert msg.endswith(msg_end)
+
+        # message contains "'" around variable name starting from sklearn 1.1
+        assert (
+            msg.startswith(
+                "Invalid parameter foo for estimator <skorch.callbacks.base.Callback"
+            )
+            or msg.startswith(
+                "Invalid parameter 'foo' for estimator <skorch.callbacks.base.Callback"
+            )
+        )

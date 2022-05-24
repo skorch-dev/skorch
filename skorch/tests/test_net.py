@@ -2202,9 +2202,12 @@ class TestNeuralNet:
         with pytest.raises(ValueError) as exc:
             net.set_params(foo=123)
 
-        # TODO: check error message more precisely, depending on what
-        # the intended message should be from sklearn side
-        assert exc.value.args[0].startswith('Invalid parameter foo for')
+        msg = exc.value.args[0]
+        # message contains "'" around variable name starting from sklearn 1.1
+        assert (
+            msg.startswith("Invalid parameter foo for")
+            or msg.startswith("Invalid parameter 'foo' for")
+        )
 
     @pytest.fixture()
     def sequence_module_cls(self):
