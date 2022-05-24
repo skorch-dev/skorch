@@ -48,7 +48,7 @@ class TestAllCallbacks:
             base_cls().set_params(foo=123)
         msg = exc.value.args[0]
 
-        # message contains "'" around variable name starting from sklearn 1.11
+        # message contains "'" around variable name starting from sklearn 1.1
         assert (
             msg.startswith(
                 "Invalid parameter foo for estimator <skorch.callbacks.base.Callback"
