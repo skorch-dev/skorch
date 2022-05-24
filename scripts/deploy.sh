@@ -50,7 +50,7 @@ python setup.py install
 pytest -x
 
 # check if README can be rendered correctly on PyPI
-pip install readme-renderer
+python -m pip install readme-renderer
 python -m readme_renderer README.rst > /dev/null
 
 python setup.py sdist bdist_wheel

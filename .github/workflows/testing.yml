@@ -16,11 +16,11 @@ jobs:
     strategy:
       matrix:
         python_version: ['3.6', '3.7', '3.8', '3.9']
-        torch_version: ['1.7.1+cpu', '1.8.1+cpu', '1.9.1+cpu', '1.10.1+cpu']
+        torch_version: ['1.8.1+cpu', '1.9.1+cpu', '1.10.2+cpu', '1.11.0+cpu']
         os: [ubuntu-latest]
         exclude:
-          - python_version: '3.9'
-            torch_version: '1.7.1+cpu'
+          - python_version: '3.6'
+            torch_version: '1.11.0+cpu'
 
     steps:
     - uses: actions/checkout@v2
@@ -31,12 +31,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-dev.txt
-        pip install -r requirements.txt
-        pip install torch==${{ matrix.torch_version }} -f https://download.pytorch.org/whl/torch_stable.html
+        python -m pip install -r requirements-dev.txt
+        python -m pip install -r requirements.txt
+        python -m pip install torch==${{ matrix.torch_version }} -f https://download.pytorch.org/whl/torch_stable.html
     - name: Install skorch
       run: |
-        python setup.py install
+        python -m pip install .
     - name: Test with pytest
       run: |
         pytest

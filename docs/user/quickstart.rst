@@ -14,7 +14,6 @@ it on a toy classification dataset using skorch
     import numpy as np
     from sklearn.datasets import make_classification
     from torch import nn
-    import torch.nn.functional as F
 
     from skorch import NeuralNetClassifier
 
@@ -24,7 +23,7 @@ it on a toy classification dataset using skorch
     y = y.astype(np.int64)
 
     class MyModule(nn.Module):
-        def __init__(self, num_units=10, nonlin=F.relu):
+        def __init__(self, num_units=10, nonlin=nn.ReLU()):
             super(MyModule, self).__init__()
 
             self.dense0 = nn.Linear(20, num_units)
@@ -36,14 +35,15 @@ it on a toy classification dataset using skorch
         def forward(self, X, **kwargs):
             X = self.nonlin(self.dense0(X))
             X = self.dropout(X)
-            X = F.relu(self.dense1(X))
-            X = F.softmax(self.output(X))
+            X = self.nonlin(self.dense1(X))
+            X = self.output(X)
             return X
 
 
     net = NeuralNetClassifier(
         MyModule,
         max_epochs=10,
+        criterion=nn.CrossEntropyLoss(),
         lr=0.1,
         # Shuffle training data on each epoch
         iterator_train__shuffle=True,
@@ -52,6 +52,12 @@ it on a toy classification dataset using skorch
     net.fit(X, y)
     y_proba = net.predict_proba(X)
 
+.. note::
+
+    In this example, instead of using the standard ``softmax`` non-linearity
+    with :class:`~torch.nn.NLLLoss` as criterion, no output non-linearity is
+    used and :class:`~torch.nn.CrossEntropyLoss` as ``criterion``. The reason is
+    that the use of ``softmax`` can lead to numerical instability in some cases.
 
 In an sklearn Pipeline
 ----------------------

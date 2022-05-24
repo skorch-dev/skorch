@@ -78,7 +78,7 @@ class NeptuneLogger(Callback):
 
     To monitor resource consumption install psutil
 
-    >>> pip install psutil
+    >>> python -m pip install psutil
 
     You can view example experiment logs here:
     https://ui.neptune.ai/o/shared/org/skorch-integration/e/SKOR-13/charts
@@ -86,7 +86,7 @@ class NeptuneLogger(Callback):
     Examples
     --------
     >>> # Install neptune
-    >>> pip install neptune-client
+    >>> python -m pip install neptune-client
     >>> # Create a neptune experiment object
     >>> import neptune
     ...
@@ -223,7 +223,7 @@ class WandbLogger(Callback):
     Examples
     --------
     >>> # Install wandb
-    ... pip install wandb
+    ... python -m pip install wandb
 
     >>> import wandb
     >>> from skorch.callbacks import WandbLogger
@@ -747,7 +747,7 @@ class SacredLogger(Callback):
 
     To use this logger, you first have to install Sacred:
 
-    $ pip install sacred
+    $ python -m pip install sacred
 
     You might also install pymongo to use a mongodb backend. See the upstream_
     documentation for more details. Once you have installed it, you can set up
@@ -894,7 +894,7 @@ class MlflowLogger(Callback):
 
     .. code-block::
 
-      $ pip install mlflow
+      $ python -m pip install mlflow
 
     Examples
     --------
