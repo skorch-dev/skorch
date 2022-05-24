@@ -113,6 +113,11 @@ def to_tensor(X, device, accept_sparse=False):
     raise TypeError("Cannot convert this data type to a torch tensor.")
 
 
+def _is_slicedataset(X):
+    # Cannot use isinstance because we don't want to depend on helper.py.
+    return hasattr(X, 'dataset') and hasattr(X, 'idx') and hasattr(X, 'indices')
+
+
 def to_numpy(X):
     """Generic function to convert a pytorch tensor to numpy.
 
@@ -135,12 +140,8 @@ def to_numpy(X):
     if isinstance(X, (tuple, list)):
         return type(X)(to_numpy(x) for x in X)
 
-    if hasattr(X, 'dataset') and hasattr(X, 'idx') and hasattr(X, 'indices'):
-        # We probably deal with a SliceDataset. Cannot use isinstance because we
-        # don't want to depend on helper.py.
-        if np.isscalar(X[0]):
-            return np.array([X[i] for i in range(len(X))])
-        return np.array([to_numpy(X[i]) for i in range(len(X))])
+    if _is_slicedataset(X):
+        return np.asarray(X)
 
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a numpy array.")

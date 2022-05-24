@@ -500,6 +500,27 @@ class TestSliceDataset:
         result = to_numpy(slds)
         np.testing.assert_array_equal(result, expected)
 
+    @pytest.mark.parametrize('n', [0, 1])
+    @pytest.mark.parametrize('dtype', [None, np.float16, np.int32, np.complex64])
+    def test_slicedataset_asarray(self, slds_cls, custom_ds, n, dtype):
+        torch_to_numpy_dtype_dict = {
+            torch.int64: np.int64,
+            torch.float32: np.float32,
+        }
+
+        slds = slds_cls(custom_ds, idx=n)
+        array = np.asarray(slds, dtype=dtype)
+        expected = custom_ds.X if n == 0 else custom_ds.y
+        assert array.shape == expected.shape
+
+        if dtype is not None:
+            assert array.dtype == dtype
+        else:
+            # if no dtype indicated, use original dtype of the data, or the
+            # numpy equivalent if a torch dtype
+            expected_dtype = torch_to_numpy_dtype_dict.get(expected.dtype, expected.dtype)
+            assert array.dtype == expected_dtype
+
 
 class TestPredefinedSplit():
 
