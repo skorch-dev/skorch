@@ -10,6 +10,7 @@ numpydoc
 openpyxl
 pandas
 pillow
+protobuf>=3.12.0,<4.0dev
 pylint
 pytest>=3.4
 pytest-cov
@@ -18,4 +19,4 @@ sphinx
 sphinx_rtd_theme
 tensorboard>=1.14.0
 transformers
-wandb<0.10.29
+wandb>=0.12.17
