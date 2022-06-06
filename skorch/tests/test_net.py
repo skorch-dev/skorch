@@ -976,12 +976,7 @@ class TestNeuralNet:
             self, net_cls, module_cls, net_fit, tmpdir, converter):
         # Test loading/saving with different kinds of path representations.
 
-        if converter is Path and sys.version < '3.6':
-            # `PosixPath` cannot be `open`ed in Python < 3.6
-            pytest.skip()
-
         net = net_cls(module_cls).initialize()
-
         history_before = net_fit.history
 
         p = tmpdir.mkdir('skorch').join('history.json')
