@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import torch
 from sklearn.base import clone
+from sklearn.exceptions import NotFittedError
 
 
 SPECIAL_TOKENS = ["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"]
@@ -123,9 +124,9 @@ class _HuggingfaceTokenizersBaseTest:
         vocab_size = pytest.approx(len(tokenizer.vocabulary_), abs=10)
         assert vocab_size == tokenizer.fast_tokenizer_.vocab_size
 
-    def test_get_feature_names(self, tokenizer):
-        feature_names = tokenizer.get_feature_names()
-        assert isinstance(feature_names, list)
+    def test_get_feature_names_out(self, tokenizer):
+        feature_names = tokenizer.get_feature_names_out()
+        assert isinstance(feature_names, np.ndarray)
         assert isinstance(feature_names[0], str)
 
     def test_keys_in_output(self, tokenizer, data):
@@ -363,11 +364,15 @@ class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
     }
 
     @pytest.fixture(params=settings.keys())
-    def tokenizer(self, request, data):
+    def tokenizer_not_fitted(self, request):
         # return one tokenizer per setting
         from skorch.hf import HuggingfaceTokenizer
 
-        return HuggingfaceTokenizer(**self.settings[request.param]).fit(data)
+        return HuggingfaceTokenizer(**self.settings[request.param])
+
+    @pytest.fixture
+    def tokenizer(self, tokenizer_not_fitted, data):
+        return tokenizer_not_fitted.fit(data)
 
     def test_fixed_vocabulary(self, tokenizer):
         assert tokenizer.fixed_vocabulary_ is False
@@ -394,6 +399,10 @@ class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
         Xt = tokenizer.transform(['hello there'])
         pad_token_id = Xt['input_ids'][0, -1].item()
         assert tokenizer.vocabulary_[pad_token] == pad_token_id
+
+    def test_not_fitted(self, tokenizer_not_fitted, data):
+        with pytest.raises(NotFittedError):
+            tokenizer_not_fitted.transform(data)
 
     def test_fit_with_numpy_array(self, tokenizer, data):
         # does not raise

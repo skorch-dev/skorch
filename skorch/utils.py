@@ -16,6 +16,8 @@ import warnings
 import numpy as np
 from scipy import sparse
 import sklearn
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
 import torch
 from torch.nn import BCEWithLogitsLoss
 from torch.nn import CrossEntropyLoss
@@ -557,7 +559,7 @@ def get_map_location(target_device, fallback_device='cpu'):
     return map_location
 
 
-def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
+def check_is_fitted(estimator, attributes=None, msg=None, all_or_any=all):
     """Checks whether the net is initialized.
 
     Note: This calls ``sklearn.utils.validation.check_is_fitted``
@@ -567,16 +569,15 @@ def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
     an ``sklearn.exceptions.NotFittedError``.
 
     """
-    if msg is None:
-        msg = ("This %(name)s instance is not initialized yet. Call "
-               "'initialize' or 'fit' with appropriate arguments "
-               "before using this method.")
+    try:
+        sk_check_is_fitted(estimator, attributes, msg=msg, all_or_any=all_or_any)
+    except NotFittedError as exc:
+        if msg is None:
+            msg = ("This %(name)s instance is not initialized yet. Call "
+                   "'initialize' or 'fit' with appropriate arguments "
+                   "before using this method.")
 
-    if not isinstance(attributes, (list, tuple)):
-        attributes = [attributes]
-
-    if not all_or_any([hasattr(estimator, attr) for attr in attributes]):
-        raise NotInitializedError(msg % {'name': type(estimator).__name__})
+        raise NotInitializedError(msg % {'name': type(estimator).__name__}) from exc
 
 
 def _identity(x):

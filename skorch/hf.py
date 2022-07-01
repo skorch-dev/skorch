@@ -30,21 +30,37 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
     """
     @property
     def vocabulary_(self):
-        check_is_fitted(self, ['fast_tokenizer_'])
+        if not hasattr(self, 'fast_tokenizer_'):
+            raise AttributeError(
+                f"{self.__class__.__name__} has no attribute 'vocabulary_', did you fit it first?"
+            )
         return self.fast_tokenizer_.vocab
 
-    def get_feature_names(self):
+    # pylint: disable=unused-argument
+    def get_feature_names_out(self, input_features=None):
         """Array mapping from feature integer indices to feature name.
 
-        Note: Same implementation as sklearn's CountVectorizer
+        Parameters
+        ----------
+        input_features : array-like of str or None, default=None
+            Not used, present here for API consistency by convention.
 
         Returns
         -------
-        feature_names : list
-            A list of feature names.
+        feature_names_out : ndarray of str objects
+            Transformed feature names.
 
         """
-        return [t for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))]
+        # Note: Same implementation as sklearn's CountVectorizer
+        return np.asarray(
+            [t for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))],
+            dtype=object,
+        )
+
+    def __sklearn_is_fitted__(self):
+        # method is explained here:
+        # https://scikit-learn.org/stable/modules/generated/sklearn.utils.validation.check_is_fitted.html
+        return hasattr(self, 'fast_tokenizer_')
 
     def fit(self, X, y=None, **fit_params):
         raise NotImplementedError
@@ -68,7 +84,7 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
           nets.
 
         """
-        check_is_fitted(self, ['fast_tokenizer_'])
+        check_is_fitted(self)
 
         # from sklearn, triggers a parameter validation
         if isinstance(X, str):
@@ -77,7 +93,7 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
             )
         X = list(X)  # transformers tokenizer does not accept arrays
 
-        verbose = bool(getattr(self, 'verbose'))
+        verbose = bool(self.verbose)
 
         # When using tensors/arrays, truncate/pad to max length, otherwise don't
         return_tensors = None
