@@ -756,7 +756,9 @@ class SacredLogger(Callback):
 
     To use this logger, you first have to install Sacred:
 
-    ``$ python -m pip install sacred``
+    .. code-block:: bash
+
+        python -m pip install sacred
 
     You might also install pymongo to use a mongodb backend. See the `upstream
     documentation <https://github.com/IDSIA/sacred#installing>`_ for more
@@ -793,7 +795,10 @@ class SacredLogger(Callback):
     ...     net.fit(X, y)
 
     Then call this from the command line, e.g. like this:
-    ``python sacred-script.py with max_epochs=15``
+
+    .. code-block:: bash
+
+        python sacred-script.py with max_epochs=15
 
     You can also change other options on the command line and optionally
     specify a backend.
