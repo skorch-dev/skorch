@@ -148,10 +148,9 @@ class NeptuneLogger(Callback):
       manager.
 
     keys_ignored : str or list of str (default=None)
-      Key or list of keys that should not be logged to
-      Neptune. Note that in addition to the keys provided by the
-      user, keys such as those starting with 'event_' or ending on
-      '_best' are ignored by default.
+      Key or list of keys that should not be logged to Neptune. Note that in
+      addition to the keys provided by the user, keys such as those starting
+      with ``'event_'`` or ending on ``'_best'`` are ignored by default.
 
     Attributes
     ----------
@@ -208,6 +207,7 @@ class NeptuneLogger(Callback):
         if self.close_after_train:
             self.experiment.stop()
 
+
 class WandbLogger(Callback):
     """Logs best model and metrics to `Weights & Biases <https://docs.wandb.com/>`_
 
@@ -249,10 +249,10 @@ class WandbLogger(Callback):
       to your Run on W&B servers.
 
     keys_ignored : str or list of str (default=None)
-      Key or list of keys that should not be logged to
-      tensorboard. Note that in addition to the keys provided by the
-      user, keys such as those starting with 'event_' or ending on
-      '_best' are ignored by default.
+      Key or list of keys that should not be logged to wandb. Note that in
+      addition to the keys provided by the user, keys such as those starting
+      with ``'event_'`` or ending on ``'_best'`` are ignored by default.
+
     """
 
     def __init__(
@@ -319,10 +319,10 @@ class PrintLog(Callback):
     Parameters
     ----------
     keys_ignored : str or list of str (default=None)
-      Key or list of keys that should not be part of the printed
-      table. Note that in addition to the keys provided by the user,
-      keys such as those starting with 'event_' or ending on '_best'
-      are ignored by default.
+      Key or list of keys that should not be part of the printed table. Note
+      that in addition to the keys provided by the user, keys such as those
+      starting with ``'event_'`` or ending on ``'_best'`` are ignored by
+      default.
 
     sink : callable (default=print)
       The target that the output string is sent to. By default, the
@@ -607,27 +607,39 @@ def rename_tensorboard_key(key):
 class TensorBoard(Callback):
     """Logs results from history to TensorBoard
 
-    "TensorBoard provides the visualization and tooling needed for
-    machine learning experimentation" (tensorboard_)
+    "TensorBoard provides the visualization and tooling needed for machine
+    learning experimentation" (`offical docs
+    <https://www.tensorflow.org/tensorboard/>`_).
 
-    Use this callback to automatically log all interesting values from
-    your net's history to tensorboard after each epoch.
+    Use this callback to automatically log all interesting values from your
+    net's history to tensorboard after each epoch.
+
+    Examples
+    --------
+    Here is the standard way of using the callback:
+
+    >>> # Example: normal usage
+    >>> from skorch.callbacks import TensorBoard
+    >>> from torch.utils.tensorboard import SummaryWriter
+    >>> writer = SummaryWriter(...)
+    >>> net = NeuralNet(..., callbacks=[TensorBoard(writer)])
+    >>> net.fit(X, y)
 
     The best way to log additional information is to subclass this
     callback and add your code to one of the ``on_*`` methods.
 
-    Examples
-    --------
-    >>> # Example to log the bias parameter as a histogram
+    >>> # Example: log the bias parameter as a histogram
     >>> def extract_bias(module):
     ...     return module.hidden.bias
-
+    >>> # override on_epoch_end
     >>> class MyTensorBoard(TensorBoard):
     ...     def on_epoch_end(self, net, **kwargs):
     ...         bias = extract_bias(net.module_)
     ...         epoch = net.history[-1, 'epoch']
     ...         self.writer.add_histogram('bias', bias, global_step=epoch)
     ...         super().on_epoch_end(net, **kwargs)  # call super last
+    >>> # other code
+    >>> net = NeuralNet(..., callbacks=[MyTensorBoard(writer)])
 
     Parameters
     ----------
@@ -641,10 +653,9 @@ class TensorBoard(Callback):
       manager.
 
     keys_ignored : str or list of str (default=None)
-      Key or list of keys that should not be logged to
-      tensorboard. Note that in addition to the keys provided by the
-      user, keys such as those starting with 'event_' or ending on
-      '_best' are ignored by default.
+      Key or list of keys that should not be logged to tensorboard. Note that in
+      addition to the keys provided by the user, keys such as those starting
+      with ``'event_'`` or ending on ``'_best'`` are ignored by default.
 
     key_mapper : callable or function (default=rename_tensorboard_key)
       This function maps a key name from the history to a tag in
@@ -653,8 +664,6 @@ class TensorBoard(Callback):
       same prefix, followed by a forward slash. By default, this
       callback will prefix all keys that start with "train" or "valid"
       with the "Loss/" prefix.
-
-    .. _tensorboard: https://www.tensorflow.org/tensorboard/
 
     """
     def __init__(
@@ -747,14 +756,18 @@ class SacredLogger(Callback):
 
     To use this logger, you first have to install Sacred:
 
-    $ python -m pip install sacred
+    .. code-block:: bash
 
-    You might also install pymongo to use a mongodb backend. See the upstream_
-    documentation for more details. Once you have installed it, you can set up
-    a simple experiment and pass this Logger as a callback to your skorch
-    estimator:
+        python -m pip install sacred
 
-    # contents of sacred-experiment.py
+    You might also install pymongo to use a mongodb backend. See the `upstream
+    documentation <https://github.com/IDSIA/sacred#installing>`_ for more
+    details. Once you have installed it, you can set up a simple experiment and
+    pass this Logger as a callback to your skorch estimator:
+
+    Examples
+    --------
+    >>> # contents of sacred-experiment.py
     >>> import numpy as np
     >>> from sacred import Experiment
     >>> from sklearn.datasets import make_classification
@@ -762,17 +775,13 @@ class SacredLogger(Callback):
     >>> from skorch.callbacks.scoring import EpochScoring
     >>> from skorch import NeuralNetClassifier
     >>> from skorch.toy import make_classifier
-
     >>> ex = Experiment()
-
     >>> @ex.config
     >>> def my_config():
     ...     max_epochs = 20
     ...     lr = 0.01
-
     >>> X, y = make_classification()
     >>> X, y = X.astype(np.float32), y.astype(np.int64)
-
     >>> @ex.automain
     >>> def main(_run, max_epochs, lr):
     ...     # Take care to add additional scoring callbacks *before* the logger.
@@ -786,11 +795,13 @@ class SacredLogger(Callback):
     ...     net.fit(X, y)
 
     Then call this from the command line, e.g. like this:
-    ``python sacred-script.py with max_epochs=15``
+
+    .. code-block:: bash
+
+        python sacred-script.py with max_epochs=15
 
     You can also change other options on the command line and optionally
     specify a backend.
-
 
     Parameters
     ----------
@@ -816,10 +827,8 @@ class SacredLogger(Callback):
     keys_ignored : str or list of str (default=None)
       Key or list of keys that should not be logged to Sacred. Note that in
       addition to the keys provided by the user, keys such as those starting
-      with 'event_' or ending on '_best' are ignored by default.
+      with ``'event_'`` or ending on ``'_best'`` are ignored by default.
 
-
-    .. _upstream: https://github.com/IDSIA/sacred#installing
     """
 
     def __init__(

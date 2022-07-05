@@ -1,7 +1,5 @@
 """Integrate GPyTorch for Gaussian Processes
 
-TODO: verify the assumptions being made and remove from here:
-
 - The criterion always takes likelihood and module as input arguments
 - Always optimize the negative objective function
 - Need elaboration on how batching works - are distributions disjoint?
