@@ -17,6 +17,7 @@ import numpy as np
 from scipy import sparse
 import sklearn
 import torch
+from torch.nn import BCELoss
 from torch.nn import BCEWithLogitsLoss
 from torch.nn import CrossEntropyLoss
 from torch.nn.utils.rnn import PackedSequence
@@ -632,7 +633,7 @@ def _infer_predict_nonlinearity(net):
     if isinstance(criterion, CrossEntropyLoss):
         return partial(torch.softmax, dim=-1)
 
-    if isinstance(criterion, BCEWithLogitsLoss):
+    if isinstance(criterion, (BCEWithLogitsLoss, BCELoss)):
         return _sigmoid_then_2d
 
     # TODO only needed if multiclass GP classfication is added

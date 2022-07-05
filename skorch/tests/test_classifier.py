@@ -352,3 +352,19 @@ class TestNeuralNetBinaryClassifier:
         expected = ("Expected module output to have shape (n,) or "
                     "(n, 1), got (128, 2) instead")
         assert msg == expected
+
+    def test_binary_classification_with_bceloss(self, net_cls, module_cls, data):
+        # binary classification should also work with BCELoss
+        net = net_cls(
+            module_cls,
+            module__output_nonlin=torch.nn.Sigmoid(),
+            criterion=torch.nn.BCELoss,
+            lr=1,
+        )
+        X, y = data
+        net.fit(X, y)
+        net.predict_proba(X)
+        net.predict(X)
+
+        train_losses = net.history[:, 'train_loss']
+        assert train_losses[0] > 1.3 * train_losses[-1]
