@@ -88,7 +88,7 @@ class TestNeuralNet:
 
     # classifier-specific test
     def test_takes_no_log_without_nllloss(self, net_cls, module_cls, data):
-        net = net_cls(module_cls, criterion=nn.BCELoss, max_epochs=1)
+        net = net_cls(module_cls, criterion=nn.CrossEntropyLoss, max_epochs=1)
         net.initialize()
 
         mock_loss = Mock(side_effect=nn.NLLLoss())
