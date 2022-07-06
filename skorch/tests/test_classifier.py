@@ -255,6 +255,11 @@ class TestNeuralNetBinaryClassifier:
         y_pred_proba = net.predict_proba(X)
         assert y_pred_proba.shape == (X.shape[0], 2)
 
+        # the tests below check that we don't accidentally apply sigmoid twice,
+        # which would result in all probas being withiin [0.2689, 0.7311].
+        assert (y_pred_proba < 0.26).any()
+        assert (y_pred_proba > 0.74).any()
+
         y_pred_exp = (y_pred_proba[:, 1] > threshold).astype('uint8')
 
         y_pred_actual = net.predict(X)
@@ -353,7 +358,8 @@ class TestNeuralNetBinaryClassifier:
                     "(n, 1), got (128, 2) instead")
         assert msg == expected
 
-    def test_binary_classification_with_bceloss(self, net_cls, module_cls, data):
+    @pytest.fixture(scope='module')
+    def net_with_bceloss(self, net_cls, module_cls, data):
         # binary classification should also work with BCELoss
         net = net_cls(
             module_cls,
@@ -363,8 +369,29 @@ class TestNeuralNetBinaryClassifier:
         )
         X, y = data
         net.fit(X, y)
-        net.predict_proba(X)
-        net.predict(X)
+        return net
 
-        train_losses = net.history[:, 'train_loss']
+    def test_net_with_bceloss_learns(self, net_with_bceloss):
+        train_losses = net_with_bceloss.history[:, 'train_loss']
         assert train_losses[0] > 1.3 * train_losses[-1]
+
+    def test_predict_proba_with_bceloss(self, net_with_bceloss, data):
+        X, _ = data
+        y_proba = net_with_bceloss.predict_proba(X)
+
+        assert y_proba.shape == (X.shape[0], 2)
+        assert (y_proba >= 0).all()
+        assert (y_proba <= 1).all()
+
+        # the tests below check that we don't accidentally apply sigmoid twice,
+        # which would result in all probas being withiin [0.2689, 0.7311].
+        assert (y_proba < 0.26).any()
+        assert (y_proba > 0.74).any()
+
+    def test_predict_with_bceloss(self, net_with_bceloss, data):
+        X, _ = data
+
+        y_pred_proba = net_with_bceloss.predict_proba(X)
+        y_pred_exp = (y_pred_proba[:, 1] > net_with_bceloss.threshold).astype('uint8')
+        y_pred_actual = net_with_bceloss.predict(X)
+        assert np.allclose(y_pred_exp, y_pred_actual)
