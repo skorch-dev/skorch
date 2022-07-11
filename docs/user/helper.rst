@@ -179,7 +179,7 @@ thusly:
 
 .. code:: bash
 
-    pip install fire numpydoc
+    python -m pip install fire numpydoc
 
 Usage
 ^^^^^

@@ -3,7 +3,7 @@
 They should not be used in skorch directly.
 
 """
-from collections import Sequence
+from collections.abc import Sequence
 from functools import partial
 
 import numpy as np
@@ -14,6 +14,7 @@ import torch
 from skorch.cli import parse_args  # pylint: disable=unused-import
 from skorch.dataset import unpack_data
 from skorch.utils import _make_split
+from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
 from skorch.utils import to_tensor
 
@@ -245,6 +246,14 @@ class SliceDataset(Sequence):
                 i = np.flatnonzero(i)
 
         return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
+
+    def __array__(self, dtype=None):
+        # This method is invoked when calling np.asarray(X)
+        # https://numpy.org/devdocs/user/basics.dispatch.html
+        X = [self[i] for i in range(len(self))]
+        if np.isscalar(X[0]):
+            return np.asarray(X)
+        return np.asarray([to_numpy(x) for x in X], dtype=dtype)
 
 
 def predefined_split(dataset):
@@ -669,3 +678,8 @@ class AccelerateMixin:
         for name in self._optimizers:
             optimizer = getattr(self, name + '_')
             optimizer.step()
+
+    # pylint: disable=unused-argument
+    def on_train_end(self, net, X=None, y=None, **kwargs):
+        super().on_train_end(net, X=X, y=y, **kwargs)
+        self.module_ = self.accelerator.unwrap_model(self.module_)

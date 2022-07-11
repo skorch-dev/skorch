@@ -4,7 +4,7 @@ Should not have any dependency on other skorch packages.
 
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from distutils.version import LooseVersion
 from enum import Enum
@@ -16,6 +16,8 @@ import warnings
 import numpy as np
 from scipy import sparse
 import sklearn
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
 import torch
 from torch.nn import BCEWithLogitsLoss
 from torch.nn import CrossEntropyLoss
@@ -90,7 +92,10 @@ def to_tensor(X, device, accept_sparse=False):
 
     if is_torch_data_type(X):
         return to_device(X, device)
-    if isinstance(X, dict):
+    if hasattr(X, 'convert_to_tensors'):
+        # huggingface transformers BatchEncoding
+        return X.convert_to_tensors('pt')
+    if isinstance(X, Mapping):
         return {key: to_tensor_(val) for key, val in X.items()}
     if isinstance(X, (list, tuple)):
         return [to_tensor_(x) for x in X]
@@ -110,6 +115,11 @@ def to_tensor(X, device, accept_sparse=False):
     raise TypeError("Cannot convert this data type to a torch tensor.")
 
 
+def _is_slicedataset(X):
+    # Cannot use isinstance because we don't want to depend on helper.py.
+    return hasattr(X, 'dataset') and hasattr(X, 'idx') and hasattr(X, 'indices')
+
+
 def to_numpy(X):
     """Generic function to convert a pytorch tensor to numpy.
 
@@ -123,7 +133,7 @@ def to_numpy(X):
     if isinstance(X, np.ndarray):
         return X
 
-    if isinstance(X, dict):
+    if isinstance(X, Mapping):
         return {key: to_numpy(val) for key, val in X.items()}
 
     if is_pandas_ndframe(X):
@@ -131,6 +141,9 @@ def to_numpy(X):
 
     if isinstance(X, (tuple, list)):
         return type(X)(to_numpy(x) for x in X)
+
+    if _is_slicedataset(X):
+        return np.asarray(X)
 
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a numpy array.")
@@ -169,8 +182,9 @@ def to_device(X, device):
     if device is None:
         return X
 
-    if isinstance(X, dict):
-        return {key: to_device(val, device) for key, val in X.items()}
+    if isinstance(X, Mapping):
+        # dict-like but not a dict
+        return type(X)({key: to_device(val, device) for key, val in X.items()})
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):
@@ -200,7 +214,7 @@ def is_pandas_ndframe(x):
 
 def flatten(arr):
     for item in arr:
-        if isinstance(item, (tuple, list, dict)):
+        if isinstance(item, (tuple, list, Mapping)):
             yield from flatten(item)
         else:
             yield item
@@ -257,7 +271,7 @@ def check_indexing(data):
     if data is None:
         return _indexing_none
 
-    if isinstance(data, dict):
+    if isinstance(data, Mapping):
         # dictionary of containers
         return _indexing_dict
 
@@ -545,7 +559,7 @@ def get_map_location(target_device, fallback_device='cpu'):
     return map_location
 
 
-def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
+def check_is_fitted(estimator, attributes=None, msg=None, all_or_any=all):
     """Checks whether the net is initialized.
 
     Note: This calls ``sklearn.utils.validation.check_is_fitted``
@@ -555,16 +569,15 @@ def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
     an ``sklearn.exceptions.NotFittedError``.
 
     """
-    if msg is None:
-        msg = ("This %(name)s instance is not initialized yet. Call "
-               "'initialize' or 'fit' with appropriate arguments "
-               "before using this method.")
+    try:
+        sk_check_is_fitted(estimator, attributes, msg=msg, all_or_any=all_or_any)
+    except NotFittedError as exc:
+        if msg is None:
+            msg = ("This %(name)s instance is not initialized yet. Call "
+                   "'initialize' or 'fit' with appropriate arguments "
+                   "before using this method.")
 
-    if not isinstance(attributes, (list, tuple)):
-        attributes = [attributes]
-
-    if not all_or_any([hasattr(estimator, attr) for attr in attributes]):
-        raise NotInitializedError(msg % {'name': type(estimator).__name__})
+        raise NotInitializedError(msg % {'name': type(estimator).__name__}) from exc
 
 
 def _identity(x):

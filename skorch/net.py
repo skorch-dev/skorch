@@ -7,6 +7,7 @@ sklearn-conforming classes like NeuralNetClassifier.
 """
 
 import fnmatch
+from collections.abc import Mapping
 from functools import partial
 from itertools import chain
 from collections import OrderedDict
@@ -29,6 +30,7 @@ from skorch.dataset import get_len
 from skorch.dataset import unpack_data
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import SkorchAttributeError
+from skorch.exceptions import SkorchTrainingImpossibleError
 from skorch.history import History
 from skorch.setter import optimizer_setter
 from skorch.utils import _identity
@@ -204,10 +206,10 @@ class NeuralNet:
       regardless of the verbose setting.
 
     device : str, torch.device, or None (default='cpu')
-      The compute device to be used. If set to 'cuda', data in torch
-      tensors will be pushed to cuda tensors before being sent to the
-      module. If set to None, then all compute devices will be left
-      unmodified.
+      The compute device to be used. If set to 'cuda' in order to use
+      GPU acceleration, data in torch tensors will be pushed to cuda
+      tensors before being sent to the module. If set to None, then
+      all compute devices will be left unmodified.
 
     Attributes
     ----------
@@ -508,7 +510,7 @@ class NeuralNet:
         return self
 
     def initialized_instance(self, instance_or_cls, kwargs):
-        """Return an instance initiliazed with the given parameters
+        """Return an instance initialized with the given parameters
 
         This is a helper method that deals with several possibilities for a
         component that might need to be initialized:
@@ -811,6 +813,8 @@ class NeuralNet:
 
     def initialize(self):
         """Initializes all of its components and returns self."""
+        self.check_training_readiness()
+
         self._initialize_virtual_params()
         self._initialize_callbacks()
         self._initialize_module()
@@ -822,6 +826,16 @@ class NeuralNet:
 
         self.initialized_ = True
         return self
+
+    def check_training_readiness(self):
+        """Check that the net is ready to train"""
+        is_trimmed_for_prediction = getattr(self, '_trimmed_for_prediction', False)
+        if is_trimmed_for_prediction:
+            msg = (
+                "The net's attributes were trimmed for prediction, thus it cannot "
+                "be used for training anymore"
+            )
+            raise SkorchTrainingImpossibleError(msg)
 
     def check_data(self, X, y=None):
         pass
@@ -1072,6 +1086,7 @@ class NeuralNet:
 
         """
         self.check_data(X, y)
+        self.check_training_readiness()
         epochs = epochs if epochs is not None else self.max_epochs
 
         dataset_train, dataset_valid = self.get_split_datasets(
@@ -1241,6 +1256,59 @@ class NeuralNet:
         attributes = attributes or ['module_']
         check_is_fitted(self, attributes, *args, **kwargs)
 
+    def trim_for_prediction(self):
+        """Remove all attributes not required for prediction.
+
+        Use this method after you finished training your net, with the goal of
+        reducing its size. All attributes only required during training (e.g.
+        the optimizer) are set to None. This can lead to a considerable decrease
+        in memory footprint. It also makes it more likely that the net can be
+        loaded with different library versions.
+
+        After calling this function, the net can only be used for prediction
+        (e.g. ``net.predict`` or ``net.predict_proba``) but no longer for
+        training (e.g. ``net.fit(X, y)`` will raise an exception).
+
+        This operation is irreversible. Once the net has been trimmed for
+        prediction, it is no longer possible to restore the original state.
+        Morevoer, this operation mutates the net. If you need the unmodified
+        net, create a deepcopy before trimming:
+
+        .. code:: python
+
+            from copy import deepcopy
+            net = NeuralNet(...)
+            net.fit(X, y)
+            # training finished
+            net_original = deepcopy(net)
+            net.trim_for_prediction()
+            net.predict(X)
+
+        """
+        # pylint: disable=protected-access
+        if getattr(self, '_trimmed_for_prediction', False):
+            return
+
+        self.check_is_fitted()
+        # pylint: disable=attribute-defined-outside-init
+        self._trimmed_for_prediction = True
+        self._set_training(False)
+
+        if isinstance(self.callbacks, list):
+            self.callbacks.clear()
+        self.callbacks_.clear()
+
+        self.train_split = None
+        self.iterator_train = None
+        self.history.clear()
+
+        attrs_to_trim = self._optimizers[:] + self._criteria[:]
+
+        for name in attrs_to_trim:
+            setattr(self, name + '_', None)
+            if hasattr(self, name):
+                setattr(self, name, None)
+
     def forward_iter(self, X, training=False, device='cpu'):
         """Yield outputs of module forward calls on each batch of data.
         The storage device of the yielded tensors is determined
@@ -1358,7 +1426,7 @@ class NeuralNet:
 
         """
         x = to_tensor(x, device=self.device)
-        if isinstance(x, dict):
+        if isinstance(x, Mapping):
             x_dict = self._merge_x_and_fit_params(x, fit_params)
             return self.module_(**x_dict)
         return self.module_(x, **fit_params)

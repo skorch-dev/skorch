@@ -18,7 +18,7 @@ To use this functionaliy, you need some further libraries that are not
 part of skorch, namely fire and numpydoc. You can install them thusly:
 
 ```bash
-pip install fire numpydoc
+python -m pip install fire numpydoc
 ```
 
 ## Usage
