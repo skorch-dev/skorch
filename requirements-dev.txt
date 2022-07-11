@@ -18,5 +18,6 @@ sacred
 sphinx
 sphinx_rtd_theme
 tensorboard>=1.14.0
+tokenizers
 transformers
 wandb>=0.12.17

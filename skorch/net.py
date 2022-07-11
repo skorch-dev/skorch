@@ -510,7 +510,7 @@ class NeuralNet:
         return self
 
     def initialized_instance(self, instance_or_cls, kwargs):
-        """Return an instance initiliazed with the given parameters
+        """Return an instance initialized with the given parameters
 
         This is a helper method that deals with several possibilities for a
         component that might need to be initialized:
