@@ -211,10 +211,10 @@ class Checkpoint(Callback):
             try:
                 do_checkpoint = net.history[-1, self.monitor]
             except KeyError as e:
-                raise SkorchException(
-                    "Monitor value '{}' cannot be found in history. "
-                    "Make sure you have validation data if you use "
-                    "validation scores for checkpointing.".format(e.args[0]))
+                msg = (
+                    f"{e.args[0]} Make sure you have validation data if you use "
+                    "validation scores for checkpointing.")
+                raise SkorchException(msg)
 
         if self.event_name is not None:
             net.history.record(self.event_name, bool(do_checkpoint))

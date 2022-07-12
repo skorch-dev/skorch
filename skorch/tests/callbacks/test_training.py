@@ -185,15 +185,14 @@ class TestCheckpoint:
             train_split=None
         )
         from skorch.exceptions import SkorchException
-        with pytest.raises(SkorchException) as e:
+
+        msg_expected = (
+            r"Key 'valid_loss_best' was not found in history. "
+            r"Make sure you have validation data if you use "
+            r"validation scores for checkpointing."
+        )
+        with pytest.raises(SkorchException, match=msg_expected):
             net.fit(*data)
-            expected = (
-                "Monitor value '{}' cannot be found in history. "
-                "Make sure you have validation data if you use "
-                "validation scores for checkpointing.".format(
-                    'valid_loss_best')
-            )
-            assert str(e.value) == expected
 
     def test_string_monitor_and_formatting(
             self, save_params_mock, net_cls, checkpoint_cls, data):
