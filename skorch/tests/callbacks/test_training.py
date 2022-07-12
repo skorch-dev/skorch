@@ -139,27 +139,6 @@ class TestCheckpoint:
         ('f_history', 'w'),
         ('f_pickle', 'wb')
     ])
-    def test_init_with_dirname_and_file_like_object_error(
-            self, checkpoint_cls, tmpdir, f_name, mode):
-        from skorch.exceptions import SkorchException
-
-        skorch_dir = tmpdir.mkdir("skorch")
-        exp_dir = skorch_dir.join("exp1")
-        f = skorch_dir.join(f_name + ".pt")
-
-        with f.open(mode) as fp:
-            with pytest.raises(SkorchException) as e:
-                checkpoint_cls(**{f_name: fp}, dirname=str(exp_dir))
-        expected = "dirname can only be used when f_* are strings"
-        assert str(e.value) == expected
-
-    @pytest.mark.parametrize('f_name, mode', [
-        ('f_params', 'w'),
-        ('f_optimizer', 'w'),
-        ('f_criterion', 'w'),
-        ('f_history', 'w'),
-        ('f_pickle', 'wb')
-    ])
     def test_initialize_with_dirname_and_file_like_object_error(
             self, checkpoint_cls, tmpdir, f_name, mode):
         from skorch.exceptions import SkorchException
@@ -315,6 +294,47 @@ class TestCheckpoint:
             f_criterion='criterion.pt',
             fn_prefix="unet_",
             dirname=str(skorch_dir))
+        net = net_cls(callbacks=[cp])
+        net.fit(*data)
+
+        f_params = skorch_dir.join('unet_params.pt')
+        f_optimizer = skorch_dir.join('unet_optimizer.pt')
+        f_criterion = skorch_dir.join('unet_criterion.pt')
+        f_history = skorch_dir.join('unet_history.json')
+
+        assert cp.f_history_ == str(f_history)
+        assert save_params_mock.call_count == 4 * len(net.history)
+        assert pickle_dump_mock.call_count == len(net.history)
+        save_params_mock.assert_has_calls(
+            [
+                call(f_module=str(f_params)),  # params is turned into module
+                call(f_optimizer=str(f_optimizer)),
+                call(f_criterion=str(f_criterion)),
+                call(f_history=str(f_history)),
+            ] * len(net.history),
+            any_order=True,
+        )
+        assert skorch_dir.exists()
+
+    def test_save_all_targets_with_prefix_and_dirname_callable(
+            self, save_params_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data, tmpdir):
+        # dirname can be a callable that returns a string
+        skorch_dir = tmpdir.mkdir('skorch').join('exp1')
+
+        def make_dirname():
+            return skorch_dir
+
+        cp = checkpoint_cls(
+            monitor=None,
+            f_params='params.pt',
+            f_history='history.json',
+            f_pickle='model.pkl',
+            f_optimizer='optimizer.pt',
+            f_criterion='criterion.pt',
+            fn_prefix="unet_",
+            dirname=make_dirname,
+        )
         net = net_cls(callbacks=[cp])
         net.fit(*data)
 
