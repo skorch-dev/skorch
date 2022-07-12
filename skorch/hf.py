@@ -1,10 +1,10 @@
-"""Classes to work with huggingface libraries
+"""Classes to work with Hugging Face ecosystem
 
 E.g. transformers or tokenizers
 
 This module should be treated as a leaf node in the dependency tree, i.e. no
 other skorch modules should depend on these classes or import from here. Even
-so, don't import any Huggingface libraries on the root level because skorch
+so, don't import any Hugging Face libraries on the root level because skorch
 should not depend on them.
 
 """
@@ -76,11 +76,11 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
         Returns
         -------
         Xt : transformers.tokenization_utils_base.BatchEncoding
-          A huggingface ``BatchEncoding`` instance. This is basically a
+          A Hugging Face ``BatchEncoding`` instance. This is basically a
           dictionary containing the ids of the tokens and some additional fields
           (depending on the parameters), e.g. the attention mask. For this
           reason, the output is not well suited to be used with normal sklearn
-          models, but it works with huggingface transformers and with skorch
+          models, but it works with Hugging Face transformers and with skorch
           nets.
 
         """
@@ -178,7 +178,7 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
 
 
 class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
-    """Wraps a Huggingface tokenizer to work as an sklearn transformer
+    """Wraps a Hugging Face tokenizer to work as an sklearn transformer
 
     From the tokenizers_ docs:
 
@@ -187,7 +187,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
         🤗 Tokenizers provides an implementation of today’s most used
         tokenizers, with a focus on performance and versatility.
 
-    Use of Huggingface tokenizers_ for training on custom data using an sklearn
+    Use of Hugging Face tokenizers_ for training on custom data using an sklearn
     compatible API.
 
     Examples
@@ -301,7 +301,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
       A mapping of terms to feature indices.
 
     fast_tokenizer_ : transformers.PreTrainedTokenizerFast
-      If you want to extract the Huggingface tokenizer to use it without skorch,
+      If you want to extract the Hugging Face tokenizer to use it without skorch,
       use this attribute.
 
     .. _tokenizers: https://huggingface.co/docs/tokenizers/python/latest/index.html
@@ -647,7 +647,7 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
         🤗 Tokenizers provides an implementation of today’s most used
         tokenizers, with a focus on performance and versatility.
 
-    Use pretrained Huggingface tokenizers_ in an sklearn compatible transformer.
+    Use pretrained Hugging Face tokenizers_ in an sklearn compatible transformer.
 
     Examples
     --------
@@ -732,7 +732,7 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
       A mapping of terms to feature indices.
 
     fast_tokenizer_ : transformers.PreTrainedTokenizerFast
-      If you want to extract the Huggingface tokenizer to use it without skorch,
+      If you want to extract the Hugging Face tokenizer to use it without skorch,
       use this attribute.
 
     .. _tokenizers: https://huggingface.co/docs/tokenizers/python/latest/index.html
