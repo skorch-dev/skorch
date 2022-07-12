@@ -1,4 +1,4 @@
-"""Classes to work with Hugging Face ecosystem
+"""Classes to work with Hugging Face ecosystem (https://huggingface.co/)
 
 E.g. transformers or tokenizers
 
@@ -180,14 +180,15 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
 class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
     """Wraps a Hugging Face tokenizer to work as an sklearn transformer
 
-    From the tokenizers_ docs:
+    From the `tokenizers docs
+    <https://huggingface.co/docs/tokenizers/python/latest/index.html>`_:
 
     ::
 
         🤗 Tokenizers provides an implementation of today’s most used
         tokenizers, with a focus on performance and versatility.
 
-    Use of Hugging Face tokenizers_ for training on custom data using an sklearn
+    Use of Hugging Face tokenizers for training on custom data using an sklearn
     compatible API.
 
     Examples
@@ -640,14 +641,15 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
     """Wraps a pretrained Huggingface tokenizer to work as an sklearn
     transformer
 
-    From the tokenizers_ docs:
+    From the `tokenizers docs
+    <https://huggingface.co/docs/tokenizers/python/latest/index.html>`_:
 
     ::
 
         🤗 Tokenizers provides an implementation of today’s most used
         tokenizers, with a focus on performance and versatility.
 
-    Use pretrained Hugging Face tokenizers_ in an sklearn compatible transformer.
+    Use pretrained Hugging Face tokenizers in an sklearn compatible transformer.
 
     Examples
     --------
