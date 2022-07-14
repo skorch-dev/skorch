@@ -267,6 +267,14 @@ class TestSliceDict:
         )
         assert sldict0 != sldict1
 
+    def test_subclass_getitem_returns_instance_of_itself(self, sldict_cls):
+        class MySliceDict(sldict_cls):
+            pass
+
+        sldict = MySliceDict(a=np.zeros(3))
+        sliced = sldict[:2]
+        assert isinstance(sliced, MySliceDict)
+
 
 class TestSliceDataset:
     @pytest.fixture(scope='class', params=['numpy', 'torch'])
@@ -520,6 +528,16 @@ class TestSliceDataset:
             # numpy equivalent if a torch dtype
             expected_dtype = torch_to_numpy_dtype_dict.get(expected.dtype, expected.dtype)
             assert array.dtype == expected_dtype
+
+    @pytest.mark.parametrize('sl', [slice(0, 2), np.arange(3)])
+    def test_subclass_getitem_returns_instance_of_itself(self, slds_cls, custom_ds, sl):
+        class MySliceDataset(slds_cls):
+            pass
+
+        slds = MySliceDataset(custom_ds, idx=0)
+        sliced = slds[sl]
+
+        assert isinstance(sliced, MySliceDataset)
 
 
 class TestPredefinedSplit():
