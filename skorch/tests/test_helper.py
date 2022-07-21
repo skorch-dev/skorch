@@ -829,10 +829,12 @@ class TestAccelerate:
         # underlying hardware.
         from accelerate.utils import is_bf16_available
 
+        if (mixed_precision != 'no') and not torch.cuda.is_available():
+            pytest.skip('skipping AMP test because device does not support it')
         if (mixed_precision == 'bf16') and not is_bf16_available():
-            pytest.skip('skipping bf16 tests because device does not support it')
-        accelerator = accelerator_cls(mixed_precision=mixed_precision)
+            pytest.skip('skipping bf16 test because device does not support it')
 
+        accelerator = accelerator_cls(mixed_precision=mixed_precision)
         net = net_cls(accelerator=accelerator)
         X, y = data
         net.fit(X, y)  # does not raise
