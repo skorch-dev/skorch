@@ -256,8 +256,13 @@ class TestNeuralNetBinaryClassifier:
         y_pred_proba = net.predict_proba(X)
         assert y_pred_proba.shape == (X.shape[0], 2)
 
-        # the tests below check that we don't accidentally apply sigmoid twice,
-        # which would result in all probas being within [expit(-1), expit(1)]
+        # The tests below check that we don't accidentally apply sigmoid twice,
+        # which would result in probabilities constrained to [expit(-1),
+        # expit(1)]. The lower bound is not expit(0), as one may think at first,
+        # because we create the probabilities as:
+        # torch.stack((1 - prob, prob), 1)
+        # So the lowest value that could be achieved by applying sigmoid twice
+        # is 1 - expit(1), which is equal to expit(-1).
         prob_min, prob_max = expit(-1), expit(1)
         assert (y_pred_proba < prob_min).any()
         assert (y_pred_proba > prob_max).any()
@@ -385,8 +390,13 @@ class TestNeuralNetBinaryClassifier:
         assert (y_proba >= 0).all()
         assert (y_proba <= 1).all()
 
-        # the tests below check that we don't accidentally apply sigmoid twice,
-        # which would result in all probas being within [expit(-1), expit(1)]
+        # The tests below check that we don't accidentally apply sigmoid twice,
+        # which would result in probabilities constrained to [expit(-1),
+        # expit(1)]. The lower bound is not expit(0), as one may think at first,
+        # because we create the probabilities as:
+        # torch.stack((1 - prob, prob), 1)
+        # So the lowest value that could be achieved by applying sigmoid twice
+        # is 1 - expit(1), which is equal to expit(-1).
         prob_min, prob_max = expit(-1), expit(1)
         assert (y_proba < prob_min).any()
         assert (y_proba > prob_max).any()
