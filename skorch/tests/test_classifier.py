@@ -9,6 +9,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 import torch
+from scipy.special import expit
 from sklearn.base import clone
 from torch import nn
 
@@ -256,9 +257,10 @@ class TestNeuralNetBinaryClassifier:
         assert y_pred_proba.shape == (X.shape[0], 2)
 
         # the tests below check that we don't accidentally apply sigmoid twice,
-        # which would result in all probas being withiin [0.2689, 0.7311].
-        assert (y_pred_proba < 0.26).any()
-        assert (y_pred_proba > 0.74).any()
+        # which would result in all probas being within [expit(-1), expit(1)]
+        prob_min, prob_max = expit(-1), expit(1)
+        assert (y_pred_proba < prob_min).any()
+        assert (y_pred_proba > prob_max).any()
 
         y_pred_exp = (y_pred_proba[:, 1] > threshold).astype('uint8')
 
@@ -384,9 +386,10 @@ class TestNeuralNetBinaryClassifier:
         assert (y_proba <= 1).all()
 
         # the tests below check that we don't accidentally apply sigmoid twice,
-        # which would result in all probas being withiin [0.2689, 0.7311].
-        assert (y_proba < 0.26).any()
-        assert (y_proba > 0.74).any()
+        # which would result in all probas being within [expit(-1), expit(1)]
+        prob_min, prob_max = expit(-1), expit(1)
+        assert (y_proba < prob_min).any()
+        assert (y_proba > prob_max).any()
 
     def test_predict_with_bceloss(self, net_with_bceloss, data):
         X, _ = data
