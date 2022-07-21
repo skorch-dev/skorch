@@ -6,3 +6,4 @@
 * [MNIST using torchvision](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/MNIST-torchvision.ipynb)
 * [Transfer Learning](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Transfer_Learning.ipynb)
 * [Gaussian Processes](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Gaussian_Processes.ipynb)
+* [Huggingface fine-tuning](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Huggingface_Finetuning.ipynb)

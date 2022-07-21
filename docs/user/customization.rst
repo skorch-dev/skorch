@@ -191,9 +191,10 @@ modules, criteria, and optimizers? You have to follow these rules:
 3. Their names should end on an underscore. This is true for all attributes that
    are created during ``initialize`` and distinguishes them from arguments
    passed to ``__init__``. So a name for a custom module could be ``mymodule_``.
-4. Inside the initialization method, use :meth:`.get_params_for` (or,
-   if dealing with an optimizer, :meth:`.get_params_for_optimizer`) to
-   retrieve the arguments for the constructor of the instance.
+4. Inside the initialization method, use
+   :meth:`skorch.net.NeuralNet.get_params_for` (or, if dealing with an
+   optimizer, :meth:`skorch.net.NeuralNet.get_params_for_optimizer`) to retrieve
+   the arguments for the constructor of the instance.
 
 Here is an example of how this could look like in practice:
 

@@ -9,6 +9,7 @@ skorch
    dataset
    exceptions
    helper
+   hf
    history
    net
    probabilistic
