@@ -54,7 +54,7 @@ class SliceDict(dict):
         else:
             self._len = lengths[0]
 
-        super(SliceDict, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __len__(self):
         return self._len
@@ -66,8 +66,8 @@ class SliceDict(dict):
             # lengths and shapes.
             raise ValueError("SliceDict cannot be indexed by integers.")
         if isinstance(sl, str):
-            return super(SliceDict, self).__getitem__(sl)
-        return SliceDict(**{k: v[sl] for k, v in self.items()})
+            return super().__getitem__(sl)
+        return type(self)(**{k: v[sl] for k, v in self.items()})
 
     def __setitem__(self, key, value):
         if not isinstance(key, str):
@@ -82,14 +82,14 @@ class SliceDict(dict):
                 "Cannot set array with shape[0] != {}"
                 "".format(self._len))
 
-        super(SliceDict, self).__setitem__(key, value)
+        super().__setitem__(key, value)
 
     def update(self, kwargs):
         for key, value in kwargs.items():
             self.__setitem__(key, value)
 
     def __repr__(self):
-        out = super(SliceDict, self).__repr__()
+        out = super().__repr__()
         return "SliceDict(**{})".format(out)
 
     @property
@@ -234,8 +234,9 @@ class SliceDataset(Sequence):
             Xi = self._select_item(Xn)
             return self.transform(Xi)
 
+        cls = type(self)
         if isinstance(i, slice):
-            return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
+            return cls(self.dataset, idx=self.idx, indices=self.indices_[i])
 
         if isinstance(i, np.ndarray):
             if i.ndim != 1:
@@ -245,7 +246,7 @@ class SliceDataset(Sequence):
             if i.dtype == np.bool:
                 i = np.flatnonzero(i)
 
-        return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
+        return cls(self.dataset, idx=self.idx, indices=self.indices_[i])
 
     def __array__(self, dtype=None):
         # This method is invoked when calling np.asarray(X)
