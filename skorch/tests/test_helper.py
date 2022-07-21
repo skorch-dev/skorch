@@ -798,7 +798,13 @@ class TestAccelerate:
         pytest.importorskip('accelerate')
 
         from accelerate import Accelerator
+        from accelerate.state import AcceleratorState
 
+        # We have to use this private method because otherwise, the
+        # AcceleratorState is not completely reset, which results in an error
+        # initializing the Accelerator more than once in the same process.
+        # pylint: disable=protected-access
+        AcceleratorState._reset_state()
         return Accelerator
 
     @pytest.fixture
@@ -821,16 +827,14 @@ class TestAccelerate:
         # Only test if training works at all, no specific test of whether the
         # indicated precision is actually used, since that depends on the
         # underlying hardware.
-        import accelerate
+        from accelerate.utils import is_bf16_available
 
-        if LooseVersion(accelerate.__version__) > '0.5.1':
-            accelerator = accelerator_cls(mixed_precision=mixed_precision)
-        elif mixed_precision == 'bf16':
-            pytest.skip('bf16 only supported in accelerate version > 0.5.1')
-        else:
-            fp16 = mixed_precision == 'fp16'
-            accelerator = accelerator_cls(fp16=fp16)
+        if (mixed_precision != 'no') and not torch.cuda.is_available():
+            pytest.skip('skipping AMP test because device does not support it')
+        if (mixed_precision == 'bf16') and not is_bf16_available():
+            pytest.skip('skipping bf16 test because device does not support it')
 
+        accelerator = accelerator_cls(mixed_precision=mixed_precision)
         net = net_cls(accelerator=accelerator)
         X, y = data
         net.fit(X, y)  # does not raise
