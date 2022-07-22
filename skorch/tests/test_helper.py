@@ -1,5 +1,6 @@
 """Test for helper.py"""
 import pickle
+from contextlib import contextmanager
 from distutils.version import LooseVersion
 from functools import partial
 from unittest.mock import Mock
@@ -888,14 +889,15 @@ class TestAccelerate:
 
     def test_all_components_prepared(self, module_cls, data):
         # We cannot test whether accelerate is really performing its job.
-        # Instead, we test that all modules and optimizers, even custom
-        # user-defined ones, are properly prepared. We also test that
+        # Instead, we test that all modules, optimizers, and lr schedulers, even
+        # custom user-defined ones, are properly prepared. We also test that
         # loss.backward() is called. This means that we do test implementation
         # details of accelerate that may change in the future.
         from skorch import NeuralNetClassifier
+        from skorch.callbacks import LRScheduler
         from skorch.helper import AccelerateMixin
 
-        # pylint: disable=missing-class-docstring
+        # pylint: disable=missing-docstring
         class MockAccelerator:
             def __init__(self):
                 self.device_placement = True
@@ -913,7 +915,11 @@ class TestAccelerate:
             def unwrap_model(self, model):
                 return model
 
-        # pylint: disable=missing-class-docstring
+            @contextmanager
+            def accumulate(self, model):
+                yield
+
+        # pylint: disable=missing-docstring,arguments-differ
         class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
             def get_iterator(self, *args, **kwargs):
                 iterator = super().get_iterator(*args, **kwargs)
@@ -952,10 +958,14 @@ class TestAccelerate:
                 return super().infer(*args, **kwargs)
 
             def train_step_single(self, *args, **kwargs):
-                # check that all optimizers are prepared and that
-                # loss.backward() was called
+                # check that all optimizers and the lr scheduler are prepared,
+                # and that loss.backward() was called,
                 assert self.optimizer_.is_prepared
                 assert self.optimizer2_.is_prepared
+
+                lr_scheduler = dict(self.callbacks_)['lr_scheduler'].policy_
+                assert lr_scheduler.is_prepared
+
                 output = super().train_step_single(*args, **kwargs)
                 assert output['loss'].backward_was_called
                 return output
@@ -966,8 +976,69 @@ class TestAccelerate:
             device=None,
             accelerator=accelerator,
             max_epochs=2,
+            callbacks=[('lr_scheduler', LRScheduler)],
         )
         X, y = data
         # does not raise
         net.fit(X, y)
         net.predict(X)
+
+        # make sure that even after resetting parameters, components are still prepared
+        net.set_params(
+            module__hidden_units=7,
+            lr=0.05,
+            batch_size=33,
+            criterion__reduction='sum',
+            callbacks__lr_scheduler__policy=torch.optim.lr_scheduler.ReduceLROnPlateau,
+        )
+        # does not raise
+        net.fit(X, y)
+        net.predict(X)
+
+    def test_gradient_accumulation_with_accelerate(
+            self, module_cls, accelerator_cls, data
+    ):
+        # Check that using gradient accumulation provided by accelerate actually
+        # works. Testing this is not quite trivial. E.g. we cannot check haven
+        # often optimizer.step() is called because accelerate still calls it on
+        # each step but does not necessarily update the weights. Therefore, we
+        # check if there was an update step by comparing the weights before and
+        # after the train_step call. If the weights changed, then there was a
+        # step, otherwise not.
+        from skorch import NeuralNetClassifier
+        from skorch.helper import AccelerateMixin
+
+        def weight_sum(module):
+            return sum(weights.sum() for weights in module.parameters())
+
+        # Record for each training step if there was an update of the weights
+        updated = []
+
+        # pylint: disable=missing-docstring
+        class GradAccNet(AccelerateMixin, NeuralNetClassifier):
+            # pylint: disable=arguments-differ
+            def train_step(self, *args, **kwargs):
+                # Note: We use a very simplified way of checking if weights were
+                # updated by just comparing their sum. This way, we don't need
+                # to keep a copy around.
+                weight_sum_before = weight_sum(self.module_)
+                step = super().train_step(*args, **kwargs)
+                weight_sum_after = weight_sum(self.module_)
+                update_occurred = (weight_sum_before != weight_sum_after).item()
+                updated.append(update_occurred)
+                return step
+
+        max_epochs = 2
+        acc_steps = 3
+        accelerator = accelerator_cls(gradient_accumulation_steps=acc_steps)
+        net = GradAccNet(module_cls, accelerator=accelerator, max_epochs=max_epochs)
+        X, y = data
+        net.fit(X, y)
+
+        # Why we expect this outcome: Since acc_steps is 3, we expect that
+        # updated should be [False, False, True]. However, since we have 1000
+        # samples and a batch size of 128, every 7th batch is the last batch of
+        # the epoch, after which there should also be an update. Therefore,
+        # every 7th entry is also True.
+        updated_expected = [False, False, True, False, False, True, True] * max_epochs
+        assert updated == updated_expected

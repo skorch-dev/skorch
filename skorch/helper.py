@@ -12,6 +12,7 @@ from sklearn.base import TransformerMixin
 import torch
 
 from skorch.cli import parse_args  # pylint: disable=unused-import
+from skorch.callbacks import LRScheduler
 from skorch.dataset import unpack_data
 from skorch.utils import _make_split
 from skorch.utils import to_numpy
@@ -652,6 +653,26 @@ class AccelerateMixin:
                     setattr(self, name + '_', self.accelerator.prepare(optimizer))
 
         return self
+
+    def initialize_callbacks(self, *args, **kwargs):
+        super().initialize_callbacks(*args, **kwargs)
+
+        for _, callback in self.callbacks_:
+            if isinstance(callback, LRScheduler):
+                callback.policy_ = self.accelerator.prepare(callback.policy_)
+
+        return self
+
+    def train_step(self, batch, **fit_params):
+        # Call training step within the accelerator context manager
+        with self.accelerator.accumulate(self.module_):
+            # Why are we passing only module_ here, even though there might be
+            # other modules as well? First of all, there is no possibility to
+            # pass multiple modules. Second, the module_ is only used to
+            # determine if Distributed Data Parallel is being used, not for
+            # anything else. Therefore, passing module_ should be sufficient
+            # most of the time.
+            return super().train_step(batch, **fit_params)
 
     def train_step_single(self, batch, **fit_params):
         self._set_training(True)
