@@ -958,8 +958,8 @@ class TestAccelerate:
                 return super().infer(*args, **kwargs)
 
             def train_step_single(self, *args, **kwargs):
-                # check that all optimizers are prepared and that
-                # loss.backward() was called TODO
+                # check that all optimizers and the lr scheduler are prepared,
+                # and that loss.backward() was called,
                 assert self.optimizer_.is_prepared
                 assert self.optimizer2_.is_prepared
 
