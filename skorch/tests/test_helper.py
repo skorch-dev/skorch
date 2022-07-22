@@ -889,14 +889,15 @@ class TestAccelerate:
 
     def test_all_components_prepared(self, module_cls, data):
         # We cannot test whether accelerate is really performing its job.
-        # Instead, we test that all modules and optimizers, even custom
-        # user-defined ones, are properly prepared. We also test that
+        # Instead, we test that all modules, optimizers, and lr schedulers, even
+        # custom user-defined ones, are properly prepared. We also test that
         # loss.backward() is called. This means that we do test implementation
         # details of accelerate that may change in the future.
         from skorch import NeuralNetClassifier
+        from skorch.callbacks import LRScheduler
         from skorch.helper import AccelerateMixin
 
-        # pylint: disable=missing-class-docstring
+        # pylint: disable=missing-docstring
         class MockAccelerator:
             def __init__(self):
                 self.device_placement = True
@@ -918,7 +919,7 @@ class TestAccelerate:
             def accumulate(self, model):
                 yield
 
-        # pylint: disable=missing-class-docstring
+        # pylint: disable=missing-docstring,arguments-differ
         class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
             def get_iterator(self, *args, **kwargs):
                 iterator = super().get_iterator(*args, **kwargs)
@@ -958,9 +959,13 @@ class TestAccelerate:
 
             def train_step_single(self, *args, **kwargs):
                 # check that all optimizers are prepared and that
-                # loss.backward() was called
+                # loss.backward() was called TODO
                 assert self.optimizer_.is_prepared
                 assert self.optimizer2_.is_prepared
+
+                lr_scheduler = dict(self.callbacks_)['lr_scheduler'].policy_
+                assert lr_scheduler.is_prepared
+
                 output = super().train_step_single(*args, **kwargs)
                 assert output['loss'].backward_was_called
                 return output
@@ -971,8 +976,21 @@ class TestAccelerate:
             device=None,
             accelerator=accelerator,
             max_epochs=2,
+            callbacks=[('lr_scheduler', LRScheduler)],
         )
         X, y = data
+        # does not raise
+        net.fit(X, y)
+        net.predict(X)
+
+        # make sure that even after resetting parameters, components are still prepared
+        net.set_params(
+            module__hidden_units=7,
+            lr=0.05,
+            batch_size=33,
+            criterion__reduction='sum',
+            callbacks__lr_scheduler__policy=torch.optim.lr_scheduler.ReduceLROnPlateau,
+        )
         # does not raise
         net.fit(X, y)
         net.predict(X)

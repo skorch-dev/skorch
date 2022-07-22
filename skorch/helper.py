@@ -12,6 +12,7 @@ from sklearn.base import TransformerMixin
 import torch
 
 from skorch.cli import parse_args  # pylint: disable=unused-import
+from skorch.callbacks import LRScheduler
 from skorch.dataset import unpack_data
 from skorch.utils import _make_split
 from skorch.utils import to_numpy
@@ -650,6 +651,15 @@ class AccelerateMixin:
                 optimizer = getattr(self, name + '_')
                 if isinstance(optimizer, torch.optim.Optimizer):
                     setattr(self, name + '_', self.accelerator.prepare(optimizer))
+
+        return self
+
+    def initialize_callbacks(self, *args, **kwargs):
+        super().initialize_callbacks(*args, **kwargs)
+
+        for _, callback in self.callbacks_:
+            if isinstance(callback, LRScheduler):
+                callback.policy_ = self.accelerator.prepare(callback.policy_)
 
         return self
 
