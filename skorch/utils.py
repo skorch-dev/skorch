@@ -40,6 +40,12 @@ try:
 except ImportError:
     gpytorch = None
 
+try:
+    import torch_geometric
+    TORCH_GEOMETRIC_INSTALLED = True
+except ImportError:
+    TORCH_GEOMETRIC_INSTALLED = False
+
 
 class Ansi(Enum):
     BLUE = '\033[94m'
@@ -57,6 +63,11 @@ def is_torch_data_type(x):
 
 def is_dataset(x):
     return isinstance(x, torch.utils.data.Dataset)
+
+
+def is_geometric_data_type(x):
+    from torch_geometric.data import Data
+    return isinstance(x, Data)
 
 
 # pylint: disable=not-callable
@@ -92,6 +103,8 @@ def to_tensor(X, device, accept_sparse=False):
     to_tensor_ = partial(to_tensor, device=device)
 
     if is_torch_data_type(X):
+        return to_device(X, device)
+    if TORCH_GEOMETRIC_INSTALLED and is_geometric_data_type(X):
         return to_device(X, device)
     if hasattr(X, 'convert_to_tensors'):
         # huggingface transformers BatchEncoding
