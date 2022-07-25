@@ -16,7 +16,10 @@ import warnings
 import numpy as np
 from scipy import sparse
 import sklearn
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
 import torch
+from torch.nn import BCELoss
 from torch.nn import BCEWithLogitsLoss
 from torch.nn import CrossEntropyLoss
 from torch.nn.utils.rnn import PackedSequence
@@ -570,7 +573,7 @@ def get_map_location(target_device, fallback_device='cpu'):
     return map_location
 
 
-def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
+def check_is_fitted(estimator, attributes=None, msg=None, all_or_any=all):
     """Checks whether the net is initialized.
 
     Note: This calls ``sklearn.utils.validation.check_is_fitted``
@@ -580,21 +583,32 @@ def check_is_fitted(estimator, attributes, msg=None, all_or_any=all):
     an ``sklearn.exceptions.NotFittedError``.
 
     """
-    if msg is None:
-        msg = ("This %(name)s instance is not initialized yet. Call "
-               "'initialize' or 'fit' with appropriate arguments "
-               "before using this method.")
+    try:
+        sk_check_is_fitted(estimator, attributes, msg=msg, all_or_any=all_or_any)
+    except NotFittedError as exc:
+        if msg is None:
+            msg = ("This %(name)s instance is not initialized yet. Call "
+                   "'initialize' or 'fit' with appropriate arguments "
+                   "before using this method.")
 
-    if not isinstance(attributes, (list, tuple)):
-        attributes = [attributes]
-
-    if not all_or_any([hasattr(estimator, attr) for attr in attributes]):
-        raise NotInitializedError(msg % {'name': type(estimator).__name__})
+        raise NotInitializedError(msg % {'name': type(estimator).__name__}) from exc
 
 
 def _identity(x):
     """Return input as is, the identity operation"""
     return x
+
+
+def _make_2d_probs(prob):
+    """Create a 2d probability array from a 1d vector
+
+    This is needed because by convention, even for binary classification
+    problems, sklearn expects 2 probabilities to be returned per row, one for
+    class 0 and one for class 1.
+
+    """
+    y_proba = torch.stack((1 - prob, prob), 1)
+    return y_proba
 
 
 def _sigmoid_then_2d(x):
@@ -619,8 +633,7 @@ def _sigmoid_then_2d(x):
 
     """
     prob = torch.sigmoid(x)
-    y_proba = torch.stack((1 - prob, prob), 1)
-    return y_proba
+    return _make_2d_probs(prob)
 
 
 # TODO only needed if multiclass GP classfication is added
@@ -647,6 +660,9 @@ def _infer_predict_nonlinearity(net):
 
     if isinstance(criterion, BCEWithLogitsLoss):
         return _sigmoid_then_2d
+
+    if isinstance(criterion, BCELoss):
+        return _make_2d_probs
 
     # TODO only needed if multiclass GP classfication is added
     # likelihood = getattr(net, 'likelihood_', None)

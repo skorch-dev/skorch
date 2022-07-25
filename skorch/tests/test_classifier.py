@@ -9,6 +9,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 import torch
+from scipy.special import expit
 from sklearn.base import clone
 from torch import nn
 
@@ -88,7 +89,7 @@ class TestNeuralNet:
 
     # classifier-specific test
     def test_takes_no_log_without_nllloss(self, net_cls, module_cls, data):
-        net = net_cls(module_cls, criterion=nn.BCELoss, max_epochs=1)
+        net = net_cls(module_cls, criterion=nn.CrossEntropyLoss, max_epochs=1)
         net.initialize()
 
         mock_loss = Mock(side_effect=nn.NLLLoss())
@@ -255,6 +256,17 @@ class TestNeuralNetBinaryClassifier:
         y_pred_proba = net.predict_proba(X)
         assert y_pred_proba.shape == (X.shape[0], 2)
 
+        # The tests below check that we don't accidentally apply sigmoid twice,
+        # which would result in probabilities constrained to [expit(-1),
+        # expit(1)]. The lower bound is not expit(0), as one may think at first,
+        # because we create the probabilities as:
+        # torch.stack((1 - prob, prob), 1)
+        # So the lowest value that could be achieved by applying sigmoid twice
+        # is 1 - expit(1), which is equal to expit(-1).
+        prob_min, prob_max = expit(-1), expit(1)
+        assert (y_pred_proba < prob_min).any()
+        assert (y_pred_proba > prob_max).any()
+
         y_pred_exp = (y_pred_proba[:, 1] > threshold).astype('uint8')
 
         y_pred_actual = net.predict(X)
@@ -352,3 +364,47 @@ class TestNeuralNetBinaryClassifier:
         expected = ("Expected module output to have shape (n,) or "
                     "(n, 1), got (128, 2) instead")
         assert msg == expected
+
+    @pytest.fixture(scope='module')
+    def net_with_bceloss(self, net_cls, module_cls, data):
+        # binary classification should also work with BCELoss
+        net = net_cls(
+            module_cls,
+            module__output_nonlin=torch.nn.Sigmoid(),
+            criterion=torch.nn.BCELoss,
+            lr=1,
+        )
+        X, y = data
+        net.fit(X, y)
+        return net
+
+    def test_net_with_bceloss_learns(self, net_with_bceloss):
+        train_losses = net_with_bceloss.history[:, 'train_loss']
+        assert train_losses[0] > 1.3 * train_losses[-1]
+
+    def test_predict_proba_with_bceloss(self, net_with_bceloss, data):
+        X, _ = data
+        y_proba = net_with_bceloss.predict_proba(X)
+
+        assert y_proba.shape == (X.shape[0], 2)
+        assert (y_proba >= 0).all()
+        assert (y_proba <= 1).all()
+
+        # The tests below check that we don't accidentally apply sigmoid twice,
+        # which would result in probabilities constrained to [expit(-1),
+        # expit(1)]. The lower bound is not expit(0), as one may think at first,
+        # because we create the probabilities as:
+        # torch.stack((1 - prob, prob), 1)
+        # So the lowest value that could be achieved by applying sigmoid twice
+        # is 1 - expit(1), which is equal to expit(-1).
+        prob_min, prob_max = expit(-1), expit(1)
+        assert (y_proba < prob_min).any()
+        assert (y_proba > prob_max).any()
+
+    def test_predict_with_bceloss(self, net_with_bceloss, data):
+        X, _ = data
+
+        y_pred_proba = net_with_bceloss.predict_proba(X)
+        y_pred_exp = (y_pred_proba[:, 1] > net_with_bceloss.threshold).astype('uint8')
+        y_pred_actual = net_with_bceloss.predict(X)
+        assert np.allclose(y_pred_exp, y_pred_actual)

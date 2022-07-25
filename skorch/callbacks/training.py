@@ -680,7 +680,7 @@ class LoadInitState(Callback):
 
 class TrainEndCheckpoint(Callback):
     """Saves the model parameters, optimizer state, and history at the end of
-    training. The default ``fn_prefix`` is 'train_end_'.
+    training. The default ``fn_prefix`` is ``'train_end_'``.
 
     Examples
     --------
@@ -698,7 +698,6 @@ class TrainEndCheckpoint(Callback):
 
     Parameters
     ----------
-
     f_params : file-like object, str, None (default='params.pt')
       File path to the file or file-like object where the model
       parameters should be saved. Pass ``None`` to disable saving

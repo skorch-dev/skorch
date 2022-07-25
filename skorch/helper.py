@@ -12,6 +12,7 @@ from sklearn.base import TransformerMixin
 import torch
 
 from skorch.cli import parse_args  # pylint: disable=unused-import
+from skorch.callbacks import LRScheduler
 from skorch.dataset import unpack_data
 from skorch.utils import _make_split
 from skorch.utils import to_numpy
@@ -54,7 +55,7 @@ class SliceDict(dict):
         else:
             self._len = lengths[0]
 
-        super(SliceDict, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __len__(self):
         return self._len
@@ -66,8 +67,8 @@ class SliceDict(dict):
             # lengths and shapes.
             raise ValueError("SliceDict cannot be indexed by integers.")
         if isinstance(sl, str):
-            return super(SliceDict, self).__getitem__(sl)
-        return SliceDict(**{k: v[sl] for k, v in self.items()})
+            return super().__getitem__(sl)
+        return type(self)(**{k: v[sl] for k, v in self.items()})
 
     def __setitem__(self, key, value):
         if not isinstance(key, str):
@@ -82,14 +83,14 @@ class SliceDict(dict):
                 "Cannot set array with shape[0] != {}"
                 "".format(self._len))
 
-        super(SliceDict, self).__setitem__(key, value)
+        super().__setitem__(key, value)
 
     def update(self, kwargs):
         for key, value in kwargs.items():
             self.__setitem__(key, value)
 
     def __repr__(self):
-        out = super(SliceDict, self).__repr__()
+        out = super().__repr__()
         return "SliceDict(**{})".format(out)
 
     @property
@@ -234,8 +235,9 @@ class SliceDataset(Sequence):
             Xi = self._select_item(Xn)
             return self.transform(Xi)
 
+        cls = type(self)
         if isinstance(i, slice):
-            return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
+            return cls(self.dataset, idx=self.idx, indices=self.indices_[i])
 
         if isinstance(i, np.ndarray):
             if i.ndim != 1:
@@ -245,7 +247,7 @@ class SliceDataset(Sequence):
             if i.dtype == np.bool:
                 i = np.flatnonzero(i)
 
-        return SliceDataset(self.dataset, idx=self.idx, indices=self.indices_[i])
+        return cls(self.dataset, idx=self.idx, indices=self.indices_[i])
 
     def __array__(self, dtype=None):
         # This method is invoked when calling np.asarray(X)
@@ -651,6 +653,26 @@ class AccelerateMixin:
                     setattr(self, name + '_', self.accelerator.prepare(optimizer))
 
         return self
+
+    def initialize_callbacks(self, *args, **kwargs):
+        super().initialize_callbacks(*args, **kwargs)
+
+        for _, callback in self.callbacks_:
+            if isinstance(callback, LRScheduler):
+                callback.policy_ = self.accelerator.prepare(callback.policy_)
+
+        return self
+
+    def train_step(self, batch, **fit_params):
+        # Call training step within the accelerator context manager
+        with self.accelerator.accumulate(self.module_):
+            # Why are we passing only module_ here, even though there might be
+            # other modules as well? First of all, there is no possibility to
+            # pass multiple modules. Second, the module_ is only used to
+            # determine if Distributed Data Parallel is being used, not for
+            # anything else. Therefore, passing module_ should be sufficient
+            # most of the time.
+            return super().train_step(batch, **fit_params)
 
     def train_step_single(self, batch, **fit_params):
         self._set_training(True)
