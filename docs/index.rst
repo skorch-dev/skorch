@@ -60,6 +60,7 @@ User's Guide
    user/parallelism
    user/customization
    user/performance
+   user/huggingface
    user/FAQ
 
 

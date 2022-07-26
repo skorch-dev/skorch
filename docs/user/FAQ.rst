@@ -329,6 +329,11 @@ sure that there is an optimization step after the last batch of each
 epoch. However, this example can serve as a starting point to
 implement your own version gradient accumulation.
 
+Alternatively, make use of skorch's `accelerate
+<https://github.com/huggingface/accelerate>`_ integration provided by
+:class:`~skorch.hf.AccelerateMixin` and use the gradient accumulation feature
+from that library.
+
 How can I dynamically set the input size of the PyTorch module based on the data?
 ---------------------------------------------------------------------------------
 
