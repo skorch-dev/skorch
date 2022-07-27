@@ -14,8 +14,11 @@ from copy import deepcopy
 from operator import itemgetter
 
 import numpy as np
+import torch
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from skorch.callbacks import LRScheduler
+from skorch.dataset import unpack_data
 from skorch.utils import check_is_fitted, params_for
 
 
@@ -32,7 +35,8 @@ class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
     def vocabulary_(self):
         if not hasattr(self, 'fast_tokenizer_'):
             raise AttributeError(
-                f"{self.__class__.__name__} has no attribute 'vocabulary_', did you fit it first?"
+                f"{self.__class__.__name__} has no attribute 'vocabulary_', "
+                f"did you fit it first?"
             )
         return self.fast_tokenizer_.vocab
 
@@ -663,7 +667,7 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
     >>> # pass pretrained tokenizer as object
     >>> my_tokenizer = ...
     >>> hf_tokenizer = HuggingfacePretrainedTokenizer(my_tokenizer)
-    >>> hf_tokenizer.fit(data)  # only loads the model
+    >>> hf_tokenizer.fit(data)
     >>> hf_tokenizer.transform(data)
 
     >>> # use hyper params from pretrained tokenizer to fit on own data
@@ -816,3 +820,189 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
             self.fixed_vocabulary_ = False
 
         return self
+
+
+class AccelerateMixin:
+    """Mixin class to add support for Hugging Face accelerate
+
+    This is an *experimental* feature.
+
+    Use this mixin class with one of the neural net classes (e.g. ``NeuralNet``,
+    ``NeuralNetClassifier``, or ``NeuralNetRegressor``) and pass an instance of
+    ``Accelerator`` for mixed precision, multi-GPU, or TPU training.
+
+    Install the accelerate library using:
+
+    .. code-block::
+
+      python -m pip install accelerate
+
+    skorch does not itself provide any facilities to enable these training
+    features. A lot of them can still be implemented by the user with a little
+    bit of extra work but it can be a daunting task. That is why this helper
+    class was added: Using this mixin in conjunction with the accelerate library
+    should cover a lot of common use cases.
+
+    .. note::
+
+        Under the hood, accelerate uses :class:`~torch.cuda.amp.GradScaler`,
+        which does not support passing the training step as a closure.
+        Therefore, if your optimizer requires that (e.g.
+        :class:`torch.optim.LBFGS`), you cannot use accelerate.
+
+    .. warning::
+
+        Since accelerate is still quite young and backwards compatiblity
+        breaking features might be added, we treat its integration as an
+        experimental feature. When accelerate's API stabilizes, we will consider
+        adding it to skorch proper.
+
+    Examples
+    --------
+    >>> from skorch import NeuralNetClassifier
+    >>> from skorch.hf import AccelerateMixin
+    >>> from accelerate import Accelerator
+    >>>
+    >>> class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
+    ...     '''NeuralNetClassifier with accelerate support'''
+    >>>
+    >>> accelerator = Accelerator(...)
+    >>> # you may pass gradient_accumulation_steps to enable grad accumulation
+    >>> net = AcceleratedNet(MyModule,  accelerator=accelerator)
+    >>> net.fit(X, y)
+
+    The same approach works with all the other skorch net classes.
+
+    Parameters
+    ----------
+    accelerator : accelerate.Accelerator
+      In addition to the usual parameters, pass an instance of
+      ``accelerate.Accelerator`` with the desired settings.
+
+    device : str, torch.device, or None (default=None)
+      The compute device to be used. When using accelerate, it is recommended to
+      leave device handling to accelerate. Therefore, it is best to leave this
+      argument to be None, which means that skorch does not set the device.
+
+    callbacks__print_log__sink : 'auto' or callable
+      If 'auto', uses the ``print`` function of the accelerator, if it has one.
+      This avoids printing the same output multiple times when training
+      concurrently on multiple machines. If the accelerator does not have a
+      ``print`` function, use Python's ``print`` function instead.
+
+    """
+    def __init__(
+            self,
+            *args,
+            accelerator,
+            device=None,
+            callbacks__print_log__sink='auto',
+            **kwargs
+    ):
+        super().__init__(
+            *args,
+            device=device,
+            callbacks__print_log__sink=callbacks__print_log__sink,
+            **kwargs
+        )
+        self.accelerator = accelerator
+
+    def _check_kwargs(self, kwargs):
+        super()._check_kwargs(kwargs)
+
+        if self.accelerator.device_placement and (self.device is not None):
+            raise ValueError(
+                "When device placement is performed by the accelerator, set device=None"
+            )
+
+    def _initialize_callbacks(self):
+        if self.callbacks__print_log__sink == 'auto':
+            print_func = getattr(self.accelerator, 'print', print)
+            self.callbacks__print_log__sink = print_func
+        super()._initialize_callbacks()
+        return self
+
+    def _initialize_criterion(self, *args, **kwargs):
+        super()._initialize_criterion(*args, **kwargs)
+
+        with self._current_init_context('criterion'):
+            for name in self._criteria:
+                criterion = getattr(self, name + '_')
+                if isinstance(criterion, torch.nn.Module):
+                    setattr(self, name + '_', self.accelerator.prepare(criterion))
+
+        return self
+
+    def _initialize_module(self, *args, **kwargs):
+        super()._initialize_module(*args, **kwargs)
+
+        with self._current_init_context('module'):
+            for name in self._modules:
+                module = getattr(self, name + '_')
+                if isinstance(module, torch.nn.Module):
+                    setattr(self, name + '_', self.accelerator.prepare(module))
+
+        return self
+
+    def _initialize_optimizer(self, *args, **kwargs):
+        super()._initialize_optimizer(*args, **kwargs)
+
+        with self._current_init_context('optimizer'):
+            for name in self._optimizers:
+                optimizer = getattr(self, name + '_')
+                if isinstance(optimizer, torch.optim.Optimizer):
+                    setattr(self, name + '_', self.accelerator.prepare(optimizer))
+
+        return self
+
+    def initialize_callbacks(self, *args, **kwargs):
+        super().initialize_callbacks(*args, **kwargs)
+
+        for _, callback in self.callbacks_:
+            if isinstance(callback, LRScheduler):
+                callback.policy_ = self.accelerator.prepare(callback.policy_)
+
+        return self
+
+    def train_step(self, batch, **fit_params):
+        # Call training step within the accelerator context manager
+        with self.accelerator.accumulate(self.module_):
+            # Why are we passing only module_ here, even though there might be
+            # other modules as well? First of all, there is no possibility to
+            # pass multiple modules. Second, the module_ is only used to
+            # determine if Distributed Data Parallel is being used, not for
+            # anything else. Therefore, passing module_ should be sufficient
+            # most of the time.
+            return super().train_step(batch, **fit_params)
+
+    def train_step_single(self, batch, **fit_params):
+        self._set_training(True)
+        Xi, yi = unpack_data(batch)
+        y_pred = self.infer(Xi, **fit_params)
+        loss = self.get_loss(y_pred, yi, X=Xi, training=True)
+        self.accelerator.backward(loss)
+        return {
+            'loss': loss,
+            'y_pred': y_pred,
+        }
+
+    def get_iterator(self, *args, **kwargs):
+        iterator = super().get_iterator(*args, **kwargs)
+        iterator = self.accelerator.prepare(iterator)
+        return iterator
+
+    def _step_optimizer(self, step_fn):
+        # We cannot step_fn as a 'closure' to .step because GradScaler doesn't
+        # suppor it:
+        # https://pytorch.org/docs/stable/amp.html#torch.cuda.amp.GradScaler.step
+        # Therefore, we need to call step_fn explicitly and step without
+        # argument.
+        step_fn()
+        for name in self._optimizers:
+            optimizer = getattr(self, name + '_')
+            optimizer.step()
+
+    # pylint: disable=unused-argument
+    def on_train_end(self, net, X=None, y=None, **kwargs):
+        super().on_train_end(net, X=X, y=y, **kwargs)
+        self.module_ = self.accelerator.unwrap_model(self.module_)
