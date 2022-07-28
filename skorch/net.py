@@ -2162,12 +2162,18 @@ class NeuralNet:
         state.update(cuda_attrs)
         state.pop('__cuda_dependent_attributes__')
 
-        for prefix in state['__cuda_dependent_attributes_prefixes__']:
-            for key in state:
-                # re-add vals to _kwargs that have been removed in __getstate__
-                if isinstance(key, str) and key.startswith(prefix):
-                    state['_kwargs'][key] = state[key]
-        del state['__cuda_dependent_attributes_prefixes__']
+        if '__cuda_dependent_attributes_prefixes__' in state:
+            # We check if the attribute exists because nets saved in old skorch
+            # versions wouldn't have it. In that case, instead of failing, it is
+            # better to skip this part, since the net is most likely still
+            # working -- the _kwargs are only used to validate the params and
+            # give useful error messages.
+            for prefix in state['__cuda_dependent_attributes_prefixes__']:
+                for key in state:
+                    # re-add vals to _kwargs that have been removed in __getstate__
+                    if isinstance(key, str) and key.startswith(prefix):
+                        state['_kwargs'][key] = state[key]
+            del state['__cuda_dependent_attributes_prefixes__']
 
         self.__dict__.update(state)
 
