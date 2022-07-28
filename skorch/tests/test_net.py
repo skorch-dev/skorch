@@ -434,11 +434,13 @@ class TestNeuralNet:
         )
         net_pickleable.fit(X, y)
 
+        kwarg_keys = net_pickleable._kwargs.keys()
+        # make sure that those keys are there
         cuda_dependent_kwargs = {'criterion__weight', 'optimizer'}
-        assert cuda_dependent_kwargs.issubset(net_pickleable._kwargs)
+        assert cuda_dependent_kwargs.issubset(kwarg_keys)
 
         net_loaded = pickle.loads(pickle.dumps(net_pickleable))
-        assert cuda_dependent_kwargs.issubset(net_loaded._kwargs)
+        assert kwarg_keys == net_loaded._kwargs.keys()
 
     @pytest.mark.parametrize('device', ['cpu', 'cuda'])
     def test_device_torch_device(self, net_cls, module_cls, device):

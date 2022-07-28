@@ -2121,6 +2121,7 @@ class NeuralNet:
 
     def __getstate__(self):
         state = self.__dict__.copy()
+        state['_kwargs'] = self._kwargs.copy()  # copy so as not to mutate
         cuda_attrs = {}
         for prefix in self.cuda_dependent_attributes_:
             for key in state:
