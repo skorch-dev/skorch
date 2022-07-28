@@ -2133,7 +2133,9 @@ class NeuralNet:
                         del state['_kwargs'][key]
 
         # remember cuda_dependent_attributes_ prefixes for __setstate__
-        state['__cuda_dependent_attributes_prefixes__'] = self.cuda_dependent_attributes_[:]
+        state['__cuda_dependent_attributes_prefixes__'] = (
+            self.cuda_dependent_attributes_[:]
+        )
 
         for k in cuda_attrs:
             state.pop(k)
