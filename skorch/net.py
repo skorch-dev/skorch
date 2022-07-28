@@ -2126,6 +2126,13 @@ class NeuralNet:
             for key in state:
                 if isinstance(key, str) and key.startswith(prefix):
                     cuda_attrs[key] = state[key]
+                    # remove vals from _kwargs, as they might have device
+                    # dependent attributes
+                    if key in state['_kwargs']:
+                        del state['_kwargs'][key]
+
+        # remember cuda_dependent_attributes_ prefixes for __setstate__
+        state['__cuda_dependent_attributes_prefixes__'] = self.cuda_dependent_attributes_[:]
 
         for k in cuda_attrs:
             state.pop(k)
@@ -2151,6 +2158,13 @@ class NeuralNet:
 
         state.update(cuda_attrs)
         state.pop('__cuda_dependent_attributes__')
+
+        for prefix in state['__cuda_dependent_attributes_prefixes__']:
+            for key in state:
+                # re-add vals to _kwargs that have been removed in __getstate__
+                if isinstance(key, str) and key.startswith(prefix):
+                    state['_kwargs'][key] = state[key]
+        del state['__cuda_dependent_attributes_prefixes__']
 
         self.__dict__.update(state)
 

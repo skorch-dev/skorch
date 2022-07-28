@@ -420,6 +420,26 @@ class TestNeuralNet:
             with open(pickled_cuda_net_path, 'rb') as f:
                 pickle.load(f)
 
+    def test_pickle_load_kwargs_conserved(self, net_pickleable, data):
+        # There is a special _kwargs attribute on the net that remembers
+        # parameters that have been set. Those should not be "forgotten" after
+        # pickling.
+        X, y = data
+        w = torch.FloatTensor([1.] * int(y.max() + 1))
+        net_pickleable.set_params(
+            device='cuda',
+            criterion__weight=w,
+            optimizer=torch.optim.Adam,
+            max_epochs=1,
+        )
+        net_pickleable.fit(X, y)
+
+        cuda_dependent_kwargs = {'criterion__weight', 'optimizer'}
+        assert cuda_dependent_kwargs.issubset(net_pickleable._kwargs)
+
+        net_loaded = pickle.loads(pickle.dumps(net_pickleable))
+        assert cuda_dependent_kwargs.issubset(net_loaded._kwargs)
+
     @pytest.mark.parametrize('device', ['cpu', 'cuda'])
     def test_device_torch_device(self, net_cls, module_cls, device):
         # Check if native torch.device works as well.
