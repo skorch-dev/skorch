@@ -383,7 +383,7 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
 
-    def train_picklable_cuda_net(self, net_pickleable, data):
+    def train_pickleable_cuda_net(self, net_pickleable, data):
         X, y = data
         w = torch.FloatTensor([1.] * int(y.max() + 1)).to('cuda')
 
@@ -408,7 +408,7 @@ class TestNeuralNet:
             assert os.path.exists(path)
             return path
 
-        net_pickleable = self.train_picklable_cuda_net(net_pickleable, data)
+        net_pickleable = self.train_pickleable_cuda_net(net_pickleable, data)
 
         with open(path, 'wb') as f:
             pickle.dump(net_pickleable, f)
