@@ -383,6 +383,22 @@ class TestNeuralNet:
         score_after = accuracy_score(y, net_new.predict(X))
         assert np.isclose(score_after, score_before)
 
+    def test_pickle_save_load_device_is_none(self, net_pickleable):
+        # It is legal to set device=None, but in that case we cannot know what
+        # device was meant, so we should fall back to CPU.
+        from skorch.exceptions import DeviceWarning
+
+        net_pickleable.set_params(device=None)
+        msg = (
+            f"Setting self.device = cpu since the requested device "
+            f"was not specified"
+        )
+        with pytest.warns(DeviceWarning, match=msg):
+            net_loaded = pickle.loads(pickle.dumps(net_pickleable))
+
+        params = net_loaded.get_all_learnable_params()
+        assert all(param.device.type == 'cpu' for _, param in params)
+
     def train_picklable_cuda_net(self, net_pickleable, data):
         X, y = data
         w = torch.FloatTensor([1.] * int(y.max() + 1)).to('cuda')
