@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix a bug in `SliceDataset` that prevented it to be used with `to_numpy` (#858)
+- Fix a bug that in some cases could prevent loading a net that was trained with CUDA without CUDA
 
 ## [0.11.0] - 2021-10-11
 
