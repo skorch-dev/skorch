@@ -2413,6 +2413,15 @@ class NeuralNet:
         return the map device if it differs from the requested device
         along with a warning.
         """
+        if requested_device is None:
+            # user has set net.device=None, we don't know the type, use fallback
+            msg = (
+                f"Setting self.device = {map_device} since the requested device "
+                f"was not specified"
+            )
+            warnings.warn(msg, DeviceWarning)
+            return map_device
+
         type_1 = torch.device(requested_device)
         type_2 = torch.device(map_device)
         if type_1 != type_2:
