@@ -172,7 +172,7 @@ class TestNeuralNet:
             assert param is opt_param
 
     def test_net_init_one_unknown_argument(self, net_cls, module_cls):
-        with pytest.raises(TypeError) as e:
+        with pytest.raises(ValueError) as e:
             net_cls(module_cls, unknown_arg=123).initialize()
 
         expected = ("__init__() got unexpected argument(s) unknown_arg. "
@@ -182,7 +182,7 @@ class TestNeuralNet:
         assert e.value.args[0] == expected
 
     def test_net_init_two_unknown_arguments(self, net_cls, module_cls):
-        with pytest.raises(TypeError) as e:
+        with pytest.raises(ValueError) as e:
             net_cls(module_cls, lr=0.1, mxa_epochs=5,
                     warm_start=False, bathc_size=20).initialize()
 
@@ -203,7 +203,7 @@ class TestNeuralNet:
     def test_net_init_missing_dunder_in_prefix_argument(
             self, net_cls, module_cls, name, suggestion):
         # forgot to use double-underscore notation
-        with pytest.raises(TypeError) as e:
+        with pytest.raises(ValueError) as e:
             net_cls(module_cls, **{name: 123}).initialize()
 
         tmpl = "Got an unexpected argument {}, did you mean {}?"
@@ -213,7 +213,7 @@ class TestNeuralNet:
     def test_net_init_missing_dunder_in_2_prefix_arguments(
             self, net_cls, module_cls):
         # forgot to use double-underscore notation in 2 arguments
-        with pytest.raises(TypeError) as e:
+        with pytest.raises(ValueError) as e:
             net_cls(
                 module_cls,
                 max_epochs=7,  # correct
@@ -229,7 +229,7 @@ class TestNeuralNet:
     def test_net_init_missing_dunder_and_unknown(
             self, net_cls, module_cls):
         # unknown argument and forgot to use double-underscore notation
-        with pytest.raises(TypeError) as e:
+        with pytest.raises(ValueError) as e:
             net_cls(
                 module_cls,
                 foobar=123,
@@ -435,6 +435,36 @@ class TestNeuralNet:
         with patch('torch.cuda.is_available', lambda *_: cuda_available):
             with open(pickled_cuda_net_path, 'rb') as f:
                 pickle.load(f)
+
+    def test_load_net_with_kwargs_attribute_to_net_without(self, net_pickleable):
+        # in skorch 0.11 -> 0.12, we made a change to parameter validation. We
+        # don't store key/vals in self._kwargs anymore, as the values were
+        # redundant and were not considered as possibly CUDA dependent, which
+        # can cause errors when loading to CPU. Since we remove one attribute
+        # and add a new one ('_params_to_validate'), we have to take extra steps
+        # to ensure that old models can still be loaded correctly.
+
+        # emulate old net:
+        del net_pickleable._params_to_validate
+        net_pickleable._kwargs = {'foo': 123, 'bar__baz': 456}
+
+        # after loading, behaves like new net
+        net_loaded = pickle.loads(pickle.dumps(net_pickleable))
+        assert net_loaded._params_to_validate == {'foo', 'bar__baz'}
+        assert not hasattr(net_loaded, '_kwargs')
+
+    def test_load_net_with_both_kwargs_and_params_to_validate_attributes_raises(
+            self, net_pickleable
+    ):
+        net_pickleable._kwargs = {'foo': 123}
+        net_pickleable._params_to_validate = {'foo'}
+        msg = (
+            "Something went wrong here. Please open an issue on "
+            "https://github.com/skorch-dev/skorch/issues detailing what "
+            "caused this error and the used skorch version."
+        )
+        with pytest.raises(ValueError, match=msg):
+            pickle.loads(pickle.dumps(net_pickleable))
 
     @pytest.mark.parametrize('device', ['cpu', 'cuda'])
     def test_device_torch_device(self, net_cls, module_cls, device):
