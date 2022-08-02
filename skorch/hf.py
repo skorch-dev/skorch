@@ -1006,3 +1006,115 @@ class AccelerateMixin:
     def on_train_end(self, net, X=None, y=None, **kwargs):
         super().on_train_end(net, X=X, y=y, **kwargs)
         self.module_ = self.accelerator.unwrap_model(self.module_)
+
+
+class HfHubWriter:
+    """Helper class that allows writing data to the Hugging Face Hub.
+
+    Use this, for instance, in combination with checkpoint callbacks such as
+    :class:`skorch.callbacks.training.TrainEndCheckpoint` or
+    :class:`skorch.callbacks.training.Checkpoint` to upload the trained model
+    directly to the Hugging Face Hub instead of storing it locally.
+
+    To use this, it is necessary to install the `Hugging Face Hub library
+    <https://huggingface.co/docs/huggingface_hub/index>`__.
+
+    .. code:: bash
+
+        python -m pip install huggingface_hub
+
+    Parameters
+    ----------
+    hf_api : instance of huggingface_hub.HfApi
+      Pass an instantiated ``huggingface_hub.HfApi`` object here.
+
+    path_in_repo : str
+      The name that the file should have in the repo, e.g. ``my-model.pkl``. If
+      you want each upload to have a different file name, instead of overwriting
+      the file, use a templated name, e.g. ``my-model-{}.pkl``. Then your files
+      will be called ``my-model-1.pkl``, ``my-model-2.pkl``, etc.
+
+    repo_id : str
+      The repository to which the file will be uploaded, for example:
+      ``"username/reponame"``.
+
+    verbose : int (default=0)
+      Control the level of verbosity.
+
+    sink : callable (default=print)
+      The target that the verbose information is sent to. By default, the output
+      is printed to stdout, but the sink could also be a logger or
+      :func:`~skorch.utils.noop`.
+
+    kwargs : dict
+      The remaining arguments are the same as for ``HfApi.upload_file`` (see
+      https://huggingface.co/docs/huggingface_hub/package_reference/hf_api#huggingface_hub.HfApi.upload_file).
+
+    Attributes
+    ----------
+    latest_url_ : str
+      Stores the latest URL that the file has been uploaded to.
+
+    Examples
+    --------
+    >>> from huggingface_hub import create_repo, HfApi
+    >>> model_name = 'my-skorch-model.pkl'
+    >>> repo_name = 'my-user-name/my-repo-name'
+    >>> token = 'my-secret-token'
+    >>> # you can create a new repo like this:
+    >>> create_repo(repo_name, private=True, token=token, exist_ok=True)
+    >>> hf_api = HfApi()
+    >>> hub_writer = HfHubWriter(
+    ...     hf_api,
+    ...     path_in_repo=model_name,
+    ...     repo_id=repo_namke,
+    ...     token=token,
+    ...     verbose=1,
+    >>> )
+    >>> checkpoint = TrainEndCheckpoint(f_pickle=hub_writer)
+    >>> net = NeuralNet(..., checkpoints=[checkpoint])
+    >>> net.fit(X, y)
+    >>> # prints:
+    >>> # Uploaded model to https://huggingface.co/my-user-name/my-repo-name/blob/main/my-skorch-model.pkl
+    ...
+    >>> # later...
+    >>> import pickle
+    >>> from huggingface_hub import hf_hub_download
+    >>> path = hf_hub_download(repo_name, model_name, use_auth_token=token)
+    >>> with open(path, 'rb') as f:
+    >>>     net_loaded = pickle.load(f)
+
+    """
+    def __init__(
+            self,
+            hf_api,
+            path_in_repo,
+            repo_id,
+            verbose=0,
+            sink=print,
+            **kwargs
+    ):
+        self.hf_api = hf_api
+        self.path_in_repo = path_in_repo
+        self.repo_id = repo_id
+        self.verbose = verbose
+        self.sink = sink
+        self.kwargs = kwargs
+
+        self._call_count = 0
+        self.latest_url_ = None
+
+    def write(self, file):
+        """Upload the file to the Hugging Face Hub"""
+        path_in_repo = self.path_in_repo.format(self._call_count)
+        return_url = self.hf_api.upload_file(
+            file,
+            path_in_repo=path_in_repo,
+            repo_id=self.repo_id,
+            **self.kwargs
+        )
+        self.latest_url_ = return_url
+        self._call_count += 1
+
+        if self.verbose:
+            self.sink(f"Uploaded model to {return_url}")
