@@ -418,7 +418,7 @@ How can I set the random seed of my model?
 ------------------------------------------
 
 skorch does not provide an unified way for setting the seed of your model.
-You can utilize the `numpy <https://pytorch.org/docs/stable/generated/torch.manual_seed.html>`__
+You can utilize the `numpy <https://numpy.org/doc/stable/reference/random/generated/numpy.random.seed.html>`__
 and `torch <https://pytorch.org/docs/stable/generated/torch.manual_seed.html>`__
 seeding interfaces to set random seeds before model initialization and will
 get consistent results if you do not employ other libraries that introduce randomness.
@@ -436,7 +436,12 @@ Here's an example:
     )
     net.fit(X, y)
 
-Note that there are cases where you want a fixed train/validation split
+
+Note: `torch.manual_seed` calls `torch.cuda.manual_seed` if the
+current process employs CUDA, so you don't have to worry about
+seeding CUDA RNG explicitly.
+
+There are cases where you want a fixed train/validation split
 (by default the split is not seeded). This can be done by passing
 the `random_state` parameter to `ValidSplit`:
 
