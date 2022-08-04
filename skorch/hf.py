@@ -9,6 +9,7 @@ should not depend on them.
 
 """
 
+import io
 import os
 from copy import deepcopy
 from operator import itemgetter
@@ -1023,6 +1024,14 @@ class HfHubWriter:
 
         python -m pip install huggingface_hub
 
+    Note that writes to the Hub are synchronous. Therefore, if the time it takes
+    to upload the data is long compared to training the model, there can be a
+    signficant slowdown. It is best to use this with
+    :class:`skorch.callbacks.training.TrainEndCheckpoint`, as that checkpoint
+    only uploads the data once, at the end of training. Also, using this writer
+    with :class:`skorch.callbacks.training.LoadInitState` is not supported for
+    now.
+
     Parameters
     ----------
     hf_api : instance of huggingface_hub.HfApi
@@ -1059,23 +1068,35 @@ class HfHubWriter:
     --------
     >>> from huggingface_hub import create_repo, HfApi
     >>> model_name = 'my-skorch-model.pkl'
-    >>> repo_name = 'my-user-name/my-repo-name'
+    >>> params_name = 'my-torch-params.pt'
+    >>> repo_name = 'my-user/my-repo'
     >>> token = 'my-secret-token'
     >>> # you can create a new repo like this:
-    >>> create_repo(repo_name, private=True, token=token, exist_ok=True)
+    >>> create_repo(repo_name, token=token, exist_ok=True)
     >>> hf_api = HfApi()
-    >>> hub_writer = HfHubWriter(
+    >>> hub_pickle_writer = HfHubWriter(
     ...     hf_api,
     ...     path_in_repo=model_name,
-    ...     repo_id=repo_namke,
+    ...     repo_id=repo_name,
     ...     token=token,
     ...     verbose=1,
-    >>> )
-    >>> checkpoint = TrainEndCheckpoint(f_pickle=hub_writer)
-    >>> net = NeuralNet(..., checkpoints=[checkpoint])
+    ... )
+    >>> hub_params_writer = HfHubWriter(
+    ...     hf_api,
+    ...     path_in_repo=params_name,
+    ...     repo_id=repo_name,
+    ...     token=token,
+    ...     verbose=1,
+    ... )
+    >>> checkpoints = [
+    ...     TrainEndCheckpoint(f_pickle=hub_pickle_writer),
+    ...     TrainEndCheckpoint(f_params=hub_params_writer),
+    ... ]
+    >>> net = NeuralNet(..., checkpoints=checkpoints)
     >>> net.fit(X, y)
     >>> # prints:
-    >>> # Uploaded model to https://huggingface.co/my-user-name/my-repo-name/blob/main/my-skorch-model.pkl
+    >>> # Uploaded model to https://huggingface.co/my-user/my-repo/blob/main/my-skorch-model.pkl
+    >>> # Uploaded model to https://huggingface.co/my-user/my-repo/blob/main/my-torch-params.pt
     ...
     >>> # later...
     >>> import pickle
@@ -1101,11 +1122,22 @@ class HfHubWriter:
         self.sink = sink
         self.kwargs = kwargs
 
+        self._buffer = io.BytesIO()
         self._call_count = 0
         self.latest_url_ = None
 
     def write(self, file):
         """Upload the file to the Hugging Face Hub"""
+        self._buffer.write(file)
+
+    def flush(self):
+        """Flush buffered file"""
+        self._buffer.seek(0)
+        file = self._buffer.read()
+        self._buffer = io.BytesIO()
+        if not file:  # nothing to flush
+            return
+
         path_in_repo = self.path_in_repo.format(self._call_count)
         return_url = self.hf_api.upload_file(
             file,
@@ -1113,8 +1145,8 @@ class HfHubWriter:
             repo_id=self.repo_id,
             **self.kwargs
         )
+
         self.latest_url_ = return_url
         self._call_count += 1
-
         if self.verbose:
-            self.sink(f"Uploaded model to {return_url}")
+            self.sink(f"Uploaded file to {return_url}")

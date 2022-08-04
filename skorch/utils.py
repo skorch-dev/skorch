@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from distutils.version import LooseVersion
 from enum import Enum
 from functools import partial
+import io
 from itertools import tee
 import pathlib
 import warnings
@@ -483,17 +484,40 @@ def noop(*args, **kwargs):
     """
 
 
+class _FileLikeWrapper:
+    """Wrap a buffer or similar to be file like
+
+    This is so as to mirror more closely what PyTorch does under the hood (see
+    https://github.com/pytorch/pytorch/blob/master/torch/serialization.py).
+
+    """
+    def __init__(self, file_like, mode):
+        self.file_like = file_like
+        self.mode = mode
+        if 'w' not in mode:
+            raise RuntimeError("Only 'w' mode supported right now")
+
+    def write(self, f):
+        self.file_like.write(f)
+
+    def close(self, *args):
+        self.file_like.flush()
+
+
 @contextmanager
 def open_file_like(f, mode):
     """Wrapper for opening a file"""
-    new_fd = isinstance(f, (str, pathlib.Path))
-    if new_fd:
-        f = open(f, mode)
+    if isinstance(f, io.TextIOWrapper):
+        file_like = f
+    elif isinstance(f, (str, pathlib.Path)):
+        file_like = open(f, mode)
+    else:
+        file_like = _FileLikeWrapper(f, mode)
+
     try:
-        yield f
+        yield file_like
     finally:
-        if new_fd:
-            f.close()
+        file_like.close()
 
 
 # pylint: disable=unused-argument

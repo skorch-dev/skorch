@@ -755,3 +755,263 @@ class TestAccelerate:
         # every 7th entry is also True.
         updated_expected = [False, False, True, False, False, True, True] * max_epochs
         assert updated == updated_expected
+
+
+
+class MockHfApi:
+    def __init__(self, return_url='some-url'):
+        self.return_url = return_url
+        self.calls = []
+        self.saved = None
+
+    def upload_file(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        self.saved = args[0]
+        return self.return_url
+
+
+class TestHfHubWriter:
+    @pytest.fixture
+    def net(self, classifier_module):
+        from skorch import NeuralNetClassifier
+
+        net = NeuralNetClassifier(
+            classifier_module,
+            max_epochs=3,
+        )
+        return net
+
+    @pytest.fixture
+    def data(self, classifier_data):
+        X, y = classifier_data
+        # actual training not important, thus only 100 samples for speed
+        return X[:100], y[:100]
+
+    @pytest.fixture
+    def mock_hf_api(self):
+        # We cannot use a mock or a class defined in the fixture, since neither
+        # can be pickled.
+        return MockHfApi()
+
+    @pytest.fixture
+    def hf_hub_writer_cls(self):
+        from skorch.hf import HfHubWriter
+
+        return HfHubWriter
+
+    def test_kwargs_passed_to_upload(self, net, data, mock_hf_api, hf_hub_writer_cls):
+        from skorch.callbacks import TrainEndCheckpoint
+
+        params = {
+            'path_in_repo': 'my-model',
+            'repo_id': 'my-user/my-repo',
+            'token': 'my-token',
+            'some_argument': 'foobar',
+        }
+        writer = hf_hub_writer_cls(mock_hf_api, **params)
+        checkpoint = TrainEndCheckpoint(
+            f_pickle=writer,
+            f_params=None,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+        net.set_params(callbacks=[checkpoint])
+        net.fit(*data)
+
+        assert len(mock_hf_api.calls) == writer._call_count == 1
+        _, kwargs = mock_hf_api.calls[0]
+        assert kwargs == params
+
+    def test_train_end_checkpoint_pickle(
+            self, net, data, mock_hf_api, hf_hub_writer_cls
+    ):
+        from skorch.callbacks import TrainEndCheckpoint
+
+        writer = hf_hub_writer_cls(
+            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
+        )
+        checkpoint = TrainEndCheckpoint(
+            f_pickle=writer,
+            f_params=None,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+        net.set_params(callbacks=[checkpoint])
+        net.fit(*data)
+
+        assert len(mock_hf_api.calls) == writer._call_count == 1
+        args, _ = mock_hf_api.calls[0]
+        assert isinstance(args[0], bytes)
+
+    def test_train_end_checkpoint_torch_save(
+            self, net, data, mock_hf_api, hf_hub_writer_cls
+    ):
+        # f_pickle uses pickle but f_params et al use torch.save, which works a
+        # bit differently. Therefore, we need to test both.
+        from skorch.callbacks import TrainEndCheckpoint
+
+        writer = hf_hub_writer_cls(
+            mock_hf_api,
+            path_in_repo='weights.pt',
+            repo_id='my-user/my-repo',
+            token='123',
+            buffered=True,
+        )
+        checkpoint = TrainEndCheckpoint(
+            f_params=writer,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+        net.set_params(callbacks=[checkpoint])
+        net.fit(*data)
+
+        assert len(mock_hf_api.calls) == writer._call_count == 1
+        args, _ = mock_hf_api.calls[0]
+        assert isinstance(args[0], bytes)
+
+    def test_checkpoint_pickle(self, net, data, mock_hf_api, hf_hub_writer_cls):
+        # Checkpoint saves the model multiple times
+        from skorch.callbacks import Checkpoint
+
+        writer = hf_hub_writer_cls(
+            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
+        )
+
+        checkpoint = Checkpoint(
+            f_pickle=writer,
+            f_params=None,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+
+        net.set_params(callbacks=[checkpoint], max_epochs=10)
+        net.fit(*data)
+
+        # each time the valid loss improves, there should be a checkpoint
+        num_checkpoints_expected = sum(net.history[:, 'valid_loss_best'])
+        num_checkpoints_actual = len(mock_hf_api.calls)
+        assert num_checkpoints_actual == num_checkpoints_expected
+
+    def test_checkpoint_torch_save(self, net, data, mock_hf_api, hf_hub_writer_cls):
+        from skorch.callbacks import Checkpoint
+
+        writer = hf_hub_writer_cls(
+            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
+        )
+
+        checkpoint = Checkpoint(
+            f_params=None,
+            f_optimizer=writer,
+            f_criterion=None,
+            f_history=None,
+        )
+
+        net.set_params(callbacks=[checkpoint], max_epochs=10)
+        net.fit(*data)
+
+        # each time the valid loss improves, there should be a checkpoint
+        num_checkpoints_expected = sum(net.history[:, 'valid_loss_best'])
+        num_checkpoints_actual = len(mock_hf_api.calls)
+        assert num_checkpoints_actual == num_checkpoints_expected
+
+    def test_saved_model_is_same(self, net, data, mock_hf_api, hf_hub_writer_cls):
+        from skorch.callbacks import TrainEndCheckpoint
+
+        writer = hf_hub_writer_cls(
+            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
+        )
+        checkpoint = TrainEndCheckpoint(
+            f_pickle=writer,
+            f_params=None,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+        net.set_params(callbacks=[checkpoint])
+        net.fit(*data)
+        net_loaded = pickle.loads(mock_hf_api.saved)
+
+        assert len(net_loaded.module_.state_dict()) == len(net.module_.state_dict())
+        for key, original in net_loaded.module_.state_dict().items():
+            original = net.module_.state_dict()[key]
+            loaded = net_loaded.module_.state_dict()[key]
+            torch.testing.assert_allclose(loaded, original)
+
+    def test_latest_url_attribute(self, net, data, hf_hub_writer_cls):
+        from skorch.callbacks import TrainEndCheckpoint
+
+        url = 'my-return-url'
+        mock_hf_api = MockHfApi(return_url=url)
+        writer = hf_hub_writer_cls(
+            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
+        )
+        checkpoint = TrainEndCheckpoint(
+            f_params=writer,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+        net.set_params(callbacks=[checkpoint])
+        net.fit(*data)
+
+        assert writer.latest_url_ == url
+
+    def test_verbose_print_output(self, net, data, hf_hub_writer_cls):
+        from skorch.callbacks import TrainEndCheckpoint
+
+        printed = []
+        def _print(s):
+            printed.append(s)
+
+        url = 'my-return-url'
+        mock_hf_api = MockHfApi(return_url=url)
+        writer = hf_hub_writer_cls(
+            mock_hf_api,
+            path_in_repo='my-model',
+            repo_id='my-user/my-repo',
+            token='123',
+            verbose=1,
+            sink=_print,
+        )
+        checkpoint = TrainEndCheckpoint(
+            f_params=writer,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+        net.set_params(callbacks=[checkpoint])
+        net.fit(*data)
+
+        assert len(printed) == 1
+        text = printed[0]
+        expected = "Uploaded file to my-return-url"
+        assert text == expected
+
+    def test_templated_name(self, net, data, mock_hf_api, hf_hub_writer_cls):
+        from skorch.callbacks import Checkpoint
+
+        writer = hf_hub_writer_cls(
+            mock_hf_api,
+            path_in_repo='my-model-{}',
+            repo_id='my-user/my-repo',
+            token='123',
+        )
+
+        checkpoint = Checkpoint(
+            f_params=writer,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+
+        net.set_params(callbacks=[checkpoint], max_epochs=10)
+        net.fit(*data)
+
+        for i, (_, kwargs) in enumerate(mock_hf_api.calls):
+            path_in_repo = kwargs['path_in_repo']
+            expected = f'my-model-{i}'
+            assert path_in_repo == expected
