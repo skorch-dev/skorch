@@ -165,6 +165,9 @@ def to_numpy(X):
     if X.is_cuda:
         X = X.cpu()
 
+    if hasattr(X, 'is_mps') and X.is_mps:
+        X = X.cpu()
+
     if X.requires_grad:
         X = X.detach()
 
