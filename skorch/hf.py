@@ -1009,7 +1009,7 @@ class AccelerateMixin:
         self.module_ = self.accelerator.unwrap_model(self.module_)
 
 
-class HfHubWriter:
+class HfHubStorage:
     """Helper class that allows writing data to the Hugging Face Hub.
 
     Use this, for instance, in combination with checkpoint callbacks such as
@@ -1074,14 +1074,14 @@ class HfHubWriter:
     >>> # you can create a new repo like this:
     >>> create_repo(repo_name, token=token, exist_ok=True)
     >>> hf_api = HfApi()
-    >>> hub_pickle_writer = HfHubWriter(
+    >>> hub_pickle_writer = HfHubStorage(
     ...     hf_api,
     ...     path_in_repo=model_name,
     ...     repo_id=repo_name,
     ...     token=token,
     ...     verbose=1,
     ... )
-    >>> hub_params_writer = HfHubWriter(
+    >>> hub_params_writer = HfHubStorage(
     ...     hf_api,
     ...     path_in_repo=params_name,
     ...     repo_id=repo_name,
@@ -1126,21 +1126,21 @@ class HfHubWriter:
         self._call_count = 0
         self.latest_url_ = None
 
-    def write(self, file):
+    def write(self, content):
         """Upload the file to the Hugging Face Hub"""
-        self._buffer.write(file)
+        self._buffer.write(content)
 
     def flush(self):
         """Flush buffered file"""
         self._buffer.seek(0)
-        file = self._buffer.read()
+        content = self._buffer.read()
         self._buffer = io.BytesIO()
-        if not file:  # nothing to flush
+        if not content:  # nothing to flush
             return
 
         path_in_repo = self.path_in_repo.format(self._call_count)
         return_url = self.hf_api.upload_file(
-            file,
+            path_or_fileobj=content,
             path_in_repo=path_in_repo,
             repo_id=self.repo_id,
             **self.kwargs
@@ -1150,3 +1150,12 @@ class HfHubWriter:
         self._call_count += 1
         if self.verbose:
             self.sink(f"Uploaded file to {return_url}")
+
+    def seek(self, offset, whence=0):
+        raise NotImplementedError("Seek is not (yet) implemented")
+
+    def tell(self):
+        raise NotImplementedError("Tell is not (yet) implemented")
+
+    def read(self):
+        raise NotImplementedError("Read is not (yet) implemented")

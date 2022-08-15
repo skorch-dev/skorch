@@ -309,4 +309,4 @@ Saving on Hugging Face Hub
 :class:`.Checkpoint` and :class:`.TrainEndCheckpoint` can also be used to store
 models on the `Hugging Face Hub <https://huggingface.co/docs/hub/index>`__. For
 this to work, instead of indicating a file name for the component to be stored,
-use :class:`.skorch.hf.HfHubWriter`.
+use :class:`.skorch.hf.HfHubStorage`.

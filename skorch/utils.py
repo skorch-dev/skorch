@@ -494,8 +494,6 @@ class _FileLikeWrapper:
     def __init__(self, file_like, mode):
         self.file_like = file_like
         self.mode = mode
-        if 'w' not in mode:
-            raise RuntimeError("Only 'w' mode supported right now")
 
     def write(self, f):
         self.file_like.write(f)

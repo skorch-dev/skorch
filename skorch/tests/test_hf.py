@@ -757,20 +757,27 @@ class TestAccelerate:
         assert updated == updated_expected
 
 
-
 class MockHfApi:
     def __init__(self, return_url='some-url'):
         self.return_url = return_url
         self.calls = []
         self.saved = None
+        self._call_count = 0
 
-    def upload_file(self, *args, **kwargs):
-        self.calls.append((args, kwargs))
-        self.saved = args[0]
-        return self.return_url
+    def _sanity_check(self, path_or_fileobj):
+        # TODO: sanity checks on path_or_fileobj for byte stream vs file
+        pass
+
+    def upload_file(self, *, path_or_fileobj, **kwargs):
+        self._sanity_check(path_or_fileobj)
+        self.calls.append((path_or_fileobj, kwargs))
+        self.saved = path_or_fileobj
+        return_url = self.return_url.format(self._call_count)
+        self._call_count += 1
+        return return_url
 
 
-class TestHfHubWriter:
+class TestHfHubStorage:
     @pytest.fixture
     def net(self, classifier_module):
         from skorch import NeuralNetClassifier
@@ -794,12 +801,12 @@ class TestHfHubWriter:
         return MockHfApi()
 
     @pytest.fixture
-    def hf_hub_writer_cls(self):
-        from skorch.hf import HfHubWriter
+    def hf_hub_storer_cls(self):
+        from skorch.hf import HfHubStorage
 
-        return HfHubWriter
+        return HfHubStorage
 
-    def test_kwargs_passed_to_upload(self, net, data, mock_hf_api, hf_hub_writer_cls):
+    def test_kwargs_passed_to_upload(self, net, data, mock_hf_api, hf_hub_storer_cls):
         from skorch.callbacks import TrainEndCheckpoint
 
         params = {
@@ -808,9 +815,9 @@ class TestHfHubWriter:
             'token': 'my-token',
             'some_argument': 'foobar',
         }
-        writer = hf_hub_writer_cls(mock_hf_api, **params)
+        storer = hf_hub_storer_cls(mock_hf_api, **params)
         checkpoint = TrainEndCheckpoint(
-            f_pickle=writer,
+            f_pickle=storer,
             f_params=None,
             f_optimizer=None,
             f_criterion=None,
@@ -819,20 +826,20 @@ class TestHfHubWriter:
         net.set_params(callbacks=[checkpoint])
         net.fit(*data)
 
-        assert len(mock_hf_api.calls) == writer._call_count == 1
+        assert len(mock_hf_api.calls) == storer._call_count == 1
         _, kwargs = mock_hf_api.calls[0]
         assert kwargs == params
 
     def test_train_end_checkpoint_pickle(
-            self, net, data, mock_hf_api, hf_hub_writer_cls
+            self, net, data, mock_hf_api, hf_hub_storer_cls
     ):
         from skorch.callbacks import TrainEndCheckpoint
 
-        writer = hf_hub_writer_cls(
+        storer = hf_hub_storer_cls(
             mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
         )
         checkpoint = TrainEndCheckpoint(
-            f_pickle=writer,
+            f_pickle=storer,
             f_params=None,
             f_optimizer=None,
             f_criterion=None,
@@ -841,26 +848,25 @@ class TestHfHubWriter:
         net.set_params(callbacks=[checkpoint])
         net.fit(*data)
 
-        assert len(mock_hf_api.calls) == writer._call_count == 1
-        args, _ = mock_hf_api.calls[0]
-        assert isinstance(args[0], bytes)
+        assert len(mock_hf_api.calls) == storer._call_count == 1
+        obj, _ = mock_hf_api.calls[0]
+        assert isinstance(obj, bytes)
 
     def test_train_end_checkpoint_torch_save(
-            self, net, data, mock_hf_api, hf_hub_writer_cls
+            self, net, data, mock_hf_api, hf_hub_storer_cls
     ):
         # f_pickle uses pickle but f_params et al use torch.save, which works a
         # bit differently. Therefore, we need to test both.
         from skorch.callbacks import TrainEndCheckpoint
 
-        writer = hf_hub_writer_cls(
+        storer = hf_hub_storer_cls(
             mock_hf_api,
             path_in_repo='weights.pt',
             repo_id='my-user/my-repo',
-            token='123',
             buffered=True,
         )
         checkpoint = TrainEndCheckpoint(
-            f_params=writer,
+            f_params=storer,
             f_optimizer=None,
             f_criterion=None,
             f_history=None,
@@ -868,20 +874,20 @@ class TestHfHubWriter:
         net.set_params(callbacks=[checkpoint])
         net.fit(*data)
 
-        assert len(mock_hf_api.calls) == writer._call_count == 1
-        args, _ = mock_hf_api.calls[0]
-        assert isinstance(args[0], bytes)
+        assert len(mock_hf_api.calls) == storer._call_count == 1
+        obj, _ = mock_hf_api.calls[0]
+        assert isinstance(obj, bytes)
 
-    def test_checkpoint_pickle(self, net, data, mock_hf_api, hf_hub_writer_cls):
+    def test_checkpoint_pickle(self, net, data, mock_hf_api, hf_hub_storer_cls):
         # Checkpoint saves the model multiple times
         from skorch.callbacks import Checkpoint
 
-        writer = hf_hub_writer_cls(
+        storer = hf_hub_storer_cls(
             mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
         )
 
         checkpoint = Checkpoint(
-            f_pickle=writer,
+            f_pickle=storer,
             f_params=None,
             f_optimizer=None,
             f_criterion=None,
@@ -896,16 +902,16 @@ class TestHfHubWriter:
         num_checkpoints_actual = len(mock_hf_api.calls)
         assert num_checkpoints_actual == num_checkpoints_expected
 
-    def test_checkpoint_torch_save(self, net, data, mock_hf_api, hf_hub_writer_cls):
+    def test_checkpoint_torch_save(self, net, data, mock_hf_api, hf_hub_storer_cls):
         from skorch.callbacks import Checkpoint
 
-        writer = hf_hub_writer_cls(
+        storer = hf_hub_storer_cls(
             mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
         )
 
         checkpoint = Checkpoint(
             f_params=None,
-            f_optimizer=writer,
+            f_optimizer=storer,
             f_criterion=None,
             f_history=None,
         )
@@ -918,14 +924,14 @@ class TestHfHubWriter:
         num_checkpoints_actual = len(mock_hf_api.calls)
         assert num_checkpoints_actual == num_checkpoints_expected
 
-    def test_saved_model_is_same(self, net, data, mock_hf_api, hf_hub_writer_cls):
+    def test_saved_model_is_same(self, net, data, mock_hf_api, hf_hub_storer_cls):
         from skorch.callbacks import TrainEndCheckpoint
 
-        writer = hf_hub_writer_cls(
+        storer = hf_hub_storer_cls(
             mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
         )
         checkpoint = TrainEndCheckpoint(
-            f_pickle=writer,
+            f_pickle=storer,
             f_params=None,
             f_optimizer=None,
             f_criterion=None,
@@ -941,44 +947,50 @@ class TestHfHubWriter:
             loaded = net_loaded.module_.state_dict()[key]
             torch.testing.assert_allclose(loaded, original)
 
-    def test_latest_url_attribute(self, net, data, hf_hub_writer_cls):
+    def test_latest_url_attribute(self, net, data, hf_hub_storer_cls):
+        # Check that the URL returned by the HF API is stored as latest_url. In
+        # the mock, it is formatted by the call count so that we can check that
+        # it's not always just returning the same URL
         from skorch.callbacks import TrainEndCheckpoint
 
-        url = 'my-return-url'
+        url = 'my-return-url-{}'
         mock_hf_api = MockHfApi(return_url=url)
-        writer = hf_hub_writer_cls(
+        storer = hf_hub_storer_cls(
             mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
         )
         checkpoint = TrainEndCheckpoint(
-            f_params=writer,
+            f_params=storer,
             f_optimizer=None,
             f_criterion=None,
             f_history=None,
         )
         net.set_params(callbacks=[checkpoint])
+
         net.fit(*data)
+        assert storer.latest_url_ == 'my-return-url-0'
 
-        assert writer.latest_url_ == url
+        net.partial_fit(*data)
+        assert storer.latest_url_ == 'my-return-url-1'
 
-    def test_verbose_print_output(self, net, data, hf_hub_writer_cls):
+    def test_verbose_print_output(self, net, data, hf_hub_storer_cls):
         from skorch.callbacks import TrainEndCheckpoint
 
         printed = []
+
         def _print(s):
             printed.append(s)
 
         url = 'my-return-url'
         mock_hf_api = MockHfApi(return_url=url)
-        writer = hf_hub_writer_cls(
+        storer = hf_hub_storer_cls(
             mock_hf_api,
             path_in_repo='my-model',
             repo_id='my-user/my-repo',
-            token='123',
             verbose=1,
             sink=_print,
         )
         checkpoint = TrainEndCheckpoint(
-            f_params=writer,
+            f_params=storer,
             f_optimizer=None,
             f_criterion=None,
             f_history=None,
@@ -991,18 +1003,17 @@ class TestHfHubWriter:
         expected = "Uploaded file to my-return-url"
         assert text == expected
 
-    def test_templated_name(self, net, data, mock_hf_api, hf_hub_writer_cls):
+    def test_templated_name(self, net, data, mock_hf_api, hf_hub_storer_cls):
         from skorch.callbacks import Checkpoint
 
-        writer = hf_hub_writer_cls(
+        storer = hf_hub_storer_cls(
             mock_hf_api,
             path_in_repo='my-model-{}',
             repo_id='my-user/my-repo',
-            token='123',
         )
 
         checkpoint = Checkpoint(
-            f_params=writer,
+            f_params=storer,
             f_optimizer=None,
             f_criterion=None,
             f_history=None,
@@ -1015,3 +1026,32 @@ class TestHfHubWriter:
             path_in_repo = kwargs['path_in_repo']
             expected = f'my-model-{i}'
             assert path_in_repo == expected
+
+    def test_with_load_init_state_callback(
+            self, net, data, mock_hf_api, hf_hub_storer_cls
+    ):
+        from skorch.callbacks import LoadInitState, TrainEndCheckpoint
+
+        params = {
+            'path_in_repo': 'my-model',
+            'repo_id': 'my-user/my-repo',
+        }
+        storer = hf_hub_storer_cls(mock_hf_api, **params)
+        checkpoint = TrainEndCheckpoint(
+            f_pickle=None,
+            f_params=storer,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+        net.set_params(callbacks=[checkpoint])
+        net.fit(*data)
+
+        load_state = LoadInitState(checkpoint)
+        net.set_params(max_epochs=0, callbacks=[load_state])
+
+        # we don't check the exact method that raises (seek, tell, read), as
+        # that is an implementation detail of pytorch
+        msg = r"is not \(yet\) implemented"
+        with pytest.raises(NotImplementedError, match=msg):
+            net.fit(*data)
