@@ -1,7 +1,9 @@
 """Tests for hf.py"""
 
 import difflib
+import io
 import pickle
+import pathlib
 from contextlib import contextmanager
 from copy import deepcopy
 from functools import partial
@@ -758,6 +760,7 @@ class TestAccelerate:
 
 
 class MockHfApi:
+    """Mock of huggingface_hub.HfAPI"""
     def __init__(self, return_url='some-url'):
         self.return_url = return_url
         self.calls = []
@@ -765,19 +768,33 @@ class MockHfApi:
         self._call_count = 0
 
     def _sanity_check(self, path_or_fileobj):
-        # TODO: sanity checks on path_or_fileobj for byte stream vs file
-        pass
+        # must be either BytesIO (memory) or str (disk)
+        print("+"*10, type(path_or_fileobj))
+        assert isinstance(path_or_fileobj, (io.BytesIO, str))
 
     def upload_file(self, *, path_or_fileobj, **kwargs):
         self._sanity_check(path_or_fileobj)
         self.calls.append((path_or_fileobj, kwargs))
-        self.saved = path_or_fileobj
+
+        if isinstance(path_or_fileobj, io.BytesIO):
+            self.saved = path_or_fileobj
+        elif isinstance(path_or_fileobj, str):
+            self.saved = open(path_or_fileobj, 'rb')
+
         return_url = self.return_url.format(self._call_count)
         self._call_count += 1
         return return_url
 
 
 class TestHfHubStorage:
+    # Note: Since we mock away the HfApi, we cannot be sure that these tests
+    # wouldn't miss certain types of bugs. Alternatively, we could not use the
+    # mock but in this case, we would create real uploads (and need to have a
+    # valid token), which we want to avoid. Other than that, we could try to
+    # patch more specific functions used by the Hub API, e.g. requests.post, but
+    # that is more difficult to get right and the success of the patching
+    # depends on implementation details of the Hub API. Therefore, the current
+    # approach seems to be most reasonable.
     @pytest.fixture
     def net(self, classifier_module):
         from skorch import NeuralNetClassifier
@@ -798,7 +815,10 @@ class TestHfHubStorage:
     def mock_hf_api(self):
         # We cannot use a mock or a class defined in the fixture, since neither
         # can be pickled.
-        return MockHfApi()
+        hf_api = MockHfApi()
+        yield hf_api
+        # pylint: disable=pointless-statement
+        hf_api.saved.close()
 
     @pytest.fixture
     def hf_hub_storer_cls(self):
@@ -850,7 +870,7 @@ class TestHfHubStorage:
 
         assert len(mock_hf_api.calls) == storer._call_count == 1
         obj, _ = mock_hf_api.calls[0]
-        assert isinstance(obj, bytes)
+        assert isinstance(obj, io.IOBase)
 
     def test_train_end_checkpoint_torch_save(
             self, net, data, mock_hf_api, hf_hub_storer_cls
@@ -876,7 +896,7 @@ class TestHfHubStorage:
 
         assert len(mock_hf_api.calls) == storer._call_count == 1
         obj, _ = mock_hf_api.calls[0]
-        assert isinstance(obj, bytes)
+        assert isinstance(obj, io.IOBase)
 
     def test_checkpoint_pickle(self, net, data, mock_hf_api, hf_hub_storer_cls):
         # Checkpoint saves the model multiple times
@@ -924,11 +944,26 @@ class TestHfHubStorage:
         num_checkpoints_actual = len(mock_hf_api.calls)
         assert num_checkpoints_actual == num_checkpoints_expected
 
-    def test_saved_model_is_same(self, net, data, mock_hf_api, hf_hub_storer_cls):
+    @pytest.mark.parametrize('storage', ['memory', 'str', 'path'])
+    def test_saved_net_is_same(
+            self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path
+    ):
+        # Check that the pickled net has the same params after loading, both for
+        # in-memory and on disk
         from skorch.callbacks import TrainEndCheckpoint
 
+        if storage == 'memory':
+            local_storage = None
+        elif storage == 'str':
+            local_storage = str(tmp_path / 'my-net.pkl')
+        else:
+            local_storage = tmp_path / 'my-net.pkl'
+
         storer = hf_hub_storer_cls(
-            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
+            mock_hf_api,
+            path_in_repo='my-model',
+            repo_id='my-user/my-repo',
+            local_storage=local_storage,
         )
         checkpoint = TrainEndCheckpoint(
             f_pickle=storer,
@@ -939,12 +974,49 @@ class TestHfHubStorage:
         )
         net.set_params(callbacks=[checkpoint])
         net.fit(*data)
-        net_loaded = pickle.loads(mock_hf_api.saved)
+        net_loaded = pickle.loads(mock_hf_api.saved.read())
 
         assert len(net_loaded.module_.state_dict()) == len(net.module_.state_dict())
         for key, original in net_loaded.module_.state_dict().items():
             original = net.module_.state_dict()[key]
             loaded = net_loaded.module_.state_dict()[key]
+            torch.testing.assert_allclose(loaded, original)
+
+    @pytest.mark.parametrize('storage', ['memory', 'str', 'path'])
+    def test_saved_params_is_same(
+            self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path
+    ):
+        # check that the module parameters are the same after loading, both for
+        # in-memory and on disk
+        from skorch.callbacks import TrainEndCheckpoint
+
+        if storage == 'memory':
+            local_storage = None
+        elif storage == 'str':
+            local_storage = str(tmp_path / 'my-weights.pt')
+        else:
+            local_storage = tmp_path / 'my-weights.pt'
+
+        storer = hf_hub_storer_cls(
+            mock_hf_api,
+            path_in_repo='my-model',
+            repo_id='my-user/my-repo',
+            local_storage=local_storage,
+        )
+        checkpoint = TrainEndCheckpoint(
+            f_params=storer,
+            f_optimizer=None,
+            f_criterion=None,
+            f_history=None,
+        )
+        net.set_params(callbacks=[checkpoint])
+        net.fit(*data)
+        state_dict_before = net.module_.state_dict()
+        state_dict_after = torch.load(mock_hf_api.saved)
+
+        assert len(state_dict_before) == len(state_dict_after)
+        for key, original in state_dict_before.items():
+            loaded = state_dict_after[key]
             torch.testing.assert_allclose(loaded, original)
 
     def test_latest_url_attribute(self, net, data, hf_hub_storer_cls):

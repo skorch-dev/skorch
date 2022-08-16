@@ -11,6 +11,7 @@ should not depend on them.
 
 import io
 import os
+import pathlib
 from copy import deepcopy
 from operator import itemgetter
 
@@ -1050,6 +1051,12 @@ class HfHubStorage:
     verbose : int (default=0)
       Control the level of verbosity.
 
+    local_storage : str, pathlib.Path or None (default=None)
+      Indicate temporary storage of the parameters. By default, they are stored
+      in-memory. By passing a string or Path to this parameter, you can instead
+      store the parameters at the indicated location. There is no automatic
+      cleanup, so if you don't need the file on disk, put it into a temp folder.
+
     sink : callable (default=print)
       The target that the verbose information is sent to. By default, the output
       is printed to stdout, but the sink could also be a logger or
@@ -1111,6 +1118,7 @@ class HfHubStorage:
             hf_api,
             path_in_repo,
             repo_id,
+            local_storage=None,
             verbose=0,
             sink=print,
             **kwargs
@@ -1118,33 +1126,53 @@ class HfHubStorage:
         self.hf_api = hf_api
         self.path_in_repo = path_in_repo
         self.repo_id = repo_id
+        self.local_storage = local_storage
         self.verbose = verbose
         self.sink = sink
         self.kwargs = kwargs
 
-        self._buffer = io.BytesIO()
-        self._call_count = 0
         self.latest_url_ = None
+        self._buffer = None
+        self._call_count = 0
+        self._needs_flush = False
+
+    def _get_buffer(self):
+        if self.local_storage is None:
+            return io.BytesIO()
+
+        return open(self.local_storage, 'wb')
 
     def write(self, content):
         """Upload the file to the Hugging Face Hub"""
+        if self._buffer is None:
+            self._buffer = self._get_buffer()
         self._buffer.write(content)
+        self._needs_flush = True
 
     def flush(self):
         """Flush buffered file"""
-        self._buffer.seek(0)
-        content = self._buffer.read()
-        self._buffer = io.BytesIO()
-        if not content:  # nothing to flush
+        if not self._needs_flush:
+            # This is to prevent double-flushing. Some PyTorch versions create
+            # two contexts, resulting in __exit__, and thus flush, being called
+            # twice
             return
+
+        if isinstance(self.local_storage, (str, pathlib.Path)):
+            self._buffer.close()
+            path_or_fileobj = self._buffer.name
+        else:
+            self._buffer.seek(0)
+            path_or_fileobj = self._buffer
 
         path_in_repo = self.path_in_repo.format(self._call_count)
         return_url = self.hf_api.upload_file(
-            path_or_fileobj=content,
+            path_or_fileobj=path_or_fileobj,
             path_in_repo=path_in_repo,
             repo_id=self.repo_id,
             **self.kwargs
         )
+        self._buffer = None
+        self._needs_flush = False
 
         self.latest_url_ = return_url
         self._call_count += 1
