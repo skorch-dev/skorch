@@ -795,6 +795,9 @@ class TestHfHubStorage:
     # that is more difficult to get right and the success of the patching
     # depends on implementation details of the Hub API. Therefore, the current
     # approach seems to be most reasonable.
+    # If any changes to HfHubStorage are made, please test them "end-to-end"
+    # using the Hugging_Face_Model_Checkpoint.ipynb in this repo and a real
+    # token.
     @pytest.fixture
     def net(self, classifier_module):
         from skorch import NeuralNetClassifier
