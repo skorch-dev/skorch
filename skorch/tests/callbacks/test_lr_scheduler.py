@@ -1,5 +1,4 @@
 """Tests for lr_scheduler.py"""
-from distutils.version import LooseVersion
 from unittest.mock import Mock
 
 import numpy as np
@@ -191,10 +190,6 @@ class TestLRCallbacks:
     @pytest.mark.parametrize('policy,kwargs', [
         (StepLR, {'gamma': 0.9, 'step_size': 1})
     ])
-    @pytest.mark.skipif(
-        LooseVersion(torch.__version__) < '1.4',
-        reason="Feature isn't supported with this torch version."
-    )
     def test_lr_scheduler_record_epoch_step(self,
                                             classifier_module,
                                             classifier_data,
@@ -212,10 +207,6 @@ class TestLRCallbacks:
         net.fit(*classifier_data)
         assert np.all(net.history[:, 'event_lr'] == lrs)
 
-    @pytest.mark.skipif(
-        LooseVersion(torch.__version__) < '1.4',
-        reason="Feature isn't supported with this torch version."
-    )
     def test_lr_scheduler_record_batch_step(self, classifier_module, classifier_data):
         X, y = classifier_data
         batch_size = 128
