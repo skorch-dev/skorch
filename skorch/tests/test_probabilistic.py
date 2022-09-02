@@ -25,9 +25,9 @@ version_torch = Version(torch.__version__)
 # TODO: remove if newer GPyTorch versions are released that no longer require
 # the check.
 if (version_gpytorch >= Version('1.9')) and (version_torch < Version('1.11')):
-    pytest.skip("Incompatible gpytorch + torch version")
+    pytest.skip("Incompatible gpytorch + torch version", allow_module_level=True)
 elif (version_gpytorch >= Version('1.7')) and (version_torch < Version('1.10')):
-    pytest.skip("Incompatible gpytorch + torch version")
+    pytest.skip("Incompatible gpytorch + torch version", allow_module_level=True)
 
 
 def get_batch_size(dist):
