@@ -2135,6 +2135,7 @@ class NeuralNet:
         return state
 
     def __setstate__(self, state):
+        # TODO remove after 2023-09
         # in skorch 0.11 -> 0.12, we made a change to parameter validation. We
         # don't store key/vals in self._kwargs anymore, as the values were
         # redundant and were not considered as possibly CUDA dependent. Instead,

@@ -437,6 +437,7 @@ class TestNeuralNet:
                 pickle.load(f)
 
     def test_load_net_with_kwargs_attribute_to_net_without(self, net_pickleable):
+        # TODO remove after 2023-09
         # in skorch 0.11 -> 0.12, we made a change to parameter validation. We
         # don't store key/vals in self._kwargs anymore, as the values were
         # redundant and were not considered as possibly CUDA dependent, which
@@ -456,6 +457,9 @@ class TestNeuralNet:
     def test_load_net_with_both_kwargs_and_params_to_validate_attributes_raises(
             self, net_pickleable
     ):
+        # TODO remove after 2023-09
+        # Check test_load_net_with_kwargs_attribute_to_net_without for more
+        # details
         net_pickleable._kwargs = {'foo': 123}
         net_pickleable._params_to_validate = {'foo'}
         msg = (
