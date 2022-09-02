@@ -413,6 +413,56 @@ the **greatest** score.
     best_net = grid_searcher.best_estimator_
     print(best_net.score(X, y))
 
+
+How can I set the random seed of my model?
+------------------------------------------
+
+skorch does not provide an unified way for setting the seed of your model.
+You can utilize the `numpy <https://numpy.org/doc/stable/reference/random/generated/numpy.random.seed.html>`__
+and `torch <https://pytorch.org/docs/stable/generated/torch.manual_seed.html>`__
+seeding interfaces to set random seeds before model initialization and will
+get consistent results if you do not employ other libraries that introduce randomness.
+
+Here's an example:
+
+.. code:: python
+
+    seed = 42
+    numpy.random.seed(seed)
+    torch.manual_seed(seed)
+
+    net = NeuralNet(
+        module=...
+    )
+    net.fit(X, y)
+
+
+Note: `torch.manual_seed` calls `torch.cuda.manual_seed` if the
+current process employs CUDA, so you don't have to worry about
+seeding CUDA RNG explicitly.
+
+There are cases where you want a fixed train/validation split
+(by default the split is not seeded). This can be done by passing
+the `random_state` parameter to `ValidSplit`:
+
+.. code:: python
+
+    from skorch.dataset import ValidSplit
+
+    seed = 42
+    net = NeuralNet(
+        module=...,
+        train_split=ValidSplit(random_state=seed),
+    )
+    net.fit(X, y)
+
+Note that there are other places where randomness is introduced
+that skorch does not control, such as the torch ``DataLoader`` when
+setting ``shuffle=True``. See the corresponding
+`documentation <https://pytorch.org/docs/stable/data.html>`__
+on how to fix the random seed in this case.
+
+
 Migration guide
 ---------------
 

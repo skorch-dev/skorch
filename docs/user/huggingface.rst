@@ -11,7 +11,7 @@ Accelerate
 
 The :class:`.AccelerateMixin` class can be used to add support for huggingface
 accelerate_ to skorch. E.g., this allows you to use mixed precision training
-(AMP), multi-GPU training, raining with a TPU, or gradient accumulation. For the
+(AMP), multi-GPU training, training with a TPU, or gradient accumulation. For the
 time being, this feature should be considered experimental.
 
 To use this feature, create a new subclass of the neural net class you want to

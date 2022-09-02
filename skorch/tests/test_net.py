@@ -6,7 +6,6 @@ that is general to NeuralNet class.
 """
 
 import copy
-from distutils.version import LooseVersion
 from functools import partial
 import os
 from pathlib import Path
@@ -1818,23 +1817,19 @@ class TestNeuralNet:
         expected = """<class 'skorch.classifier.NeuralNetClassifier'>[initialized](
   module_=MLPModule(
     (nonlin): PReLU(num_parameters=1)
-    (output_nonlin): Softmax()
+    (output_nonlin): Softmax(dim=-1)
     (sequential): Sequential(
       (0): Linear(in_features=20, out_features=11, bias=True)
       (1): PReLU(num_parameters=1)
-      (2): Dropout(p=0.5)
+      (2): Dropout(p=0.5, inplace=False)
       (3): Linear(in_features=11, out_features=11, bias=True)
       (4): PReLU(num_parameters=1)
-      (5): Dropout(p=0.5)
+      (5): Dropout(p=0.5, inplace=False)
       (6): Linear(in_features=11, out_features=2, bias=True)
-      (7): Softmax()
+      (7): Softmax(dim=-1)
     )
   ),
 )"""
-        if LooseVersion(torch.__version__) >= '1.2':
-            expected = expected.replace("Softmax()", "Softmax(dim=-1)")
-            expected = expected.replace("Dropout(p=0.5)",
-                                        "Dropout(p=0.5, inplace=False)")
         assert result == expected
 
     def test_fit_params_passed_to_module(self, net_cls, data):
