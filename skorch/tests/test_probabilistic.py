@@ -12,11 +12,22 @@ from sklearn.pipeline import Pipeline
 import torch
 from torch.testing import assert_allclose
 
+from skorch._version import Version
 from skorch.utils import is_torch_data_type
 from skorch.utils import to_numpy
 
 
 gpytorch = pytest.importorskip('gpytorch')
+
+# check that torch version is sufficiently high for gpytorch, otherwise skip
+version_gpytorch = Version(gpytorch.__version__)
+version_torch = Version(torch.__version__)
+# TODO: remove if newer GPyTorch versions are released that no longer require
+# the check.
+if (version_gpytorch >= Version('1.9')) and (version_torch < Version('1.11')):
+    pytest.skip("Incompatible gpytorch + torch version")
+elif (version_gpytorch >= Version('1.7')) and (version_torch < Version('1.10')):
+    pytest.skip("Incompatible gpytorch + torch version")
 
 
 def get_batch_size(dist):
