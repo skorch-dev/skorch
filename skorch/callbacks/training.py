@@ -127,8 +127,12 @@ class Checkpoint(Callback):
       Prefix for filenames. If ``f_params``, ``f_optimizer``, ``f_history``,
       or ``f_pickle`` are strings, they will be prefixed by ``fn_prefix``.
 
-    dirname: str (default='')
-      Directory where files are stored.
+    dirname: str or callable (default='')
+      Directory where files are stored. If a callable, it should take no
+      arguments and return the directory name as a string. This can be useful if
+      you want the directory name to be dynamic, e.g. because you run multiple
+      training processes in parallel. This way, each checkpoint can get a unique
+      directory name (e.g. by returning a string with a random element).
 
     load_best: bool (default=False)
       Load the best checkpoint automatically once training ended.
@@ -175,7 +179,6 @@ class Checkpoint(Callback):
         self.load_best = load_best
         self._check_kwargs(kwargs)
         vars(self).update(**kwargs)
-        self._validate_filenames()
 
     def _check_kwargs(self, kwargs):
         for key in kwargs:
@@ -185,9 +188,11 @@ class Checkpoint(Callback):
                     "'f_{key}'?".format(cls_name=self.__class__.__name__, key=key))
 
     def initialize(self):
+        self.dirname_ = self.dirname() if callable(self.dirname) else self.dirname
         self._validate_filenames()
-        if self.dirname and not os.path.exists(self.dirname):
-            os.makedirs(self.dirname, exist_ok=True)
+
+        if self.dirname_ and not os.path.exists(self.dirname_):
+            os.makedirs(self.dirname_, exist_ok=True)
         return self
 
     def on_train_end(self, net, **kwargs):
@@ -272,7 +277,7 @@ class Checkpoint(Callback):
         if self.f_history is None:
             return None
         return os.path.join(
-            self.dirname, self.fn_prefix + self.f_history)
+            self.dirname_, self.fn_prefix + self.f_history)
 
     def get_formatted_files(self, net):
         """Returns a dictionary of formatted filenames"""
@@ -306,19 +311,19 @@ class Checkpoint(Callback):
                 last_epoch=net.history[idx],
                 last_batch=net.history[idx, 'batches', -1],
             )
-            return os.path.join(self.dirname, f)
+            return os.path.join(self.dirname_, f)
         return f
 
     def _validate_filenames(self):
         """Checks if passed filenames are valid.
 
-        Specifically, f_* parameter should not be passed in
+        Specifically, non-string f_* parameter should not be passed in
         conjunction with dirname.
 
         """
         _check_f_arguments(self.__class__.__name__, **self._f_kwargs())
 
-        if not self.dirname:
+        if not self.dirname_:
             return
 
         def _is_truthy_and_not_str(f):
