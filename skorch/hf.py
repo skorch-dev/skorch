@@ -352,22 +352,17 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
         self.pad_token = pad_token
         self.verbose = verbose
 
-        self._kwargs = kwargs
+        self._params_to_validate = set(kwargs.keys())
         vars(self).update(kwargs)
 
-    def _check_kwargs(self, kwargs):
+    def _validate_params(self):
         """Check argument names passed at initialization.
 
         Raises
         ------
-        TypeError
-          Raises a TypeError if one or more arguments don't seem to
+        ValueError
+          Raises a ValueError if one or more arguments don't seem to
           match or are malformed.
-
-        Returns
-        -------
-        kwargs: dict
-          Return the passed keyword arguments.
 
         """
         # This whole method is taken from NeuralNet
@@ -375,7 +370,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
         # check for wrong arguments
         unexpected_kwargs = []
         missing_dunder_kwargs = []
-        for key in kwargs:
+        for key in sorted(self._params_to_validate):
             if key.endswith('_'):
                 continue
 
@@ -408,9 +403,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
 
         if msgs:
             full_msg = '\n'.join(msgs)
-            raise TypeError(full_msg)
-
-        return kwargs
+            raise ValueError(full_msg)
 
     def initialized_instance(self, instance_or_cls, kwargs):
         """Return an instance initialized with the given parameters
@@ -519,7 +512,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
 
     def initialize(self):
         """Initialize the individual tokenizer components"""
-        self._check_kwargs(self._kwargs)
+        self._validate_params()
 
         model = self.initialize_model()
         tokenizer = self.initialize_tokenizer(model)
@@ -588,7 +581,12 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
 
     def get_params(self, deep=False):
         params = super().get_params(deep=deep)
-        params.update(self._kwargs)
+        if deep:
+            for key in self._params_to_validate:
+                # We cannot assume that the attribute is already set because
+                # sklearn's set_params calls get_params first.
+                if hasattr(self, key):
+                    params[key] = getattr(self, key)
         return params
 
     def set_params(self, **kwargs):
@@ -607,10 +605,10 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
         for key, val in kwargs.items():
             if any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
-                self._kwargs[key] = val
+                self._params_to_validate.add(key)
             elif '__' in key:
                 special_params[key] = val
-                self._kwargs[key] = val
+                self._params_to_validate.add(key)
             else:
                 normal_params[key] = val
 
@@ -632,7 +630,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
             return self
 
         # if transformer is initialized, checking kwargs is possible
-        self._check_kwargs(self._kwargs)
+        self._validate_params()
 
         # Re-initializing of tokenizer necessary
         self.initialize()
@@ -909,8 +907,8 @@ class AccelerateMixin:
         )
         self.accelerator = accelerator
 
-    def _check_kwargs(self, kwargs):
-        super()._check_kwargs(kwargs)
+    def _validate_params(self):
+        super()._validate_params()
 
         if self.accelerator.device_placement and (self.device is not None):
             raise ValueError(

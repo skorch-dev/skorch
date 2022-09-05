@@ -6,7 +6,6 @@ Should not have any dependency on other skorch packages.
 
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
-from distutils.version import LooseVersion
 from enum import Enum
 from functools import partial
 import io
@@ -18,6 +17,7 @@ import numpy as np
 from scipy import sparse
 import sklearn
 from sklearn.exceptions import NotFittedError
+from sklearn.utils import _safe_indexing as safe_indexing
 from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
 import torch
 from torch.nn import BCELoss
@@ -29,10 +29,6 @@ from torch.utils.data.dataset import Subset
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 
-if LooseVersion(sklearn.__version__) >= '0.22.0':
-    from sklearn.utils import _safe_indexing as safe_indexing
-else:
-    from sklearn.utils import safe_indexing
 
 GPYTORCH_INSTALLED = False
 try:
@@ -164,6 +160,9 @@ def to_numpy(X):
         raise TypeError("Cannot convert this data type to a numpy array.")
 
     if X.is_cuda:
+        X = X.cpu()
+
+    if hasattr(X, 'is_mps') and X.is_mps:
         X = X.cpu()
 
     if X.requires_grad:
