@@ -47,11 +47,11 @@ MAX_EPOCHS = 12
 
 
 def get_data(num_samples):
-    mnist = fetch_openml('mnist_784')
+    mnist = fetch_openml('mnist_784', as_frame=False)
     torch.manual_seed(0)
-    X = mnist.data.values.astype('float32').reshape(-1, 1, 28, 28)
-    y = mnist.target.values.astype('int64')
-    X, y = shuffle(X, y)
+    X = mnist.data.astype('float32').reshape(-1, 1, 28, 28)
+    y = mnist.target.astype('int64')
+    X, y = shuffle(X, y, random_state=0)
     X, y = X[:num_samples], y[:num_samples]
     X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_state=0)
     X_train /= 255

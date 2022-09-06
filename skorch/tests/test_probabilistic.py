@@ -3,7 +3,6 @@
 import copy
 import pickle
 import re
-from distutils.version import LooseVersion
 
 import numpy as np
 import pytest
@@ -13,18 +12,22 @@ from sklearn.pipeline import Pipeline
 import torch
 from torch.testing import assert_allclose
 
+from skorch._version import Version
 from skorch.utils import is_torch_data_type
 from skorch.utils import to_numpy
 
 
 gpytorch = pytest.importorskip('gpytorch')
 
-# extract pytorch version without possible '+something' suffix
-pytorch_version, _, _ = torch.__version__.partition('+')
-# Keep up to date with the gpytorch's supported versions:
-# https://github.com/cornellius-gp/gpytorch#installation
-if LooseVersion(pytorch_version) < '1.9':
-    pytest.skip("gpytorch does not support PyTorch versions < 1.9", allow_module_level=True)
+# check that torch version is sufficiently high for gpytorch, otherwise skip
+version_gpytorch = Version(gpytorch.__version__)
+version_torch = Version(torch.__version__)
+# TODO: remove if newer GPyTorch versions are released that no longer require
+# the check.
+if (version_gpytorch >= Version('1.9')) and (version_torch < Version('1.11')):
+    pytest.skip("Incompatible gpytorch + torch version", allow_module_level=True)
+elif (version_gpytorch >= Version('1.7')) and (version_torch < Version('1.10')):
+    pytest.skip("Incompatible gpytorch + torch version", allow_module_level=True)
 
 
 def get_batch_size(dist):

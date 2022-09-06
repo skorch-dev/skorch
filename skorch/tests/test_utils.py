@@ -199,6 +199,16 @@ class TestToNumpy:
         expected = "Cannot convert this data type to a numpy array."
         assert e.value.args[0] == expected
 
+    @pytest.mark.skipif(
+        not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()),
+        reason='Skipped because mps is not available as a torch backend'
+    )
+    def test_mps_support(self, to_numpy, x_tensor):
+        device = torch.device('mps')
+        x_tensor.to(device)
+        x_numpy = to_numpy(x_tensor)
+        self.compare_array_to_tensor(x_numpy, x_tensor)
+
 
 class TestToDevice:
     @pytest.fixture
