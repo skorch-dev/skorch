@@ -490,6 +490,8 @@ class _FileLikeWrapper:
     This is so as to mirror more closely what PyTorch does under the hood (see
     https://github.com/pytorch/pytorch/blob/master/torch/serialization.py).
 
+    This is necessary to support, for instance., :class:`skorch.hf.HfHubStorage`.
+
     """
     def __init__(self, file_like, mode):
         self.file_like = file_like

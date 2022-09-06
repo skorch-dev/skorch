@@ -1031,7 +1031,7 @@ class HfHubStorage:
     :class:`skorch.callbacks.training.TrainEndCheckpoint`, as that checkpoint
     only uploads the data once, at the end of training. Also, using this writer
     with :class:`skorch.callbacks.training.LoadInitState` is not supported for
-    now.
+    now because the Hub API does not support model loading yet.
 
     Parameters
     ----------
@@ -1042,7 +1042,8 @@ class HfHubStorage:
       The name that the file should have in the repo, e.g. ``my-model.pkl``. If
       you want each upload to have a different file name, instead of overwriting
       the file, use a templated name, e.g. ``my-model-{}.pkl``. Then your files
-      will be called ``my-model-1.pkl``, ``my-model-2.pkl``, etc.
+      will be called ``my-model-1.pkl``, ``my-model-2.pkl``, etc. If there are
+      already files by this name in the repository, they will be overwritten.
 
     repo_id : str
       The repository to which the file will be uploaded, for example:

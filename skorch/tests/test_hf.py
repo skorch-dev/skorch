@@ -945,6 +945,7 @@ class TestHfHubStorage:
         # each time the valid loss improves, there should be a checkpoint
         num_checkpoints_expected = sum(net.history[:, 'valid_loss_best'])
         num_checkpoints_actual = len(mock_hf_api.calls)
+        assert num_checkpoints_actual > 0  # sanity check
         assert num_checkpoints_actual == num_checkpoints_expected
 
     @pytest.mark.parametrize('storage', ['memory', 'str', 'path'])
