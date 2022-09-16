@@ -223,7 +223,7 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
             'trainer__show_progress': False,
             'normalizer': None,
             'pre_tokenizer': CharDelimiterSplit,
-            'pre_tokenizer__delimiter': ' ',
+            'pre_tokenizer__delimiter': ' ',  # has to be whitespace
             'post_processor': ByteLevel,
             'max_length': 100,
         },
@@ -291,14 +291,14 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
         tokenizer.set_params(
             model__dropout=0.123,
             trainer__vocab_size=123,
-            pre_tokenizer__delimiter='*',
+            pre_tokenizer__delimiter=' ',  # has to be whitespace
             max_length=456,
         )
         tokenizer.fit(data)
 
         assert tokenizer.tokenizer_.model.dropout == pytest.approx(0.123)
         assert len(tokenizer.vocabulary_) == pytest.approx(123, abs=5)
-        assert tokenizer.tokenizer_.pre_tokenizer.delimiter == '*'
+        assert tokenizer.tokenizer_.pre_tokenizer.delimiter == ' '
         assert tokenizer.max_length == 456
 
 
