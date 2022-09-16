@@ -483,35 +483,13 @@ def noop(*args, **kwargs):
     """
 
 
-class _FileLikeWrapper:
-    """Wrap a buffer or similar to be file like
-
-    This is so as to mirror more closely what PyTorch does under the hood (see
-    https://github.com/pytorch/pytorch/blob/master/torch/serialization.py).
-
-    This is necessary to support, for instance., :class:`skorch.hf.HfHubStorage`.
-
-    """
-    def __init__(self, file_like, mode):
-        self.file_like = file_like
-        self.mode = mode
-
-    def write(self, f):
-        self.file_like.write(f)
-
-    def close(self, *args):
-        self.file_like.flush()
-
-
 @contextmanager
 def open_file_like(f, mode):
     """Wrapper for opening a file"""
-    if isinstance(f, io.TextIOWrapper):
-        file_like = f
-    elif isinstance(f, (str, pathlib.Path)):
+    if isinstance(f, (str, pathlib.Path)):
         file_like = open(f, mode)
     else:
-        file_like = _FileLikeWrapper(f, mode)
+        file_like = f
 
     try:
         yield file_like

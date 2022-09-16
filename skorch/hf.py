@@ -1178,6 +1178,9 @@ class HfHubStorage:
         if self.verbose:
             self.sink(f"Uploaded file to {return_url}")
 
+    def close(self, *args):
+        self.flush()
+
     def seek(self, offset, whence=0):
         raise NotImplementedError("Seek is not (yet) implemented")
 
