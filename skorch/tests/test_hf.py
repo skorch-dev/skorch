@@ -298,17 +298,19 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
         try:
             tokenizer.fit(data)
         except Exception as exc:
-            if (sys.version_info.major, sys.version_info.minor) == (3, 7):
-                # Tokenizers on Python 3.7 results in an error (see msg). There
-                # seems to be an open issue for it
-                # (https://github.com/huggingface/tokenizers/issues/566) though
-                # it's not quite clear. Since it's such an edge case, I'd rather
-                # skip the test than trying to fix it.
-                msg = (
-                    "Error while attempting to unpickle Tokenizer: data did not "
-                    "match any variant of untagged enum ModelWrapper")
-                assert exc.args[0].startswith(msg)
-                request.applymarker(pytest.mark.xfail())
+            if (sys.version_info.major, sys.version_info.minor) != (3, 7):
+                raise exc
+
+            # Tokenizers on Python 3.7 results in an error (see msg). There
+            # seems to be an open issue for it
+            # (https://github.com/huggingface/tokenizers/issues/566) though it's
+            # not quite clear. Since it's such an edge case, I'd rather skip the
+            # test than trying to fix it.
+            msg = (
+                "Error while attempting to unpickle Tokenizer: data did not "
+                "match any variant of untagged enum ModelWrapper")
+            assert exc.args[0].startswith(msg)
+            request.applymarker(pytest.mark.xfail())
 
         assert tokenizer.tokenizer_.model.dropout == pytest.approx(0.123)
         assert len(tokenizer.vocabulary_) == pytest.approx(123, abs=5)
