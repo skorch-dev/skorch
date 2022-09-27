@@ -290,14 +290,14 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
         tokenizer.set_params(
             model__dropout=0.123,
             trainer__vocab_size=123,
-            pre_tokenizer__delimiter='*',
+            pre_tokenizer__delimiter=' ',
             max_length=456,
         )
         tokenizer.fit(data)
 
         assert tokenizer.tokenizer_.model.dropout == pytest.approx(0.123)
         assert len(tokenizer.vocabulary_) == pytest.approx(123, abs=5)
-        assert tokenizer.tokenizer_.pre_tokenizer.delimiter == '*'
+        assert tokenizer.tokenizer_.pre_tokenizer.delimiter == ' '
         assert tokenizer.max_length == 456
 
 
@@ -379,7 +379,6 @@ class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
     def test_fixed_vocabulary(self, tokenizer):
         assert tokenizer.fixed_vocabulary_ is False
 
-    @pytest.mark.xfail
     def test_clone(self, tokenizer):
         # This might get fixed in a future release of tokenizers
         # https://github.com/huggingface/tokenizers/issues/941
