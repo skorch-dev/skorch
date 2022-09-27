@@ -290,8 +290,14 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
         tokenizer.set_params(
             model__dropout=0.123,
             trainer__vocab_size=123,
-            pre_tokenizer__delimiter=' ',
             max_length=456,
+            # With v0.13 of tokenizers, it seems like delimiter always needs to
+            # be " ", otherwise this error is raised: Error while attempting to
+            # unpickle Tokenizer: data did not match any variant of untagged
+            # enum ModelWrapper at line 1 column 2586. So we cannot change its
+            # value in this test but we should still ensure that set_params
+            # doesn't fail, so we keep it.
+            pre_tokenizer__delimiter=' ',
         )
         tokenizer.fit(data)
 
