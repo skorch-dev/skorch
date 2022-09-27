@@ -45,6 +45,10 @@ accelerate_ recommends to leave the device handling to the Accelerator_, which
 is why ``device`` defautls to ``None`` (thus telling skorch not to change the
 device).
 
+Models using :class:`.AccelerateMixin` cannot be pickled. If you need to save
+and load the net, either use :py:meth:`skorch.net.NeuralNet.save_params`
+and :py:meth:`skorch.net.NeuralNet.load_params`.
+
 To install accelerate_, run the following command inside your Python environment:
 
 .. code:: bash
