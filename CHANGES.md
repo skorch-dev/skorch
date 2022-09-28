@@ -11,16 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `load_best` attribute to `EarlyStopping` callback to automatically load module weights of the best result at the end of training
 - Added a method, `trim_for_prediction`, on the net classes, which trims the net from everything not required for using it for prediction; call this after fitting to reduce the size of the net
 - Added experimental support for [huggingface accelerate](https://github.com/huggingface/accelerate); use the provided mixin class to add advanced training capabilities provided by the accelerate library to skorch
+- Add integration for Huggingface tokenizers; use `skorch.hf.HuggingfaceTokenizer` to train a Huggingface tokenizer on your custom data; use `skorch.hf.HuggingfacePretrainedTokenizer` to load a pre-trained Huggingface tokenizer
 
 ### Changed
 - The minimum required scikit-learn version has been bumped to 0.22.0
 - Initialize data loaders for training and validation dataset once per fit call instead of once per epoch ([migration guide](https://skorch.readthedocs.io/en/stable/user/FAQ.html#migration-from-0-11-to-0-12))
 - It is now possible to call `np.asarray` with `SliceDataset`s (#858)
-- Add integration for Huggingface tokenizers; use `skorch.hf.HuggingfaceTokenizer` to train a Huggingface tokenizer on your custom data; use `skorch.hf.HuggingfacePretrainedTokenizer` to load a pre-trained Huggingface tokenizer
 
 ### Fixed
 - Fix a bug in `SliceDataset` that prevented it to be used with `to_numpy` (#858)
-- Fix a bug that occurred when loading a net that has device set to None
+- Fix a bug that occurred when loading a net that has device set to None (#876)
+- Fix a bug that in some cases could prevent loading a net that was trained with CUDA without CUDA
 
 ## [0.11.0] - 2021-10-11
 

@@ -307,7 +307,7 @@ class NeuralNet:
         initialized = kwargs.pop('initialized_', False)
         virtual_params = kwargs.pop('virtual_params_', dict())
 
-        self._kwargs = kwargs
+        self._params_to_validate = set(kwargs.keys())
         vars(self).update(kwargs)
 
         self.history_ = history
@@ -822,7 +822,7 @@ class NeuralNet:
         self._initialize_optimizer()
         self._initialize_history()
 
-        self._check_kwargs(self._kwargs)
+        self._validate_params()
 
         self.initialized_ = True
         return self
@@ -1896,30 +1896,29 @@ class NeuralNet:
         to_exclude = {'_modules', '_criteria', '_optimizers'}
         return {key: val for key, val in params.items() if key not in to_exclude}
 
-    def _check_kwargs(self, kwargs):
+    def _validate_params(self):
         """Check argument names passed at initialization.
+
+        Note: This method is similar to
+        :meth:`sklearn.base.BaseEstimator._validate_params` but doesn't use its
+        machinery.
 
         Raises
         ------
-        TypeError
-          Raises a TypeError if one or more arguments don't seem to
+        ValueError
+          Raises a ValueError if one or more arguments don't seem to
           match or are malformed.
-
-        Returns
-        -------
-        kwargs: dict
-          Return the passed keyword arguments.
 
         Example
         -------
         >>> net = NeuralNetClassifier(MyModule, iterator_train_shuffle=True)
-        TypeError: Got an unexpected argument iterator_train_shuffle,
+        ValueError: Got an unexpected argument iterator_train_shuffle,
         did you mean iterator_train__shuffle?
 
         """
         # warn about usage of iterator_valid__shuffle=True, since this
         # is almost certainly not what the user wants
-        if kwargs.get('iterator_valid__shuffle'):
+        if 'iterator_valid__shuffle' in self._params_to_validate:
             warnings.warn(
                 "You set iterator_valid__shuffle=True; this is most likely not "
                 "what you want because the values returned by predict and "
@@ -1929,7 +1928,7 @@ class NeuralNet:
         # check for wrong arguments
         unexpected_kwargs = []
         missing_dunder_kwargs = []
-        for key in kwargs:
+        for key in sorted(self._params_to_validate):
             if key.endswith('_'):
                 continue
 
@@ -1963,9 +1962,7 @@ class NeuralNet:
 
         if msgs:
             full_msg = '\n'.join(msgs)
-            raise TypeError(full_msg)
-
-        return kwargs
+            raise ValueError(full_msg)
 
     def _check_deprecated_params(self, **kwargs):
         pass
@@ -1989,13 +1986,13 @@ class NeuralNet:
                 virtual_params[key] = val
             elif key.startswith('callbacks'):
                 cb_params[key] = val
-                self._kwargs[key] = val
+                self._params_to_validate.add(key)
             elif any(key.startswith(prefix) for prefix in self.prefixes_):
                 special_params[key] = val
-                self._kwargs[key] = val
+                self._params_to_validate.add(key)
             elif '__' in key:
                 special_params[key] = val
-                self._kwargs[key] = val
+                self._params_to_validate.add(key)
             else:
                 normal_params[key] = val
 
@@ -2024,7 +2021,7 @@ class NeuralNet:
             return self
 
         # if net is initialized, checking kwargs is possible
-        self._check_kwargs(self._kwargs)
+        self._validate_params()
 
         ######################################################
         # Below: Re-initialize parts of the net if necessary #
@@ -2138,6 +2135,24 @@ class NeuralNet:
         return state
 
     def __setstate__(self, state):
+        # TODO remove after 2023-09
+        # in skorch 0.11 -> 0.12, we made a change to parameter validation. We
+        # don't store key/vals in self._kwargs anymore, as the values were
+        # redundant and were not considered as possibly CUDA dependent. Instead,
+        # we now use the attribute '_params_to_validate', which only stores
+        # keys. The code below is to make the net backwards compatible.
+        if '_kwargs' in state:
+            if '_params_to_validate' in state:
+                # there should not be _kwargs AND _params_to_validate
+                raise ValueError(
+                    "Something went wrong here. Please open an issue on "
+                    "https://github.com/skorch-dev/skorch/issues detailing what "
+                    "caused this error and the used skorch version."
+                )
+            kwargs = state.pop('_kwargs')
+            params_to_validate = set(kwargs.keys())
+            state['_params_to_validate'] = params_to_validate
+
         # get_map_location will automatically choose the
         # right device in cases where CUDA is not available.
         map_location = get_map_location(state['device'])
