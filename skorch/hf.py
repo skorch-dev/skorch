@@ -855,6 +855,11 @@ class AccelerateMixin:
         experimental feature. When accelerate's API stabilizes, we will consider
         adding it to skorch proper.
 
+        Also, models accelerated this way cannot be pickled. If you need to save
+        and load the net, either use :py:meth:`skorch.net.NeuralNet.save_params`
+        and :py:meth:`skorch.net.NeuralNet.load_params` or don't use
+        ``accelerate``.
+
     Examples
     --------
     >>> from skorch import NeuralNetClassifier

@@ -13,6 +13,9 @@ import torch
 from sklearn.base import clone
 from sklearn.exceptions import NotFittedError
 
+from skorch import NeuralNetClassifier
+from skorch.hf import AccelerateMixin
+
 
 SPECIAL_TOKENS = ["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"]
 
@@ -501,6 +504,11 @@ class TestHuggingfacePretrainedTokenizerWithFit(_HuggingfaceTokenizersBaseTest):
         assert tokenizer.fixed_vocabulary_ is False
 
 
+# The class is defined on top level so that it can be pickled
+class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
+    pass
+
+
 class TestAccelerate:
     @pytest.fixture(scope='module')
     def data(self, classifier_data):
@@ -527,12 +535,6 @@ class TestAccelerate:
 
     @pytest.fixture
     def net_cls(self, module_cls):
-        from skorch import NeuralNetClassifier
-        from skorch.hf import AccelerateMixin
-
-        class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
-            pass
-
         return partial(
             AcceleratedNet,
             module=module_cls,
@@ -557,6 +559,54 @@ class TestAccelerate:
         X, y = data
         net.fit(X, y)  # does not raise
         assert np.isfinite(net.history[:, "train_loss"]).all()
+
+    @pytest.mark.parametrize('mixed_precision', [
+        pytest.param('fp16', marks=pytest.mark.xfail(raises=pickle.PicklingError)),
+        pytest.param('bf16', marks=pytest.mark.xfail(raises=pickle.PicklingError)),
+        'no',  # no acceleration works because forward is left the same
+    ])
+    def test_mixed_precision_pickling(
+            self, net_cls, accelerator_cls, data, mixed_precision
+    ):
+        # Pickling currently doesn't work because the forward method on modules
+        # is overwritten with a modified version of the method using autocast.
+        # Pickle doesn't know how to restore those methods.
+
+        # Note: For accelerate <= v.0.10, there was a bug that would make it
+        # seem that this works when the 'mixed_precision' <= 'no' condition was
+        # tested first. This is because of some state that is preserved between
+        # object initialization in the same process (now fixed through
+        # AcceleratorState._reset_state()). This bug should be fixed now but to
+        # be sure, still start out with 'fp16' before 'no'.
+        from accelerate.utils import is_bf16_available
+
+        if (mixed_precision != 'no') and not torch.cuda.is_available():
+            pytest.skip('skipping AMP test because device does not support it')
+        if (mixed_precision == 'bf16') and not is_bf16_available():
+            pytest.skip('skipping bf16 test because device does not support it')
+
+        accelerator = accelerator_cls(mixed_precision=mixed_precision)
+        net = net_cls(accelerator=accelerator)
+        net.initialize()
+        pickle.loads(pickle.dumps(net))
+
+    @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
+    def test_mixed_precision_save_load_params(
+            self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
+    ):
+        from accelerate.utils import is_bf16_available
+
+        if (mixed_precision != 'no') and not torch.cuda.is_available():
+            pytest.skip('skipping AMP test because device does not support it')
+        if (mixed_precision == 'bf16') and not is_bf16_available():
+            pytest.skip('skipping bf16 test because device does not support it')
+
+        accelerator = accelerator_cls(mixed_precision=mixed_precision)
+        net = net_cls(accelerator=accelerator)
+        net.initialize()
+        filename = tmp_path / 'accel-net-params.pth'
+        net.save_params(f_params=filename)
+        net.load_params(f_params=filename)
 
     def test_force_cpu(self, net_cls, accelerator_cls, data):
         accelerator = accelerator_cls(device_placement=False, cpu=True)
