@@ -8,3 +8,4 @@
 * [Gaussian Processes](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Gaussian_Processes.ipynb)
 * [PyTorch Geometric on the CORA dataset](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/CORA-geometric.ipynb)
 * [Hugging Face fine-tuning](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Finetuning.ipynb)
+* [Hugging Face Hub Checkpoints](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Model_Checkpoint.ipynb)

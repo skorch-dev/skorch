@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from enum import Enum
 from functools import partial
+import io
 from itertools import tee
 import pathlib
 import warnings
@@ -485,14 +486,15 @@ def noop(*args, **kwargs):
 @contextmanager
 def open_file_like(f, mode):
     """Wrapper for opening a file"""
-    new_fd = isinstance(f, (str, pathlib.Path))
-    if new_fd:
-        f = open(f, mode)
+    if isinstance(f, (str, pathlib.Path)):
+        file_like = open(f, mode)
+    else:
+        file_like = f
+
     try:
-        yield f
+        yield file_like
     finally:
-        if new_fd:
-            f.close()
+        file_like.close()
 
 
 # pylint: disable=unused-argument

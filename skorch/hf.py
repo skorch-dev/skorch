@@ -9,7 +9,9 @@ should not depend on them.
 
 """
 
+import io
 import os
+import pathlib
 from copy import deepcopy
 from operator import itemgetter
 
@@ -1009,3 +1011,186 @@ class AccelerateMixin:
     def on_train_end(self, net, X=None, y=None, **kwargs):
         super().on_train_end(net, X=X, y=y, **kwargs)
         self.module_ = self.accelerator.unwrap_model(self.module_)
+
+
+class HfHubStorage:
+    """Helper class that allows writing data to the Hugging Face Hub.
+
+    Use this, for instance, in combination with checkpoint callbacks such as
+    :class:`skorch.callbacks.training.TrainEndCheckpoint` or
+    :class:`skorch.callbacks.training.Checkpoint` to upload the trained model
+    directly to the Hugging Face Hub instead of storing it locally.
+
+    To use this, it is necessary to install the `Hugging Face Hub library
+    <https://huggingface.co/docs/huggingface_hub/index>`__.
+
+    .. code:: bash
+
+        python -m pip install huggingface_hub
+
+    Note that writes to the Hub are synchronous. Therefore, if the time it takes
+    to upload the data is long compared to training the model, there can be a
+    signficant slowdown. It is best to use this with
+    :class:`skorch.callbacks.training.TrainEndCheckpoint`, as that checkpoint
+    only uploads the data once, at the end of training. Also, using this writer
+    with :class:`skorch.callbacks.training.LoadInitState` is not supported for
+    now because the Hub API does not support model loading yet.
+
+    Parameters
+    ----------
+    hf_api : instance of huggingface_hub.HfApi
+      Pass an instantiated ``huggingface_hub.HfApi`` object here.
+
+    path_in_repo : str
+      The name that the file should have in the repo, e.g. ``my-model.pkl``. If
+      you want each upload to have a different file name, instead of overwriting
+      the file, use a templated name, e.g. ``my-model-{}.pkl``. Then your files
+      will be called ``my-model-1.pkl``, ``my-model-2.pkl``, etc. If there are
+      already files by this name in the repository, they will be overwritten.
+
+    repo_id : str
+      The repository to which the file will be uploaded, for example:
+      ``"username/reponame"``.
+
+    verbose : int (default=0)
+      Control the level of verbosity.
+
+    local_storage : str, pathlib.Path or None (default=None)
+      Indicate temporary storage of the parameters. By default, they are stored
+      in-memory. By passing a string or Path to this parameter, you can instead
+      store the parameters at the indicated location. There is no automatic
+      cleanup, so if you don't need the file on disk, put it into a temp folder.
+
+    sink : callable (default=print)
+      The target that the verbose information is sent to. By default, the output
+      is printed to stdout, but the sink could also be a logger or
+      :func:`~skorch.utils.noop`.
+
+    kwargs : dict
+      The remaining arguments are the same as for ``HfApi.upload_file`` (see
+      https://huggingface.co/docs/huggingface_hub/package_reference/hf_api#huggingface_hub.HfApi.upload_file).
+
+    Attributes
+    ----------
+    latest_url_ : str
+      Stores the latest URL that the file has been uploaded to.
+
+    Examples
+    --------
+    >>> from huggingface_hub import create_repo, HfApi
+    >>> model_name = 'my-skorch-model.pkl'
+    >>> params_name = 'my-torch-params.pt'
+    >>> repo_name = 'my-user/my-repo'
+    >>> token = 'my-secret-token'
+    >>> # you can create a new repo like this:
+    >>> create_repo(repo_name, token=token, exist_ok=True)
+    >>> hf_api = HfApi()
+    >>> hub_pickle_writer = HfHubStorage(
+    ...     hf_api,
+    ...     path_in_repo=model_name,
+    ...     repo_id=repo_name,
+    ...     token=token,
+    ...     verbose=1,
+    ... )
+    >>> hub_params_writer = HfHubStorage(
+    ...     hf_api,
+    ...     path_in_repo=params_name,
+    ...     repo_id=repo_name,
+    ...     token=token,
+    ...     verbose=1,
+    ... )
+    >>> checkpoints = [
+    ...     TrainEndCheckpoint(f_pickle=hub_pickle_writer),
+    ...     TrainEndCheckpoint(f_params=hub_params_writer),
+    ... ]
+    >>> net = NeuralNet(..., checkpoints=checkpoints)
+    >>> net.fit(X, y)
+    >>> # prints:
+    >>> # Uploaded model to https://huggingface.co/my-user/my-repo/blob/main/my-skorch-model.pkl
+    >>> # Uploaded model to https://huggingface.co/my-user/my-repo/blob/main/my-torch-params.pt
+    ...
+    >>> # later...
+    >>> import pickle
+    >>> from huggingface_hub import hf_hub_download
+    >>> path = hf_hub_download(repo_name, model_name, use_auth_token=token)
+    >>> with open(path, 'rb') as f:
+    >>>     net_loaded = pickle.load(f)
+
+    """
+    def __init__(
+            self,
+            hf_api,
+            path_in_repo,
+            repo_id,
+            local_storage=None,
+            verbose=0,
+            sink=print,
+            **kwargs
+    ):
+        self.hf_api = hf_api
+        self.path_in_repo = path_in_repo
+        self.repo_id = repo_id
+        self.local_storage = local_storage
+        self.verbose = verbose
+        self.sink = sink
+        self.kwargs = kwargs
+
+        self.latest_url_ = None
+        self._buffer = None
+        self._call_count = 0
+        self._needs_flush = False
+
+    def _get_buffer(self):
+        if self.local_storage is None:
+            return io.BytesIO()
+
+        return open(self.local_storage, 'wb')
+
+    def write(self, content):
+        """Upload the file to the Hugging Face Hub"""
+        if self._buffer is None:
+            self._buffer = self._get_buffer()
+        self._buffer.write(content)
+        self._needs_flush = True
+
+    def flush(self):
+        """Flush buffered file"""
+        if not self._needs_flush:
+            # This is to prevent double-flushing. Some PyTorch versions create
+            # two contexts, resulting in __exit__, and thus flush, being called
+            # twice
+            return
+
+        if isinstance(self.local_storage, (str, pathlib.Path)):
+            self._buffer.close()
+            path_or_fileobj = self._buffer.name
+        else:
+            self._buffer.seek(0)
+            path_or_fileobj = self._buffer
+
+        path_in_repo = self.path_in_repo.format(self._call_count)
+        return_url = self.hf_api.upload_file(
+            path_or_fileobj=path_or_fileobj,
+            path_in_repo=path_in_repo,
+            repo_id=self.repo_id,
+            **self.kwargs
+        )
+        self._buffer = None
+        self._needs_flush = False
+
+        self.latest_url_ = return_url
+        self._call_count += 1
+        if self.verbose:
+            self.sink(f"Uploaded file to {return_url}")
+
+    def close(self, *args):
+        self.flush()
+
+    def seek(self, offset, whence=0):
+        raise NotImplementedError("Seek is not (yet) implemented")
+
+    def tell(self):
+        raise NotImplementedError("Tell is not (yet) implemented")
+
+    def read(self):
+        raise NotImplementedError("Read is not (yet) implemented")
