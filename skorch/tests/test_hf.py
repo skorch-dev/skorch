@@ -823,7 +823,6 @@ class MockHfApi:
 
     def _sanity_check(self, path_or_fileobj):
         # must be either BytesIO (memory) or str (disk)
-        print("+"*10, type(path_or_fileobj))
         assert isinstance(path_or_fileobj, (io.BytesIO, str))
 
     def upload_file(self, *, path_or_fileobj, **kwargs):
