@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added experimental support for [huggingface accelerate](https://github.com/huggingface/accelerate); use the provided mixin class to add advanced training capabilities provided by the accelerate library to skorch
 - Add integration for Huggingface tokenizers; use `skorch.hf.HuggingfaceTokenizer` to train a Huggingface tokenizer on your custom data; use `skorch.hf.HuggingfacePretrainedTokenizer` to load a pre-trained Huggingface tokenizer
 - Added support for creating model checkpoints on Hugging Face Hub using [`HfHubStorage`](https://skorch.readthedocs.io/en/latest/hf.html#skorch.hf.HfHubStorage)
+- Added a [notebook](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/CORA-geometric.ipynb) that shows how to use skorch with PyTorch Geometric (#863)
 
 ### Changed
 - The minimum required scikit-learn version has been bumped to 0.22.0
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix a bug in `SliceDataset` that prevented it to be used with `to_numpy` (#858)
 - Fix a bug that occurred when loading a net that has device set to None (#876)
 - Fix a bug that in some cases could prevent loading a net that was trained with CUDA without CUDA
+- Enable skorch to work on M1/M2 Apple MacBooks (#884)
 
 ## [0.11.0] - 2021-10-11
 
