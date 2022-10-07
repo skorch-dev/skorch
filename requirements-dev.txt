@@ -5,6 +5,7 @@ future>=0.17.1
 gpytorch>=1.5
 jupyter
 matplotlib>=2.0.2
+mlflow
 neptune-client>=0.4.103
 numpydoc
 openpyxl
