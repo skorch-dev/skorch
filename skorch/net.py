@@ -23,7 +23,6 @@ from torch.utils.data import DataLoader
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PrintLog
 from skorch.callbacks import PassthroughScoring
-from skorch.callbacks.base import _issue_warning_if_on_batch_override
 from skorch.dataset import Dataset
 from skorch.dataset import ValidSplit
 from skorch.dataset import get_len
@@ -352,10 +351,6 @@ class NeuralNet:
         * on_batch_end
 
         """
-        # TODO: remove after some deprecation period, e.g. skorch 0.12
-        if not self.history:  # perform check only at the start
-            _issue_warning_if_on_batch_override(self.callbacks_)
-
         getattr(self, method_name)(self, **cb_kwargs)
         for _, cb in self.callbacks_:
             getattr(cb, method_name)(self, **cb_kwargs)

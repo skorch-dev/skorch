@@ -8,11 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.12.0] - 2022-10-07
+
+### Added
 - Added `load_best` attribute to `EarlyStopping` callback to automatically load module weights of the best result at the end of training
 - Added a method, `trim_for_prediction`, on the net classes, which trims the net from everything not required for using it for prediction; call this after fitting to reduce the size of the net
 - Added experimental support for [huggingface accelerate](https://github.com/huggingface/accelerate); use the provided mixin class to add advanced training capabilities provided by the accelerate library to skorch
 - Add integration for Huggingface tokenizers; use `skorch.hf.HuggingfaceTokenizer` to train a Huggingface tokenizer on your custom data; use `skorch.hf.HuggingfacePretrainedTokenizer` to load a pre-trained Huggingface tokenizer
 - Added support for creating model checkpoints on Hugging Face Hub using [`HfHubStorage`](https://skorch.readthedocs.io/en/latest/hf.html#skorch.hf.HfHubStorage)
+- Added a [notebook](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/CORA-geometric.ipynb) that shows how to use skorch with PyTorch Geometric (#863)
 
 ### Changed
 - The minimum required scikit-learn version has been bumped to 0.22.0
@@ -23,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix a bug in `SliceDataset` that prevented it to be used with `to_numpy` (#858)
 - Fix a bug that occurred when loading a net that has device set to None (#876)
 - Fix a bug that in some cases could prevent loading a net that was trained with CUDA without CUDA
+- Enable skorch to work on M1/M2 Apple MacBooks (#884)
 
 ## [0.11.0] - 2021-10-11
 
@@ -273,3 +283,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.9.0]: https://github.com/skorch-dev/skorch/compare/v0.8.0...v0.9.0
 [0.10.0]: https://github.com/skorch-dev/skorch/compare/v0.9.0...v0.10.0
 [0.11.0]: https://github.com/skorch-dev/skorch/compare/v0.10.0...v0.11.0
+[0.12.0]: https://github.com/skorch-dev/skorch/compare/v0.11.0...v0.12.0
