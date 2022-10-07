@@ -45,7 +45,8 @@ trap remove_env EXIT
 source activate $CONDA_ENV
 conda install -q -y "twine==${TWINE_VERSION}"
 conda install -c pytorch -y "pytorch==${PYTORCH_VERSION}"
-python setup.py install
+python -m pip install -r requirements-dev.txt
+python -m pip install .
 
 pytest -x
 
