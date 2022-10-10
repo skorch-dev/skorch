@@ -9,7 +9,7 @@ jobs:
   hf-integration-tests:
 
     runs-on: ubuntu-latest
-    if: "github.repository == 'skorch-dev/skorch'"
+    # if: "github.repository == 'skorch-dev/skorch'"
 
     timeout-minutes: 10
 
