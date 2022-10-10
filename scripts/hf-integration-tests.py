@@ -10,7 +10,8 @@ Specifically, this tests:
 
 Trigger:
 
-- trigger the action manually at https://github.com/skorch-dev/skorch/actions
+- trigger the action manually at https://github.com/skorch-dev/skorch/actions >
+  HF integration tests > run workflow
 - the action runs automatically according to the cron schedule defined in the GH
   action
 
@@ -24,6 +25,15 @@ Initial setup (only needs to be done once):
 
 This script will automatically create a private repo on HF for testing and
 delete it at the end of the tests.
+
+To run the script locally, you need a skorch Python environment that
+additionally contains the Hugging Face dependencies:
+
+$ python -m pip install transformers tokenizers huggingface_hub
+
+Then run:
+
+$ HF_TOKEN=<TOKEN> python scripts/hf-integration-tests.py
 
 """
 
@@ -270,7 +280,7 @@ def main():
         print("encountered the following exceptions:")
         for exc in exceptions:
             print(exc)
-        raise RuntimeError(f"{len(exceptions)} of 3 tests failed")
+        raise RuntimeError(f"{len(exceptions)} of 2 tests failed")
     print("All tests succeeded")
 
 
