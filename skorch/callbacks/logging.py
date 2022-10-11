@@ -75,7 +75,7 @@ class NeptuneLogger(Callback):
     your net's history to Neptune.
 
     The best way to log additional information is to log directly to the
-    run object or subclass the ``on_*`` methods.
+    run object.
 
     To monitor resource consumption, install psutil:
 
