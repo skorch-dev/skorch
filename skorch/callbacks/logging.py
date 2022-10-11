@@ -169,7 +169,7 @@ class NeptuneLogger(Callback):
             log_on_batch_end=False,
             close_after_train=True,
             keys_ignored=None,
-            base_namespace="training",
+            base_namespace='training',
     ):
         self.run = run
         self.log_on_batch_end = log_on_batch_end
@@ -235,19 +235,23 @@ class NeptuneLogger(Callback):
             self.run.stop()
 
     def _log_metric(self, name, logs, batch):
-        name_parts = name.split("_", maxsplit=1)
+        name_parts = name.split('_', maxsplit=1)
 
         if len(name_parts) == 1:
-            self._metric_logger[name].log(logs[name])
+            if name == 'dur':
+                key = 'epoch_duration'
+            else:
+                key = name
+            self._metric_logger[key].log(logs[name])
         else:
             kind, key = name_parts
-            if kind == "valid":
-                kind = "validation"
+            if kind == 'valid':
+                kind = 'validation'
 
             if batch:
-                granularity = "batch"
+                granularity = 'batch'
             else:
-                granularity = "epoch"
+                granularity = 'epoch'
 
             # for example:     train /   epoch   / loss
             self._metric_logger[kind][granularity][key].log(logs[name])
@@ -261,7 +265,7 @@ class NeptuneLogger(Callback):
             # neptune-client>=1.0.0 package structure
             from neptune.types import File
 
-        return File.from_content(str(model), extension="txt")
+        return File.from_content(str(model), extension='txt')
 
     @staticmethod
     def _get_checkpoint_dirname(net):
@@ -272,11 +276,11 @@ class NeptuneLogger(Callback):
     def _upload_checkpoint(self, net):
         checkpoint_dirname = self._get_checkpoint_dirname(net)
         if checkpoint_dirname is not None:
-            if checkpoint_dirname == "":
-                checkpoint_dirname = "."
+            if checkpoint_dirname == '':
+                checkpoint_dirname = '.'
             self._metric_logger['model/checkpoint'].upload_files([
-                f"{checkpoint_dirname}/*.json",
-                f"{checkpoint_dirname}/*.pt",
+                f'{checkpoint_dirname}/*.json',
+                f'{checkpoint_dirname}/*.pt',
             ])
 
 class WandbLogger(Callback):
