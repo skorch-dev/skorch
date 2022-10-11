@@ -20,6 +20,11 @@ A scikit-learn compatible neural network library that wraps PyTorch.
     :scale: 100%
     :target: https://skorch.readthedocs.io/en/latest/?badge=latest
 
+.. |huggingface| image:: https://github.com/skorch-dev/skorch/actions/workflows/test-hf-integration.yml/badge.svg
+    :alt: Hugging Face Integration
+    :scale: 100%
+    :target: https://github.com/skorch-dev/skorch/actions/workflows/test-hf-integration.yml
+
 .. |powered| image:: https://github.com/skorch-dev/skorch/blob/master/assets/powered.svg
     :alt: Powered by
     :scale: 100%
