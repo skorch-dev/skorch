@@ -66,9 +66,9 @@ class EpochTimer(Callback):
 
 
 class NeptuneLogger(Callback):
-    """Logs results from history to Neptune
+    """Logs results from history to Neptune.
 
-    Neptune is a lightweight experiment tracking tool.
+    Neptune is a lightweight experiment-tracking tool.
     You can read more about it here: https://neptune.ai
 
     Use this callback to automatically log all interesting values from
@@ -77,7 +77,7 @@ class NeptuneLogger(Callback):
     The best way to log additional information is to log directly to the
     run object or subclass the ``on_*`` methods.
 
-    To monitor resource consumption install psutil
+    To monitor resource consumption, install psutil:
 
     >>> python -m pip install psutil
 
@@ -86,26 +86,26 @@ class NeptuneLogger(Callback):
 
     Examples
     --------
-    >>> # Install neptune
+    >>> # Install Neptune
     >>> python -m pip install neptune-client
 
-    >>> # Create a neptune run object
+    >>> # Create a Neptune run
     >>> import neptune.new as neptune
     >>> from neptune.new.types import File
     ...
-    ... # We are using api token for an anonymous user.
-    ... # For your projects use the token associated with your neptune.ai account
+    ... # This example uses the API token for anonymous users.
+    ... # For your own projects, use the token associated with your neptune.ai account.
     >>> run = neptune.init_run(
-    ...     api_token='ANONYMOUS',
+    ...     api_token=neptune.ANONYMOUS_API_TOKEN,
     ...     project='shared/skorch-integration',
     ...     name='skorch-basic-example',
     ...     source_files=['skorch_example.py'],
     ... )
 
-    >>> # Create a neptune_logger callback
+    >>> # Create a NeptuneLogger callback
     >>> neptune_logger = NeptuneLogger(run, close_after_train=False)
 
-    >>> # Pass a logger to net callbacks argument
+    >>> # Pass the logger to the net callbacks argument
     >>> net = NeuralNetClassifier(
     ...           ClassifierModule,
     ...           max_epochs=20,
@@ -119,7 +119,7 @@ class NeptuneLogger(Callback):
     ...
     ... neptune_logger.run["roc_auc_score"].log(auc)
 
-    >>> # log charts like ROC curve
+    >>> # Log charts, such as an ROC curve
     ... from scikitplot.metrics import plot_roc
     ... import matplotlib.pyplot as plt
     ...
@@ -127,11 +127,11 @@ class NeptuneLogger(Callback):
     ... plot_roc(y, y_pred, ax=ax)
     ... neptune_logger.run["roc_curve"].upload(File.as_html(fig))
 
-    >>> # log net object after training
+    >>> # Log the net object after training
     ... net.save_params(f_params='basic_model.pkl')
     ... neptune_logger.run["basic_model"].upload(File('basic_model.pkl'))
 
-    >>> # close run
+    >>> # Close the run
     ... neptune_logger.run.stop()
 
     Parameters
@@ -145,7 +145,7 @@ class NeptuneLogger(Callback):
     close_after_train : bool (default=True)
       Whether to close the ``Run`` object once training
       finishes. Set this parameter to False if you want to continue
-      logging to the same Run or if you use it as a context
+      logging to the same run or if you use it as a context
       manager.
 
     keys_ignored : str or list of str (default=None)
