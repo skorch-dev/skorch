@@ -153,6 +153,10 @@ class NeptuneLogger(Callback):
       addition to the keys provided by the user, keys such as those starting
       with ``'event_'`` or ending on ``'_best'`` are ignored by default.
 
+    base_namespace: str
+      Namespace (folder) under which all metadata logged by the ``NeptuneLogger``
+      will be stored. Defaults to "training".
+
     Attributes
     ----------
     .. _Neptune: https://www.neptune.ai
