@@ -75,7 +75,7 @@ class NeptuneLogger(Callback):
     your net's history to Neptune.
 
     The best way to log additional information is to log directly to the
-    experiment object or subclass the ``on_*`` methods.
+    run object or subclass the ``on_*`` methods.
 
     To monitor resource consumption install psutil
 
@@ -89,13 +89,13 @@ class NeptuneLogger(Callback):
     >>> # Install neptune
     >>> python -m pip install neptune-client
 
-    >>> # Create a neptune experiment object
+    >>> # Create a neptune run object
     >>> import neptune.new as neptune
     >>> from neptune.new.types import File
     ...
     ... # We are using api token for an anonymous user.
     ... # For your projects use the token associated with your neptune.ai account
-    >>> neptune.init(
+    >>> run = neptune.init_run(
     ...     api_token='ANONYMOUS',
     ...     project='shared/skorch-integration',
     ...     name='skorch-basic-example',
@@ -103,7 +103,7 @@ class NeptuneLogger(Callback):
     ... )
 
     >>> # Create a neptune_logger callback
-    >>> neptune_logger = NeptuneLogger(experiment, close_after_train=False)
+    >>> neptune_logger = NeptuneLogger(run, close_after_train=False)
 
     >>> # Pass a logger to net callbacks argument
     >>> net = NeuralNetClassifier(
@@ -117,7 +117,7 @@ class NeptuneLogger(Callback):
     ... y_pred = net.predict_proba(X)
     ... auc = roc_auc_score(y, y_pred[:, 1])
     ...
-    ... neptune_logger.experiment["roc_auc_score"].log(auc)
+    ... neptune_logger.run["roc_auc_score"].log(auc)
 
     >>> # log charts like ROC curve
     ... from scikitplot.metrics import plot_roc
@@ -125,27 +125,27 @@ class NeptuneLogger(Callback):
     ...
     ... fig, ax = plt.subplots(figsize=(16, 12))
     ... plot_roc(y, y_pred, ax=ax)
-    ... neptune_logger.experiment["roc_curve"].upload(File.as_html(fig))
+    ... neptune_logger.run["roc_curve"].upload(File.as_html(fig))
 
     >>> # log net object after training
     ... net.save_params(f_params='basic_model.pkl')
-    ... neptune_logger.experiment["basic_model"].upload(File('basic_model.pkl'))
+    ... neptune_logger.run["basic_model"].upload(File('basic_model.pkl'))
 
-    >>> # close experiment
-    ... neptune_logger.experiment.stop()
+    >>> # close run
+    ... neptune_logger.run.stop()
 
     Parameters
     ----------
-    experiment : neptune.experiments.Experiment
-      Instantiated ``Experiment`` class.
+    run : neptune.new.Run
+      Instantiated ``Run`` class.
 
     log_on_batch_end : bool (default=False)
       Whether to log loss and other metrics on batch level.
 
     close_after_train : bool (default=True)
-      Whether to close the ``Experiment`` object once training
+      Whether to close the ``Run`` object once training
       finishes. Set this parameter to False if you want to continue
-      logging to the same Experiment or if you use it as a context
+      logging to the same Run or if you use it as a context
       manager.
 
     keys_ignored : str or list of str (default=None)
@@ -165,13 +165,13 @@ class NeptuneLogger(Callback):
 
     def __init__(
             self,
-            experiment,
+            run,
             log_on_batch_end=False,
             close_after_train=True,
             keys_ignored=None,
             base_namespace="training",
     ):
-        self.experiment = experiment
+        self.run = run
         self.log_on_batch_end = log_on_batch_end
         self.close_after_train = close_after_train
         self.keys_ignored = keys_ignored
@@ -183,7 +183,7 @@ class NeptuneLogger(Callback):
 
     @property
     def _metric_logger(self):
-        return self.experiment[self._base_namespace]
+        return self.run[self._base_namespace]
 
     @staticmethod
     def _get_obj_name(obj):
@@ -232,7 +232,7 @@ class NeptuneLogger(Callback):
             pass
 
         if self.close_after_train:
-            self.experiment.stop()
+            self.run.stop()
 
     def _log_metric(self, name, logs, batch):
         name_parts = name.split("_", maxsplit=1)
