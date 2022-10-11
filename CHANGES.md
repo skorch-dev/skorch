@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `NeptuneLogger` was updated to work with recent version of Neptune client. It now logs some additional data including
+  the model summary, configuration, learning rate, and checkpoints (when available)
+
 ### Fixed
 
 ## [0.12.0] - 2022-10-07
