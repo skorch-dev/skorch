@@ -3,7 +3,7 @@
 
 ------------
 
-|build| |coverage| |docs| |powered|
+|build| |coverage| |docs| |huggingface| |powered|
 
 A scikit-learn compatible neural network library that wraps PyTorch.
 
