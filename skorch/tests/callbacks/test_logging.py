@@ -196,34 +196,44 @@ class TestNeptune:
             classifier_module,
             data,
             neptune_logger_cls,
-            neptune_experiment_cls,
     ):
         try:
             # neptune-client=0.9.0+ package structure
+            import neptune.new as neptune
             from neptune.new.attributes.file_set import FileSet
         except ImportError:
             # neptune-client>=1.0.0 package structure
+            import neptune
             from neptune.attributes.file_set import FileSet
         from skorch.callbacks import Checkpoint
+
+        run = neptune.init_run(
+            project="tests/dry-run-with-checkpoints",
+            mode="offline",
+        )
 
         with tempfile.TemporaryDirectory() as directory:
             net = net_cls(
                 classifier_module,
                 callbacks=[
-                    neptune_logger_cls(neptune_experiment_cls),
+                    neptune_logger_cls(
+                        run=run,
+                        close_after_train=False,
+                    ),
                     Checkpoint(dirname=directory),
                 ],
                 max_epochs=5,
             )
             net.fit(*data)
+            run['training/model/checkpoint'].upload_files(directory)
 
-        assert neptune_experiment_cls.exists('training/train/epoch/loss')
-        assert neptune_experiment_cls.exists('training/validation/epoch/loss')
-        assert neptune_experiment_cls.exists('training/validation/epoch/acc')
+        assert run.exists('training/train/epoch/loss')
+        assert run.exists('training/validation/epoch/loss')
+        assert run.exists('training/validation/epoch/acc')
 
-        assert neptune_experiment_cls.exists('training/model/checkpoint')
+        assert run.exists('training/model/checkpoint')
         assert isinstance(
-            neptune_experiment_cls.get_structure()['training']['model']['checkpoint'],
+            run.get_structure()['training']['model']['checkpoint'],
             FileSet,
         )
 

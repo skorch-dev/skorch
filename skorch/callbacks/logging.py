@@ -12,7 +12,6 @@ import numpy as np
 import tqdm
 from tabulate import tabulate
 
-import skorch
 from skorch.utils import Ansi
 from skorch.dataset import get_len
 from skorch.callbacks import Callback
@@ -66,7 +65,7 @@ class EpochTimer(Callback):
 
 
 class NeptuneLogger(Callback):
-    """Logs results from history to Neptune.
+    """Logs model metadata and training metrics to Neptune.
 
     Neptune is a lightweight experiment-tracking tool.
     You can read more about it here: https://neptune.ai
@@ -79,15 +78,15 @@ class NeptuneLogger(Callback):
 
     To monitor resource consumption, install psutil:
 
-    >>> python -m pip install psutil
+    $ python -m pip install psutil
 
     You can view example experiment logs here:
     https://ui.neptune.ai/o/shared/org/skorch-integration/e/SKOR-13/charts
 
     Examples
     --------
-    >>> # Install Neptune
-    >>> python -m pip install neptune-client
+    $ # Install Neptune
+    $ python -m pip install neptune-client
 
     >>> # Create a Neptune run
     >>> import neptune.new as neptune
@@ -110,22 +109,24 @@ class NeptuneLogger(Callback):
     ...           ClassifierModule,
     ...           max_epochs=20,
     ...           lr=0.01,
-    ...           callbacks=[neptune_logger])
+    ...           callbacks=[neptune_logger, Checkpoint(dirname="./checkpoints")])
+    >>> net.fit(X, y)
+
+    >>> # Save the checkpoints to Neptune
+    >>> neptune_logger.run["checkpoints].upload_files("./checkpoints")
 
     >>> # Log additional metrics after training has finished
     >>> from sklearn.metrics import roc_auc_score
-    ... y_pred = net.predict_proba(X)
-    ... auc = roc_auc_score(y, y_pred[:, 1])
+    ... y_proba = net.predict_proba(X)
+    ... auc = roc_auc_score(y, y_proba[:, 1])
     ...
     ... neptune_logger.run["roc_auc_score"].log(auc)
 
     >>> # Log charts, such as an ROC curve
-    ... from scikitplot.metrics import plot_roc
-    ... import matplotlib.pyplot as plt
+    >>> from sklearn.metrics import RocCurveDisplay
     ...
-    ... fig, ax = plt.subplots(figsize=(16, 12))
-    ... plot_roc(y, y_pred, ax=ax)
-    ... neptune_logger.run["roc_curve"].upload(File.as_html(fig))
+    >>> roc_plot = RocCurveDisplay.from_estimator(net, X, y)
+    >>> neptune_logger.run["roc_curve"].upload(File.as_html(roc_plot.figure_))
 
     >>> # Log the net object after training
     ... net.save_params(f_params='basic_model.pkl')
@@ -166,6 +167,7 @@ class NeptuneLogger(Callback):
     def __init__(
             self,
             run,
+            *,
             log_on_batch_end=False,
             close_after_train=True,
             keys_ignored=None,
@@ -175,11 +177,7 @@ class NeptuneLogger(Callback):
         self.log_on_batch_end = log_on_batch_end
         self.close_after_train = close_after_train
         self.keys_ignored = keys_ignored
-
-        if base_namespace.endswith("/"):
-            self._base_namespace = base_namespace[:-1]
-        else:
-            self._base_namespace = base_namespace
+        self.base_namespace = base_namespace
 
     @property
     def _metric_logger(self):
@@ -195,15 +193,21 @@ class NeptuneLogger(Callback):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
         self.keys_ignored_.add('batches')
+
+        if self.base_namespace.endswith("/"):
+            self._base_namespace = self.base_namespace[:-1]
+        else:
+            self._base_namespace = self.base_namespace
+
         return self
 
     def on_train_begin(self, net, X, y, **kwargs):
 
-        self._metric_logger['model/model_type'] = NeptuneLogger._get_obj_name(net.module_)
-        self._metric_logger['model/summary'] = NeptuneLogger._model_summary_file(net.module_)
+        self._metric_logger['model/model_type'] = self._get_obj_name(net.module_)
+        self._metric_logger['model/summary'] = self._model_summary_file(net.module_)
 
-        self._metric_logger['config/optimizer'] = NeptuneLogger._get_obj_name(net.optimizer_)
-        self._metric_logger['config/criterion'] = NeptuneLogger._get_obj_name(net.criterion_)
+        self._metric_logger['config/optimizer'] = self._get_obj_name(net.optimizer_)
+        self._metric_logger['config/criterion'] = self._get_obj_name(net.criterion_)
         self._metric_logger['config/lr'] = net.lr
         self._metric_logger['config/epochs'] = net.max_epochs
         self._metric_logger['config/batch_size'] = net.batch_size
@@ -224,13 +228,10 @@ class NeptuneLogger(Callback):
             self._log_metric(key, epoch_logs, batch=False)
 
     def on_train_end(self, net, **kwargs):
-        self._upload_checkpoint(net)
-
         try:
             self._metric_logger['train/epoch/event_lr'].log(net.history[:, 'event_lr'])
         except KeyError:
             pass
-
         if self.close_after_train:
             self.run.stop()
 
@@ -267,21 +268,6 @@ class NeptuneLogger(Callback):
 
         return File.from_content(str(model), extension='txt')
 
-    @staticmethod
-    def _get_checkpoint_dirname(net):
-        for callback in net.callbacks:
-            if isinstance(callback, skorch.callbacks.training.Checkpoint):
-                return callback.dirname
-
-    def _upload_checkpoint(self, net):
-        checkpoint_dirname = self._get_checkpoint_dirname(net)
-        if checkpoint_dirname is not None:
-            if checkpoint_dirname == '':
-                checkpoint_dirname = '.'
-            self._metric_logger['model/checkpoint'].upload_files([
-                f'{checkpoint_dirname}/*.json',
-                f'{checkpoint_dirname}/*.pt',
-            ])
 
 class WandbLogger(Callback):
     """Logs best model and metrics to `Weights & Biases <https://docs.wandb.com/>`_
