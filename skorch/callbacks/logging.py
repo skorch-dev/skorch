@@ -202,6 +202,8 @@ class NeptuneLogger(Callback):
         return self
 
     def on_train_begin(self, net, X, y, **kwargs):
+        # TODO: we might want to improve logging of the multi-module net objects, see:
+        #       https://github.com/skorch-dev/skorch/pull/906#discussion_r993514643
 
         self._metric_logger['model/model_type'] = self._get_obj_name(net.module_)
         self._metric_logger['model/summary'] = self._model_summary_file(net.module_)
