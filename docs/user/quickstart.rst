@@ -24,13 +24,13 @@ it on a toy classification dataset using skorch
 
     class MyModule(nn.Module):
         def __init__(self, num_units=10, nonlin=nn.ReLU()):
-            super(MyModule, self).__init__()
+            super().__init__()
 
             self.dense0 = nn.Linear(20, num_units)
             self.nonlin = nonlin
             self.dropout = nn.Dropout(0.5)
-            self.dense1 = nn.Linear(num_units, 10)
-            self.output = nn.Linear(10, 2)
+            self.dense1 = nn.Linear(num_units, num_units)
+            self.output = nn.Linear(num_units, 2)
 
         def forward(self, X, **kwargs):
             X = self.nonlin(self.dense0(X))
@@ -71,7 +71,6 @@ interface, it is possible to put it into an sklearn
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
 
-
     pipe = Pipeline([
         ('scale', StandardScaler()),
         ('net', net),
@@ -92,7 +91,8 @@ Another advantage of skorch is that you can perform an sklearn
 
     from sklearn.model_selection import GridSearchCV
 
-
+    # deactivate skorch-internal train-valid split and verbose logging
+    net.set_params(train_split=False, verbose=0)
     params = {
         'lr': [0.01, 0.02],
         'max_epochs': [10, 20],
