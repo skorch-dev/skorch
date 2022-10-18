@@ -258,11 +258,11 @@ class NeptuneLogger(Callback):
 
     @staticmethod
     def _extract_name_parts(name):
-        name_parts = name.split('_', maxsplit=1)
-        if len(name_parts) == 1:
+        try:
+            kind, key = name.split('_', maxsplit=1)
+            return kind, key
+        except ValueError:
             return None, name
-        else:
-            return name_parts
 
     @staticmethod
     def _model_summary_file(model):
