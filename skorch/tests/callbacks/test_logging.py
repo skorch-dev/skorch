@@ -42,8 +42,14 @@ class TestNeptune:
         return NeptuneLogger
 
     @pytest.fixture
-    def neptune_experiment_cls(self):
-        import neptune.new as neptune
+    def neptune_run_object(self):
+        try:
+            # neptune-client=0.9.0+ package structure
+            import neptune.new as neptune
+        except ImportError:
+            # neptune-client>=1.0.0 package structure
+            import neptune
+
         run = neptune.init_run(
             project="tests/dry-run",
             mode="offline",
@@ -51,8 +57,9 @@ class TestNeptune:
         return run
 
     @pytest.fixture
-    def mock_experiment(self, neptune_experiment_cls):
-        return unittest.mock.create_autospec(neptune_experiment_cls)
+    def mock_experiment(self, neptune_run_object):
+        with neptune_run_object as run:
+            return unittest.mock.create_autospec(run)
 
     @pytest.fixture
     def net_fitted(
@@ -125,21 +132,21 @@ class TestNeptune:
             classifier_module,
             data,
             neptune_logger_cls,
-            neptune_experiment_cls,
+            neptune_run_object,
     ):
         net = net_cls(
             classifier_module,
-            callbacks=[neptune_logger_cls(neptune_experiment_cls)],
+            callbacks=[neptune_logger_cls(neptune_run_object)],
             max_epochs=5,
         )
         net.fit(*data)
 
-        assert neptune_experiment_cls.exists('training/train/epoch/loss')
-        assert neptune_experiment_cls.exists('training/validation/epoch/loss')
-        assert neptune_experiment_cls.exists('training/validation/epoch/acc')
+        assert neptune_run_object.exists('training/train/epoch/loss')
+        assert neptune_run_object.exists('training/validation/epoch/loss')
+        assert neptune_run_object.exists('training/validation/epoch/acc')
 
         # Checkpoint callback was not used
-        assert not neptune_experiment_cls.exists('training/model/checkpoint')
+        assert not neptune_run_object.exists('training/model/checkpoint')
 
     def test_log_on_batch_level_on(
             self,
@@ -196,28 +203,22 @@ class TestNeptune:
             classifier_module,
             data,
             neptune_logger_cls,
+            neptune_run_object,
     ):
         try:
             # neptune-client=0.9.0+ package structure
-            import neptune.new as neptune
             from neptune.new.attributes.file_set import FileSet
         except ImportError:
             # neptune-client>=1.0.0 package structure
-            import neptune
             from neptune.attributes.file_set import FileSet
         from skorch.callbacks import Checkpoint
-
-        run = neptune.init_run(
-            project="tests/dry-run-with-checkpoints",
-            mode="offline",
-        )
 
         with tempfile.TemporaryDirectory() as directory:
             net = net_cls(
                 classifier_module,
                 callbacks=[
                     neptune_logger_cls(
-                        run=run,
+                        run=neptune_run_object,
                         close_after_train=False,
                     ),
                     Checkpoint(dirname=directory),
@@ -225,17 +226,19 @@ class TestNeptune:
                 max_epochs=5,
             )
             net.fit(*data)
-            run['training/model/checkpoint'].upload_files(directory)
+            neptune_run_object['training/model/checkpoint'].upload_files(directory)
 
-        assert run.exists('training/train/epoch/loss')
-        assert run.exists('training/validation/epoch/loss')
-        assert run.exists('training/validation/epoch/acc')
+        assert neptune_run_object.exists('training/train/epoch/loss')
+        assert neptune_run_object.exists('training/validation/epoch/loss')
+        assert neptune_run_object.exists('training/validation/epoch/acc')
 
-        assert run.exists('training/model/checkpoint')
+        assert neptune_run_object.exists('training/model/checkpoint')
         assert isinstance(
-            run.get_structure()['training']['model']['checkpoint'],
+            neptune_run_object.get_structure()['training']['model']['checkpoint'],
             FileSet,
         )
+
+        neptune_run_object.stop()
 
 @pytest.mark.skipif(
     not sacred_installed, reason='Sacred is not installed')
