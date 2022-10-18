@@ -238,16 +238,13 @@ class NeptuneLogger(Callback):
             self.run.stop()
 
     def _log_metric(self, name, logs, batch):
-        name_parts = name.split('_', maxsplit=1)
+        kind, key = self._extract_name_parts(name)
 
-        if len(name_parts) == 1:
-            if name == 'dur':
+        if kind is None:
+            if key == 'dur':
                 key = 'epoch_duration'
-            else:
-                key = name
             self._metric_logger[key].log(logs[name])
         else:
-            kind, key = name_parts
             if kind == 'valid':
                 kind = 'validation'
 
@@ -258,6 +255,14 @@ class NeptuneLogger(Callback):
 
             # for example:     train /   epoch   / loss
             self._metric_logger[kind][granularity][key].log(logs[name])
+
+    @staticmethod
+    def _extract_name_parts(name):
+        name_parts = name.split('_', maxsplit=1)
+        if len(name_parts) == 1:
+            return None, name
+        else:
+            return name_parts
 
     @staticmethod
     def _model_summary_file(model):
