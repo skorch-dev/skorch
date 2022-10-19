@@ -2,6 +2,8 @@
 
 from functools import partial
 import os
+import tempfile
+import unittest.mock
 from unittest.mock import Mock
 from unittest.mock import call, patch
 
@@ -16,10 +18,12 @@ from skorch.tests.conftest import wandb_installed
 from skorch.tests.conftest import tensorboard_installed
 from skorch.tests.conftest import mlflow_installed
 
-
 @pytest.mark.skipif(
     not neptune_installed, reason='neptune is not installed')
 class TestNeptune:
+    # fields logged by on_train_begin and on_train_end
+    NUM_BASE_METRICS = 9
+
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
@@ -38,18 +42,24 @@ class TestNeptune:
         return NeptuneLogger
 
     @pytest.fixture
-    def neptune_experiment_cls(self):
-        import neptune
-        neptune.init(project_qualified_name="tests/dry-run",
-                     backend=neptune.OfflineBackend())
-        return neptune.create_experiment
+    def neptune_run_object(self):
+        try:
+            # neptune-client=0.9.0+ package structure
+            import neptune.new as neptune
+        except ImportError:
+            # neptune-client>=1.0.0 package structure
+            import neptune
+
+        run = neptune.init_run(
+            project="tests/dry-run",
+            mode="offline",
+        )
+        return run
 
     @pytest.fixture
-    def mock_experiment(self, neptune_experiment_cls):
-        mock = Mock(spec=neptune_experiment_cls)
-        mock.log_metric = Mock()
-        mock.stop = Mock()
-        return mock
+    def mock_experiment(self, neptune_run_object):
+        with neptune_run_object as run:
+            return unittest.mock.create_autospec(run)
 
     @pytest.fixture
     def net_fitted(
@@ -68,6 +78,10 @@ class TestNeptune:
 
     def test_experiment_closed_automatically(self, net_fitted, mock_experiment):
         assert mock_experiment.stop.call_count == 1
+
+    def test_experiment_log_call_counts(self, net_fitted, mock_experiment):
+        # (3 x dur + 3 x train_loss + 3 x valid_loss + 3 x valid_acc = 12) + base metrics
+        assert mock_experiment.__getitem__.call_count == 12 + self.NUM_BASE_METRICS
 
     def test_experiment_not_closed(
             self,
@@ -103,10 +117,8 @@ class TestNeptune:
             max_epochs=3,
         ).fit(*data)
 
-        # 3 epochs x 2 epoch metrics = 6 calls
-        assert mock_experiment.log_metric.call_count == 6
-        call_args = [args[0][0] for args in mock_experiment.log_metric.call_args_list]
-        assert 'valid_loss' not in call_args
+        # (3 epochs x 2 epoch metrics = 6 calls) + base metrics
+        assert mock_experiment.__getitem__.call_count == 6 + self.NUM_BASE_METRICS
 
     def test_keys_ignored_is_string(self, neptune_logger_cls, mock_experiment):
         npt = neptune_logger_cls(
@@ -120,14 +132,22 @@ class TestNeptune:
             classifier_module,
             data,
             neptune_logger_cls,
-            neptune_experiment_cls,
+            neptune_run_object,
     ):
         net = net_cls(
             classifier_module,
-            callbacks=[neptune_logger_cls(neptune_experiment_cls())],
+            callbacks=[neptune_logger_cls(neptune_run_object)],
             max_epochs=5,
         )
         net.fit(*data)
+
+        assert neptune_run_object.exists('training/epoch_duration')
+        assert neptune_run_object.exists('training/train/epoch/loss')
+        assert neptune_run_object.exists('training/validation/epoch/loss')
+        assert neptune_run_object.exists('training/validation/epoch/acc')
+
+        # Checkpoint callback was not used
+        assert not neptune_run_object.exists('training/model/checkpoint')
 
     def test_log_on_batch_level_on(
             self,
@@ -146,9 +166,9 @@ class TestNeptune:
         )
         net.fit(*data)
 
-        # 5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls
-        assert mock_experiment.log_metric.call_count == 110
-        mock_experiment.log_metric.assert_any_call('train_batch_size', 4)
+        # (5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls) + base metrics
+        assert mock_experiment.__getitem__.call_count == 110 + self.NUM_BASE_METRICS
+        mock_experiment['training']['train']['batch']['batch_size'].log.assert_any_call(4)
 
     def test_log_on_batch_level_off(
             self,
@@ -167,31 +187,59 @@ class TestNeptune:
         )
         net.fit(*data)
 
-        # 5 epochs x 2 epoch metrics = 10 calls
-        assert mock_experiment.log_metric.call_count == 10
-        call_args_list = mock_experiment.log_metric.call_args_list
-        assert call('train_batch_size', 4) not in call_args_list
+        # (5 epochs x 2 epoch metrics = 10 calls) + base metrics
+        assert mock_experiment.__getitem__.call_count == 10 + self.NUM_BASE_METRICS
 
-    def test_first_batch_flag(
+        call_args = mock_experiment['training']['train'].__getitem__.call_args_list
+        assert call('epoch') in call_args
+        assert call('batch') not in call_args
+
+        call_args = mock_experiment['training']['validation'].__getitem__.call_args_list
+        assert call('epoch') in call_args
+        assert call('batch') not in call_args
+
+    def test_fit_with_real_experiment_saving_checkpoints(
             self,
             net_cls,
             classifier_module,
             data,
             neptune_logger_cls,
-            neptune_experiment_cls,
+            neptune_run_object,
     ):
-        npt = neptune_logger_cls(neptune_experiment_cls())
-        npt.initialize()
-        assert npt.first_batch_ is True
+        try:
+            # neptune-client=0.9.0+ package structure
+            from neptune.new.attributes.file_set import FileSet
+        except ImportError:
+            # neptune-client>=1.0.0 package structure
+            from neptune.attributes.file_set import FileSet
+        from skorch.callbacks import Checkpoint
 
-        net = net_cls(
-            classifier_module,
-            callbacks=[npt],
-            max_epochs=1,
+        with tempfile.TemporaryDirectory() as directory:
+            net = net_cls(
+                classifier_module,
+                callbacks=[
+                    neptune_logger_cls(
+                        run=neptune_run_object,
+                        close_after_train=False,
+                    ),
+                    Checkpoint(dirname=directory),
+                ],
+                max_epochs=5,
+            )
+            net.fit(*data)
+            neptune_run_object['training/model/checkpoint'].upload_files(directory)
+
+        assert neptune_run_object.exists('training/train/epoch/loss')
+        assert neptune_run_object.exists('training/validation/epoch/loss')
+        assert neptune_run_object.exists('training/validation/epoch/acc')
+
+        assert neptune_run_object.exists('training/model/checkpoint')
+        assert isinstance(
+            neptune_run_object.get_structure()['training']['model']['checkpoint'],
+            FileSet,
         )
 
-        npt.on_batch_end(net)
-        assert npt.first_batch_ is False
+        neptune_run_object.stop()
 
 @pytest.mark.skipif(
     not sacred_installed, reason='Sacred is not installed')
