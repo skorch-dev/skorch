@@ -141,6 +141,7 @@ class TestNeptune:
         )
         net.fit(*data)
 
+        assert neptune_run_object.exists('training/epoch_duration')
         assert neptune_run_object.exists('training/train/epoch/loss')
         assert neptune_run_object.exists('training/validation/epoch/loss')
         assert neptune_run_object.exists('training/validation/epoch/acc')
