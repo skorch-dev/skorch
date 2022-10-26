@@ -382,8 +382,9 @@ the result of
 :func:`~skorch.classifier.NeuralNetClassifier.predict_proba`.
 Obviously, this only makes sense if
 :func:`~skorch.classifier.NeuralNetClassifier.predict_proba` returns
-class probabilities or logits. If this is not true, you should just use
-:func:`~skorch.classifier.NeuralNetClassifier.predict_proba`.
+class probabilities or logits. If this is not true, you should avoid 
+:func:`~skorch.classifier.NeuralNetClassifier.predict` and just use
+:func:`~skorch.classifier.NeuralNetClassifier.predict_proba` to retrieve predictions.
 
 score(X, y)
 ^^^^^^^^^^^
