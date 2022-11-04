@@ -1010,6 +1010,7 @@ class NeuralNet:
                 'on_grad_computed',
                 named_parameters=TeeGenerator(self.get_all_learnable_params()),
                 batch=batch,
+                training=True,
             )
             return step['loss']
 
