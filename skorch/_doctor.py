@@ -146,6 +146,7 @@ class LogActivationsGradients(Callback):
         self.activations = activations
         self.gradients = gradients
 
+    # pylint: disable=arguments-differ
     def on_epoch_begin(self, net, **kwargs):
         for module_name, _ in named_modules(net):
             self.activation_logs[module_name].append([])
@@ -155,7 +156,7 @@ class LogActivationsGradients(Callback):
 
     def on_batch_end(self, net, batch=None, training=False, **kwargs):
         if not training:
-            return
+            return self
 
         for module_name, module in named_modules(net):
             param_updates = {}
@@ -165,10 +166,14 @@ class LogActivationsGradients(Callback):
 
             self.param_update_logs[module_name][-1].append(param_updates)
             if module_name in self.activations:  # not all modules record activations
-                self.activation_logs[module_name][-1].append(self.activations[module_name].copy())
+                self.activation_logs[module_name][-1].append(
+                    self.activations[module_name].copy()
+                )
                 self.activations[module_name].clear()
 
-            self.gradient_logs[module_name][-1].append(self.gradients[module_name].copy())
+            self.gradient_logs[module_name][-1].append(
+                self.gradients[module_name].copy()
+            )
             self.gradients[module_name].clear()
         return self
 
@@ -192,18 +197,24 @@ class SkorchDoctor:
     data. Then use the records or plotting functions to help you better
     understand the training process.
 
-    Since ``SkorchDoctor`` will record a lot of values, you should expect an
-    increase in memory usage and training time. However, it's sufficient to
-    train with a handful of samples and only a few epochs, which helps
-    offsetting those disadvantages.
+    What exactly you do with this information is up to you. Some examples that
+    come to mind:
 
-    After you finished the analysis, it is recommended to re-initialize the net.
-    This is because the net you passed is modified by adding hooks, callbacks,
-    and training it. Although there is a clean up step at the end, it's better
-    to just create a new instance to be safe.
+        - Use the ``plot_loss`` figure to see if your model is powerful enough
+          to completely overfit a small sample.
+        - Use the distribution of activations to see if some layers produce
+          extreme values and may need a different non-linearity or some form of
+          normalization.
+        - Check the relative magnitude of the parameter updates to check if your
+          learning rate is too low or too high. Maybe some layers should be
+          frozen, or you might want to have different learning rates for
+          different parameter groups.
+        - Observe the gradients over time to figure out if you should use a
+          learning rate schedule.
 
-    Note: Even if a train/valid split is used for the net, only training data is
-    logged.
+    At the end of the day, ``SkorchDoctor`` will not tell you what you need to
+    do to improve the training process, but it will greatly facilitate to
+    diagnose potential problems.
 
     Examples
     --------
@@ -223,6 +234,21 @@ class SkorchDoctor:
     >>> doctor.plot_param_updates()
     >>> doctor.plot_activations_over_time(<layer-name>)
     >>> doctor.plot_gradients_over_time(<param-name>)
+
+    Notes
+    -----
+    Even if a train/valid split is used for the net, only training data is
+    logged.
+
+    Since ``SkorchDoctor`` will record a lot of values, you should expect an
+    increase in memory usage and training time. However, it's sufficient to
+    train with a handful of samples and only a few epochs, which helps
+    offsetting those disadvantages.
+
+    After you finished the analysis, it is recommended to re-initialize the net.
+    This is because the net you passed is modified by adding hooks, callbacks,
+    and training it. Although there is a clean up step at the end, it's better
+    to just create a new instance to be safe.
 
     Parameters
     ----------

@@ -1,6 +1,7 @@
 """Helper functions and classes for users.
 
-They should not be used in skorch directly.
+They are intended to be used by end users but should not be depeneded upon for
+skorch-internal usage.
 
 """
 from collections.abc import Sequence
@@ -11,12 +12,22 @@ from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 import torch
 
-from skorch.cli import parse_args  # pylint: disable=unused-import
-from skorch._doctor import SkorchDoctor  # pylint: disable=unused-import
+from skorch._doctor import SkorchDoctor
+from skorch.cli import parse_args
 from skorch.utils import _make_split
 from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
 from skorch.utils import to_tensor
+
+
+__all__ = [
+    "SliceDict",
+    "SliceDataset",
+    "DataFrameTransformer",
+    "predefined_split",
+    "SkorchDoctor",
+    "parse_args",
+]
 
 
 class SliceDict(dict):
