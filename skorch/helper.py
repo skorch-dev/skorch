@@ -12,6 +12,7 @@ from sklearn.base import TransformerMixin
 import torch
 
 from skorch.cli import parse_args  # pylint: disable=unused-import
+from skorch._doctor import SkorchDoctor  # pylint: disable=unused-import
 from skorch.utils import _make_split
 from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
