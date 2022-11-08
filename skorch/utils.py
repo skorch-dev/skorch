@@ -36,6 +36,14 @@ try:
     GPYTORCH_INSTALLED = True
 except ImportError:
     gpytorch = None
+except AttributeError:
+    msg = (
+        "Importing gpytorch failed. This is probably because its version is "
+        "incompatible with the installed torch version. Please visit "
+        "https://github.com/cornellius-gp/gpytorch#installation to check "
+        "which versions are compatible"
+    )
+    warnings.warn(msg)
 
 try:
     import torch_geometric
