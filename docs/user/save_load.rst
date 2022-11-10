@@ -110,6 +110,14 @@ feature can be used to continue training:
     :meth:`~skorch.net.NeuralNet.load_params`. Therefore, if you need
     it, you should :func:`pickle.dump` the whole net.
 
+Trimming for prediction
+-----------------------
+
+If you know that after loading the saved model, it will only be used for
+prediction, not for further training, you can get rid of several components of
+the net. E.g. since the optimizer, criterion, and callbacks only affect
+training, they're not needed anymore and can be removed. skorch provides a
+convenience method to achieve this, called :meth:`.trim_for_prediction`.
 
 Using callbacks
 ---------------

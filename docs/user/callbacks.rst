@@ -48,7 +48,7 @@ on_train_begin(net, X, y)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Called once at the start of the training process (e.g. when calling
-fit).
+``fit``).
 
 on_train_end(net, X, y)
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -74,7 +74,6 @@ Called once before each batch of data is processed, i.e. possibly
 several times per epoch. Gets batch data as additional input.
 Also includes a bool indicating if this is a training batch or not.
 
-
 on_batch_end(net, batch, training, loss, y_pred)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -89,19 +88,18 @@ update step was performed. Gets the module parameters as additional
 input as well as the batch data. Useful if you want to tinker with
 gradients.
 
-
 Setting callback parameters
 ---------------------------
 
 You can set specific callback parameters using the ususal `set_params`
 interface on the network by using the `callbacks__` prefix and the
-callback's name. For example to change the scoring order of the train
-loss you can write this:
+callback's name. For example to change the name of the accuracy of the
+validation set shown during training, you would do:
 
 .. code:: python
 
-    net = NeuralNet()
-    net.set_params(callbacks__train_loss__lower_is_better=False)
+    net = NeuralNetClassifier(...)
+    net.set_params(callbacks__valid_acc__name="accuracy of valid set")
 
 Changes will be applied on initialization and callbacks that
 are changed using `set_params` will be re-initialized.
@@ -111,7 +109,6 @@ initialization of the network and defaults to the class name.
 If there is a conflict, the conflicting names will be made unique
 by appending a count suffix starting at 1, e.g.
 ``EpochScoring_1``, ``EpochScoring_2``, etc.
-
 
 Deactivating callbacks
 -----------------------
@@ -140,7 +137,6 @@ compare the performance once with and once without the callback.
 
 To completely disable all callbacks, including default callbacks, 
 set ``callbacks="disable"``.
-
 
 Scoring
 -------
@@ -171,11 +167,12 @@ are unfamiliar, here is a short explanation:
 
 - If you pass a string, sklearn makes a look-up for a score with
   that name. Examples would be ``'f1'`` and ``'roc_auc'``.
-- If you pass ``None``, the model's ``score`` method is used. By
-  default, :class:`.NeuralNet` and its subclasses don't provide a
-  ``score`` method, but you can easily implement your own. If you do,
-  it should take ``X`` and ``y`` (the target) as input and return a
-  scalar as output.
+- If you pass ``None``, the model's ``score`` method is used. By default,
+  :class:`.NeuralNet` doesn't provide a ``score`` method, but you can easily
+  implement your own by subclassing it. If you do, it should take ``X`` and
+  ``y`` (the target) as input and return a scalar as output.
+  :class:`.NeuralNetClassifier` and :class:`.NeuralNetRegressor` have the
+  same score methods as normal sklearn classifiers and regressors.
 - Finally, you can pass a function/callable. In that case, this
   function should have the signature ``func(net, X, y)`` and return a
   scalar.
@@ -192,9 +189,8 @@ called ``'f1'``, you should set ``lower_is_better=False``. The
 score itself, and an entry for ``'f1_best'``, which says whether this
 is the as of yet best f1 score.
 
-``on_train`` is used to indicate whether training or validation data
-should be used to determine the score. By default, it is set to
-validation.
+``on_train`` is a bool that is used to indicate whether training or validation
+data should be used to determine the score. By default, it is set to validation.
 
 Finally, you may have to provide your own ``target_extractor``. This
 should be a function or callable that is applied to the target before
@@ -208,7 +204,7 @@ calculate any new scores. Instead it uses an existing score that is
 calculated for each batch (the train loss, for example) and determines
 the average of this score, which is then written to the epoch level of
 the net's ``history``. This is very useful if the score was already
-calculated and logged on the batch level and you're only interested to
+calculated and logged on the batch level and you're interested to
 see the averaged score on the epoch level.
 
 For this callback, you only need to provide the ``name`` of the score
@@ -216,11 +212,13 @@ in the ``history``. Moreover, you may again specify if
 ``lower_is_better`` and if the score should be calculated ``on_train``
 or not.
 
-.. note:: Both :class:`.BatchScoring` and :class:`.PassthroughScoring`
-           honor the batch size when calculating the average. This can
-           make a difference when not all batch sizes are equal, which
-           is typically the case because the last batch of an epoch
-           contains fewer samples than the rest.
+.. note::
+
+   Both :class:`.BatchScoring` and :class:`.PassthroughScoring`
+   honor the batch size when calculating the average. This can
+   make a difference when not all batch sizes are equal, which
+   is typically the case because the last batch of an epoch
+   contains fewer samples than the rest.
 
 
 Checkpoint
@@ -261,7 +259,7 @@ Learning rate schedulers
 The :class:`.LRScheduler` callback allows the use of the various
 learning rate schedulers defined in :mod:`torch.optim.lr_scheduler`,
 such as :class:`~torch.optim.lr_scheduler.ReduceLROnPlateau`, which
-allows dynamic learning rate reducing based on a given value to
+allows dynamic learning rate reduction based on a given value to
 monitor, or :class:`~torch.optim.lr_scheduler.CyclicLR`, which cycles
 the learning rate between two boundaries with a constant frequency.
 

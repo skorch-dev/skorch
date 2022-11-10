@@ -50,9 +50,7 @@ To see more elaborate examples, look `here
     import numpy as np
     from sklearn.datasets import make_classification
     from torch import nn
-
     from skorch import NeuralNetClassifier
-
 
     X, y = make_classification(1000, 20, n_informative=10, random_state=0)
     X = X.astype(np.float32)
@@ -60,7 +58,7 @@ To see more elaborate examples, look `here
 
     class MyModule(nn.Module):
         def __init__(self, num_units=10, nonlin=nn.ReLU()):
-            super(MyModule, self).__init__()
+            super().__init__()
 
             self.dense0 = nn.Linear(20, num_units)
             self.nonlin = nonlin
@@ -75,7 +73,6 @@ To see more elaborate examples, look `here
             X = self.nonlin(self.dense1(X))
             X = self.softmax(self.output(X))
             return X
-
 
     net = NeuralNetClassifier(
         MyModule,
@@ -95,7 +92,6 @@ In an `sklearn Pipeline <https://scikit-learn.org/stable/modules/generated/sklea
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
 
-
     pipe = Pipeline([
         ('scale', StandardScaler()),
         ('net', net),
@@ -109,7 +105,6 @@ With `grid search <https://scikit-learn.org/stable/modules/generated/sklearn.mod
 .. code:: python
 
     from sklearn.model_selection import GridSearchCV
-
 
     # deactivate skorch-internal train-valid split and verbose logging
     net.set_params(train_split=False, verbose=0)
@@ -134,12 +129,13 @@ skorch also provides many convenient features, among others:
 - `Progress bar <https://skorch.readthedocs.io/en/stable/callbacks.html#skorch.callbacks.ProgressBar>`_ (for CLI as well as jupyter)
 - `Automatic inference of CLI parameters <https://github.com/skorch-dev/skorch/tree/master/examples/cli>`_
 - `Integration with GPyTorch for Gaussian Processes <https://skorch.readthedocs.io/en/latest/user/probabilistic.html>`_
+- `Integration with Hugging Face 🤗 <https://skorch.readthedocs.io/en/stable/user/huggingface.html>`_
 
 ============
 Installation
 ============
 
-skorch requires Python 3.6 or higher.
+skorch requires Python 3.7 or higher.
 
 conda installation
 ==================
@@ -187,7 +183,7 @@ To install skorch from source using conda, proceed as follows:
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
-    source activate skorch
+    conda activate skorch
     python -m pip install .
 
 If you want to help developing, run:
@@ -197,7 +193,7 @@ If you want to help developing, run:
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
-    source activate skorch
+    conda activate skorch
     python -m pip install -e .
 
     py.test  # unit tests
