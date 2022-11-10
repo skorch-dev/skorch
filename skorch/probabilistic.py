@@ -8,7 +8,6 @@
 
 import pickle
 import re
-import warnings
 
 import gpytorch
 import numpy as np
@@ -21,16 +20,12 @@ from skorch.callbacks import EpochScoring
 from skorch.callbacks import EpochTimer
 from skorch.callbacks import PassthroughScoring
 from skorch.callbacks import PrintLog
-from skorch.exceptions import SkorchWarning
 from skorch.utils import check_is_fitted
 from skorch.utils import get_dim
 from skorch.utils import is_dataset
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
 
-
-warnings.warn("The API of the Gaussian Process estimators is experimental and may "
-              "change in the future", SkorchWarning)
 
 __all__ = ['ExactGPRegressor', 'GPRegressor', 'GPBinaryClassifier']
 
