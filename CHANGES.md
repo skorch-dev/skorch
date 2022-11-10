@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fix an error that could occur with specific combinations of gpytorch and PyTorch versions (#913)
+
 ## [0.12.0] - 2022-10-07
 
 ### Added
