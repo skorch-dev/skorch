@@ -1,5 +1,6 @@
 """TODO"""
 
+from collections.abc import Mapping
 from functools import partial
 
 import numpy as np
@@ -24,26 +25,39 @@ def named_modules(net):
             yield module_name, module
 
 
-def flatten(items):
-    """Flatten lists or tuples"""
-    for item in items:
-        if isinstance(item, (list, tuple)):
-            yield from flatten(item)
-        else:
-            yield item
-
-
 # pylint: disable=unused-argument,redefined-builtin
 def _add_activation_hook(model, input, output, *, activations, module_name, layer_name):
+    """Helper function for adding activation hooks"""
     if module_name not in activations:
         activations[module_name] = {}
-    activations[module_name][layer_name] = to_numpy(output)
+    val = to_numpy(output)
+
+    # disambiguate activations when the output is not a simple array
+    if isinstance(val, np.ndarray):
+        activations[module_name][layer_name] = val
+    elif isinstance(val, (list, tuple)):
+        for i, v in enumerate(val):
+            if not isinstance(v, np.ndarray):
+                raise TypeError(f"Activations of type {type(v)} are not supported")
+            activations[module_name][layer_name + f'[{i}]'] = v
+    elif isinstance(val, Mapping):
+        for k, v in val.items():
+            if not isinstance(v, np.ndarray):
+                raise TypeError(f"Activations of type {type(v)} are not supported")
+            activations[module_name][layer_name + f'[{k}]'] = v
+    else:
+        raise TypeError(f"Activations of type {type(v)} are not supported")
 
 
 def add_activation_hooks(net):
     """Add forward hooks to all layers to record activations
 
     Ignore the top level modules like ``net.module_`` and ``net.criterion_``.
+
+    If an output is not a simple array, it is disambiguated. E.g. if it's a
+    list, the name get a suffix of ``[i]`` where ``i`` designates the index in
+    the list. Similary, when the output is a dict, a ``[key]`` suffix is added,
+    where ``[key]`` is the key of the corresponding value in the dictionary.
 
     Parameters
     ----------
@@ -59,6 +73,13 @@ def add_activation_hooks(net):
       These handles are returned by torch when adding hooks. They can be used to
       remove the hooks.
 
+    Raises
+    ------
+    TypeError
+      When the output of a layer is not a simple array and if it cannot be
+      disambiguated, a ``TypeError`` is raised. Disambiguation works for lists,
+      tuples, and dicts (but not nested ones).
+
     """
     activations = {}
     handles = []
@@ -66,7 +87,7 @@ def add_activation_hooks(net):
     for module_name, module in named_modules(net):
         for layer_name, submodule in module.named_modules():
             if submodule is module:
-                # TODO: logging activations for whole module useful?
+                # is logging activations for whole module useful?
                 continue
 
             handle = submodule.register_forward_hook(partial(
@@ -81,6 +102,7 @@ def add_activation_hooks(net):
 
 
 def _add_grad_hook(grad, *, gradients, module_name, param_name):
+    """Helper function for adding gradient hooks"""
     if module_name not in gradients:
         gradients[module_name] = {}
     gradients[module_name][param_name] = to_numpy(grad)
@@ -158,11 +180,12 @@ class LogActivationsGradients(Callback):
         if not training:
             return self
 
+        eps = 1e-9  # prevent divide by 0
         for module_name, module in named_modules(net):
             param_updates = {}
             for key, param in module.named_parameters():
                 grad = self.gradients[module_name][key]
-                param_updates[key] = (grad.std() / param.std()).item()
+                param_updates[key] = (grad.std() / (eps + param.std())).item()
 
             self.param_update_logs[module_name][-1].append(param_updates)
             if module_name in self.activations:  # not all modules record activations
@@ -194,23 +217,29 @@ class SkorchDoctor:
     To use this class, initialize your skorch net and load your data as you
     would typically do when training a net. Then, initializea ``SkorchDoctor``
     instance by passing said net, and fit the doctor with a small amount of
-    data. Then use the records or plotting functions to help you better
+    data. Finally, use the records or plotting functions to help you better
     understand the training process.
 
     What exactly you do with this information is up to you. Some examples that
     come to mind:
 
         - Use the ``plot_loss`` figure to see if your model is powerful enough
-          to completely overfit a small sample.
+          to completely overfit a small sample. If not, consider increasing its
+          capacity, e.g. by stacking more layers or using more units per layer.
+
         - Use the distribution of activations to see if some layers produce
           extreme values and may need a different non-linearity or some form of
-          normalization.
+          normalization, e.g. batch norm or layer norm. A different weight
+          initialization scheme could also help.
+
         - Check the relative magnitude of the parameter updates to check if your
           learning rate is too low or too high. Maybe some layers should be
           frozen, or you might want to have different learning rates for
-          different parameter groups.
-        - Observe the gradients over time to figure out if you should use a
-          learning rate schedule.
+          different parameter groups, or an adaptive optimizer like Adam.
+
+        - If gradients are too big, consider using gradient clipping. If the
+          mangitude of gradients shifts over time, you might want to use a
+          learning rate scheduler.
 
     At the end of the day, ``SkorchDoctor`` will not tell you what you need to
     do to improve the training process, but it will greatly facilitate to
@@ -218,7 +247,7 @@ class SkorchDoctor:
 
     Examples
     --------
-    >>> net = NeuralNet(..., max_epochs=10)  # a couple of epochs are enough
+    >>> net = NeuralNet(..., max_epochs=5)  # a couple of epochs are enough
     >>> from skorch.helper import SkorchDoctor
     >>> doctor = SkorchDoctor(net)
     >>> X_sample, y_sample = X[:100], y[:100]  # a few samples are enough
@@ -245,10 +274,11 @@ class SkorchDoctor:
     train with a handful of samples and only a few epochs, which helps
     offsetting those disadvantages.
 
-    After you finished the analysis, it is recommended to re-initialize the net.
-    This is because the net you passed is modified by adding hooks, callbacks,
-    and training it. Although there is a clean up step at the end, it's better
-    to just create a new instance to be safe.
+    After you finished the analysis, it is recommended to re-initialize the net
+    or even better start a new process. This is because the net you passed is
+    modified by adding hooks, callbacks, and training it. Although there is a
+    clean up step at the end, it's better to start fresh when starting the real
+    model training.
 
     Parameters
     ----------
@@ -257,20 +287,13 @@ class SkorchDoctor:
 
     Attributes
     ----------
-    module_names_ : list of str
-      All modules used by the net, typically those are ``"module"`` and
-      ``"criterion"``.
-
-    layer_names_ : dict of list of str
-      For each module, the names of its layers/submodules.
-
-    param_names_: dict of list of str
-      For each module, the names of its parameters (typically weights and
-      biases).
-
     num_steps_ : int
       The total number of training steps. E.g. if trained for 10 epochs with 5
       batches each, that would be 50.
+
+    module_names_ : list of str
+      All modules used by the net, typically those are ``"module"`` and
+      ``"criterion"``.
 
     activation_logs_: dict of list of list of dict of np.ndarray
       The activations of each layer for each module. The outer dict contains one
@@ -283,6 +306,12 @@ class SkorchDoctor:
       quite straightforward. E.g. to get the activations of the layer called
       "dense0" of the "module" in epoch 0 and batch 0, use
       ``doctor.activation_logs_['module'][0][0]['dense0']``.
+
+      If an activation is not a simple array, it is disambiguated. E.g. if it's a
+      list, the name get a suffix of ``[i]`` where ``i`` designates the index in
+      the list. Similary, when the output is a dict, a ``[key]`` suffix is
+      added, where ``[key]`` is the key of the corresponding value in the
+      dictionary.
 
     gradient_logs_: dict of list of list of dict of np.ndarray
       The gradients of each parameter for each module. The outer dict contains
@@ -326,25 +355,18 @@ class SkorchDoctor:
         net.initialize_callbacks()
 
     def initialize(self):
+        """Initialize the SkorchDoctor
+
+        This method typically does not need to be invoked explicitly, because it
+        is called by ``fit``.
+
+        """
         if not self.net.initialized_:
             self.net.initialize()
         self.fitted_ = False
 
         module_names = []
-        layer_names = {}
-        param_names = {}
-        for module_name, _ in named_modules(self.net):
-            module_names.append(module_name)
-            module = getattr(self.net, module_name + '_')
-            layer_names[module_name] = [
-                layer_name for layer_name, _ in module.named_modules()
-            ]
-            param_names[module_name] = [
-                param_name for param_name, _ in module.named_parameters()
-            ]
-        self.module_names_ = module_names
-        self.layer_names_ = layer_names
-        self.param_names_ = param_names
+        self.module_names_ = [name for name, _ in named_modules(self.net)]
 
         self.handles_ = []
 
@@ -372,6 +394,7 @@ class SkorchDoctor:
         return self
 
     def _remove_callback(self, net, callback_name):
+        """Helper function to remove callbacks"""
         indices = []
         for i, callback in enumerate(net.callbacks):
             if not isinstance(callback, tuple):
@@ -392,33 +415,78 @@ class SkorchDoctor:
             del net.callbacks_[i]
 
     def _clean_up(self):
+        """Clean up method to be called after training"""
         for handle in self.handles_:
             handle.remove()
 
         self._remove_callback(self.net, 'log_activations_gradients')
 
+    def flatten(self, items):
+        """Flatten values in nested lists or tuples"""
+        for item in items:
+            if isinstance(item, (list, tuple)):
+                yield from self.flatten(item)
+            else:
+                yield item
+
     def check_is_fitted(self):
         check_is_fitted(self, ['fitted_'])
 
-    def fit(self, X, y):
+    def fit(self, X, y=None, **fit_params):
+        """Initialize and fit the SkorchDoctor
+
+        It is advised to use a low number of epochs and a small amount of data
+        only, since the collection of data results in time and memory overhead.
+
+        """
         self.initialize()
         try:
-            self.net.partial_fit(X, y)
+            self.net.partial_fit(X, y, **fit_params)
         finally:
             self._clean_up()
 
-        # TODO
-        # The idea here is to have something similar to cv_results_, but not sure if it's useful
-        # self.report_batch_ = self.make_report()
-        # self.report_epoch_ = self.aggregate_batch_report(self.report_batch_)
-
         self.num_steps_ = sum(
-            1 for _ in flatten(list(self.activation_logs_.values())[0])
+            1 for _ in self.flatten(list(self.activation_logs_.values())[0])
         )
         self.fitted_ = True
         return self
 
+    def get_layer_names(self):
+        """Return the names of all layers/modules"""
+        self.check_is_fitted()
+        names = {}
+        for module in self.module_names_:
+            if self.activation_logs_[module][0]:
+                names[module] = list(self.activation_logs_[module][0][0].keys())
+            else:
+                names[module] = []
+        return names
+
+    def get_param_names(self):
+        """Return all learnable parameters of the net"""
+        self.check_is_fitted()
+        names = {}
+        for module in self.module_names_:
+            if self.gradient_logs_[module][0]:
+                names[module] = list(self.gradient_logs_[module][0][0].keys())
+            else:
+                names[module] = []
+        return names
+
+    def predict(self, X, **kwargs):
+        """Calls the ``predict`` method of the underlying net"""
+        return self.net.predict(X, **kwargs)
+
+    def predict_proba(self, X, **kwargs):
+        """Calls the ``predict_proba`` method of the underlying net"""
+        return self.net.predict_proba(X, **kwargs)
+
+    def score(self, X, y=None, **kwargs):
+        """Calls the ``score`` method of the underlying net"""
+        return self.net.score(X, y=None, **kwargs)
+
     def _get_axes(self, axes=None, figsize=None, nrows=1, squeeze=False):
+        """Helper function to get empty axes for plotting"""
         if axes is not None:
             return axes
 
@@ -432,12 +500,17 @@ class SkorchDoctor:
         return axes
 
     def plot_loss(self, ax=None, figsize=None, **kwargs):
+        """Plot the loss over each epoch.
+
+        Plots the training loss and, if present, the validation loss over time.
+
+        """
         self.check_is_fitted()
 
         ax = self._get_axes(ax, figsize=figsize, nrows=1)
         history = self.net.history
         xvec = np.arange(len(history)) + 1
-        ax.plot(xvec, history[:, 'train_loss'], label='train')
+        ax.plot(xvec, history[:, 'train_loss'], label='train', **kwargs)
 
         if 'valid_loss' in history[0]:
             ax.plot(xvec, history[:, 'valid_loss'], label='valid', **kwargs)
@@ -451,6 +524,7 @@ class SkorchDoctor:
     def plot_activations(
             self,
             step=-1,
+            match_fn=None,
             axes=None,
             histtype='step',
             lw=2,
@@ -459,6 +533,38 @@ class SkorchDoctor:
             figsize=None,
             **kwargs
     ):
+        """Plot the distribution of activations produced by the layers
+
+        Parameters
+        ----------
+        step : int (default=-1)
+          Which training step to plot. By default, the last step (-1) is chosen.
+
+        match_fn : callable or None (default=None)
+          If not ``None``, this should be a callable/function that takes the
+          name of a layer as input and returns a bool as output, where ``False``
+          indicates that this layer should be excluded. Use this to filter only
+          specific layers you want to plot.
+
+        axes : np.ndarray of AxesSubplot or None (default=None)
+          By default, a new matplotlib plot is created. If you instead want to
+          plot onto an existing plot, pass it here. There should be one subplot
+          for each top level module (typically 2).
+
+        bins : np.ndarray or None (default=None)
+          Bins to use for the histogram. If left as ``None``, they are inferred
+          from the data.
+
+        **kwargs
+          You can override remaining plotting arguments like ``lw`` (line width)
+          or ``figsize`` (figure size).
+
+        Returns
+        -------
+        axes : np.andarray of AxesSubplot
+          The axes of the plot.
+
+        """
         self.check_is_fitted()
 
         # only use modules for which the values are not simply empty lists
@@ -470,11 +576,14 @@ class SkorchDoctor:
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            activations = list(flatten(self.activation_logs_[module_name]))[step]
+            activations = list(self.flatten(self.activation_logs_[module_name]))[step]
+            if match_fn:
+                activations = {k: v for k, v in activations.items() if match_fn(k)}
+
             if bins is None:
                 bin_min = min(a.min() for a in activations.values())
                 bin_max = max(a.max() for a in activations.values())
-                bins = np.linspace(bin_min, bin_max, 30)
+                bins = np.linspace(bin_min, bin_max, 50)
 
             for key, val in activations.items():
                 if val.ndim:
@@ -494,6 +603,7 @@ class SkorchDoctor:
     def plot_gradients(
             self,
             step=-1,
+            match_fn=None,
             axes=None,
             histtype='step',
             lw=2,
@@ -502,6 +612,38 @@ class SkorchDoctor:
             figsize=None,
             **kwargs
     ):
+        """Plot the distribution of gradients of each learnable parameter
+
+        Parameters
+        ----------
+        step : int (default=-1)
+          Which training step to plot. By default, the last step (-1) is chosen.
+
+        match_fn : callable or None (default=None)
+          If not ``None``, this should be a callable/function that takes the
+          name of a parameter as input and returns a bool as output, where
+          ``False`` indicates that this layer should be excluded. Use this to
+          filter only specific parameters you want to plot.
+
+        axes : np.ndarray of AxesSubplot or None (default=None)
+          By default, a new matplotlib plot is created. If you instead want to
+          plot onto an existing plot, pass it here. There should be one subplot
+          for each top level module (typically 2).
+
+        bins : np.ndarray or None (default=None)
+          Bins to use for the histogram. If left as ``None``, they are inferred
+          from the data.
+
+        **kwargs
+          You can override remaining plotting arguments like ``lw`` (line width)
+          or ``figsize`` (figure size).
+
+        Returns
+        -------
+        axes : np.andarray of AxesSubplot
+          The axes of the plot.
+
+        """
         self.check_is_fitted()
 
         # only use modules for which the values are not simply empty
@@ -514,11 +656,14 @@ class SkorchDoctor:
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            gradients = list(flatten(self.gradient_logs_[module_name]))[step]
+            gradients = list(self.flatten(self.gradient_logs_[module_name]))[step]
+            if match_fn:
+                gradients = {k: v for k, v in gradients.items() if match_fn(k)}
+
             if bins is None:
                 bin_min = min(g.min() for g in gradients.values())
                 bin_max = max(g.max() for g in gradients.values())
-                bins = np.linspace(bin_min, bin_max, 30)
+                bins = np.linspace(bin_min, bin_max, 50)
 
             for key, val in gradients.items():
                 if val.ndim:  # don't show scalars
@@ -537,7 +682,41 @@ class SkorchDoctor:
 
         return axes
 
-    def plot_param_updates(self, axes=None, figsize=None, **kwargs):
+    def plot_param_updates(self, match_fn=None, axes=None, figsize=None, **kwargs):
+        """Plot the distribution of relative parameter updates.
+
+        Plots the log10 of the standard deviation of the parameter update
+        relative to the parameter itself, over time. Higher values mean that the
+        parameter changes quite a lot with each training step, lower values mean
+        that the parameter changes little.
+
+        Parameters
+        ----------
+        match_fn : callable or None (default=None)
+          If not ``None``, this should be a callable/function that takes the
+          name of a parameter as input and returns a bool as output, where
+          ``False`` indicates that this layer should be excluded. Use this to
+          filter only specific parameters you want to plot.
+
+        axes : np.ndarray of AxesSubplot or None (default=None)
+          By default, a new matplotlib plot is created. If you instead want to
+          plot onto an existing plot, pass it here. There should be one subplot
+          for each top level module (typically 2).
+
+        bins : np.ndarray or None (default=None)
+          Bins to use for the histogram. If left as ``None``, they are inferred
+          from the data.
+
+        **kwargs
+          You can override remaining plotting arguments like ``figsize`` (figure
+          size).
+
+        Returns
+        -------
+        axes : np.andarray of AxesSubplot
+          The axes of the plot.
+
+        """
         self.check_is_fitted()
 
         # only use modules for which the values are not simply empty
@@ -547,14 +726,17 @@ class SkorchDoctor:
         ]
 
         axes = self._get_axes(axes, figsize=figsize, nrows=len(module_names))
+        eps = 1e-9  # prevent log10 of 0
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            param_updates = list(flatten(self.param_update_logs_[module_name]))
+            param_updates = list(self.flatten(self.param_update_logs_[module_name]))
             keys = param_updates[0].keys()
+            if match_fn:
+                keys = [key for key in keys if match_fn(key)]
 
             for key in keys:
-                values = [np.log10(update[key]) for update in param_updates]
+                values = [np.log10(update[key] + eps) for update in param_updates]
                 xvec = np.arange(1, len(values) + 1)
                 ax.plot(xvec, values, label=key)
 
@@ -578,19 +760,54 @@ class SkorchDoctor:
             color='k',
             **kwargs
     ):
+        """Plot the distribution of the activation of a specific layers over
+        time
+
+        The histograms are plotted "on top of each other" with an offset.
+        Therefore, the absolute magnitude on the y-axis has no meaning.
+
+        Parameters
+        ----------
+        layer_name : str
+          The name of the specific layer whose activations should be plotted.
+
+        module_name : str (default='module')
+          The name of the module that the layer belongs to. By default, it is
+          called "module" in skorch, but it's possible to define custom module
+          names, in which case the corresponding name should be chosen.
+
+        ax : AxesSubplot or None (default=None)
+          By default, a new matplotlib plot is created. If you instead want to
+          plot onto an existing plot, pass it here. Only a single plot is
+          created.
+
+        bins : np.ndarray or None (default=None)
+          Bins to use for the histogram. If left as ``None``, they are inferred
+          from the data.
+
+        **kwargs
+          You can override remaining plotting arguments like ``figsize`` (figure
+          size).
+
+        Returns
+        -------
+        ax : AxesSubplot
+          The ax of the plot.
+
+        """
         self.check_is_fitted()
 
         ax = self._get_axes(ax, figsize=figsize, squeeze=True)
 
         activations = [
-            act[layer_name] for act in flatten(self.activation_logs_[module_name])
+            act[layer_name] for act in self.flatten(self.activation_logs_[module_name])
         ]
         n = len(activations)
 
         if bins is None:
             bin_min = min(a.min() for a in activations)
             bin_max = max(a.max() for a in activations)
-            bins = np.linspace(bin_min, bin_max, 50)
+            bins = np.linspace(bin_min, bin_max, 100)
 
         y_max = -1
         yvals = []
@@ -630,19 +847,54 @@ class SkorchDoctor:
             color='k',
             **kwargs
     ):
+        """Plot the distribution of the gradients of a specific parameter over
+        time
+
+        The histograms are plotted "on top of each other" with an offset.
+        Therefore, the absolute magnitude on the y-axis has no meaning.
+
+        Parameters
+        ----------
+        param_name : str
+          The name of the specific parameter that should be plotted.
+
+        module_name : str (default='module')
+          The name of the module that the paramter belongs to. By default, it is
+          called "module" in skorch, but it's possible to define custom module
+          names, in which case the corresponding name should be chosen.
+
+        ax : AxesSubplot or None (default=None)
+          By default, a new matplotlib plot is created. If you instead want to
+          plot onto an existing plot, pass it here. Only a single plot is
+          created.
+
+        bins : np.ndarray or None (default=None)
+          Bins to use for the histogram. If left as ``None``, they are inferred
+          from the data.
+
+        **kwargs
+          You can override remaining plotting arguments like ``figsize`` (figure
+          size).
+
+        Returns
+        -------
+        ax : AxesSubplot
+          The ax of the plot.
+
+        """
         self.check_is_fitted()
 
         ax = self._get_axes(ax, figsize=figsize, squeeze=True)
 
         gradients = [
-            grad[param_name] for grad in flatten(self.gradient_logs_[module_name])
+            grad[param_name] for grad in self.flatten(self.gradient_logs_[module_name])
         ]
         n = len(gradients)
 
         if bins is None:
             bin_min = min(g.min() for g in gradients)
             bin_max = max(g.max() for g in gradients)
-            bins = np.linspace(bin_min, bin_max, 50)
+            bins = np.linspace(bin_min, bin_max, 100)
 
         y_max = -1
         yvals = []
@@ -669,51 +921,3 @@ class SkorchDoctor:
         ax.set_ylabel('step / gradient')
         ax.set_title(f"distribution of gradients for {param_name} of {module_name}")
         return ax
-
-    # def make_report(self):
-    #     # only training related data, not valid
-    #     rows = []
-    #     history = self.net.history
-
-    #     for epoch in range(len(history)):
-    #         epoch_activations = self.activation_logs_[epoch]
-    #         epoch_gradients = self.gradient_logs_[epoch]
-    #         epoch_params_updates = self.param_update_logs_[epoch]
-
-    #         for batch in range(len(epoch_activations)):
-    #             batch_activations = epoch_activations[batch]
-    #             batch_gradients = epoch_gradients[batch]
-    #             batch_param_updates = epoch_params_updates[batch]
-
-    #             row = {
-    #                 # start counting at 1
-    #                 'epoch': epoch + 1,
-    #                 'batch': batch + 1,
-    #                 'train_batch_size': history[epoch, 'batches', batch, 'train_batch_size'],
-    #             }
-
-    #             for module_name, val in batch_activations.items():
-    #                 row[f'mean_abs_activity_{module_name}'] = np.abs(val).mean()
-
-    #             for param_name, val in batch_gradients.items():
-    #                 row[f'mean_abs_gradient_{param_name}'] = np.abs(val).mean()
-
-    #             for param_name, val in batch_param_updates.items():
-    #                 row[f'mean_relative_param_update_{param_name}'] = val
-
-    #             rows.append(row)
-
-    #     df = pd.DataFrame(rows)
-    #     return df
-
-    # def aggregate_batch_report(self, df):
-    #     """Aggregate from batch level to epoch level"""
-    #     def reduce_epoch(dfg):
-    #         keys = [key for key in dfg if key.startswith('mean')]
-    #         batch_sizes = dfg['train_batch_size'].values
-    #         aggregated = {key: np.average(dfg[key].values, weights=batch_sizes) for key in keys}
-    #         return aggregated
-
-    #     df_agg = df.groupby('epoch').apply(reduce_epoch)
-    #     df_agg = pd.DataFrame([df_agg.values[i] for i in range(len(df_agg))])
-    #     return df_agg
