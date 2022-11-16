@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from functools import partial
 
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 
 from skorch.callbacks import Callback
@@ -490,12 +489,23 @@ class SkorchDoctor:
         if axes is not None:
             return axes
 
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError as exc:
+            msg = (
+                "This feature requires matplotlib to be installed; "
+                "please install it first, e.g. using "
+                "'python -m pip install matplotlib'"
+            )
+            raise ImportError(msg) from exc
+
         width = 12
         height = 6
 
         if figsize is None:
             figsize = (width, nrows * height)
 
+        plt = self._load_matplotlib()
         _, axes = plt.subplots(nrows, 1, figsize=figsize, squeeze=squeeze)
         return axes
 
