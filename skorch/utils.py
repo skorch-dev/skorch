@@ -29,14 +29,6 @@ from torch.utils.data.dataset import Subset
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
 
-
-GPYTORCH_INSTALLED = False
-try:
-    import gpytorch
-    GPYTORCH_INSTALLED = True
-except ImportError:
-    gpytorch = None
-
 try:
     import torch_geometric
     TORCH_GEOMETRIC_INSTALLED = True
@@ -665,17 +657,32 @@ def _infer_predict_nonlinearity(net):
     if isinstance(criterion, BCELoss):
         return _make_2d_probs
 
-    # TODO only needed if multiclass GP classfication is added
-    # likelihood = getattr(net, 'likelihood_', None)
-    # if (
-    #         likelihood
-    #         and GPYTORCH_INSTALLED
-    #         and isinstance(likelihood, gpytorch.likelihoods.SoftmaxLikelihood)
-    # ):
-    #     # SoftmaxLikelihood returns batch second order
-    #     return _transpose
-
     return _identity
+
+    # TODO: Add the code below to _infer_predict_nonlinearity if multiclass GP
+    # classfication is added.
+    # likelihood = getattr(net, 'likelihood_', None)
+    # if likelihood is None:
+    #     return _identity
+    # nonlin = _identity
+    # try:
+    #     import gpytorch
+    #     if isinstance(likelihood, gpytorch.likelihoods.SoftmaxLikelihood):
+    #         # SoftmaxLikelihood returns batch second order
+    #         nonlin = _transpose
+    # except ImportError:
+    #     # there is no gpytorch install
+    #     pass
+    # except AttributeError:
+    #     # gpytorch and pytorch are incompatible
+    #     msg = (
+    #         "Importing gpytorch failed. This is probably because its version is "
+    #         "incompatible with the installed torch version. Please visit "
+    #         "https://github.com/cornellius-gp/gpytorch#installation to check "
+    #         "which versions are compatible"
+    #     )
+    #     warnings.warn(msg)
+    # return nonlin
 
 
 class TeeGenerator:
