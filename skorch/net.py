@@ -214,8 +214,9 @@ class NeuralNet:
     ----------
     prefixes_ : list of str
       Contains the prefixes to special parameters. E.g., since there
-      is the ``'module'`` prefix, it is possible to set parameters like
-      so: ``NeuralNet(..., optimizer__momentum=0.95)``.
+      is the ``'optimizer'`` prefix, it is possible to set parameters like
+      so: ``NeuralNet(..., optimizer__momentum=0.95)``. Some prefixes are
+      populated dynamically, based on what modules and criteria are defined.
 
     cuda_dependent_attributes_ : list of str
       Contains a list of all attribute prefixes whose values depend on a
@@ -1249,7 +1250,8 @@ class NeuralNet:
           When the given attributes are not present.
 
         """
-        attributes = attributes or ['module_']
+        # TODO: write tests
+        attributes = attributes or [module + '_' for module in self._modules]
         check_is_fitted(self, attributes, *args, **kwargs)
 
     def trim_for_prediction(self):

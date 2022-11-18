@@ -4,11 +4,14 @@ from collections.abc import Mapping
 from functools import partial
 
 import numpy as np
+from sklearn.exceptions import NotFittedError
 import torch
 
 from skorch.callbacks import Callback
+from skorch.exceptions import NotInitializedError
 from skorch.utils import to_numpy
 from skorch.utils import check_is_fitted
+from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
 
 
 def named_modules(net):
@@ -127,10 +130,7 @@ def add_grad_hooks(net):
     """
     gradients = {}
     handles = []
-
     for module_name, module in named_modules(net):
-        gradients[module_name] = {}
-
         for param_name, tensor in module.named_parameters():
             if not tensor.requires_grad:
                 continue
@@ -183,6 +183,8 @@ class LogActivationsGradients(Callback):
         for module_name, module in named_modules(net):
             param_updates = {}
             for key, param in module.named_parameters():
+                if not param.requires_grad:
+                    continue
                 grad = self.gradients[module_name][key]
                 param_updates[key] = (grad.std() / (eps + param.std())).item()
 
@@ -193,10 +195,11 @@ class LogActivationsGradients(Callback):
                 )
                 self.activations[module_name].clear()
 
-            self.gradient_logs[module_name][-1].append(
-                self.gradients[module_name].copy()
-            )
-            self.gradients[module_name].clear()
+            if module_name in self.gradients:  # not all modules record gradients
+                self.gradient_logs[module_name][-1].append(
+                    self.gradients[module_name].copy()
+                )
+                self.gradients[module_name].clear()
         return self
 
 
@@ -429,7 +432,14 @@ class SkorchDoctor:
                 yield item
 
     def check_is_fitted(self):
-        check_is_fitted(self, ['fitted_'])
+        try:
+            sk_check_is_fitted(self, ['fitted_'])
+        except NotFittedError as exc:
+            msg = (
+                f"{self.__class__.__name__} is not initialized yet. Call "
+                "'fit(X, y) before using this method."
+            )
+            raise NotInitializedError(msg) from exc
 
     def fit(self, X, y=None, **fit_params):
         """Initialize and fit the SkorchDoctor
@@ -451,7 +461,14 @@ class SkorchDoctor:
         return self
 
     def get_layer_names(self):
-        """Return the names of all layers/modules"""
+        """Return the names of all layers/modules
+
+        Returns
+        -------
+        names : dict of list of str
+          For each top level module, all layer names as a list of strings.
+
+        """
         self.check_is_fitted()
         names = {}
         for module in self.module_names_:
@@ -462,12 +479,21 @@ class SkorchDoctor:
         return names
 
     def get_param_names(self):
-        """Return all learnable parameters of the net"""
+        """Return all learnable parameters of the net
+
+        Returns
+        -------
+        names : dict of list of str
+          For each top level module, all parameter names as a list of strings.
+
+        """
         self.check_is_fitted()
         names = {}
         for module in self.module_names_:
             if self.gradient_logs_[module][0]:
-                names[module] = list(self.gradient_logs_[module][0][0].keys())
+                # using the reversed order because gradients are recorded from
+                # last to first, but first to last is more intuitive to show
+                names[module] = list(reversed(self.gradient_logs_[module][0][0].keys()))
             else:
                 names[module] = []
         return names
@@ -482,7 +508,7 @@ class SkorchDoctor:
 
     def score(self, X, y=None, **kwargs):
         """Calls the ``score`` method of the underlying net"""
-        return self.net.score(X, y=None, **kwargs)
+        return self.net.score(X, y=y, **kwargs)
 
     def _get_axes(self, axes=None, figsize=None, nrows=1, squeeze=False):
         """Helper function to get empty axes for plotting"""
@@ -505,7 +531,6 @@ class SkorchDoctor:
         if figsize is None:
             figsize = (width, nrows * height)
 
-        plt = self._load_matplotlib()
         _, axes = plt.subplots(nrows, 1, figsize=figsize, squeeze=squeeze)
         return axes
 
@@ -517,7 +542,7 @@ class SkorchDoctor:
         """
         self.check_is_fitted()
 
-        ax = self._get_axes(ax, figsize=figsize, nrows=1)
+        ax = self._get_axes(ax, figsize=figsize, nrows=1, squeeze=True)
         history = self.net.history
         xvec = np.arange(len(history)) + 1
         ax.plot(xvec, history[:, 'train_loss'], label='train', **kwargs)
@@ -589,6 +614,12 @@ class SkorchDoctor:
             activations = list(self.flatten(self.activation_logs_[module_name]))[step]
             if match_fn:
                 activations = {k: v for k, v in activations.items() if match_fn(k)}
+                if not activations:
+                    msg = (
+                        "No layer found matching the specification of match_fn. "
+                        "Use doctor.get_layer_names() to check all layers."
+                    )
+                    raise ValueError(msg)
 
             if bins is None:
                 bin_min = min(a.min() for a in activations.values())
@@ -669,6 +700,12 @@ class SkorchDoctor:
             gradients = list(self.flatten(self.gradient_logs_[module_name]))[step]
             if match_fn:
                 gradients = {k: v for k, v in gradients.items() if match_fn(k)}
+                if not gradients:
+                    msg = (
+                        "No parameter found matching the specification of match_fn. "
+                        "Use doctor.get_param_names() to check all parameters."
+                    )
+                    raise ValueError(msg)
 
             if bins is None:
                 bin_min = min(g.min() for g in gradients.values())
@@ -744,11 +781,17 @@ class SkorchDoctor:
             keys = param_updates[0].keys()
             if match_fn:
                 keys = [key for key in keys if match_fn(key)]
+                if not keys:
+                    msg = (
+                        "No parameter found matching the specification of match_fn. "
+                        "Use doctor.get_param_names() to check all parameters."
+                    )
+                    raise ValueError(msg)
 
             for key in keys:
                 values = [np.log10(update[key] + eps) for update in param_updates]
                 xvec = np.arange(1, len(values) + 1)
-                ax.plot(xvec, values, label=key)
+                ax.plot(xvec, values, label=key, **kwargs)
 
             ax.set_xlabel("step")
             ax.set_ylabel(
@@ -809,9 +852,17 @@ class SkorchDoctor:
 
         ax = self._get_axes(ax, figsize=figsize, squeeze=True)
 
-        activations = [
-            act[layer_name] for act in self.flatten(self.activation_logs_[module_name])
-        ]
+        try:
+            activations = [
+                act[layer_name] for act in self.flatten(self.activation_logs_[module_name])
+            ]
+        except KeyError as exc:
+            msg = (
+                f"No layer named '{layer_name}' could be found. "
+                "Use doctor.get_layer_names() to check all layers."
+            )
+            raise ValueError(msg) from exc
+
         n = len(activations)
 
         if bins is None:
@@ -896,9 +947,18 @@ class SkorchDoctor:
 
         ax = self._get_axes(ax, figsize=figsize, squeeze=True)
 
-        gradients = [
-            grad[param_name] for grad in self.flatten(self.gradient_logs_[module_name])
-        ]
+        try:
+            gradients = [
+                grad[param_name] for grad in self.flatten(self.gradient_logs_[module_name])
+            ]
+        except KeyError as exc:
+            msg = (
+                f"No parameter named '{param_name}' could be found. "
+                "Use doctor.get_param_names() to check all parameters."
+            )
+            raise ValueError(msg) from exc
+
+
         n = len(gradients)
 
         if bins is None:

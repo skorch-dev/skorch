@@ -642,6 +642,7 @@ def _sigmoid_then_2d(x):
     # return x.T
 
 
+# pylint: disable=protected-access
 def _infer_predict_nonlinearity(net):
     """Infers the correct nonlinearity to apply for this net
 
@@ -654,7 +655,12 @@ def _infer_predict_nonlinearity(net):
     # based on the criterion, not the class of the net. We still pass
     # the whole net as input in case we want to modify this at a
     # future point in time.
-    criterion = net.criterion_
+    if len(net._criteria) != 1:
+        # don't know which criterion to consider
+        return _identity
+
+    # TODO: write test
+    criterion = getattr(net, net._criteria[0] + '_')
 
     if isinstance(criterion, CrossEntropyLoss):
         return partial(torch.softmax, dim=-1)
