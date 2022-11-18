@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 import torch
 from torch import nn
@@ -29,6 +30,18 @@ class TestSkorchDoctor:
         return MyModule
 
     @pytest.fixture(scope='module')
+    def custom_split(self):
+        class Split():
+            """Deterministically split train and valid into 80%/20%"""
+            def __call__(self, dataset, y=None, groups=None):
+                n = int(len(dataset) * 0.8)
+                dataset_train = torch.utils.data.Subset(dataset, np.arange(n))
+                dataset_valid = torch.utils.data.Subset(dataset, np.arange(n, len(dataset)))
+                return dataset_train, dataset_valid
+
+        return Split()
+
+    @pytest.fixture(scope='module')
     def net_cls(self):
         from skorch import NeuralNetClassifier
         return NeuralNetClassifier
@@ -40,17 +53,18 @@ class TestSkorchDoctor:
 
     @pytest.fixture(scope='module')
     def data(self, classifier_data):
-        return classifier_data
+        X, y = classifier_data
+        # a small amount of data is enough
+        return X[:50], y[:50]
 
     @pytest.fixture(scope='module')
-    def doctor(self, module_cls, net_cls, doctor_cls, data):
-        net = net_cls(module_cls, max_epochs=3, batch_size=32)
+    def doctor(self, module_cls, net_cls, doctor_cls, data, custom_split):
+        net = net_cls(module_cls, max_epochs=3, batch_size=32, train_split=custom_split)
         doctor = doctor_cls(net)
-        X, y = data
-        doctor.fit(X[:50], y[:50])
+        doctor.fit(*data)
         return doctor
 
-    def test_activation_logs(self, doctor):
+    def test_activation_logs_general_content(self, doctor):
         logs = doctor.activation_logs_
         assert len(logs) == 2
         assert set(logs.keys()) == {'module', 'criterion'}
@@ -68,6 +82,22 @@ class TestSkorchDoctor:
             for batch in epoch:
                 assert set(batch.keys()) == {'lin0', 'lin1', 'softmax'}
 
-        # 80 of 50 samples is 40, batch size 32 => 32 + 8 samples per batch
+    def test_activation_logs_values(self, doctor, data):
+         # 80% of 50 samples is 40, batch size 32 => 32 + 8 samples per batch
         batch_sizes = [[len(b['lin1']) for b in batch] for batch in lm]
         assert batch_sizes == [[32, 8], [32, 8], [32, 8]]
+
+        X, _ = data
+        # for the very first batch, before any update, we actually know the values
+        batch = lm[0][0]
+        lin0_0 = batch['lin0']
+        # since it is the identity function, batches should equal the data
+        np.testing.assert_array_almost_equal(lin0_0, X[:32])
+
+        lin1_0 = batch['lin1']
+        # since weights are 0 and bias is 1, all values should be 1
+        np.testing.assert_array_almost_equal(lin1_0, 1.0)
+
+        sm_0 = batch['softmax']
+        # since all inputs are equal, probabilities should be uniform
+        np.testing.assert_array_almost_equal(sm_0, 0.5)
