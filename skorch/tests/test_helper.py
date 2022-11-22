@@ -334,9 +334,9 @@ class TestSliceDataset:
         [55],
         [-3],
         [0, 10, 3, -8, 3],
-        np.ones(100, dtype=np.bool),
+        np.ones(100, dtype=bool),
         # boolean mask array of length 100
-        np.array([0, 0, 1, 0] * 25, dtype=np.bool),
+        np.array([0, 0, 1, 0] * 25, dtype=bool),
     ])
     def test_len_and_shape_sliced(self, slds, y, sl):
         # torch tensors don't support negative steps, skip test
@@ -374,9 +374,9 @@ class TestSliceDataset:
         (slice(-1, None), 0),
         ([55], -1),
         ([0, 10, 3, -8, 3], 1),
-        (np.ones(100, dtype=np.bool), 5),
+        (np.ones(100, dtype=bool), 5),
         # boolean mask array of length 100
-        (np.array([0, 0, 1, 0] * 25, dtype=np.bool), 6),
+        (np.array([0, 0, 1, 0] * 25, dtype=bool), 6),
     ])
     def test_slice_twice(self, slds_cls, custom_ds, X, y, sl0, sl1, n):
         data = X if n == 0 else y

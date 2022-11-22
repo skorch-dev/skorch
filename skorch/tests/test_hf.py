@@ -569,6 +569,19 @@ class TestAccelerate:
     def test_mixed_precision_pickling(
             self, net_cls, accelerator_cls, data, mixed_precision
     ):
+        import accelerate
+        from skorch._version import Version
+
+        # https://github.com/huggingface/accelerate/issues/805
+        version_accelerate = Version(accelerate.__version__)
+        version_torch = Version(torch.__version__)
+        if (
+                (version_accelerate <= Version('0.13.2'))
+                and (version_torch >= Version('1.13.0'))
+        ):
+            reason = "skip because of a bug with accelerate <= 0.13.2 and torch >= 1.13"
+            pytest.skip(msg=reason)
+
         # Pickling currently doesn't work because the forward method on modules
         # is overwritten with a modified version of the method using autocast.
         # Pickle doesn't know how to restore those methods.
