@@ -46,6 +46,8 @@ source activate $CONDA_ENV
 echo "installing dependencies"
 conda install -c pytorch -y "pytorch==${PYTORCH_VERSION}"
 python -m pip install "twine${TWINE_VERSION}"
+# Workaround for error `AttributeError: module 'lib' has no attribute 'X509_V_FLAG_CB_ISSUER_CHECK'`
+# due to outdated system pyOpenSSL - see also: https://askubuntu.com/q/1428181
 python -m pip install pyOpenSSL --upgrade
 python -m pip install -r requirements.txt
 python -m pip install -r requirements-dev.txt
