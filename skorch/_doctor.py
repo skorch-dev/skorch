@@ -493,7 +493,10 @@ class SkorchDoctor:
             if self.gradient_logs_[module][0]:
                 # using the reversed order because gradients are recorded from
                 # last to first, but first to last is more intuitive to show
-                names[module] = list(reversed(self.gradient_logs_[module][0][0].keys()))
+                # TODO: When dropping python 3.7, dict keys are reversible, so
+                # no need to call list(keys)
+                keys = list(self.gradient_logs_[module][0][0].keys())
+                names[module] = list(reversed(keys))
             else:
                 names[module] = []
         return names
