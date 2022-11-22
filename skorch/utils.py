@@ -648,10 +648,9 @@ def _infer_predict_nonlinearity(net):
     # the whole net as input in case we want to modify this at a
     # future point in time.
     if len(net._criteria) != 1:
-        # don't know which criterion to consider
+        # don't know which criterion to consider, don't try to guess
         return _identity
 
-    # TODO: write test
     criterion = getattr(net, net._criteria[0] + '_')
 
     if isinstance(criterion, CrossEntropyLoss):

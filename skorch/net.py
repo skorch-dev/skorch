@@ -1250,8 +1250,12 @@ class NeuralNet:
           When the given attributes are not present.
 
         """
-        # TODO: write tests
-        attributes = attributes or [module + '_' for module in self._modules]
+        # first check attributes argument, but if it's empty, check that the
+        # indicated _modules exist, and if those are not defined, assume that
+        # the standard 'module_' attribute should exist
+        attributes = (
+            attributes or [module + '_' for module in self._modules] or ['module_']
+        )
         check_is_fitted(self, attributes, *args, **kwargs)
 
     def trim_for_prediction(self):
