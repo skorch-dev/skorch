@@ -84,7 +84,7 @@ class NeuralNet:
 
     By default an :class:`.EpochTimer`, :class:`.BatchScoring` (for
     both training and validation datasets), and :class:`.PrintLog`
-    callbacks are installed for the user's convenience.
+    callbacks are added for convenience.
 
     Parameters
     ----------
@@ -136,10 +136,10 @@ class NeuralNet:
       arguments may be passed.
 
     train_split : None or callable (default=skorch.dataset.ValidSplit(5))
-      If None, there is no train/validation split. Else, train_split
+      If ``None``, there is no train/validation split. Else, ``train_split``
       should be a function or callable that is called with X and y
       data and should return the tuple ``dataset_train, dataset_valid``.
-      The validation data may be None.
+      The validation data may be ``None``.
 
     callbacks : None, "disable", or list of Callback instances (default=None)
       Which callbacks to enable. There are three possible values:
@@ -148,7 +148,7 @@ class NeuralNet:
       those returned by ``get_default_callbacks``.
 
       If ``callbacks="disable"``, disable all callbacks, i.e. do not run
-      any of the callbacks.
+      any of the callbacks, not even the default callbacks.
 
       If ``callbacks`` is a list of callbacks, use those callbacks in
       addition to the default callbacks. Each callback should be an

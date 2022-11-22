@@ -36,7 +36,7 @@ If you just want to use skorch, use:
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
-    source activate skorch
+    conda activate skorch
     python -m pip install .
 
 If you want to help developing, run:
@@ -46,7 +46,7 @@ If you want to help developing, run:
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     conda env create
-    source activate skorch
+    conda activate skorch
     python -m pip install -e .
 
     py.test  # unit tests

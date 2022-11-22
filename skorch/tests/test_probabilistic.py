@@ -17,7 +17,10 @@ from skorch.utils import is_torch_data_type
 from skorch.utils import to_numpy
 
 
-gpytorch = pytest.importorskip('gpytorch')
+try:
+    gpytorch = pytest.importorskip('gpytorch')
+except AttributeError:
+    pytest.skip("Incompatible gpytorch + torch version", allow_module_level=True)
 
 # check that torch version is sufficiently high for gpytorch, otherwise skip
 version_gpytorch = Version(gpytorch.__version__)

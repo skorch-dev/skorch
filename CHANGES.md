@@ -11,9 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [0.12.1] - 2022-11-18
+
+### Changed
+
 - `NeptuneLogger` was updated to work with recent versions of Neptune client (v0.14.3 or higher); it now logs some additional data, including the model summary, configuration, and learning rate (when available) (#906)
 
 ### Fixed
+
+- Fix an error that could occur with specific combinations of gpytorch and PyTorch versions (#913)
 
 ## [0.12.0] - 2022-10-07
 
@@ -286,3 +294,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.10.0]: https://github.com/skorch-dev/skorch/compare/v0.9.0...v0.10.0
 [0.11.0]: https://github.com/skorch-dev/skorch/compare/v0.10.0...v0.11.0
 [0.12.0]: https://github.com/skorch-dev/skorch/compare/v0.11.0...v0.12.0
+[0.12.1]: https://github.com/skorch-dev/skorch/compare/v0.12.0...v0.12.1

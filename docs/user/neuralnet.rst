@@ -31,7 +31,7 @@ Let's see what skorch did for us here:
 
 - wraps the PyTorch :class:`~torch.nn.Module` in an sklearn interface
 - converts :class:`numpy.ndarray`\s to PyTorch
-  :class:`~torch.Tensor`\s
+  :class:`~torch.Tensor`\s if necessary
 - abstracts away the fit loop
 - takes care of batching the data
 
@@ -42,20 +42,19 @@ extended with ease, getting out of your way as much as possible.
 Initialization
 ^^^^^^^^^^^^^^
 
-In general, when you instantiate the :class:`.NeuralNet` instance,
-only the given arguments are stored. They are stored exactly as you
-pass them to :class:`.NeuralNet`. For instance, the ``module`` will
-remain uninstantiated. This is to make sure that the arguments you
-pass are not touched afterwards, which makes it possible to clone the
-:class:`.NeuralNet` instance, for instance.
+In general, when you instantiate the :class:`.NeuralNet` instance, the given
+arguments are stored exactly as you pass them to :class:`.NeuralNet`. For
+instance, the ``module`` will remain uninstantiated. This is to make sure that
+the arguments you pass are not touched afterwards, which makes it possible to
+clone the :class:`.NeuralNet` instance.
 
 Only when the :func:`~skorch.net.NeuralNet.fit` or
-:func:`~skorch.net.NeuralNet.initialize` method are called, are the
-different attributes of the net, such as the ``module``, initialized.
-An initialized attribute's name always ends on an underscore; e.g., the
-initialized ``module`` is called ``module_``. (This is the same
-nomenclature as sklearn uses.) Thefore, you always know which
-attributes you set and which ones were created by :class:`.NeuralNet`.
+:func:`~skorch.net.NeuralNet.initialize` method are called, are the different
+attributes of the net, such as the ``module``, initialized. The name of an
+initialized attribute always ends on an underscore; e.g., the initialized
+``module`` is called ``module_`` (this is the same nomenclature as sklearn
+uses). Thefore, you always know which attributes you set and which ones were
+created by :class:`.NeuralNet`.
 
 The only exception is the :ref:`history <history>` attribute, which is
 not set by the user.
@@ -103,11 +102,11 @@ probabilities.
 criterion
 ^^^^^^^^^
 
-This should be a PyTorch (-compatible) criterion.
+This should be a PyTorch or PyTorch-compatible criterion.
 
 When you use the :class:`.NeuralNetClassifier`, the criterion is set
 to PyTorch :class:`~torch.nn.NLLLoss` by default. Furthermore, if you
-don't change it loss to another criterion,
+don't change the loss to another criterion,
 :class:`.NeuralNetClassifier` assumes that the module returns
 probabilities and will automatically apply a logarithm on them (which
 is what :class:`~torch.nn.NLLLoss` expects).
@@ -135,10 +134,10 @@ support for wildcards (globbing):
         ('linear0.bias', {'lr': 1}),
     ]
 
-Your use case may require an optimizer whose signature differs from a 
-default PyTorch optimizer's signature. In that case, you can define a 
-custom function that reroutes the arguments as needed and pass it to 
-the ``optimizer`` parameter:
+Your use case may require an optimizer whose signature differs from the
+signature of a default PyTorch optimizer. In that case, you can define a custom
+function that reroutes the arguments as needed and pass it to the ``optimizer``
+parameter:
 
 .. code:: python
 
@@ -146,7 +145,6 @@ the ``optimizer`` parameter:
     def make_lookahead(parameters, optimizer_cls, k, alpha, **kwargs):
         optimizer = optimizer_cls(parameters, **kwargs)
         return Lookahead(optimizer=optimizer, k=k, alpha=alpha)
-
 
     net = NeuralNetClassifier(
             ...,
@@ -163,7 +161,7 @@ lr
 The learning rate. This argument exists for convenience, since it
 could also be set by ``optimizer__lr`` instead. However, it is used so
 often that we provided this shortcut. If you set both ``lr`` and
-``optimizer__lr``, the latter have precedence.
+``optimizer__lr``, the latter has precedence.
 
 max_epochs
 ^^^^^^^^^^
@@ -201,7 +199,18 @@ train_split
 This determines the :class:`.NeuralNet`\'s internal train/validation
 split. By default, 20% of the incoming data is reserved for
 validation. If you set this value to ``None``, all the data is used
-for training.
+for training and validation is skipped.
+
+Note that there can be information leakage of the internal validation set into
+the training set. E.g. if you use :class:`~skorch.callbacks.EarlyStopping`, by
+default, it will monitor the validation loss and stop training if that loss
+stops improving. It's therefore recommended to have yet another, external
+validation set to perform independent validation.
+
+Moreover, if you use :class:`~sklearn.model_selection.GridSearchCV` or something
+similar, it already splits the training data into train and validation set, thus
+you don't need skorch to do that (except if you use early stopping). In that
+case, set ``train_split=None``.
 
 For more details, please look at :ref:`dataset <dataset>`.
 
@@ -232,12 +241,11 @@ your callbacks to the ``callbacks`` argument:
         ],
     )
 
-Inside the :class:`.NeuralNet` instance, each callback will receive a
-separate name. Since we provide no name in the example above, the
-class name will taken, which will lead to a name collision in case of
-two or more callbacks of the same class. This is why it is better to
-initialize the callbacks with a list of tuples of *name* and *callback
-instance*, like this:
+Inside the :class:`.NeuralNet` instance, each callback will receive a separate
+name. Since we provide no name in the example above, the class name will taken,
+so in the example above, the names would be ``"MyCallback_1"`` and
+``"MyCallback_2"``. If you want to control the name of the callbacks, pass
+tuples of strings and callback instances instead:
 
 .. code:: python
 
@@ -253,9 +261,8 @@ This approach of passing a list of *name*, *instance* tuples should be
 familiar to users of sklearn\ :class:`~sklearn.pipeline.Pipeline`\s
 and :class:`~sklearn.pipeline.FeatureUnion`\s.
 
-An additonal advantage of this way of passing callbacks is that it
-allows to pass arguments to the callbacks by name (using the
-double-underscore notation):
+One advantage of this way of passing callbacks is that it allows to pass
+arguments to the callbacks by name (using the double-underscore notation):
 
 .. code:: python
 
@@ -288,10 +295,11 @@ device
 ^^^^^^
 
 As the name suggests, this determines which computation device should
-be used. If set to ``cuda``, the incoming data will be transferred to
+be used. If set to ``'cuda'``, the incoming data will be transferred to
 CUDA before being passed to the PyTorch :class:`~torch.nn.Module`. The
 device parameter adheres to the general syntax of the PyTorch device
-parameter.
+parameter. If you want to prevent skorch from handling the device, set
+``device=None``.
 
 initialize()
 ^^^^^^^^^^^^
@@ -339,8 +347,8 @@ you to continue training from your current status, even if you set
 :func:`~skorch.net.NeuralNet.partial_fit` is when your data does not
 fit into memory and you thus need to have several training steps.
 
-*Tip* :
-skorch gracefully catches the ``KeyboardInterrupt``
+*Tip*:
+skorch gracefully catches the :class:`KeyboardInterrupt`
 exception. Therefore, during a training run, you can send a
 ``KeyboardInterrupt`` signal without the Python process exiting
 (typically, ``KeyboardInterrupt`` can be triggered by *ctrl+c* or, in
@@ -351,7 +359,7 @@ reached, you can dynamically stop training.
 predict(X) and predict_proba(X)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-These methods perform an inference step on the input data and return
+These methods perform inference on the input data and return
 :class:`numpy.ndarray`\s. By default,
 :func:`~skorch.net.NeuralNet.predict_proba` will return whatever it is
 that the ``module``\'s :func:`~torch.nn.Module.forward` method
@@ -374,15 +382,16 @@ the result of
 :func:`~skorch.classifier.NeuralNetClassifier.predict_proba`.
 Obviously, this only makes sense if
 :func:`~skorch.classifier.NeuralNetClassifier.predict_proba` returns
-class probabilities. If this is not true, you should just use
-:func:`~skorch.classifier.NeuralNetClassifier.predict_proba`.
+class probabilities or logits. If this is not true, you should avoid 
+:func:`~skorch.classifier.NeuralNetClassifier.predict` and just use
+:func:`~skorch.classifier.NeuralNetClassifier.predict_proba` to retrieve predictions.
 
 score(X, y)
 ^^^^^^^^^^^
 
 This method returns the mean accuracy on the given data and labels for
 classifiers and the coefficient of determination R^2 of the prediction for
-regressors. :class:`.NeuralNet` still has no score method. If you need it,
+regressors. :class:`.NeuralNet` has no score method. If you need it,
 you have to implement it yourself.
 
 model persistence
@@ -403,7 +412,7 @@ the net, such as the ``module``, ``optimizer``, or ``history``, by
 calling :func:`~skorch.net.NeuralNet.save_params` and
 :func:`~skorch.net.NeuralNet.load_params`. This is useful if you're
 only interested in saving a particular part of your model, and is more
-robust to code changes.
+robust to library version changes.
 
 Finally, it is also possible to use callbacks to save and load models,
 e.g. :class:`.Checkpoint`. Those should be used if you need to have
@@ -418,7 +427,7 @@ Regular data
 
 skorch supports numerous input types for data. Regular input types
 that should just work are numpy arrays, torch tensors, scipy sparse
-CSR matrices, and pandas DataFrames (see also
+CSR matrices, and pandas DataFrames (for the latter, see also
 :class:`~skorch.helper.DataFrameTransformer`).
 
 Typically, your task should involve an ``X`` and a ``y``. If you're
