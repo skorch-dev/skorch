@@ -26,7 +26,7 @@ set +e
 conda env remove -y -n $CONDA_ENV
 set -e
 
-echo "creating conda env"
+echo "creating empty conda env"
 conda env create -q -n $CONDA_ENV
 
 remove_env() {
