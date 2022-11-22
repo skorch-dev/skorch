@@ -1,6 +1,7 @@
 """Tests for skorch._doctor.py"""
 
 import itertools
+from unittest import mock
 
 import numpy as np
 import pytest
@@ -231,6 +232,31 @@ class TestSkorchDoctorSimple:
             # pylint: disable=unidiomatic-typecheck
             assert type(cb0) == type(cb1)
 
+    def test_callbacks_cleaned_up_after_fit_with_initial_callbacks(
+            self, doctor_cls, net_cls, module_cls, data
+    ):
+        # make sure that the callbacks are the same before and after, this is
+        # important because SkorchDoctor will temporarily add a callback
+        from skorch.callbacks import EpochScoring, GradientNormClipping
+
+        net = net_cls(
+            module_cls,
+            callbacks=[EpochScoring('f1'), GradientNormClipping(1.0)],
+        ).initialize()
+        callbacks_without_doctor = net.callbacks_[:]
+
+        doctor = doctor_cls(net).fit(*data)
+        callbacks_with_doctor = doctor.net.callbacks_
+
+        assert len(callbacks_without_doctor) == len(callbacks_with_doctor)
+
+        for (name0, cb0), (name1, cb1) in zip(
+                callbacks_without_doctor, callbacks_with_doctor
+        ):
+            assert name0 == name1
+            # pylint: disable=unidiomatic-typecheck
+            assert type(cb0) == type(cb1)
+
     def test_get_layer_names(self, doctor):
         layer_names = doctor.get_layer_names()
         expected = {
@@ -271,9 +297,34 @@ class TestSkorchDoctorSimple:
 
     # Just do very basic plotting tests, not exact content, just that it works
 
+    @pytest.fixture
+    def mock_matplotlib_not_installed(self):
+        # fixture to make it seem like matplotlib was not installed
+        orig_import = __import__
+
+        def import_mock(name, *args):
+            if name == 'matplotlib':
+                # pretend that matplotlib is not installed
+                raise ModuleNotFoundError("no module named 'matplotlib'")
+            return orig_import(name, *args)
+
+        with mock.patch('builtins.__import__', side_effect=import_mock):
+            yield import_mock
+
+    def test_matplotlib_not_installed(self, mock_matplotlib_not_installed, doctor):
+        # Note: Unfortunately, the order of tests matters here: This test should
+        # run before the ones below that use matplotlib, otherwise the import
+        # mock doesn't work correctly.
+        msg = (
+            r"This feature requires matplotlib to be installed; "
+            r"please install it first, e.g. using "
+            r"\'python -m pip install matplotlib\'"
+        )
+        with pytest.raises(ImportError, match=msg):
+            doctor.plot_loss()
+
     @pytest.fixture(scope='module')
     def plt(self):
-        """Skip matplotlib tests if not installed when using this fixture"""
         matplotlib = pytest.importorskip('matplotlib')
         matplotlib.use("agg")
 
@@ -452,6 +503,15 @@ class TestSkorchDoctorSimple:
 
 
 class TestSkorchDoctorComplexArchitecture:
+    """Tests based on a more non-standard model
+
+    Specifically, add modules with non-standard names and non-standard outputs
+    like tuples or dicts.
+
+    This test class does not re-iterate all the tests performed on the standard
+    model but focuses on the parts that change, e.g. how the outputs are logged.
+
+    """
     @pytest.fixture(scope='module')
     def module0_cls(self):
         """Module that returns a tuple"""
@@ -487,8 +547,25 @@ class TestSkorchDoctorComplexArchitecture:
         return MyModule
 
     @pytest.fixture(scope='module')
+    def module2_cls(self, module0_cls, module1_cls):
+        """Module that combines module0 and module1"""
+        class MyModule(nn.Module):
+            """Module that returns a dict"""
+            def __init__(self):
+                super().__init__()
+                self.module0 = module0_cls()
+                self.module1 = module1_cls()
+
+            def forward(self, X):
+                _, X1 = self.module0(X)
+                output = self.module1(X1)
+                return output['softmax']
+
+        return MyModule
+
+    @pytest.fixture(scope='module')
     def criterion_cls(self):
-        class MyCriterion(nn.NLLLoss):
+        class MyCriterion(nn.Module):
             """Criterion that has learnable parameters"""
             def __init__(self):
                 super().__init__()
@@ -502,43 +579,39 @@ class TestSkorchDoctorComplexArchitecture:
         return MyCriterion
 
     @pytest.fixture(scope='module')
-    def net_cls(self, module0_cls, module1_cls):
+    def net_cls(self, module2_cls):
         """Customize net to work with complex modules"""
         from skorch import NeuralNetClassifier
         from skorch.utils import to_tensor
 
         class MyNet(NeuralNetClassifier):
-            """Customize net to work with complex modules"""
+            """Customize net that works with non-standard modules"""
             def initialize_module(self):
-                kwargs = self.get_params_for('module0')
-                module = self.initialized_instance(module0_cls, kwargs)
+                kwargs = self.get_params_for('mymodule')
+                module = self.initialized_instance(module2_cls, kwargs)
                 # pylint: disable=attribute-defined-outside-init
-                self.module0_ = module
-
-                kwargs = self.get_params_for('module1')
-                module = self.initialized_instance(module1_cls, kwargs)
-                # pylint: disable=attribute-defined-outside-init
-                self.module1_ = module
+                self.mymodule_ = module
+                self.seq_ = nn.Sequential(nn.Linear(2, 2))
 
                 return self
 
             def initialize_criterion(self):
-                # use non-standard name 'criterion0'
-                kwargs = self.get_params_for('criterion0')
+                # use non-standard name 'mycriterion'
+                kwargs = self.get_params_for('mycriterion')
                 criterion = self.initialized_instance(self.criterion, kwargs)
                 # pylint: disable=attribute-defined-outside-init
-                self.criterion0_ = criterion
+                self.mycriterion_ = criterion
                 return self
 
             def infer(self, x, **fit_params):
                 x = to_tensor(x, device=self.device)
-                _, X1 = self.module0_(x, **fit_params)
-                output = self.module1_(X1)
-                return output['softmax']
+                x = self.mymodule_(x, **fit_params)
+                x = x + self.seq_(x)
+                return x
 
             def get_loss(self, y_pred, y_true, *args, **kwargs):
                 y_true = to_tensor(y_true, device=self.device)
-                return self.criterion0_(y_pred, y_true)
+                return self.mycriterion_(y_pred, y_true)
 
         return MyNet
 
@@ -564,5 +637,71 @@ class TestSkorchDoctorComplexArchitecture:
         doctor.fit(*data)
         return doctor
 
-    def test_it(self, doctor):
-        breakpoint()
+    def test_activation_logs_general_content(self, doctor):
+        logs = doctor.activation_logs_
+        assert len(logs) == 3
+        assert set(logs.keys()) == {'mymodule', 'seq', 'mycriterion'}
+
+        for val in logs.values():
+            # something logged for all modules
+            assert val != [[], [], []]
+            assert len(val) == 3  # 3 epochs
+            assert [len(batch) for batch in val] == [2, 2, 2]  # 2 batchs per epoch
+
+        expected_mymodule = {
+            'module0.lin0', 'module0.lin1', 'module0[0]', 'module0[1]',
+            'module1.softmax', 'module1["logits"]', 'module1["softmax"]',
+        }
+        assert set(logs['mymodule'][0][0].keys()) == expected_mymodule
+        # nn.Sequential just enumerates the layers
+        assert set(logs['seq'][0][0].keys()) == {'0'}
+        assert set(logs['mycriterion'][0][0].keys()) == {'lin0'}
+
+    def test_gradient_logs_general_content(self, doctor):
+        logs = doctor.gradient_logs_
+        assert len(logs) == 3
+        assert set(logs.keys()) == {'mymodule', 'seq', 'mycriterion'}
+
+        for val in logs.values():
+            # 3 epochs, 2 batches per epoch
+            assert len(val) == 3
+            assert [len(batch) for batch in val] == [2, 2, 2]
+
+        # each batch has weights and biases for lin1, lin0 has no gradient
+        for epoch in logs['mymodule']:
+            for batch in epoch:
+                expected = {'module0.lin1.weight', 'module0.lin1.bias'}
+                assert set(batch.keys()) == expected
+
+        # each batch has weights and biases for lin1, lin0 has no gradient
+        for epoch in logs['seq']:
+            for batch in epoch:
+                expected = {'0.weight', '0.bias'}
+                assert set(batch.keys()) == expected
+
+        # each batch has weights and biases for lin1, lin0 has no gradient
+        for epoch in logs['mycriterion']:
+            for batch in epoch:
+                expected = {'lin0.weight', 'lin0.bias'}
+                assert set(batch.keys()) == expected
+
+    def test_get_layer_names(self, doctor):
+        layer_names = doctor.get_layer_names()
+        expected = {
+            'mymodule': [
+                'module0.lin0', 'module0.lin1', 'module0[0]', 'module0[1]',
+                'module1.softmax', 'module1["logits"]', 'module1["softmax"]',
+            ],
+            'seq': ['0'],
+            'mycriterion': ['lin0'],
+        }
+        assert layer_names == expected
+
+    def test_get_parameter_names(self, doctor):
+        param_names = doctor.get_param_names()
+        expected = {
+            'mymodule': ['module0.lin1.weight', 'module0.lin1.bias'],
+            'seq': ['0.weight', '0.bias'],
+            'mycriterion': ['lin0.weight', 'lin0.bias'],
+        }
+        assert param_names == expected

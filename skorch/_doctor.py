@@ -46,7 +46,7 @@ def _add_activation_hook(model, input, output, *, activations, module_name, laye
         for k, v in val.items():
             if not isinstance(v, np.ndarray):
                 raise TypeError(f"Activations of type {type(v)} are not supported")
-            activations[module_name][layer_name + f'[{k}]'] = v
+            activations[module_name][layer_name + f'["{k}"]'] = v
     else:
         raise TypeError(f"Activations of type {type(v)} are not supported")
 
@@ -363,7 +363,7 @@ class SkorchDoctor:
         is called by ``fit``.
 
         """
-        if not self.net.initialized_:
+        if not getattr(self.net, 'initialized_', False):
             self.net.initialize()
         self.fitted_ = False
 
