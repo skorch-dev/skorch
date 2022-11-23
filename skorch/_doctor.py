@@ -1,17 +1,18 @@
-"""TODO"""
+"""Provides helper class SkorchDoctor that assists understanding and debugging
+the neural net training
+
+"""
 
 from collections.abc import Mapping
 from functools import partial
 
 import numpy as np
 from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
 import torch
 
-from skorch.callbacks import Callback
 from skorch.exceptions import NotInitializedError
 from skorch.utils import to_numpy
-from skorch.utils import check_is_fitted
-from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
 
 
 def named_modules(net):
@@ -28,25 +29,37 @@ def named_modules(net):
 
 
 # pylint: disable=unused-argument,redefined-builtin
-def _add_activation_hook(model, input, output, *, activations, module_name, layer_name):
+def _add_activation_hook(model, input, output, *, logs, layer_name):
     """Helper function for adding activation hooks"""
-    if module_name not in activations:
-        activations[module_name] = {}
+
+    # only record training data
+    if not model.training:
+        return
+
+    # very first batch
+    if not logs:
+        logs.append({})
+
+    if layer_name in logs[-1]:
+        # if the layer is already there, the entry is from the previous training
+        # step, thus start a new one
+        logs.append({})
+
     val = to_numpy(output)
 
     # disambiguate activations when the output is not a simple array
     if isinstance(val, np.ndarray):
-        activations[module_name][layer_name] = val
+        logs[-1][layer_name] = val
     elif isinstance(val, (list, tuple)):
         for i, v in enumerate(val):
             if not isinstance(v, np.ndarray):
-                raise TypeError(f"Activations of type {type(v)} are not supported")
-            activations[module_name][layer_name + f'[{i}]'] = v
+                raise TypeError(f"activations of type {type(v)} are not supported")
+            logs[-1][layer_name + f'[{i}]'] = v
     elif isinstance(val, Mapping):
         for k, v in val.items():
             if not isinstance(v, np.ndarray):
                 raise TypeError(f"Activations of type {type(v)} are not supported")
-            activations[module_name][layer_name + f'["{k}"]'] = v
+            logs[-1][layer_name + f'["{k}"]'] = v
     else:
         raise TypeError(f"Activations of type {type(v)} are not supported")
 
@@ -68,10 +81,12 @@ def add_activation_hooks(net):
 
     Returns
     -------
-    activations: dict
-      The dict that will be used to store the activations for each module.
+    logs : dict of list of dict
+      Data structure containing the logged activations. For each module, for
+      each training step, for each layer, there is an entry of the recorded
+      activations.
 
-    handles: list of torch.utils.hooks.RemovableHandle
+    handles : list of torch.utils.hooks.RemovableHandle
       These handles are returned by torch when adding hooks. They can be used to
       remove the hooks.
 
@@ -83,10 +98,11 @@ def add_activation_hooks(net):
       tuples, and dicts (but not nested ones).
 
     """
-    activations = {}
+    logs = {}
     handles = []
 
     for module_name, module in named_modules(net):
+        logs[module_name] = []
         for layer_name, submodule in module.named_modules():
             if submodule is module:
                 # is logging activations for whole module useful?
@@ -94,20 +110,40 @@ def add_activation_hooks(net):
 
             handle = submodule.register_forward_hook(partial(
                 _add_activation_hook,
-                activations=activations,
-                module_name=module_name,
+                logs=logs[module_name],
                 layer_name=layer_name,
             ))
             handles.append(handle)
 
-    return activations, handles
+    return logs, handles
 
 
-def _add_grad_hook(grad, *, gradients, module_name, param_name):
+def _add_grad_hook(grad, *, log_grad, log_param_update, param_name, tensor):
     """Helper function for adding gradient hooks"""
-    if module_name not in gradients:
-        gradients[module_name] = {}
-    gradients[module_name][param_name] = to_numpy(grad)
+    # if the param is already there, the entry is from the previous training
+    # step, thus start a new one
+
+    # very first batch
+    if not log_grad:
+        log_grad.append({})
+    if not log_param_update:
+        log_param_update.append({})
+
+    if param_name in log_grad[-1]:
+        log_grad.append({})
+    if param_name in log_param_update[-1]:
+        log_param_update.append({})
+
+    # We need to clone the grad here because otherwise, the recorded gradients
+    # can be overridden by later gradients despite them being pulled to numpy!
+    # This only happens on CPU, which suggests it's a strange bug that's perhaps
+    # related to caching and/or memory-mapping.
+    grad = grad.clone()
+
+    log_grad[-1][param_name] = to_numpy(grad)
+
+    eps = 1e-9  # prevent divide by 0
+    log_param_update[-1][param_name] = (grad.std() / (eps + tensor.std())).item()
 
 
 def add_grad_hooks(net):
@@ -120,87 +156,43 @@ def add_grad_hooks(net):
 
     Returns
     -------
-    gradients: dict
-      The dict that will be used to store the gradients for each module.
+    logs_grad : dict of list of dict
+      Data structure containing the logged gradients. For each module, for each
+      training step, for each learnable parameter, there is an entry of the
+      recorded gradients.
 
-    handles: list of torch.utils.hooks.RemovableHandle
+    logs : dict of list of dict
+      Data structure containing the logged parameter updates. For each module,
+      for each training step, for each learnable parameter, there is an entry of
+      the recorded parameter updates.
+
+    handles : list of torch.utils.hooks.RemovableHandle
       These handles are returned by torch when adding hooks. They can be used to
       remove the hooks.
 
     """
-    gradients = {}
+    logs_grad = {}
+    logs_param_update = {}
     handles = []
+
     for module_name, module in named_modules(net):
+        logs_grad[module_name] = []
+        logs_param_update[module_name] = []
+
         for param_name, tensor in module.named_parameters():
             if not tensor.requires_grad:
                 continue
 
             handle = tensor.register_hook(partial(
                 _add_grad_hook,
-                gradients=gradients,
-                module_name=module_name,
+                log_grad=logs_grad[module_name],
+                log_param_update=logs_param_update[module_name],
                 param_name=param_name,
+                tensor=tensor,
             ))
             handles.append(handle)
 
-    return gradients, handles
-
-
-class LogActivationsGradients(Callback):
-    """Helper callback that stores useful metrics
-
-    Not to be used directly. This is only intended to be used internally by
-    ``SkorchDoctor``.
-
-    """
-    def __init__(
-        self,
-        activation_logs,
-        gradient_logs,
-        param_update_logs,
-        activations,
-        gradients
-    ):
-        self.activation_logs = activation_logs
-        self.gradient_logs = gradient_logs
-        self.param_update_logs = param_update_logs
-        self.activations = activations
-        self.gradients = gradients
-
-    # pylint: disable=arguments-differ
-    def on_epoch_begin(self, net, **kwargs):
-        for module_name, _ in named_modules(net):
-            self.activation_logs[module_name].append([])
-            self.gradient_logs[module_name].append([])
-            self.param_update_logs[module_name].append([])
-        return self
-
-    def on_batch_end(self, net, batch=None, training=False, **kwargs):
-        if not training:
-            return self
-
-        eps = 1e-9  # prevent divide by 0
-        for module_name, module in named_modules(net):
-            param_updates = {}
-            for key, param in module.named_parameters():
-                if not param.requires_grad:
-                    continue
-                grad = self.gradients[module_name][key]
-                param_updates[key] = (grad.std() / (eps + param.std())).item()
-
-            self.param_update_logs[module_name][-1].append(param_updates)
-            if module_name in self.activations:  # not all modules record activations
-                self.activation_logs[module_name][-1].append(
-                    self.activations[module_name].copy()
-                )
-                self.activations[module_name].clear()
-
-            if module_name in self.gradients:  # not all modules record gradients
-                self.gradient_logs[module_name][-1].append(
-                    self.gradients[module_name].copy()
-                )
-                self.gradients[module_name].clear()
-        return self
+    return logs_grad, logs_param_update, handles
 
 
 class SkorchDoctor:
@@ -258,6 +250,7 @@ class SkorchDoctor:
     >>> # understand the training process
     >>> doctor.activation_logs_  # the recorded activations
     >>> doctor.gradient_logs_  # the recorded gradients
+    >>> doctor.param_update_logs_  # the recorded parameter updates
     >>> # the next steps require matplotlib to be installed
     >>> doctor.plot_loss()
     >>> doctor.plot_activations()
@@ -297,17 +290,17 @@ class SkorchDoctor:
       All modules used by the net, typically those are ``"module"`` and
       ``"criterion"``.
 
-    activation_logs_: dict of list of list of dict of np.ndarray
+    activation_logs_: dict of list of dict of np.ndarray
       The activations of each layer for each module. The outer dict contains one
-      entry for each top level module. The values are lists of lists, one entry
-      for each epoch and each batch, respectively. The entries of the final
-      lists are dictionaries, with keys corresponding to the layer name and
-      values to the activations of that layer, stored as a numpy array.
+      entry for each top level module, e.g. ``module`` and ``criterion``. The
+      values are lists, one entry for each training step. The entries of those
+      lists are again dictionaries, with keys corresponding to the layer name
+      and values to the activations of that layer, stored as a numpy array.
 
       This data structure seems to be a bit complicated at first but its use is
       quite straightforward. E.g. to get the activations of the layer called
       "dense0" of the "module" in epoch 0 and batch 0, use
-      ``doctor.activation_logs_['module'][0][0]['dense0']``.
+      ``doctor.activation_logs_['module'][0]['dense0']``.
 
       If an activation is not a simple array, it is disambiguated. E.g. if it's a
       list, the name get a suffix of ``[i]`` where ``i`` designates the index in
@@ -315,32 +308,32 @@ class SkorchDoctor:
       added, where ``[key]`` is the key of the corresponding value in the
       dictionary.
 
-    gradient_logs_: dict of list of list of dict of np.ndarray
+    gradient_logs_: dict of list of dict of np.ndarray
       The gradients of each parameter for each module. The outer dict contains
-      one entry for each top level module. The values are lists of lists, one
-      entry for each epoch and each batch, respectively. The entries of the
-      final lists are dictionaries, with keys corresponding to the parameter
+      one entry for each top level module, e.g. ``module`` and ``criterion``.
+      The values are lists, one entry for each training step. The entries of
+      those lists are dictionaries, with keys corresponding to the parameter
       name and values to the gradients of that parameter, stored as a numpy
-      array.
+      array. Only learnable parameters are recorded.
 
       This data structure seems to be a bit complicated at first but its use is
       quite straightforward. E.g. to get the gradient of the parameter called
-      "dense0.weight" of the "module" in epoch 5 and batch 3, use
-      ``doctor.gradient_logs_['module'][5][3]['dense0.weight]``.
+      "dense0.weight" of the "module" from training step 7, use
+      ``doctor.gradient_logs_['module'][7]['dense0.weight]``.
 
-    param_update_logs_: dict of list of list of dict of float
+    param_update_logs_: dict of list of dict of float
       The relative parameter update of each parameter for each module. The outer
-      dict contains one entry for each top level module. The values are lists of
-      lists, one entry for each epoch and each batch, respectively. The entries
-      of the final lists are dictionaries, with keys corresponding to the
+      dict contains one entry for each top level module, e.g. ``module`` and
+      ``criterion``. The values are lists, one entry for each training step. The
+      entries of those lists are dictionaries, with keys corresponding to the
       parameter name and values to the standard deviation of the update of that
-      parameter, relative to the standard deviation of that parameter, stored as
-      a float.
+      parameter, relative to the standard deviation of that parameter itself,
+      stored as a float. Only learnable parameters are recorded.
 
       This data structure seems to be a bit complicated at first but its use is
       quite straightforward. E.g. to get the update of the parameter called
-      "dense0.weight" of the "module" in the last epoch and last batch, use
-      ``doctor.paramter_udpate_logs_['module'][-1][-1]['dense0.weight]``.
+      "dense0.weight" of the "module" in the last training step, use
+      ``doctor.paramter_udpate_logs_['module'][-1]['dense0.weight]``.
 
     fitted_ : bool
       Whether the instance has been fitted.
@@ -348,13 +341,6 @@ class SkorchDoctor:
     """
     def __init__(self, net):
         self.net = net
-
-    def _add_callback(self, net, name, callback):
-        if net.callbacks is None:
-            net.callbacks = [(name, callback)]
-        else:
-            net.callbacks.append((name, callback))
-        net.initialize_callbacks()
 
     def initialize(self):
         """Initialize the SkorchDoctor
@@ -367,69 +353,22 @@ class SkorchDoctor:
             self.net.initialize()
         self.fitted_ = False
 
-        module_names = []
-        self.module_names_ = [name for name, _ in named_modules(self.net)]
-
-        self.handles_ = []
-
         module_names = [name for name, _ in named_modules(self.net)]
-        self.activation_logs_ = {module_name: [] for module_name in module_names}
-        self.gradient_logs_ = {module_name: [] for module_name in module_names}
-        self.param_update_logs_ = {module_name: [] for module_name in module_names}
+        self.module_names_ = module_names
 
-        activations, ahandles = add_activation_hooks(self.net)
-        self.activations_ = activations
-        self.handles_.extend(ahandles)
+        activation_logs, activation_handles = add_activation_hooks(self.net)
+        gradient_logs, param_update_logs, grad_handles = add_grad_hooks(self.net)
+        self.activation_logs_ = activation_logs
+        self.gradient_logs_ = gradient_logs
+        self.param_update_logs_ = param_update_logs
+        self.handles_ = activation_handles + grad_handles
 
-        gradients, ghandles = add_grad_hooks(self.net)
-        self.gradients_ = gradients
-        self.handles_.extend(ghandles)
-
-        cb = LogActivationsGradients(
-            activation_logs=self.activation_logs_,
-            gradient_logs=self.gradient_logs_,
-            param_update_logs=self.param_update_logs_,
-            activations=self.activations_,
-            gradients=self.gradients_,
-        )
-        self._add_callback(self.net, 'log_activations_gradients', cb)
         return self
-
-    def _remove_callback(self, net, callback_name):
-        """Helper function to remove callbacks"""
-        indices = []
-        for i, callback in enumerate(net.callbacks):
-            if not isinstance(callback, tuple):
-                continue
-            name, _ = callback
-            if name == callback_name:
-                indices.append(i)
-
-        for i in indices[::-1]:
-            del net.callbacks[i]
-
-        indices = []
-        for i, (name, _) in enumerate(net.callbacks_):
-            if name == callback_name:
-                indices.append(i)
-
-        for i in indices[::-1]:
-            del net.callbacks_[i]
 
     def _clean_up(self):
         """Clean up method to be called after training"""
         for handle in self.handles_:
             handle.remove()
-
-        self._remove_callback(self.net, 'log_activations_gradients')
-
-    def flatten(self, items):
-        """Flatten values in nested lists or tuples"""
-        for item in items:
-            if isinstance(item, (list, tuple)):
-                yield from self.flatten(item)
-            else:
-                yield item
 
     def check_is_fitted(self):
         try:
@@ -447,6 +386,9 @@ class SkorchDoctor:
         It is advised to use a low number of epochs and a small amount of data
         only, since the collection of data results in time and memory overhead.
 
+        The parameters should be exactly the same as those passed when fitting
+        the underlying net.
+
         """
         self.initialize()
         try:
@@ -454,9 +396,7 @@ class SkorchDoctor:
         finally:
             self._clean_up()
 
-        self.num_steps_ = sum(
-            1 for _ in self.flatten(list(self.activation_logs_.values())[0])
-        )
+        self.num_steps_ = len(self.activation_logs_[self.module_names_[0]])
         self.fitted_ = True
         return self
 
@@ -472,8 +412,8 @@ class SkorchDoctor:
         self.check_is_fitted()
         names = {}
         for module in self.module_names_:
-            if self.activation_logs_[module][0]:
-                names[module] = list(self.activation_logs_[module][0][0].keys())
+            if self.activation_logs_[module]:
+                names[module] = list(self.activation_logs_[module][0].keys())
             else:
                 names[module] = []
         return names
@@ -490,12 +430,12 @@ class SkorchDoctor:
         self.check_is_fitted()
         names = {}
         for module in self.module_names_:
-            if self.gradient_logs_[module][0]:
+            if self.gradient_logs_[module]:
                 # using the reversed order because gradients are recorded from
                 # last to first, but first to last is more intuitive to show
                 # TODO: When dropping python 3.7, dict keys are reversible, so
                 # no need to call list(keys)
-                keys = list(self.gradient_logs_[module][0][0].keys())
+                keys = list(self.gradient_logs_[module][0].keys())
                 names[module] = list(reversed(keys))
             else:
                 names[module] = []
@@ -614,7 +554,7 @@ class SkorchDoctor:
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            activations = list(self.flatten(self.activation_logs_[module_name]))[step]
+            activations = self.activation_logs_[module_name][step]
             if match_fn:
                 activations = {k: v for k, v in activations.items() if match_fn(k)}
                 if not activations:
@@ -700,7 +640,7 @@ class SkorchDoctor:
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            gradients = list(self.flatten(self.gradient_logs_[module_name]))[step]
+            gradients = self.gradient_logs_[module_name][step]
             if match_fn:
                 gradients = {k: v for k, v in gradients.items() if match_fn(k)}
                 if not gradients:
@@ -780,7 +720,7 @@ class SkorchDoctor:
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            param_updates = list(self.flatten(self.param_update_logs_[module_name]))
+            param_updates = self.param_update_logs_[module_name]
             keys = param_updates[0].keys()
             if match_fn:
                 keys = [key for key in keys if match_fn(key)]
@@ -857,7 +797,7 @@ class SkorchDoctor:
 
         try:
             activations = [
-                act[layer_name] for act in self.flatten(self.activation_logs_[module_name])
+                act[layer_name] for act in self.activation_logs_[module_name]
             ]
         except KeyError as exc:
             msg = (
@@ -952,7 +892,7 @@ class SkorchDoctor:
 
         try:
             gradients = [
-                grad[param_name] for grad in self.flatten(self.gradient_logs_[module_name])
+                grad[param_name] for grad in self.gradient_logs_[module_name]
             ]
         except KeyError as exc:
             msg = (

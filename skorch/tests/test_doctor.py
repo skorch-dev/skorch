@@ -10,8 +10,10 @@ from torch import nn
 
 
 class TestSkorchDoctorSimple:
+    """Test functionality of SkorchDoctor using a simple model"""
     @pytest.fixture(scope='module')
     def module_cls(self):
+        """Return a simple module class with predictable parameters"""
         class MyModule(nn.Module):
             """Module with predictable parameters"""
             def __init__(self):
@@ -36,6 +38,8 @@ class TestSkorchDoctorSimple:
 
     @pytest.fixture(scope='module')
     def custom_split(self):
+        """Split train/valid deterministically so that we know all training
+        samples"""
         class Split():
             """Deterministically split train/valid into 80%/20%"""
             def __call__(self, dataset, y=None, groups=None):
@@ -72,83 +76,77 @@ class TestSkorchDoctorSimple:
 
     def test_activation_logs_general_content(self, doctor):
         logs = doctor.activation_logs_
-        assert len(logs) == 2
         assert set(logs.keys()) == {'module', 'criterion'}
 
-        # nothing logged for criterion, 3 epochs
-        assert logs['criterion'] == [[], [], []]
+        # nothing logged for criterion
+        assert logs['criterion'] == []
 
         logs_module = logs['module']
         # 3 epochs, 2 batches per epoch
-        assert len(logs_module) == 3
-        assert [len(batch) for batch in logs_module] == [2, 2, 2]
+        assert len(logs_module) == 6
 
         # each batch has layers lin0, lin1, softmax
-        for epoch in logs_module:
-            for batch in epoch:
-                assert set(batch.keys()) == {'lin0', 'lin1', 'softmax'}
+        for batch in logs_module:
+            assert set(batch.keys()) == {'lin0', 'lin1', 'softmax'}
 
     def test_activation_logs_values(self, doctor, data):
         logs_module = doctor.activation_logs_['module']
 
         for key in ('lin0', 'lin1', 'softmax'):
             # 80% of 50 samples is 40, batch size 32 => 32 + 8 samples per batch
-            batch_sizes = [[len(b[key]) for b in batch] for batch in logs_module]
-            assert batch_sizes == [[32, 8], [32, 8], [32, 8]]
+            batch_sizes = [len(batch[key]) for batch in logs_module]
+            assert batch_sizes == [32, 8, 32, 8, 32, 8]
 
         X, _ = data
         # for the very first batch, before any update, we actually know the values
-        batch = logs_module[0][0]
-        lin0_0 = batch['lin0']
+        batch0 = logs_module[0]
+        lin0_0 = batch0['lin0']
         # since it is the identity function, batches should equal the data
         np.testing.assert_array_almost_equal(lin0_0, X[:32])
 
-        lin1_0 = batch['lin1']
+        lin1_0 = batch0['lin1']
         # since weights are 0 and bias is 1, all values should be 1
         np.testing.assert_array_almost_equal(lin1_0, 1.0)
 
-        softmax_0 = batch['softmax']
+        softmax_0 = batch0['softmax']
         # since all inputs are equal, probabilities should be uniform
         np.testing.assert_array_almost_equal(softmax_0, 0.5)
 
     def test_activation_logs_not_all_identical(self, doctor):
         # make sure that values are not just all identical, using a large
         # tolerance to exclude small deviations
-        logs_flat = list(doctor.flatten(doctor.activation_logs_['module']))
+        logs = doctor.activation_logs_['module']
 
-        logs_lin0 = [log['lin0'] for log in logs_flat]
+        logs_lin0 = [log['lin0'] for log in logs]
         for act0, act1 in itertools.combinations(logs_lin0, r=2):
             if act0.shape == act1.shape:
                 assert not np.allclose(act0, act1, rtol=1e-3)
 
-        logs_lin1 = [log['lin1'] for log in logs_flat]
+        logs_lin1 = [log['lin1'] for log in logs]
         for act0, act1 in itertools.combinations(logs_lin1, r=2):
             if act0.shape == act1.shape:
                 assert not np.allclose(act0, act1, rtol=1e-3)
 
-        softmax = [log['softmax'] for log in logs_flat]
+        softmax = [log['softmax'] for log in logs]
         for act0, act1 in itertools.combinations(softmax, r=2):
             if act0.shape == act1.shape:
                 assert not np.allclose(act0, act1, rtol=1e-3)
 
     def test_gradient_logs_general_content(self, doctor):
         logs = doctor.gradient_logs_
-        assert len(logs) == 2
         assert set(logs.keys()) == {'module', 'criterion'}
 
         # nothing logged for criterion, 3 epochs
-        assert logs['criterion'] == [[], [], []]
+        assert logs['criterion'] == []
 
         logs_module = logs['module']
         # 3 epochs, 2 batches per epoch
-        assert len(logs_module) == 3
-        assert [len(batch) for batch in logs_module] == [2, 2, 2]
+        assert len(logs_module) == 6
 
         # each batch has weights and biases for lin0 & lin1
-        for epoch in logs_module:
-            for batch in epoch:
-                expected = {'lin0.weight', 'lin0.bias', 'lin1.weight', 'lin1.bias'}
-                assert set(batch.keys()) == expected
+        expected = {'lin0.weight', 'lin0.bias', 'lin1.weight', 'lin1.bias'}
+        for batch in logs_module:
+            assert set(batch.keys()) == expected
 
     def test_gradient_logs_values(self, doctor):
         logs_module = doctor.gradient_logs_['module']
@@ -160,17 +158,17 @@ class TestSkorchDoctorSimple:
             'lin1.bias': (2,),
         }
         for key in ('lin0.weight', 'lin0.bias', 'lin1.weight', 'lin1.bias'):
-            grad_shapes = [[b[key].shape for b in batch] for batch in logs_module]
+            grad_shapes = [batch[key].shape for batch in logs_module]
             expected_shape = expected_shapes[key]
             # 2 batches, 3 epochs
-            assert grad_shapes == [[expected_shape] * 2] * 3
+            assert grad_shapes == [expected_shape] * 6
 
         # There is not really much we know about the gradient values, we just
         # rely on the gradient hooks doing what they're supposed to do. The only
         # gradients we actually know are for the first layer in the first batch:
         # They have to be zero because in the second layer, we have weights of 0.
 
-        batch0 = logs_module[0][0]
+        batch0 = logs_module[0]
         grad_weight = batch0['lin0.weight']
         grad_bias = batch0['lin0.bias']
         assert np.allclose(grad_weight, 0.0)
@@ -179,39 +177,82 @@ class TestSkorchDoctorSimple:
     def test_gradient_logs_not_all_identical(self, doctor):
         # make sure that values are not just all identical, using a large
         # tolerance to exclude small deviations
-        logs_flat = list(doctor.flatten(doctor.gradient_logs_['module']))
+        logs = doctor.gradient_logs_['module']
 
-        logs_lin0_weight = [log['lin0.weight'] for log in logs_flat]
+        logs_lin0_weight = [log['lin0.weight'] for log in logs]
         for grad0, grad1 in itertools.combinations(logs_lin0_weight, r=2):
             assert not np.allclose(grad0, grad1, rtol=1e-3)
 
-        logs_lin0_bias = [log['lin0.bias'] for log in logs_flat]
+        logs_lin0_bias = [log['lin0.bias'] for log in logs]
         for grad0, grad1 in itertools.combinations(logs_lin0_bias, r=2):
             assert not np.allclose(grad0, grad1, rtol=1e-3)
 
-        logs_lin1_weight = [log['lin1.weight'] for log in logs_flat]
+        logs_lin1_weight = [log['lin1.weight'] for log in logs]
         for grad0, grad1 in itertools.combinations(logs_lin1_weight, r=2):
             assert not np.allclose(grad0, grad1, rtol=1e-3)
 
-        logs_lin1_bias = [log['lin1.bias'] for log in logs_flat]
+        logs_lin1_bias = [log['lin1.bias'] for log in logs]
         for grad0, grad1 in itertools.combinations(logs_lin1_bias, r=2):
             assert not np.allclose(grad0, grad1, rtol=1e-3)
+
+    def test_param_update_logs_general_content(self, doctor):
+        logs = doctor.param_update_logs_
+        assert set(logs.keys()) == {'module', 'criterion'}
+
+        # nothing logged for criterion
+        assert logs['criterion'] == []
+
+        logs_module = logs['module']
+        # 3 epochs, 2 batches per epoch
+        assert len(logs_module) == 6
+
+        # each batch has weights and biases for lin0 & lin1
+        expected = {'lin0.weight', 'lin0.bias', 'lin1.weight', 'lin1.bias'}
+        for batch in logs_module:
+            assert set(batch.keys()) == expected
+
+    def test_param_update_logs_values(self, doctor):
+        logs= doctor.param_update_logs_['module']
+        assert all(np.isscalar(val) for d in logs for val in d.values())
+
+        # for the very first batch, before any update, we actually know that the
+        # updates must be 0 because the gradients are 0.
+        batch0 = logs[0]
+        assert np.isclose(batch0['lin0.weight'], 0)
+        assert np.isclose(batch0['lin0.bias'], 0)
+
+    def test_param_update_logs_not_all_identical(self, doctor):
+        # make sure that values are not just all identical, using a large
+        # tolerance to exclude small deviations
+        logs = doctor.param_update_logs_['module']
+
+        logs_lin0_weight = [log['lin0.weight'] for log in logs]
+        for upd0, upd1 in itertools.combinations(logs_lin0_weight, r=2):
+            assert not np.isclose(upd0, upd1, rtol=1e-3)
+
+        logs_lin0_bias = [log['lin0.bias'] for log in logs]
+        for upd0, upd1 in itertools.combinations(logs_lin0_bias, r=2):
+            assert not np.isclose(upd0, upd1, rtol=1e-3)
+
+        logs_lin1_weight = [log['lin1.weight'] for log in logs]
+        for upd0, upd1 in itertools.combinations(logs_lin1_weight, r=2):
+            assert not np.isclose(upd0, upd1, rtol=1e-3)
+
+        logs_lin1_bias = [log['lin1.bias'] for log in logs]
+        for upd0, upd1 in itertools.combinations(logs_lin1_bias, r=2):
+            assert not np.isclose(upd0, upd1, rtol=1e-3)
 
     def test_hooks_cleaned_up_after_fit(self, doctor, data):
         # make sure that the hooks are cleaned up by checking that no more logs
         # are written when continuing to fit the net
-        num_activation_logs_before = len(list(
-            doctor.flatten(doctor.activation_logs_['module'])))
-        num_gradient_logs_before = len(list(
-            doctor.flatten(doctor.gradient_logs_['module'])))
+        num_activation_logs_before = len(doctor.activation_logs_['module'])
+        num_gradient_logs_before = len(doctor.gradient_logs_['module'])
 
         net = doctor.net
         net.partial_fit(*data)
 
-        num_activation_logs_after = len(list(
-            doctor.flatten(doctor.activation_logs_['module'])))
-        num_gradient_logs_after = len(list(
-            doctor.flatten(doctor.gradient_logs_['module'])))
+        num_activation_logs_after = len(doctor.activation_logs_['module'])
+        num_gradient_logs_after = len(doctor.gradient_logs_['module'])
 
         assert num_activation_logs_before == num_activation_logs_after
         assert num_gradient_logs_before == num_gradient_logs_after
@@ -311,6 +352,7 @@ class TestSkorchDoctorSimple:
         with mock.patch('builtins.__import__', side_effect=import_mock):
             yield import_mock
 
+    # pylint: disable=unused-argument
     def test_matplotlib_not_installed(self, mock_matplotlib_not_installed, doctor):
         # Note: Unfortunately, the order of tests matters here: This test should
         # run before the ones below that use matplotlib, otherwise the import
@@ -639,23 +681,20 @@ class TestSkorchDoctorComplexArchitecture:
 
     def test_activation_logs_general_content(self, doctor):
         logs = doctor.activation_logs_
-        assert len(logs) == 3
         assert set(logs.keys()) == {'mymodule', 'seq', 'mycriterion'}
 
         for val in logs.values():
-            # something logged for all modules
-            assert val != [[], [], []]
-            assert len(val) == 3  # 3 epochs
-            assert [len(batch) for batch in val] == [2, 2, 2]  # 2 batchs per epoch
+            # 3 epochs, 2 batches per epoch
+            assert len(val) == 6
 
         expected_mymodule = {
             'module0.lin0', 'module0.lin1', 'module0[0]', 'module0[1]',
             'module1.softmax', 'module1["logits"]', 'module1["softmax"]',
         }
-        assert set(logs['mymodule'][0][0].keys()) == expected_mymodule
+        assert set(logs['mymodule'][0].keys()) == expected_mymodule
         # nn.Sequential just enumerates the layers
-        assert set(logs['seq'][0][0].keys()) == {'0'}
-        assert set(logs['mycriterion'][0][0].keys()) == {'lin0'}
+        assert set(logs['seq'][0].keys()) == {'0'}
+        assert set(logs['mycriterion'][0].keys()) == {'lin0'}
 
     def test_gradient_logs_general_content(self, doctor):
         logs = doctor.gradient_logs_
@@ -664,26 +703,22 @@ class TestSkorchDoctorComplexArchitecture:
 
         for val in logs.values():
             # 3 epochs, 2 batches per epoch
-            assert len(val) == 3
-            assert [len(batch) for batch in val] == [2, 2, 2]
+            assert len(val) == 6
 
         # each batch has weights and biases for lin1, lin0 has no gradient
-        for epoch in logs['mymodule']:
-            for batch in epoch:
-                expected = {'module0.lin1.weight', 'module0.lin1.bias'}
-                assert set(batch.keys()) == expected
+        expected = {'module0.lin1.weight', 'module0.lin1.bias'}
+        for batch in logs['mymodule']:
+            assert set(batch.keys()) == expected
 
         # each batch has weights and biases for lin1, lin0 has no gradient
-        for epoch in logs['seq']:
-            for batch in epoch:
-                expected = {'0.weight', '0.bias'}
-                assert set(batch.keys()) == expected
+        expected = {'0.weight', '0.bias'}
+        for batch in logs['seq']:
+            assert set(batch.keys()) == expected
 
         # each batch has weights and biases for lin1, lin0 has no gradient
-        for epoch in logs['mycriterion']:
-            for batch in epoch:
-                expected = {'lin0.weight', 'lin0.bias'}
-                assert set(batch.keys()) == expected
+        expected = {'lin0.weight', 'lin0.bias'}
+        for batch in logs['mycriterion']:
+            assert set(batch.keys()) == expected
 
     def test_get_layer_names(self, doctor):
         layer_names = doctor.get_layer_names()
