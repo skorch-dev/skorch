@@ -25,4 +25,6 @@ The following are examples and notebooks on how to use skorch.
 
 * `Gaussian Processes <https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Gaussian_Processes.ipynb>`_ - Train Gaussian Processes with the help of GPyTorch. `Run in Google Colab 💻 <https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/Gaussian_Processes.ipynb>`_
 
-* `Hugging Face Finetunging <https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Finetuning.ipynb>`_ - Fine-tune a BERT model for text classification with the huggingface transformers library and skorch.  `Run in Google Colab 💻 <https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Finetuning.ipynb>`_
+* `Hugging Face Finetunging <https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Finetuning.ipynb>`_ - Fine-tune a BERT model for text classification with the Hugging Face transformers library and skorch. `Run in Google Colab 💻 <https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Finetuning.ipynb>`_
+
+* `Hugging Face Vision Transformer <https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_VisionTransformer.ipynb>`_ - Show how to fine-tune a vision transformer model for a classification task using the Hugging Face transformers library and skorch. `Run in Google Colab 💻 <https://colab.research.google.com/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_VisionTransformer.ipynb>`_
