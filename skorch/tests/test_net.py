@@ -2293,11 +2293,13 @@ class TestNeuralNet:
         net.fit(X, y)
 
     def test_net_variable_label_lengths(self, net_cls, sequence_module_cls):
-        # neural net should work fine with varying y_true sequences.
+        # neural net should work fine with variable length y_true sequences.
         X = np.array([1, 5, 3, 6, 2])
-        y = np.array([[1], [1, 0, 1], [1, 1], [1, 1, 0], [1, 0]])
+        y = np.array([[1], [1, 0, 1], [1, 1], [1, 1, 0], [1, 0]], dtype=object)
         X = X[:, np.newaxis].astype('float32')
-        y = np.array([np.array(n, dtype='float32')[:, np.newaxis] for n in y])
+        y = np.array(
+            [np.array(n, dtype='float32')[:, np.newaxis] for n in y], dtype=object
+        )
 
         net = net_cls(
             sequence_module_cls,
