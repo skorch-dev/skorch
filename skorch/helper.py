@@ -242,7 +242,7 @@ class SliceDataset(Sequence):
                 raise IndexError("SliceDataset only supports slicing with 1 "
                                  "dimensional arrays, got {} dimensions instead."
                                  "".format(i.ndim))
-            if i.dtype == np.bool:
+            if i.dtype == bool:
                 i = np.flatnonzero(i)
 
         return cls(self.dataset, idx=self.idx, indices=self.indices_[i])
