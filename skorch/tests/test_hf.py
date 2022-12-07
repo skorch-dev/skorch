@@ -1050,7 +1050,7 @@ class TestHfHubStorage:
         for key, original in net_loaded.module_.state_dict().items():
             original = net.module_.state_dict()[key]
             loaded = net_loaded.module_.state_dict()[key]
-            torch.testing.assert_allclose(loaded, original)
+            torch.testing.assert_close(loaded, original)
 
     @pytest.mark.parametrize('storage', ['memory', 'str', 'path'])
     def test_saved_params_is_same(
@@ -1087,7 +1087,7 @@ class TestHfHubStorage:
         assert len(state_dict_before) == len(state_dict_after)
         for key, original in state_dict_before.items():
             loaded = state_dict_after[key]
-            torch.testing.assert_allclose(loaded, original)
+            torch.testing.assert_close(loaded, original)
 
     def test_latest_url_attribute(self, net, data, hf_hub_storer_cls):
         # Check that the URL returned by the HF API is stored as latest_url. In
