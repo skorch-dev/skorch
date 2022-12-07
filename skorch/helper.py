@@ -1,6 +1,7 @@
 """Helper functions and classes for users.
 
-They should not be used in skorch directly.
+They are intended to be used by end users but should not be depended upon for
+skorch-internal usage.
 
 """
 from collections.abc import Sequence
@@ -11,11 +12,20 @@ from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 import torch
 
-from skorch.cli import parse_args  # pylint: disable=unused-import
+from skorch.cli import parse_args
 from skorch.utils import _make_split
 from skorch.utils import to_numpy
 from skorch.utils import is_torch_data_type
 from skorch.utils import to_tensor
+
+
+__all__ = [
+    "SliceDict",
+    "SliceDataset",
+    "DataFrameTransformer",
+    "predefined_split",
+    "parse_args",
+]
 
 
 class SliceDict(dict):
@@ -242,7 +252,7 @@ class SliceDataset(Sequence):
                 raise IndexError("SliceDataset only supports slicing with 1 "
                                  "dimensional arrays, got {} dimensions instead."
                                  "".format(i.ndim))
-            if i.dtype == np.bool:
+            if i.dtype == bool:
                 i = np.flatnonzero(i)
 
         return cls(self.dataset, idx=self.idx, indices=self.indices_[i])

@@ -12,6 +12,7 @@ from pathlib import Path
 import pickle
 import re
 from unittest.mock import Mock
+from unittest.mock import call
 from unittest.mock import patch
 import sys
 import time
@@ -2293,11 +2294,13 @@ class TestNeuralNet:
         net.fit(X, y)
 
     def test_net_variable_label_lengths(self, net_cls, sequence_module_cls):
-        # neural net should work fine with varying y_true sequences.
+        # neural net should work fine with variable length y_true sequences.
         X = np.array([1, 5, 3, 6, 2])
-        y = np.array([[1], [1, 0, 1], [1, 1], [1, 1, 0], [1, 0]])
+        y = np.array([[1], [1, 0, 1], [1, 1], [1, 1, 0], [1, 0]], dtype=object)
         X = X[:, np.newaxis].astype('float32')
-        y = np.array([np.array(n, dtype='float32')[:, np.newaxis] for n in y])
+        y = np.array(
+            [np.array(n, dtype='float32')[:, np.newaxis] for n in y], dtype=object
+        )
 
         net = net_cls(
             sequence_module_cls,
@@ -2796,6 +2799,27 @@ class TestNeuralNet:
         assert net.optimizer_.state_dict()['param_groups'][0]['lr'] == 456
         assert net.myoptimizer_.state_dict()['param_groups'][0]['lr'] == 1
 
+    def test_custom_non_default_module_with_check_is_fitted(
+            self, net_cls, module_cls
+    ):
+        # This is a regression test for a bug fixed in #927. In check_is_fitted
+        # we made the assumption that there is a 'module_' attribute, but we
+        # should not assume that. Here we test that even if such an attribute
+        # doesn't exist, a properly initialized net will not raise an error when
+        # check_is_fitted is called.
+        class MyNet(net_cls):
+            """Net without a 'module_' attribute"""
+            def initialize_module(self):
+                kwargs = self.get_params_for('module')
+                module = self.initialized_instance(self.module, kwargs)
+                # pylint: disable=attribute-defined-outside-init
+                self.mymodule_ = module
+                return self
+
+        net = MyNet(module_cls).initialize()
+        # does not raise
+        net.check_is_fitted()
+
     def test_setattr_custom_module_no_duplicates(self, net_cls, module_cls):
         # the 'module' attribute is set twice but that shouldn't lead
         # to duplicates in prefixes_ or cuda_dependent_attributes_
@@ -3135,6 +3159,30 @@ class TestNeuralNet:
         ).initialize()
         assert net.criterion_ is criterion
         assert net.criterion2_ is not criterion2
+
+    def test_custom_criterion_attribute_name_predict_works(
+            self, net_cls, module_cls, data
+    ):
+        # This is a regression test for bugfix in #927. We should not assume
+        # that there is always an attribute called 'criterion_' when trying to
+        # infer the predict nonlinearity.
+        from skorch.utils import to_tensor
+
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                kwargs = self.get_params_for('criterion')
+                criterion = self.initialized_instance(self.criterion, kwargs)
+                # pylint: disable=attribute-defined-outside-init
+                self.mycriterion_ = criterion  # non-default name
+
+            def get_loss(self, y_pred, y_true, *args, **kwargs):
+                y_true = to_tensor(y_true, device=self.device)
+                return self.mycriterion_(y_pred, y_true)
+
+        net = MyNet(module_cls).initialize()
+        X, y = data[0][:10], data[1][:10]
+        net.fit(X, y)
+        net.predict(X)
 
     def test_custom_module_is_init_when_default_module_already_is(
             self, net_cls, module_cls,
@@ -3581,6 +3629,45 @@ class TestNeuralNet:
         with pytest.raises(TypeError, match=msg):
             net.predict_proba(np.zeros((3, 3)))
 
+    def test_predict_nonlinearity_is_identity_with_multiple_criteria(
+            self, net_cls, module_cls, data
+    ):
+        # Regression test for bugfix so we don't assume that there is always
+        # just a single criterion when trying to infer the predict nonlinearity
+        # (#927). Instead, if there are multiple criteria, don't apply any
+        # predict nonlinearity. In this test, criterion_ is CrossEntropyLoss, so
+        # normally we would apply softmax, but since there is a second criterion
+        # here, we shouldn't. To test that the identity function is used, we
+        # check that predict_proba and forward return the same values.
+        from skorch.utils import to_numpy, to_tensor
+
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                # pylint: disable=attribute-defined-outside-init
+                kwargs = self.get_params_for('criterion')
+                criterion = self.initialized_instance(nn.CrossEntropyLoss, kwargs)
+                self.criterion_ = criterion  # non-default name
+
+                kwargs = self.get_params_for('criterion2')
+                criterion2 = self.initialized_instance(nn.NLLLoss, kwargs)
+                self.criterion2_ = criterion2
+
+            def get_loss(self, y_pred, y_true, *args, **kwargs):
+                y_true = to_tensor(y_true, device=self.device)
+                loss = self.criterion_(y_pred, y_true)
+                loss2 = self.criterion2_(y_pred, y_true)
+                return loss + loss2
+
+        net = MyNet(module_cls).initialize()
+        X, y = data[0][:10], data[1][:10]
+        net.fit(X, y)
+
+        # test that predict_proba and forward return the same values, hence no
+        # nonlinearity was applied
+        y_proba = net.predict_proba(X)
+        y_forward = to_numpy(net.forward(X))
+        assert np.allclose(y_proba, y_forward)
+
     def test_customize_net_with_custom_dataset_that_returns_3_values(self, data):
         # Test if it's possible to easily customize NeuralNet to work
         # with Datasets that don't return 2 values. This way, a user
@@ -3885,3 +3972,159 @@ class TestTrimForPrediction:
         clone(net)
         net.trim_for_prediction()
         clone(net)
+
+
+class TestTorchCompile:
+    """Test functionality related to torch.compile (if available)"""
+    @pytest.fixture(scope='module')
+    def data(self, classifier_data):
+        return classifier_data
+
+    @pytest.fixture(scope='module')
+    def module_cls(self, classifier_module):
+        return classifier_module
+
+    @pytest.fixture(scope='module')
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def mock_compile(self, monkeypatch):
+        """Mock torch.compile, using monkeypatch for v1.14 or above, else just
+        set and delete attribute"""
+        def fake_compile(module, **kwargs):  # pylint: disable=unused-argument
+            # just return the original module
+            return module
+
+        mocked = Mock(side_effect=fake_compile)
+
+        if not hasattr(torch, 'compile'):  # PyTorch <= 1.13
+            # cannot use monkeypatch on non-existing attr
+            try:
+                torch.compile = mocked
+                yield mocked
+            finally:
+                del torch.compile
+        else:
+            monkeypatch.setattr(torch, 'compile', mocked)
+            yield mocked
+
+    def test_no_compile(self, net_cls, module_cls, mock_compile):
+        net_cls(module_cls).initialize()
+        assert mock_compile.call_count == 0
+
+    def test_with_compile_default(self, net_cls, module_cls, mock_compile):
+        net = net_cls(module_cls, compile=True).initialize()
+
+        assert mock_compile.call_count == 2
+        # we can check the call args like this because the mock just returns the
+        # original module
+        assert mock_compile.call_args_list[0] == call(net.module_)
+        assert mock_compile.call_args_list[1] == call(net.criterion_)
+
+    def test_with_compile_extra_params(self, net_cls, module_cls, mock_compile):
+        net = net_cls(
+            module_cls,
+            compile=True,
+            compile__mode='reduce-overhead',
+            compile__dynamic=True,
+            compile__fullgraph=True,
+        ).initialize()
+
+        assert mock_compile.call_count == 2
+        expected_kwargs = {
+            'mode': 'reduce-overhead', 'dynamic': True, 'fullgraph': True
+        }
+        assert mock_compile.call_args_list[0] == call(net.module_, **expected_kwargs)
+        assert mock_compile.call_args_list[1] == call(net.criterion_, **expected_kwargs)
+
+    def test_custom_modules_are_compiled(self, net_cls, module_cls, mock_compile):
+        # ensure that if the user sets custom modules, they are also compiled
+        class MyNet(net_cls):
+            def initialize_module(self):
+                # pylint: disable=attribute-defined-outside-init
+                self.module_ = self.module()
+                self.module2_ = nn.Sequential(nn.Linear(10, 10))
+                return self
+
+            def initialize_criterion(self):
+                # pylint: disable=attribute-defined-outside-init
+                self.mycriterion_ = nn.NLLLoss()
+                return self
+
+        net = MyNet(module_cls, compile=True).initialize()
+
+        assert mock_compile.call_count == 3
+        # we can check the call args like this because the mock just returns the
+        # original module
+        assert mock_compile.call_args_list[0] == call(net.module_)
+        assert mock_compile.call_args_list[1] == call(net.module2_)
+        assert mock_compile.call_args_list[2] == call(net.mycriterion_)
+
+    def test_compile_called_after_set_params(self, net_cls, module_cls, mock_compile):
+        # When calling net.set_params(compile=True), the modules should be compiled
+
+        # start without compile
+        net = net_cls(module_cls).initialize()
+        assert mock_compile.call_count == 0
+
+        net.set_params(compile=True)
+        assert mock_compile.call_count == 2
+
+    def test_compile_called_after_set_params_on_compile_param(
+            self, net_cls, module_cls, mock_compile
+    ):
+        # When calling net.set_params(compile__arg=val), the modules should be
+        # recompiled
+
+        # start with default compile
+        net = net_cls(module_cls, compile=True).initialize()
+        assert mock_compile.call_count == 2
+
+        net.set_params(compile__mode='reduce-overhead')
+        assert mock_compile.call_count == 4
+
+    def test_compile_true_but_not_available_raises(
+            self, net_cls, module_cls, monkeypatch
+    ):
+        if hasattr(torch, 'compile'):
+            monkeypatch.delattr(torch, 'compile')
+
+        msg = "Setting compile=True but torch.compile is not available"
+        with pytest.raises(ValueError, match=msg):
+            net_cls(module_cls, compile=True).initialize()
+
+    def test_compile_missing_dunder_in_prefix_arguments(
+            self, net_cls, module_cls, mock_compile  # pylint: disable=unused-argument
+    ):
+        # forgot to use double-underscore notation in 2 compile arguments
+        msg = (
+            r"Got an unexpected argument compile_dynamic, did you mean "
+            r"compile__dynamic\?\n"
+            r"Got an unexpected argument compilemode, did you mean compile__mode\?"
+        )
+        with pytest.raises(ValueError, match=msg):
+            net_cls(
+                module_cls,
+                compile_dynamic=True,
+                compilemode='reduce-overhead',
+            ).initialize()
+
+    def test_fit_and_predict_with_compile(self, net_cls, module_cls, data):
+        if not hasattr(torch, 'compile'):
+            pytest.skip(reason="torch.compile not available")
+
+        # use real torch.compile, not mocked, can be a bit slow
+        X, y = data
+        net = net_cls(module_cls, max_epochs=1, compile=True).initialize()
+
+        # fitting and predicting does not cause any problems
+        net.fit(X, y)
+        net.predict(X)
+        net.predict_proba(X)
+
+        # it's not clear what the best way is to test that a module was actually
+        # compiled, we rely here on torch keeping this public attribute
+        assert hasattr(net.module_, 'dynamo_ctx')
+        assert hasattr(net.criterion_, 'dynamo_ctx')

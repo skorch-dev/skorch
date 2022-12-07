@@ -389,7 +389,7 @@ class TestSliceDataset:
     @pytest.mark.parametrize('sl0, sl1, sl2', [
         (slice(0, 50), slice(10, 20), 5),
         ([0, 10, 3, -8, 3], [1, 2, 3], 2),
-        (np.ones(100, dtype=np.bool), np.arange(10, 40), 29),
+        (np.ones(100, dtype=bool), np.arange(10, 40), 29),
     ])
     def test_slice_three_times(self, slds_cls, custom_ds, X, y, sl0, sl1, sl2, n):
         data = y if n else X

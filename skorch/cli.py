@@ -312,7 +312,7 @@ def parse_args(kwargs, defaults=None):
     kwargs : dict
       The arguments as parsed by fire.
 
-    defautls : dict or None (default=None)
+    defaults : dict or None (default=None)
       Optionally, change the default values to use custom
       defaults. Commandline arguments have precedence over defaults.
 

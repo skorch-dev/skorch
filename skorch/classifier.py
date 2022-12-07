@@ -120,6 +120,8 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
 
     # pylint: disable=arguments-differ
     def get_loss(self, y_pred, y_true, *args, **kwargs):
+        # we can assume that the attribute criterion_ exists; if users define
+        # custom criteria, they have to override get_loss anyway
         if isinstance(self.criterion_, torch.nn.NLLLoss):
             eps = torch.finfo(y_pred.dtype).eps
             y_pred = torch.log(y_pred + eps)
