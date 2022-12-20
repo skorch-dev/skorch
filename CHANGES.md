@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- `_get_param_names` returns a list instead of a generator so that subsequent
+  error messages return useful information instead of a generator `repr`
+  string (#925)
 
 ## [0.12.1] - 2022-11-18
 
