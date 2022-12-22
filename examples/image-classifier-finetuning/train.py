@@ -8,6 +8,7 @@ https://huggingface.co/google/vit-base-patch32-224-in21k
 
 """
 
+from functools import partial
 import pickle
 
 import fire
@@ -35,6 +36,7 @@ DEFAULTS = {
     'net__optimizer__weight_decay': 0.0,
     'net__iterator_train__shuffle': True,
     'net__train_split': False,
+    'net__max_epochs': 4,
 }
 
 
@@ -107,18 +109,12 @@ class VitModule(nn.Module):
         return X.logits
 
 
-def make_lr_lambda(num_warmup_steps, num_training_steps, last_epoch=-1):
-    # Since this returns a local function, the resulting net cannot be pickled,
-    # unless we call net.trim_for_prediction(). If you want to be able to pickle
-    # this, rewrite this function as a callable class.
-    def lr_lambda(current_step: int):
-        if current_step < num_warmup_steps:
-            return float(current_step) / float(max(1, num_warmup_steps))
-        return max(
-            0.0, float(num_training_steps - current_step) / float(
-                max(1, num_training_steps - num_warmup_steps))
-        )
-    return lr_lambda
+def lr_lambda(current_step: int, num_warmup_steps, num_training_steps):
+    if current_step < num_warmup_steps:
+        return float(current_step) / float(max(1, num_warmup_steps))
+    return max(
+        0.0, float(num_training_steps - current_step) / float(max(1, num_training_steps - num_warmup_steps))
+    )
 
 
 def get_model(num_classes, lr_lambda):
@@ -130,6 +126,7 @@ def get_model(num_classes, lr_lambda):
                 LRScheduler(LambdaLR, lr_lambda=lr_lambda),
                 ProgressBar(),
             ],
+            module__num_classes=num_classes,
         )),
     ])
     return pipe
@@ -149,7 +146,6 @@ def train(
         seed=1234,
         device='cuda',
         output_file=None,
-        net__max_epochs=4,
         # max epochs need to be known beforehand for lr scheduler, so set it explicitly
         **kwargs
 ):
@@ -162,12 +158,14 @@ def train(
     torch.manual_seed(seed)
     # set the same device for all pipeline steps
     kwargs['net__device'] = kwargs['feature_extractor__device'] = device
-    kwargs['net__max_epochs'] = net__max_epochs
 
     X_train, X_valid, y_train, y_valid = get_data()
     num_classes = len(set(y_train))
-    lr_lambda = make_lr_lambda(0.0, net__max_epochs)
-    pipe = parsed(get_model(num_classes=num_classes, lr_lambda=lr_lambda))
+    max_epochs = kwargs.get('net__max_epochs', DEFAULTS['net__max_epochs'])
+    lr_lambda_schedule = partial(
+        lr_lambda, num_warmup_steps=0.0, num_training_steps=max_epochs
+    )
+    pipe = parsed(get_model(num_classes=num_classes, lr_lambda=lr_lambda_schedule))
 
     pipe.fit(X_train, y_train)
     y_pred = pipe.predict(X_valid)
