@@ -48,4 +48,4 @@ python train.py net --net__max_epochs=10 --net__batch_size=32 --device=cpu --net
 
 ## Notebook
 
-The same example is also shown in [this notebook](ttps://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Finetuning.ipynb).
+The same example is also shown in [this notebook](https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Finetuning.ipynb).
