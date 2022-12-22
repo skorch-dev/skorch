@@ -2801,7 +2801,7 @@ class TestNeuralNet:
     def test_custom_non_default_module_with_check_is_fitted(
             self, net_cls, module_cls
     ):
-        # This is a regression test for a bug fixed in #???. In check_is_fitted
+        # This is a regression test for a bug fixed in #927. In check_is_fitted
         # we made the assumption that there is a 'module_' attribute, but we
         # should not assume that. Here we test that even if such an attribute
         # doesn't exist, a properly initialized net will not raise an error when
@@ -3162,7 +3162,7 @@ class TestNeuralNet:
     def test_custom_criterion_attribute_name_predict_works(
             self, net_cls, module_cls, data
     ):
-        # This is a regression test for bugfix in #???. We should not assume
+        # This is a regression test for bugfix in #927. We should not assume
         # that there is always an attribute called 'criterion_' when trying to
         # infer the predict nonlinearity.
         from skorch.utils import to_tensor
@@ -3633,7 +3633,7 @@ class TestNeuralNet:
     ):
         # Regression test for bugfix so we don't assume that there is always
         # just a single criterion when trying to infer the predict nonlinearity
-        # (#???). Instead, if there are multiple criteria, don't apply any
+        # (#927). Instead, if there are multiple criteria, don't apply any
         # predict nonlinearity. In this test, criterion_ is CrossEntropyLoss, so
         # normally we would apply softmax, but since there is a second criterion
         # here, we shouldn't. To test that the identity function is used, we
