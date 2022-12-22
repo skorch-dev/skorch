@@ -11,7 +11,7 @@ The dataset and model are provided by Hugging Face. With some light wrapping, th
 On top of all the packages you'd normally install for using skorch, you also need numpydoc and Google Fire:
 
 ```bash
-python -m pip install fire numpydoc
+python -m pip install fire numpydoc datasets
 ```
 
 ## Dataset
