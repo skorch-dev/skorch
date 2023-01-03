@@ -2798,6 +2798,27 @@ class TestNeuralNet:
         assert net.optimizer_.state_dict()['param_groups'][0]['lr'] == 456
         assert net.myoptimizer_.state_dict()['param_groups'][0]['lr'] == 1
 
+    def test_custom_non_default_module_with_check_is_fitted(
+            self, net_cls, module_cls
+    ):
+        # This is a regression test for a bug fixed in #927. In check_is_fitted
+        # we made the assumption that there is a 'module_' attribute, but we
+        # should not assume that. Here we test that even if such an attribute
+        # doesn't exist, a properly initialized net will not raise an error when
+        # check_is_fitted is called.
+        class MyNet(net_cls):
+            """Net without a 'module_' attribute"""
+            def initialize_module(self):
+                kwargs = self.get_params_for('module')
+                module = self.initialized_instance(self.module, kwargs)
+                # pylint: disable=attribute-defined-outside-init
+                self.mymodule_ = module
+                return self
+
+        net = MyNet(module_cls).initialize()
+        # does not raise
+        net.check_is_fitted()
+
     def test_setattr_custom_module_no_duplicates(self, net_cls, module_cls):
         # the 'module' attribute is set twice but that shouldn't lead
         # to duplicates in prefixes_ or cuda_dependent_attributes_
@@ -3137,6 +3158,30 @@ class TestNeuralNet:
         ).initialize()
         assert net.criterion_ is criterion
         assert net.criterion2_ is not criterion2
+
+    def test_custom_criterion_attribute_name_predict_works(
+            self, net_cls, module_cls, data
+    ):
+        # This is a regression test for bugfix in #927. We should not assume
+        # that there is always an attribute called 'criterion_' when trying to
+        # infer the predict nonlinearity.
+        from skorch.utils import to_tensor
+
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                kwargs = self.get_params_for('criterion')
+                criterion = self.initialized_instance(self.criterion, kwargs)
+                # pylint: disable=attribute-defined-outside-init
+                self.mycriterion_ = criterion  # non-default name
+
+            def get_loss(self, y_pred, y_true, *args, **kwargs):
+                y_true = to_tensor(y_true, device=self.device)
+                return self.mycriterion_(y_pred, y_true)
+
+        net = MyNet(module_cls).initialize()
+        X, y = data[0][:10], data[1][:10]
+        net.fit(X, y)
+        net.predict(X)
 
     def test_custom_module_is_init_when_default_module_already_is(
             self, net_cls, module_cls,
@@ -3582,6 +3627,45 @@ class TestNeuralNet:
 
         with pytest.raises(TypeError, match=msg):
             net.predict_proba(np.zeros((3, 3)))
+
+    def test_predict_nonlinearity_is_identity_with_multiple_criteria(
+            self, net_cls, module_cls, data
+    ):
+        # Regression test for bugfix so we don't assume that there is always
+        # just a single criterion when trying to infer the predict nonlinearity
+        # (#927). Instead, if there are multiple criteria, don't apply any
+        # predict nonlinearity. In this test, criterion_ is CrossEntropyLoss, so
+        # normally we would apply softmax, but since there is a second criterion
+        # here, we shouldn't. To test that the identity function is used, we
+        # check that predict_proba and forward return the same values.
+        from skorch.utils import to_numpy, to_tensor
+
+        class MyNet(net_cls):
+            def initialize_criterion(self):
+                # pylint: disable=attribute-defined-outside-init
+                kwargs = self.get_params_for('criterion')
+                criterion = self.initialized_instance(nn.CrossEntropyLoss, kwargs)
+                self.criterion_ = criterion  # non-default name
+
+                kwargs = self.get_params_for('criterion2')
+                criterion2 = self.initialized_instance(nn.NLLLoss, kwargs)
+                self.criterion2_ = criterion2
+
+            def get_loss(self, y_pred, y_true, *args, **kwargs):
+                y_true = to_tensor(y_true, device=self.device)
+                loss = self.criterion_(y_pred, y_true)
+                loss2 = self.criterion2_(y_pred, y_true)
+                return loss + loss2
+
+        net = MyNet(module_cls).initialize()
+        X, y = data[0][:10], data[1][:10]
+        net.fit(X, y)
+
+        # test that predict_proba and forward return the same values, hence no
+        # nonlinearity was applied
+        y_proba = net.predict_proba(X)
+        y_forward = to_numpy(net.forward(X))
+        assert np.allclose(y_proba, y_forward)
 
     def test_customize_net_with_custom_dataset_that_returns_3_values(self, data):
         # Test if it's possible to easily customize NeuralNet to work
