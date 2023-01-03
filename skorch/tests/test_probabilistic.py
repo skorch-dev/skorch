@@ -10,7 +10,6 @@ from sklearn.base import clone
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 import torch
-from torch.testing import assert_allclose
 
 from skorch._version import Version
 from skorch.utils import is_torch_data_type
@@ -272,7 +271,7 @@ class BaseProbabilisticTests:
                 gp_fit.get_all_learnable_params(), gp2.get_all_learnable_params(),
         ):
             assert n0 == n1
-            assert_allclose(p0, p1)
+            torch.testing.assert_close(p0, p1)
 
     ##############
     # functional #

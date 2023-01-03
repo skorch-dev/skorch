@@ -35,8 +35,10 @@ If you just want to use skorch, use:
 
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
-    conda env create
-    conda activate skorch
+    conda create -n skorch-env python=3.10
+    conda activate skorch-env
+    # install pytorch version for your system (see below)
+    python -m pip install -r requirements.txt
     python -m pip install .
 
 If you want to help developing, run:
@@ -45,12 +47,18 @@ If you want to help developing, run:
 
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
-    conda env create
-    conda activate skorch
+    conda create -n skorch-env python==3.10
+    conda activate skorch-env
+    # install pytorch version for your system (see below)
+    python -m pip install -r requirements.txt
+    python -m pip install -r requirements-dev.txt
     python -m pip install -e .
 
     py.test  # unit tests
     pylint skorch  # static code checks
+
+You may adjust the Python version to any of the supported Python versions, i.e.
+Python 3.7 or higher.
 
 Using pip
 ^^^^^^^^^
@@ -90,21 +98,20 @@ instructions for PyTorch, visit the `PyTorch website
 <http://pytorch.org/>`__. skorch officially supports the last four
 minor PyTorch versions, which currently are:
 
-- 1.9.1
 - 1.10.2
 - 1.11.0
-- 1.12.0
+- 1.12.1
+- 1.13.0
 
 However, that doesn't mean that older versions don't work, just that
 they aren't tested. Since skorch mostly relies on the stable part of
 the PyTorch API, older PyTorch versions should work fine.
 
-In general, running this to install PyTorch should work (assuming CUDA
-11.1):
+In general, running this to install PyTorch should work:
 
 .. code:: bash
 
     # using conda:
-    conda install pytorch cudatoolkit==11.1 -c pytorch
+    conda install pytorch pytorch-cuda -c pytorch
     # using pip
     python -m pip install torch

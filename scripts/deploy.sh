@@ -5,7 +5,6 @@ PYTORCH_VERSION=${PYTORCH_VERSION:-""}
 PYTHON_VERSION="3.9"
 TWINE_VERSION=">3,<4.0.0dev"
 CONDA_ENV="skorch-deploy"
-CONDA_ENV_YML="environment.yml"
 
 if [[ $# -gt 1 ]] || [[ $1 != "live" && $1 != "stage" ]]; then
 	echo "Usage $0 [live|stage]" >&2
@@ -27,7 +26,8 @@ set +e
 conda env remove -y -n $CONDA_ENV
 set -e
 
-conda env create -q -n $CONDA_ENV -f $CONDA_ENV_YML "python=${PYTHON_VERSION}"
+echo "creating empty conda env"
+conda env create -q -n $CONDA_ENV
 
 remove_env() {
     source deactivate
@@ -43,10 +43,16 @@ remove_env() {
 trap remove_env EXIT
 
 source activate $CONDA_ENV
-conda install -q -y "twine==${TWINE_VERSION}"
+echo "installing dependencies"
 conda install -c pytorch -y "pytorch==${PYTORCH_VERSION}"
+python -m pip install "twine${TWINE_VERSION}"
+# Workaround for error `AttributeError: module 'lib' has no attribute 'X509_V_FLAG_CB_ISSUER_CHECK'`
+# due to outdated system pyOpenSSL - see also: https://askubuntu.com/q/1428181
+python -m pip install pyOpenSSL --upgrade
+python -m pip install -r requirements.txt
 python -m pip install -r requirements-dev.txt
 python -m pip install .
+python -m pip list
 
 pytest -x
 
