@@ -20,7 +20,7 @@ We recommend to use a virtual environment for this.
 From source
 ~~~~~~~~~~~
 
-If you would like to use the must recent additions to skorch or
+If you would like to use the most recent additions to skorch or
 help development, you should install skorch from source.
 
 Using conda
