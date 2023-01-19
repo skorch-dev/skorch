@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Fixed install command to work with recent changes in Google Colab. (#928)
 
 - Fixes a couple of bugs related to using non-default modules and criteria (#927)
 
@@ -23,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fix an error that could occur with specific combinations of gpytorch and PyTorch versions (#913)
+- Fixed an error that could occur with specific combinations of gpytorch and PyTorch versions (#913)
 
 ## [0.12.0] - 2022-10-07
 
@@ -41,9 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - It is now possible to call `np.asarray` with `SliceDataset`s (#858)
 
 ### Fixed
-- Fix a bug in `SliceDataset` that prevented it to be used with `to_numpy` (#858)
-- Fix a bug that occurred when loading a net that has device set to None (#876)
-- Fix a bug that in some cases could prevent loading a net that was trained with CUDA without CUDA
+- Fixed a bug in `SliceDataset` that prevented it to be used with `to_numpy` (#858)
+- Fixed a bug that occurred when loading a net that has device set to None (#876)
+- Fixed a bug that in some cases could prevent loading a net that was trained with CUDA without CUDA
 - Enable skorch to work on M1/M2 Apple MacBooks (#884)
 
 ## [0.11.0] - 2021-10-11
