@@ -1,6 +1,6 @@
 """Helper functions and classes for users.
 
-They are intended to be used by end users but should not be depeneded upon for
+They are intended to be used by end users but should not be depended upon for
 skorch-internal usage.
 
 """
