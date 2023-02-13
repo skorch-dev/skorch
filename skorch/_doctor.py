@@ -138,7 +138,7 @@ def _add_grad_hook(grad, *, log_grad, log_param_update, param_name, tensor):
     # can be overridden by later gradients despite them being pulled to numpy!
     # This only happens on CPU, which suggests it's a strange bug that's perhaps
     # related to caching and/or memory-mapping.
-    grad = grad.clone()
+    grad = grad.detach()
 
     log_grad[-1][param_name] = to_numpy(grad)
 
