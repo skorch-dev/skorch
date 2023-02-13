@@ -257,22 +257,6 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
         assert num_activation_recs_before == num_activation_recs_after
         assert num_gradient_recs_before == num_gradient_recs_after
 
-    def test_callbacks_cleaned_up_after_fit(self, doctor, net_cls, module_cls):
-        # make sure that the callbacks are the same before and after, this is
-        # important because SkorchDoctor will temporarily add a callback
-        net_without_doctor = net_cls(module_cls).initialize()
-        callbacks_without_doctor = net_without_doctor.callbacks_
-        callbacks_with_doctor = doctor.net.callbacks_
-
-        assert len(callbacks_without_doctor) == len(callbacks_with_doctor)
-
-        for (name0, cb0), (name1, cb1) in zip(
-                callbacks_without_doctor, callbacks_with_doctor
-        ):
-            assert name0 == name1
-            # pylint: disable=unidiomatic-typecheck
-            assert type(cb0) == type(cb1)
-
     def test_callbacks_cleaned_up_after_fit_with_initial_callbacks(
             self, doctor_cls, net_cls, module_cls, data
     ):

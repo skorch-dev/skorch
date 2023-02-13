@@ -271,9 +271,8 @@ class SkorchDoctor:
 
     After you finished the analysis, it is recommended to re-initialize the net
     or even better start a new process. This is because the net you passed is
-    modified by adding hooks, callbacks, and training it. Although there is a
-    clean up step at the end, it's better to start fresh when starting the real
-    model training.
+    modified by adding hooks training it. Although there is a clean up step at
+    the end, it's better to start fresh when starting the real model training.
 
     Parameters
     ----------
