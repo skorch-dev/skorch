@@ -454,7 +454,11 @@ class SkorchDoctor:
         return self.net.score(X, y=y, **kwargs)
 
     def _get_axes(self, axes=None, figsize=None, nrows=1, squeeze=False):
-        """Helper function to get empty axes for plotting"""
+        """Helper function to get empty axes for plotting
+
+        Unless ``squeeze=True``, a 2-dim array will be returned.
+
+        """
         if axes is not None:
             return axes
 
@@ -552,8 +556,7 @@ class SkorchDoctor:
 
         axes = self._get_axes(axes, figsize=figsize, nrows=len(module_names))
 
-        for module_name, ax in zip(module_names, axes):
-            ax = ax[0]  # only 1 col
+        for module_name, ax in zip(module_names, axes.flatten()):
             activations = self.activation_recs_[module_name][step]
             if match_fn:
                 activations = {k: v for k, v in activations.items() if match_fn(k)}
@@ -638,8 +641,7 @@ class SkorchDoctor:
 
         axes = self._get_axes(axes, figsize=figsize, nrows=len(module_names))
 
-        for module_name, ax in zip(module_names, axes):
-            ax = ax[0]  # only 1 col
+        for module_name, ax in zip(module_names, axes.flatten()):
             gradients = self.gradient_recs_[module_name][step]
             if match_fn:
                 gradients = {k: v for k, v in gradients.items() if match_fn(k)}
@@ -718,8 +720,7 @@ class SkorchDoctor:
         axes = self._get_axes(axes, figsize=figsize, nrows=len(module_names))
         eps = 1e-9  # prevent log10 of 0
 
-        for module_name, ax in zip(module_names, axes):
-            ax = ax[0]  # only 1 col
+        for module_name, ax in zip(module_names, axes.flatten()):
             param_updates = self.param_update_recs_[module_name]
             keys = param_updates[0].keys()
             if match_fn:

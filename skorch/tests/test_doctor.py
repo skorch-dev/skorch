@@ -421,6 +421,21 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
         )
         assert axes_after is axes
 
+    def test_plot_activations_passed_axes_2d(self, plt, doctor):
+        _, axes = plt.subplots(2, 2)
+        axes_after = doctor.plot_activations(
+            axes=axes,
+            step=0,
+            match_fn=lambda name: 'lin' in name,
+            histtype='bar',
+            lw=3,
+            bins=np.arange(10),
+            density=False,
+            figsize=(1, 2),
+            align='left',
+        )
+        assert axes_after is axes
+
     # pylint: disable=unused-argument
     def test_plot_activations_no_match(self, plt, doctor):
         msg = (
