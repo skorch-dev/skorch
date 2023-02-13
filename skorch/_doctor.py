@@ -29,7 +29,7 @@ def named_modules(net):
 
 
 # pylint: disable=unused-argument,redefined-builtin
-def _add_activation_hook(model, input, output, *, logs, layer_name):
+def _add_activation_hook(model, input, output, *, recs, layer_name):
     """Helper function for adding activation hooks"""
 
     # only record training data
@@ -37,29 +37,29 @@ def _add_activation_hook(model, input, output, *, logs, layer_name):
         return
 
     # very first batch
-    if not logs:
-        logs.append({})
+    if not recs:
+        recs.append({})
 
-    if layer_name in logs[-1]:
+    if layer_name in recs[-1]:
         # if the layer is already there, the entry is from the previous training
         # step, thus start a new one
-        logs.append({})
+        recs.append({})
 
     val = to_numpy(output)
 
     # disambiguate activations when the output is not a simple array
     if isinstance(val, np.ndarray):
-        logs[-1][layer_name] = val
+        recs[-1][layer_name] = val
     elif isinstance(val, (list, tuple)):
         for i, v in enumerate(val):
             if not isinstance(v, np.ndarray):
                 raise TypeError(f"activations of type {type(v)} are not supported")
-            logs[-1][layer_name + f'[{i}]'] = v
+            recs[-1][layer_name + f'[{i}]'] = v
     elif isinstance(val, Mapping):
         for k, v in val.items():
             if not isinstance(v, np.ndarray):
                 raise TypeError(f"Activations of type {type(v)} are not supported")
-            logs[-1][layer_name + f'["{k}"]'] = v
+            recs[-1][layer_name + f'["{k}"]'] = v
     else:
         raise TypeError(f"Activations of type {type(v)} are not supported")
 
@@ -81,8 +81,8 @@ def add_activation_hooks(net):
 
     Returns
     -------
-    logs : dict of list of dict
-      Data structure containing the logged activations. For each module, for
+    recs : dict of list of dict
+      Data structure containing the recorded activations. For each module, for
       each training step, for each layer, there is an entry of the recorded
       activations.
 
@@ -98,41 +98,41 @@ def add_activation_hooks(net):
       tuples, and dicts (but not nested ones).
 
     """
-    logs = {}
+    recs = {}
     handles = []
 
     for module_name, module in named_modules(net):
-        logs[module_name] = []
+        recs[module_name] = []
         for layer_name, submodule in module.named_modules():
             if submodule is module:
-                # is logging activations for whole module useful?
+                # is recording activations for whole module useful? skip for now
                 continue
 
             handle = submodule.register_forward_hook(partial(
                 _add_activation_hook,
-                logs=logs[module_name],
+                recs=recs[module_name],
                 layer_name=layer_name,
             ))
             handles.append(handle)
 
-    return logs, handles
+    return recs, handles
 
 
-def _add_grad_hook(grad, *, log_grad, log_param_update, param_name, tensor):
+def _add_grad_hook(grad, *, rec_grad, rec_param_update, param_name, tensor):
     """Helper function for adding gradient hooks"""
     # if the param is already there, the entry is from the previous training
     # step, thus start a new one
 
     # very first batch
-    if not log_grad:
-        log_grad.append({})
-    if not log_param_update:
-        log_param_update.append({})
+    if not rec_grad:
+        rec_grad.append({})
+    if not rec_param_update:
+        rec_param_update.append({})
 
-    if param_name in log_grad[-1]:
-        log_grad.append({})
-    if param_name in log_param_update[-1]:
-        log_param_update.append({})
+    if param_name in rec_grad[-1]:
+        rec_grad.append({})
+    if param_name in rec_param_update[-1]:
+        rec_param_update.append({})
 
     # We need to clone the grad here because otherwise, the recorded gradients
     # can be overridden by later gradients despite them being pulled to numpy!
@@ -140,10 +140,10 @@ def _add_grad_hook(grad, *, log_grad, log_param_update, param_name, tensor):
     # related to caching and/or memory-mapping.
     grad = grad.detach()
 
-    log_grad[-1][param_name] = to_numpy(grad)
+    rec_grad[-1][param_name] = to_numpy(grad)
 
     eps = 1e-9  # prevent divide by 0
-    log_param_update[-1][param_name] = (grad.std() / (eps + tensor.std())).item()
+    rec_param_update[-1][param_name] = (grad.std() / (eps + tensor.std())).item()
 
 
 def add_grad_hooks(net):
@@ -156,13 +156,13 @@ def add_grad_hooks(net):
 
     Returns
     -------
-    logs_grad : dict of list of dict
-      Data structure containing the logged gradients. For each module, for each
+    recs_grad : dict of list of dict
+      Data structure containing the recorded gradients. For each module, for each
       training step, for each learnable parameter, there is an entry of the
       recorded gradients.
 
-    logs : dict of list of dict
-      Data structure containing the logged parameter updates. For each module,
+    recs : dict of list of dict
+      Data structure containing the recorded parameter updates. For each module,
       for each training step, for each learnable parameter, there is an entry of
       the recorded parameter updates.
 
@@ -171,13 +171,13 @@ def add_grad_hooks(net):
       remove the hooks.
 
     """
-    logs_grad = {}
-    logs_param_update = {}
+    recs_grad = {}
+    recs_param_update = {}
     handles = []
 
     for module_name, module in named_modules(net):
-        logs_grad[module_name] = []
-        logs_param_update[module_name] = []
+        recs_grad[module_name] = []
+        recs_param_update[module_name] = []
 
         for param_name, tensor in module.named_parameters():
             if not tensor.requires_grad:
@@ -185,14 +185,14 @@ def add_grad_hooks(net):
 
             handle = tensor.register_hook(partial(
                 _add_grad_hook,
-                log_grad=logs_grad[module_name],
-                log_param_update=logs_param_update[module_name],
+                rec_grad=recs_grad[module_name],
+                rec_param_update=recs_param_update[module_name],
                 param_name=param_name,
                 tensor=tensor,
             ))
             handles.append(handle)
 
-    return logs_grad, logs_param_update, handles
+    return recs_grad, recs_param_update, handles
 
 
 class SkorchDoctor:
@@ -248,9 +248,9 @@ class SkorchDoctor:
     >>> doctor.fit(X_sample, y_sample)
     >>> # now use the attributes and plotting functions to better
     >>> # understand the training process
-    >>> doctor.activation_logs_  # the recorded activations
-    >>> doctor.gradient_logs_  # the recorded gradients
-    >>> doctor.param_update_logs_  # the recorded parameter updates
+    >>> doctor.activation_recs_  # the recorded activations
+    >>> doctor.gradient_recs_  # the recorded gradients
+    >>> doctor.param_update_recs_  # the recorded parameter updates
     >>> # the next steps require matplotlib to be installed
     >>> doctor.plot_loss()
     >>> doctor.plot_activations()
@@ -262,7 +262,7 @@ class SkorchDoctor:
     Notes
     -----
     Even if a train/valid split is used for the net, only training data is
-    logged.
+    recorded.
 
     Since ``SkorchDoctor`` will record a lot of values, you should expect an
     increase in memory usage and training time. However, it's sufficient to
@@ -290,7 +290,7 @@ class SkorchDoctor:
       All modules used by the net, typically those are ``"module"`` and
       ``"criterion"``.
 
-    activation_logs_: dict of list of dict of np.ndarray
+    activation_recs_: dict of list of dict of np.ndarray
       The activations of each layer for each module. The outer dict contains one
       entry for each top level module, e.g. ``module`` and ``criterion``. The
       values are lists, one entry for each training step. The entries of those
@@ -300,7 +300,7 @@ class SkorchDoctor:
       This data structure seems to be a bit complicated at first but its use is
       quite straightforward. E.g. to get the activations of the layer called
       "dense0" of the "module" in epoch 0 and batch 0, use
-      ``doctor.activation_logs_['module'][0]['dense0']``.
+      ``doctor.activation_recs_['module'][0]['dense0']``.
 
       If an activation is not a simple array, it is disambiguated. E.g. if it's a
       list, the name get a suffix of ``[i]`` where ``i`` designates the index in
@@ -308,7 +308,7 @@ class SkorchDoctor:
       added, where ``[key]`` is the key of the corresponding value in the
       dictionary.
 
-    gradient_logs_: dict of list of dict of np.ndarray
+    gradient_recs_: dict of list of dict of np.ndarray
       The gradients of each parameter for each module. The outer dict contains
       one entry for each top level module, e.g. ``module`` and ``criterion``.
       The values are lists, one entry for each training step. The entries of
@@ -319,9 +319,9 @@ class SkorchDoctor:
       This data structure seems to be a bit complicated at first but its use is
       quite straightforward. E.g. to get the gradient of the parameter called
       "dense0.weight" of the "module" from training step 7, use
-      ``doctor.gradient_logs_['module'][7]['dense0.weight]``.
+      ``doctor.gradient_recs_['module'][7]['dense0.weight]``.
 
-    param_update_logs_: dict of list of dict of float
+    param_update_recs_: dict of list of dict of float
       The relative parameter update of each parameter for each module. The outer
       dict contains one entry for each top level module, e.g. ``module`` and
       ``criterion``. The values are lists, one entry for each training step. The
@@ -333,7 +333,7 @@ class SkorchDoctor:
       This data structure seems to be a bit complicated at first but its use is
       quite straightforward. E.g. to get the update of the parameter called
       "dense0.weight" of the "module" in the last training step, use
-      ``doctor.paramter_udpate_logs_['module'][-1]['dense0.weight]``.
+      ``doctor.paramter_udpate_recs_['module'][-1]['dense0.weight]``.
 
     fitted_ : bool
       Whether the instance has been fitted.
@@ -356,11 +356,11 @@ class SkorchDoctor:
         module_names = [name for name, _ in named_modules(self.net)]
         self.module_names_ = module_names
 
-        activation_logs, activation_handles = add_activation_hooks(self.net)
-        gradient_logs, param_update_logs, grad_handles = add_grad_hooks(self.net)
-        self.activation_logs_ = activation_logs
-        self.gradient_logs_ = gradient_logs
-        self.param_update_logs_ = param_update_logs
+        activation_recs, activation_handles = add_activation_hooks(self.net)
+        gradient_recs, param_update_recs, grad_handles = add_grad_hooks(self.net)
+        self.activation_recs_ = activation_recs
+        self.gradient_recs_ = gradient_recs
+        self.param_update_recs_ = param_update_recs
         self.handles_ = activation_handles + grad_handles
 
         return self
@@ -396,7 +396,7 @@ class SkorchDoctor:
         finally:
             self._clean_up()
 
-        self.num_steps_ = len(self.activation_logs_[self.module_names_[0]])
+        self.num_steps_ = len(self.activation_recs_[self.module_names_[0]])
         self.fitted_ = True
         return self
 
@@ -412,8 +412,8 @@ class SkorchDoctor:
         self.check_is_fitted()
         names = {}
         for module in self.module_names_:
-            if self.activation_logs_[module]:
-                names[module] = list(self.activation_logs_[module][0].keys())
+            if self.activation_recs_[module]:
+                names[module] = list(self.activation_recs_[module][0].keys())
             else:
                 names[module] = []
         return names
@@ -430,12 +430,12 @@ class SkorchDoctor:
         self.check_is_fitted()
         names = {}
         for module in self.module_names_:
-            if self.gradient_logs_[module]:
+            if self.gradient_recs_[module]:
                 # using the reversed order because gradients are recorded from
                 # last to first, but first to last is more intuitive to show
                 # TODO: When dropping python 3.7, dict keys are reversible, so
                 # no need to call list(keys)
-                keys = list(self.gradient_logs_[module][0].keys())
+                keys = list(self.gradient_recs_[module][0].keys())
                 names[module] = list(reversed(keys))
             else:
                 names[module] = []
@@ -547,14 +547,14 @@ class SkorchDoctor:
 
         # only use modules for which the values are not simply empty lists
         module_names = [
-            key for key, val in self.activation_logs_.items() if any(l for l in val)
+            key for key, val in self.activation_recs_.items() if any(l for l in val)
         ]
 
         axes = self._get_axes(axes, figsize=figsize, nrows=len(module_names))
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            activations = self.activation_logs_[module_name][step]
+            activations = self.activation_recs_[module_name][step]
             if match_fn:
                 activations = {k: v for k, v in activations.items() if match_fn(k)}
                 if not activations:
@@ -580,7 +580,7 @@ class SkorchDoctor:
                         density=density,
                         **kwargs
                     )
-            ax.legend()
+            ax.legend(loc='best')
             ax.set_title(f"distribution of activations of {module_name}")
         return axes
 
@@ -632,7 +632,7 @@ class SkorchDoctor:
 
         # only use modules for which the values are not simply empty
         module_names = [
-            key for key, val in self.gradient_logs_.items()
+            key for key, val in self.gradient_recs_.items()
             if any(d for l in val for d in l)
         ]
 
@@ -640,7 +640,7 @@ class SkorchDoctor:
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            gradients = self.gradient_logs_[module_name][step]
+            gradients = self.gradient_recs_[module_name][step]
             if match_fn:
                 gradients = {k: v for k, v in gradients.items() if match_fn(k)}
                 if not gradients:
@@ -667,7 +667,7 @@ class SkorchDoctor:
                         **kwargs
                     )
 
-            ax.legend()
+            ax.legend(loc='best')
             ax.set_title(f"distribution of gradients for {module_name}")
 
         return axes
@@ -711,7 +711,7 @@ class SkorchDoctor:
 
         # only use modules for which the values are not simply empty
         module_names = [
-            key for key, val in self.gradient_logs_.items()
+            key for key, val in self.gradient_recs_.items()
             if any(d for l in val for d in l)
         ]
 
@@ -720,7 +720,7 @@ class SkorchDoctor:
 
         for module_name, ax in zip(module_names, axes):
             ax = ax[0]  # only 1 col
-            param_updates = self.param_update_logs_[module_name]
+            param_updates = self.param_update_recs_[module_name]
             keys = param_updates[0].keys()
             if match_fn:
                 keys = [key for key in keys if match_fn(key)]
@@ -741,7 +741,7 @@ class SkorchDoctor:
                 f"log10 of stdev of relative parameter updates for {module_name}"
             )
             ax.set_title(module_name)
-            ax.legend()
+            ax.legend(loc='best')
 
         return axes
 
@@ -797,7 +797,7 @@ class SkorchDoctor:
 
         try:
             activations = [
-                act[layer_name] for act in self.activation_logs_[module_name]
+                act[layer_name] for act in self.activation_recs_[module_name]
             ]
         except KeyError as exc:
             msg = (
@@ -892,7 +892,7 @@ class SkorchDoctor:
 
         try:
             gradients = [
-                grad[param_name] for grad in self.gradient_logs_[module_name]
+                grad[param_name] for grad in self.gradient_recs_[module_name]
             ]
         except KeyError as exc:
             msg = (

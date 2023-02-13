@@ -9,7 +9,7 @@ import torch
 from torch import nn
 
 
-class TestSkorchDoctorSimple:
+class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
     """Test functionality of SkorchDoctor using a simple model"""
     @pytest.fixture(scope='module')
     def module_cls(self):
@@ -74,32 +74,32 @@ class TestSkorchDoctorSimple:
         doctor.fit(*data)
         return doctor
 
-    def test_activation_logs_general_content(self, doctor):
-        logs = doctor.activation_logs_
-        assert set(logs.keys()) == {'module', 'criterion'}
+    def test_activation_recs_general_content(self, doctor):
+        recs = doctor.activation_recs_
+        assert set(recs.keys()) == {'module', 'criterion'}
 
-        # nothing logged for criterion
-        assert logs['criterion'] == []
+        # nothing recorded for criterion
+        assert recs['criterion'] == []
 
-        logs_module = logs['module']
+        recs_module = recs['module']
         # 3 epochs, 2 batches per epoch
-        assert len(logs_module) == 6
+        assert len(recs_module) == 6
 
         # each batch has layers lin0, lin1, softmax
-        for batch in logs_module:
+        for batch in recs_module:
             assert set(batch.keys()) == {'lin0', 'lin1', 'softmax'}
 
-    def test_activation_logs_values(self, doctor, data):
-        logs_module = doctor.activation_logs_['module']
+    def test_activation_recs_values(self, doctor, data):
+        recs_module = doctor.activation_recs_['module']
 
         for key in ('lin0', 'lin1', 'softmax'):
             # 80% of 50 samples is 40, batch size 32 => 32 + 8 samples per batch
-            batch_sizes = [len(batch[key]) for batch in logs_module]
+            batch_sizes = [len(batch[key]) for batch in recs_module]
             assert batch_sizes == [32, 8, 32, 8, 32, 8]
 
         X, _ = data
         # for the very first batch, before any update, we actually know the values
-        batch0 = logs_module[0]
+        batch0 = recs_module[0]
         lin0_0 = batch0['lin0']
         # since it is the identity function, batches should equal the data
         np.testing.assert_array_almost_equal(lin0_0, X[:32])
@@ -112,44 +112,44 @@ class TestSkorchDoctorSimple:
         # since all inputs are equal, probabilities should be uniform
         np.testing.assert_array_almost_equal(softmax_0, 0.5)
 
-    def test_activation_logs_not_all_identical(self, doctor):
+    def test_activation_recs_not_all_identical(self, doctor):
         # make sure that values are not just all identical, using a large
         # tolerance to exclude small deviations
-        logs = doctor.activation_logs_['module']
+        recs = doctor.activation_recs_['module']
 
-        logs_lin0 = [log['lin0'] for log in logs]
-        for act0, act1 in itertools.combinations(logs_lin0, r=2):
+        recs_lin0 = [rec['lin0'] for rec in recs]
+        for act0, act1 in itertools.combinations(recs_lin0, r=2):
             if act0.shape == act1.shape:
                 assert not np.allclose(act0, act1, rtol=1e-3)
 
-        logs_lin1 = [log['lin1'] for log in logs]
-        for act0, act1 in itertools.combinations(logs_lin1, r=2):
+        recs_lin1 = [rec['lin1'] for rec in recs]
+        for act0, act1 in itertools.combinations(recs_lin1, r=2):
             if act0.shape == act1.shape:
                 assert not np.allclose(act0, act1, rtol=1e-3)
 
-        softmax = [log['softmax'] for log in logs]
+        softmax = [rec['softmax'] for rec in recs]
         for act0, act1 in itertools.combinations(softmax, r=2):
             if act0.shape == act1.shape:
                 assert not np.allclose(act0, act1, rtol=1e-3)
 
-    def test_gradient_logs_general_content(self, doctor):
-        logs = doctor.gradient_logs_
-        assert set(logs.keys()) == {'module', 'criterion'}
+    def test_gradient_recs_general_content(self, doctor):
+        recs = doctor.gradient_recs_
+        assert set(recs.keys()) == {'module', 'criterion'}
 
-        # nothing logged for criterion, 3 epochs
-        assert logs['criterion'] == []
+        # nothing recorded for criterion, 3 epochs
+        assert recs['criterion'] == []
 
-        logs_module = logs['module']
+        recs_module = recs['module']
         # 3 epochs, 2 batches per epoch
-        assert len(logs_module) == 6
+        assert len(recs_module) == 6
 
         # each batch has weights and biases for lin0 & lin1
         expected = {'lin0.weight', 'lin0.bias', 'lin1.weight', 'lin1.bias'}
-        for batch in logs_module:
+        for batch in recs_module:
             assert set(batch.keys()) == expected
 
-    def test_gradient_logs_values(self, doctor):
-        logs_module = doctor.gradient_logs_['module']
+    def test_gradient_recs_values(self, doctor):
+        recs_module = doctor.gradient_recs_['module']
 
         expected_shapes = {
             'lin0.weight': (20, 20),
@@ -158,7 +158,7 @@ class TestSkorchDoctorSimple:
             'lin1.bias': (2,),
         }
         for key in ('lin0.weight', 'lin0.bias', 'lin1.weight', 'lin1.bias'):
-            grad_shapes = [batch[key].shape for batch in logs_module]
+            grad_shapes = [batch[key].shape for batch in recs_module]
             expected_shape = expected_shapes[key]
             # 2 batches, 3 epochs
             assert grad_shapes == [expected_shape] * 6
@@ -168,94 +168,94 @@ class TestSkorchDoctorSimple:
         # gradients we actually know are for the first layer in the first batch:
         # They have to be zero because in the second layer, we have weights of 0.
 
-        batch0 = logs_module[0]
+        batch0 = recs_module[0]
         grad_weight = batch0['lin0.weight']
         grad_bias = batch0['lin0.bias']
         assert np.allclose(grad_weight, 0.0)
         assert np.allclose(grad_bias, 0.0)
 
-    def test_gradient_logs_not_all_identical(self, doctor):
+    def test_gradient_recs_not_all_identical(self, doctor):
         # make sure that values are not just all identical, using a large
         # tolerance to exclude small deviations
-        logs = doctor.gradient_logs_['module']
+        recs = doctor.gradient_recs_['module']
 
-        logs_lin0_weight = [log['lin0.weight'] for log in logs]
-        for grad0, grad1 in itertools.combinations(logs_lin0_weight, r=2):
+        recs_lin0_weight = [rec['lin0.weight'] for rec in recs]
+        for grad0, grad1 in itertools.combinations(recs_lin0_weight, r=2):
             assert not np.allclose(grad0, grad1, rtol=1e-3)
 
-        logs_lin0_bias = [log['lin0.bias'] for log in logs]
-        for grad0, grad1 in itertools.combinations(logs_lin0_bias, r=2):
+        recs_lin0_bias = [rec['lin0.bias'] for rec in recs]
+        for grad0, grad1 in itertools.combinations(recs_lin0_bias, r=2):
             assert not np.allclose(grad0, grad1, rtol=1e-3)
 
-        logs_lin1_weight = [log['lin1.weight'] for log in logs]
-        for grad0, grad1 in itertools.combinations(logs_lin1_weight, r=2):
+        recs_lin1_weight = [rec['lin1.weight'] for rec in recs]
+        for grad0, grad1 in itertools.combinations(recs_lin1_weight, r=2):
             assert not np.allclose(grad0, grad1, rtol=1e-3)
 
-        logs_lin1_bias = [log['lin1.bias'] for log in logs]
-        for grad0, grad1 in itertools.combinations(logs_lin1_bias, r=2):
+        recs_lin1_bias = [rec['lin1.bias'] for rec in recs]
+        for grad0, grad1 in itertools.combinations(recs_lin1_bias, r=2):
             assert not np.allclose(grad0, grad1, rtol=1e-3)
 
-    def test_param_update_logs_general_content(self, doctor):
-        logs = doctor.param_update_logs_
-        assert set(logs.keys()) == {'module', 'criterion'}
+    def test_param_update_recs_general_content(self, doctor):
+        recs = doctor.param_update_recs_
+        assert set(recs.keys()) == {'module', 'criterion'}
 
-        # nothing logged for criterion
-        assert logs['criterion'] == []
+        # nothing recorded for criterion
+        assert recs['criterion'] == []
 
-        logs_module = logs['module']
+        recs_module = recs['module']
         # 3 epochs, 2 batches per epoch
-        assert len(logs_module) == 6
+        assert len(recs_module) == 6
 
         # each batch has weights and biases for lin0 & lin1
         expected = {'lin0.weight', 'lin0.bias', 'lin1.weight', 'lin1.bias'}
-        for batch in logs_module:
+        for batch in recs_module:
             assert set(batch.keys()) == expected
 
-    def test_param_update_logs_values(self, doctor):
-        logs= doctor.param_update_logs_['module']
-        assert all(np.isscalar(val) for d in logs for val in d.values())
+    def test_param_update_recs_values(self, doctor):
+        recs= doctor.param_update_recs_['module']
+        assert all(np.isscalar(val) for d in recs for val in d.values())
 
         # for the very first batch, before any update, we actually know that the
         # updates must be 0 because the gradients are 0.
-        batch0 = logs[0]
+        batch0 = recs[0]
         assert np.isclose(batch0['lin0.weight'], 0)
         assert np.isclose(batch0['lin0.bias'], 0)
 
-    def test_param_update_logs_not_all_identical(self, doctor):
+    def test_param_update_recs_not_all_identical(self, doctor):
         # make sure that values are not just all identical, using a large
         # tolerance to exclude small deviations
-        logs = doctor.param_update_logs_['module']
+        recs = doctor.param_update_recs_['module']
 
-        logs_lin0_weight = [log['lin0.weight'] for log in logs]
-        for upd0, upd1 in itertools.combinations(logs_lin0_weight, r=2):
+        recs_lin0_weight = [rec['lin0.weight'] for rec in recs]
+        for upd0, upd1 in itertools.combinations(recs_lin0_weight, r=2):
             assert not np.isclose(upd0, upd1, rtol=1e-3)
 
-        logs_lin0_bias = [log['lin0.bias'] for log in logs]
-        for upd0, upd1 in itertools.combinations(logs_lin0_bias, r=2):
+        recs_lin0_bias = [rec['lin0.bias'] for rec in recs]
+        for upd0, upd1 in itertools.combinations(recs_lin0_bias, r=2):
             assert not np.isclose(upd0, upd1, rtol=1e-3)
 
-        logs_lin1_weight = [log['lin1.weight'] for log in logs]
-        for upd0, upd1 in itertools.combinations(logs_lin1_weight, r=2):
+        recs_lin1_weight = [rec['lin1.weight'] for rec in recs]
+        for upd0, upd1 in itertools.combinations(recs_lin1_weight, r=2):
             assert not np.isclose(upd0, upd1, rtol=1e-3)
 
-        logs_lin1_bias = [log['lin1.bias'] for log in logs]
-        for upd0, upd1 in itertools.combinations(logs_lin1_bias, r=2):
+        recs_lin1_bias = [rec['lin1.bias'] for rec in recs]
+        for upd0, upd1 in itertools.combinations(recs_lin1_bias, r=2):
             assert not np.isclose(upd0, upd1, rtol=1e-3)
 
     def test_hooks_cleaned_up_after_fit(self, doctor, data):
-        # make sure that the hooks are cleaned up by checking that no more logs
+        # make sure that the hooks are cleaned up by checking that no more recs
         # are written when continuing to fit the net
-        num_activation_logs_before = len(doctor.activation_logs_['module'])
-        num_gradient_logs_before = len(doctor.gradient_logs_['module'])
+        num_activation_recs_before = len(doctor.activation_recs_['module'])
+        num_gradient_recs_before = len(doctor.gradient_recs_['module'])
 
         net = doctor.net
         net.partial_fit(*data)
 
-        num_activation_logs_after = len(doctor.activation_logs_['module'])
-        num_gradient_logs_after = len(doctor.gradient_logs_['module'])
+        num_activation_recs_after = len(doctor.activation_recs_['module'])
+        num_gradient_recs_after = len(doctor.gradient_recs_['module'])
 
-        assert num_activation_logs_before == num_activation_logs_after
-        assert num_gradient_logs_before == num_gradient_logs_after
+        assert num_activation_recs_before == num_activation_recs_after
+        assert num_gradient_recs_before == num_gradient_recs_after
 
     def test_callbacks_cleaned_up_after_fit(self, doctor, net_cls, module_cls):
         # make sure that the callbacks are the same before and after, this is
@@ -551,7 +551,8 @@ class TestSkorchDoctorComplexArchitecture:
     like tuples or dicts.
 
     This test class does not re-iterate all the tests performed on the standard
-    model but focuses on the parts that change, e.g. how the outputs are logged.
+    model but focuses on the parts that change, e.g. how the outputs are
+    recorded.
 
     """
     @pytest.fixture(scope='module')
@@ -679,45 +680,45 @@ class TestSkorchDoctorComplexArchitecture:
         doctor.fit(*data)
         return doctor
 
-    def test_activation_logs_general_content(self, doctor):
-        logs = doctor.activation_logs_
-        assert set(logs.keys()) == {'mymodule', 'seq', 'mycriterion'}
+    def test_activation_recs_general_content(self, doctor):
+        recs = doctor.activation_recs_
+        assert set(recs.keys()) == {'mymodule', 'seq', 'mycriterion'}
 
-        for val in logs.values():
+        for rec in recs.values():
             # 3 epochs, 2 batches per epoch
-            assert len(val) == 6
+            assert len(rec) == 6
 
         expected_mymodule = {
             'module0.lin0', 'module0.lin1', 'module0[0]', 'module0[1]',
             'module1.softmax', 'module1["logits"]', 'module1["softmax"]',
         }
-        assert set(logs['mymodule'][0].keys()) == expected_mymodule
+        assert set(recs['mymodule'][0].keys()) == expected_mymodule
         # nn.Sequential just enumerates the layers
-        assert set(logs['seq'][0].keys()) == {'0'}
-        assert set(logs['mycriterion'][0].keys()) == {'lin0'}
+        assert set(recs['seq'][0].keys()) == {'0'}
+        assert set(recs['mycriterion'][0].keys()) == {'lin0'}
 
-    def test_gradient_logs_general_content(self, doctor):
-        logs = doctor.gradient_logs_
-        assert len(logs) == 3
-        assert set(logs.keys()) == {'mymodule', 'seq', 'mycriterion'}
+    def test_gradient_recs_general_content(self, doctor):
+        recs = doctor.gradient_recs_
+        assert len(recs) == 3
+        assert set(recs.keys()) == {'mymodule', 'seq', 'mycriterion'}
 
-        for val in logs.values():
+        for rec in recs.values():
             # 3 epochs, 2 batches per epoch
-            assert len(val) == 6
+            assert len(rec) == 6
 
         # each batch has weights and biases for lin1, lin0 has no gradient
         expected = {'module0.lin1.weight', 'module0.lin1.bias'}
-        for batch in logs['mymodule']:
+        for batch in recs['mymodule']:
             assert set(batch.keys()) == expected
 
         # each batch has weights and biases for lin1, lin0 has no gradient
         expected = {'0.weight', '0.bias'}
-        for batch in logs['seq']:
+        for batch in recs['seq']:
             assert set(batch.keys()) == expected
 
         # each batch has weights and biases for lin1, lin0 has no gradient
         expected = {'lin0.weight', 'lin0.bias'}
-        for batch in logs['mycriterion']:
+        for batch in recs['mycriterion']:
             assert set(batch.keys()) == expected
 
     def test_get_layer_names(self, doctor):
