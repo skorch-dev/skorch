@@ -43,12 +43,7 @@ class TestNeptune:
 
     @pytest.fixture
     def neptune_run_object(self):
-        try:
-            # neptune-client=0.9.0+ package structure
-            import neptune.new as neptune
-        except ImportError:
-            # neptune-client>=1.0.0 package structure
-            import neptune
+        import neptune
 
         run = neptune.init_run(
             project="tests/dry-run",
@@ -206,12 +201,7 @@ class TestNeptune:
             neptune_logger_cls,
             neptune_run_object,
     ):
-        try:
-            # neptune-client=0.9.0+ package structure
-            from neptune.new.attributes.file_set import FileSet
-        except ImportError:
-            # neptune-client>=1.0.0 package structure
-            from neptune.attributes.file_set import FileSet
+        from neptune.attributes.file_set import FileSet
         from skorch.callbacks import Checkpoint
 
         with tempfile.TemporaryDirectory() as directory:
