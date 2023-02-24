@@ -163,7 +163,7 @@ class TestNeptune:
 
         # (5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls) + base metrics
         assert mock_experiment.__getitem__.call_count == 110 + self.NUM_BASE_METRICS
-        mock_experiment['training']['train']['batch']['batch_size'].log.assert_any_call(4)
+        mock_experiment['training']['train']['batch']['batch_size'].append.assert_any_call(4)
 
     def test_log_on_batch_level_off(
             self,
