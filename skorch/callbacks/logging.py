@@ -86,11 +86,11 @@ class NeptuneLogger(Callback):
     Examples
     --------
     $ # Install Neptune
-    $ python -m pip install neptune-client
+    $ python -m pip install neptune
 
     >>> # Create a Neptune run
-    >>> import neptune.new as neptune
-    >>> from neptune.new.types import File
+    >>> import neptune as neptune
+    >>> from neptune.types import File
     ...
     ... # This example uses the API token for anonymous users.
     ... # For your own projects, use the token associated with your neptune.ai account.
@@ -137,7 +137,7 @@ class NeptuneLogger(Callback):
 
     Parameters
     ----------
-    run : neptune.new.Run
+    run : neptune.Run
       Instantiated ``Run`` class.
 
     log_on_batch_end : bool (default=False)
@@ -231,7 +231,7 @@ class NeptuneLogger(Callback):
 
     def on_train_end(self, net, **kwargs):
         try:
-            self._metric_logger['train/epoch/event_lr'].log(net.history[:, 'event_lr'])
+            self._metric_logger['train/epoch/event_lr'].append(net.history[:, 'event_lr'])
         except KeyError:
             pass
         if self.close_after_train:
@@ -242,7 +242,7 @@ class NeptuneLogger(Callback):
 
         if not key:
             key = 'epoch_duration' if kind == 'dur' else kind
-            self._metric_logger[key].log(logs[name])
+            self._metric_logger[key].append(logs[name])
         else:
             if kind == 'valid':
                 kind = 'validation'
@@ -253,7 +253,7 @@ class NeptuneLogger(Callback):
                 granularity = 'epoch'
 
             # for example:     train /   epoch   / loss
-            self._metric_logger[kind][granularity][key].log(logs[name])
+            self._metric_logger[kind][granularity][key].append(logs[name])
 
     @staticmethod
     def _model_summary_file(model):
