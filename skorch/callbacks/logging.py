@@ -235,7 +235,11 @@ class NeptuneLogger(Callback):
         except KeyError:
             pass
         if self.close_after_train:
-            self.run.stop()
+            root_obj = self.run
+            if isinstance(self.run, neptune.handler.Handler):
+                root_obj = self.run.get_root_object()
+
+            root_obj.stop()
 
     def _log_metric(self, name, logs, batch):
         kind, _, key = name.partition('_')
