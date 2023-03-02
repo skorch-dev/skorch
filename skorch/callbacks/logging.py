@@ -235,8 +235,13 @@ class NeptuneLogger(Callback):
         except KeyError:
             pass
         if self.close_after_train:
+            try:  # >1.0 package structure
+                from neptune.handler import Handler
+            except ImportError:  # <1.0 package structure
+                from neptune.new.handler import Handler
+
             root_obj = self.run
-            if isinstance(self.run, neptune.handler.Handler):
+            if isinstance(self.run, Handler):
                 root_obj = self.run.get_root_object()
 
             root_obj.stop()

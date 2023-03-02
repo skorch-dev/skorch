@@ -144,6 +144,29 @@ class TestNeptune:
         # Checkpoint callback was not used
         assert not neptune_run_object.exists('training/model/checkpoint')
 
+    def test_fit_with_handler(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            neptune_run_object,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[neptune_logger_cls(neptune_run_object['my_namespace'])],
+            max_epochs=5,
+        )
+        net.fit(*data)
+
+        assert neptune_run_object.exists('my_namespace/training/epoch_duration')
+        assert neptune_run_object.exists('my_namespace/training/train/epoch/loss')
+        assert neptune_run_object.exists('my_namespace/training/validation/epoch/loss')
+        assert neptune_run_object.exists('my_namespace/training/validation/epoch/acc')
+
+        # Checkpoint callback was not used
+        assert not neptune_run_object.exists('my_namespace/training/model/checkpoint')
+
     def test_log_on_batch_level_on(
             self,
             net_cls,
