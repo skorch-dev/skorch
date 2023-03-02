@@ -137,8 +137,8 @@ class NeptuneLogger(Callback):
 
     Parameters
     ----------
-    run : neptune.Run
-      Instantiated ``Run`` class.
+    run : neptune.Run or neptune.handler.Handler
+      Instantiated ``Run`` or ``Handler`` class.
 
     log_on_batch_end : bool (default=False)
       Whether to log loss and other metrics on batch level.
