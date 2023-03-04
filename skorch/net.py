@@ -283,6 +283,7 @@ class NeuralNet:
             warm_start=False,
             verbose=1,
             device='cpu',
+            unpack_dict_input=True,
             **kwargs
     ):
         self.module = module
@@ -300,6 +301,7 @@ class NeuralNet:
         self.warm_start = warm_start
         self.verbose = verbose
         self.device = device
+        self.unpack_dict_input = unpack_dict_input
 
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
@@ -1426,7 +1428,7 @@ class NeuralNet:
 
         """
         x = to_tensor(x, device=self.device)
-        if isinstance(x, Mapping):
+        if isinstance(x, Mapping) and self.unpack_dict_input:
             x_dict = self._merge_x_and_fit_params(x, fit_params)
             return self.module_(**x_dict)
         return self.module_(x, **fit_params)
