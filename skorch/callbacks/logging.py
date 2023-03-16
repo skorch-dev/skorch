@@ -89,7 +89,7 @@ class NeptuneLogger(Callback):
     $ python -m pip install neptune
 
     >>> # Create a Neptune run
-    >>> import neptune as neptune
+    >>> import neptune
     >>> from neptune.types import File
     ...
     ... # This example uses the API token for anonymous users.
