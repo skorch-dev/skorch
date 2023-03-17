@@ -210,6 +210,16 @@ class NeuralNet:
       tensors before being sent to the module. If set to None, then
       all compute devices will be left unmodified.
 
+    compile : bool (default=False)
+      If set to ``True``, compile all modules using ``torch.compile``. For this
+      to work, the installed torch version has to support ``torch.compile``.
+      Compiled modules should work identically to non-compiled modules but
+      should run faster on new GPU architectures (Volta and Ampere for
+      instance).
+      Additional arguments for ``torch.compile`` can be passed using the dunder
+      notation, e.g. when initializing the net with ``compile__dynamic=True``,
+      ``torch.compile`` will be called with ``dynamic=True``.
+
     Attributes
     ----------
     prefixes_ : list of str
@@ -253,7 +263,7 @@ class NeuralNet:
       this list.
 
     """
-    prefixes_ = ['iterator_train', 'iterator_valid', 'callbacks', 'dataset']
+    prefixes_ = ['iterator_train', 'iterator_valid', 'callbacks', 'dataset', 'compile']
 
     cuda_dependent_attributes_ = []
 
@@ -283,6 +293,7 @@ class NeuralNet:
             warm_start=False,
             verbose=1,
             device='cpu',
+            compile=False,
             **kwargs
     ):
         self.module = module
@@ -300,6 +311,7 @@ class NeuralNet:
         self.warm_start = warm_start
         self.verbose = verbose
         self.device = device
+        self.compile = compile
 
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
@@ -684,7 +696,9 @@ class NeuralNet:
             for name in self._criteria:
                 criterion = getattr(self, name + '_')
                 if isinstance(criterion, torch.nn.Module):
-                    setattr(self, name + '_', to_device(criterion, self.device))
+                    criterion = to_device(criterion, self.device)
+                    criterion = self.torch_compile(criterion, name=name)
+                    setattr(self, name + '_', criterion)
 
             return self
 
@@ -715,9 +729,62 @@ class NeuralNet:
             for name in self._modules:
                 module = getattr(self, name + '_')
                 if isinstance(module, torch.nn.Module):
-                    setattr(self, name + '_', to_device(module, self.device))
+                    module = to_device(module, self.device)
+                    module = self.torch_compile(module, name=name)
+                    setattr(self, name + '_', module)
 
             return self
+
+    # pylint: disable=unused-argument
+    def torch_compile(self, module, name):
+        """Compile torch modules
+
+        If ``compile=True`` was set, compile all torch modules of the net. Those
+        typically are ``module_`` and ``criterion_``, but custom modules are
+        also included if defined.
+
+        Notes
+        -----
+        Make sure that the installed PyTorch version supports compiling (v1.14,
+        v2.0 and higher).
+
+        Parameters
+        ----------
+        module : torch.nn.Module
+          The torch module to be compiled.
+
+        name : str
+          The name of the module. This argument is not used but provided for
+          convenience. You could use it, e.g., to skip compilation for specific
+          modules.
+
+        Returns
+        -------
+        module : torch.nn.Module or torch._dynamo.OptimizedModule
+          The compiled module if ``compile=True``, otherwise the uncompiled module.
+
+        Raises
+        ------
+        ValueError
+          If ``compile=True`` but ``torch.compile`` is not available, raise an
+          error.
+
+        """
+        # TODO: adjust docstring once we no longer support PyTorch versions without compile
+        if not self.compile:
+            return module
+
+        # Whether torch.compile is available (PyTorch 2.0 and up)
+        torch_compile_available = hasattr(torch, 'compile')
+        if not torch_compile_available:
+            raise ValueError(
+                "Setting compile=True but torch.compile is not available. Please "
+                f"check that your installed PyTorch version ({torch.__version__}) "
+                "supports torch.compile (requires v1.14, v2.0 or higher)")
+
+        params = self.get_params_for('compile')
+        module_compiled = torch.compile(module, **params)
+        return module_compiled
 
     def get_all_learnable_params(self):
         """Yield the learnable parameters of all modules
@@ -2037,7 +2104,7 @@ class NeuralNet:
 
         component_names = {key.split('__', 1)[0] for key in special_params}
         for prefix in component_names:
-            if prefix in self._modules:
+            if (prefix in self._modules) or (prefix == 'compile'):
                 reinit_module = True
                 reinit_criterion = True
                 reinit_optimizer = True

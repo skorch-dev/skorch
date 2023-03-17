@@ -12,6 +12,7 @@ from pathlib import Path
 import pickle
 import re
 from unittest.mock import Mock
+from unittest.mock import call
 from unittest.mock import patch
 import sys
 import time
@@ -3971,3 +3972,159 @@ class TestTrimForPrediction:
         clone(net)
         net.trim_for_prediction()
         clone(net)
+
+
+class TestTorchCompile:
+    """Test functionality related to torch.compile (if available)"""
+    @pytest.fixture(scope='module')
+    def data(self, classifier_data):
+        return classifier_data
+
+    @pytest.fixture(scope='module')
+    def module_cls(self, classifier_module):
+        return classifier_module
+
+    @pytest.fixture(scope='module')
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def mock_compile(self, monkeypatch):
+        """Mock torch.compile, using monkeypatch for v1.14 or above, else just
+        set and delete attribute"""
+        def fake_compile(module, **kwargs):  # pylint: disable=unused-argument
+            # just return the original module
+            return module
+
+        mocked = Mock(side_effect=fake_compile)
+
+        if not hasattr(torch, 'compile'):  # PyTorch <= 1.13
+            # cannot use monkeypatch on non-existing attr
+            try:
+                torch.compile = mocked
+                yield mocked
+            finally:
+                del torch.compile
+        else:
+            monkeypatch.setattr(torch, 'compile', mocked)
+            yield mocked
+
+    def test_no_compile(self, net_cls, module_cls, mock_compile):
+        net_cls(module_cls).initialize()
+        assert mock_compile.call_count == 0
+
+    def test_with_compile_default(self, net_cls, module_cls, mock_compile):
+        net = net_cls(module_cls, compile=True).initialize()
+
+        assert mock_compile.call_count == 2
+        # we can check the call args like this because the mock just returns the
+        # original module
+        assert mock_compile.call_args_list[0] == call(net.module_)
+        assert mock_compile.call_args_list[1] == call(net.criterion_)
+
+    def test_with_compile_extra_params(self, net_cls, module_cls, mock_compile):
+        net = net_cls(
+            module_cls,
+            compile=True,
+            compile__mode='reduce-overhead',
+            compile__dynamic=True,
+            compile__fullgraph=True,
+        ).initialize()
+
+        assert mock_compile.call_count == 2
+        expected_kwargs = {
+            'mode': 'reduce-overhead', 'dynamic': True, 'fullgraph': True
+        }
+        assert mock_compile.call_args_list[0] == call(net.module_, **expected_kwargs)
+        assert mock_compile.call_args_list[1] == call(net.criterion_, **expected_kwargs)
+
+    def test_custom_modules_are_compiled(self, net_cls, module_cls, mock_compile):
+        # ensure that if the user sets custom modules, they are also compiled
+        class MyNet(net_cls):
+            def initialize_module(self):
+                # pylint: disable=attribute-defined-outside-init
+                self.module_ = self.module()
+                self.module2_ = nn.Sequential(nn.Linear(10, 10))
+                return self
+
+            def initialize_criterion(self):
+                # pylint: disable=attribute-defined-outside-init
+                self.mycriterion_ = nn.NLLLoss()
+                return self
+
+        net = MyNet(module_cls, compile=True).initialize()
+
+        assert mock_compile.call_count == 3
+        # we can check the call args like this because the mock just returns the
+        # original module
+        assert mock_compile.call_args_list[0] == call(net.module_)
+        assert mock_compile.call_args_list[1] == call(net.module2_)
+        assert mock_compile.call_args_list[2] == call(net.mycriterion_)
+
+    def test_compile_called_after_set_params(self, net_cls, module_cls, mock_compile):
+        # When calling net.set_params(compile=True), the modules should be compiled
+
+        # start without compile
+        net = net_cls(module_cls).initialize()
+        assert mock_compile.call_count == 0
+
+        net.set_params(compile=True)
+        assert mock_compile.call_count == 2
+
+    def test_compile_called_after_set_params_on_compile_param(
+            self, net_cls, module_cls, mock_compile
+    ):
+        # When calling net.set_params(compile__arg=val), the modules should be
+        # recompiled
+
+        # start with default compile
+        net = net_cls(module_cls, compile=True).initialize()
+        assert mock_compile.call_count == 2
+
+        net.set_params(compile__mode='reduce-overhead')
+        assert mock_compile.call_count == 4
+
+    def test_compile_true_but_not_available_raises(
+            self, net_cls, module_cls, monkeypatch
+    ):
+        if hasattr(torch, 'compile'):
+            monkeypatch.delattr(torch, 'compile')
+
+        msg = "Setting compile=True but torch.compile is not available"
+        with pytest.raises(ValueError, match=msg):
+            net_cls(module_cls, compile=True).initialize()
+
+    def test_compile_missing_dunder_in_prefix_arguments(
+            self, net_cls, module_cls, mock_compile  # pylint: disable=unused-argument
+    ):
+        # forgot to use double-underscore notation in 2 compile arguments
+        msg = (
+            r"Got an unexpected argument compile_dynamic, did you mean "
+            r"compile__dynamic\?\n"
+            r"Got an unexpected argument compilemode, did you mean compile__mode\?"
+        )
+        with pytest.raises(ValueError, match=msg):
+            net_cls(
+                module_cls,
+                compile_dynamic=True,
+                compilemode='reduce-overhead',
+            ).initialize()
+
+    def test_fit_and_predict_with_compile(self, net_cls, module_cls, data):
+        if not hasattr(torch, 'compile'):
+            pytest.skip(reason="torch.compile not available")
+
+        # use real torch.compile, not mocked, can be a bit slow
+        X, y = data
+        net = net_cls(module_cls, max_epochs=1, compile=True).initialize()
+
+        # fitting and predicting does not cause any problems
+        net.fit(X, y)
+        net.predict(X)
+        net.predict_proba(X)
+
+        # it's not clear what the best way is to test that a module was actually
+        # compiled, we rely here on torch keeping this public attribute
+        assert hasattr(net.module_, 'dynamo_ctx')
+        assert hasattr(net.criterion_, 'dynamo_ctx')
