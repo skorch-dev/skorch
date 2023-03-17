@@ -91,9 +91,8 @@ class NeptuneLogger(Callback):
     >>> # Create a Neptune run
     >>> import neptune
     >>> from neptune.types import File
-    ...
-    ... # This example uses the API token for anonymous users.
-    ... # For your own projects, use the token associated with your neptune.ai account.
+    >>> # This example uses the API token for anonymous users.
+    >>> # For your own projects, use the token associated with your neptune.ai account.
     >>> run = neptune.init_run(
     ...     api_token=neptune.ANONYMOUS_API_TOKEN,
     ...     project='shared/skorch-integration',
@@ -113,27 +112,25 @@ class NeptuneLogger(Callback):
     >>> net.fit(X, y)
 
     >>> # Save the checkpoints to Neptune
-    >>> neptune_logger.run["checkpoints].upload_files("./checkpoints")
+    >>> neptune_logger.run["checkpoints"].upload_files("./checkpoints")
 
     >>> # Log additional metrics after training has finished
     >>> from sklearn.metrics import roc_auc_score
-    ... y_proba = net.predict_proba(X)
-    ... auc = roc_auc_score(y, y_proba[:, 1])
-    ...
-    ... neptune_logger.run["roc_auc_score"].log(auc)
+    >>> y_proba = net.predict_proba(X)
+    >>> auc = roc_auc_score(y, y_proba[:, 1])
+    >>> neptune_logger.run["roc_auc_score"].log(auc)
 
     >>> # Log charts, such as an ROC curve
     >>> from sklearn.metrics import RocCurveDisplay
-    ...
     >>> roc_plot = RocCurveDisplay.from_estimator(net, X, y)
     >>> neptune_logger.run["roc_curve"].upload(File.as_html(roc_plot.figure_))
 
     >>> # Log the net object after training
-    ... net.save_params(f_params='basic_model.pkl')
-    ... neptune_logger.run["basic_model"].upload(File('basic_model.pkl'))
+    >>> net.save_params(f_params='basic_model.pkl')
+    >>> neptune_logger.run["basic_model"].upload(File('basic_model.pkl'))
 
     >>> # Close the run
-    ... neptune_logger.run.stop()
+    >>> neptune_logger.run.stop()
 
     Parameters
     ----------
@@ -240,6 +237,15 @@ class NeptuneLogger(Callback):
             except ImportError:  # <1.0 package structure
                 from neptune.new.handler import Handler
 
+            # Neptune integrations now accept passing Handler object
+            # to an integration.
+            # Ref: https://docs.neptune.ai/api/field_types/#handler
+            # Example of getting an handler from a `Run` object.
+            # handler = run["foo"]
+            # handler['bar'] = 1  # Logs to `foo/bar`
+            # NOTE: Handler provides most of the functionality of `Run`
+            # for logging, however it doesn't implement a few methods like
+            # `stop`, `wait`, etc.
             root_obj = self.run
             if isinstance(self.run, Handler):
                 root_obj = self.run.get_root_object()
