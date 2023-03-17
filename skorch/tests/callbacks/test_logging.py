@@ -43,12 +43,7 @@ class TestNeptune:
 
     @pytest.fixture
     def neptune_run_object(self):
-        try:
-            # neptune-client=0.9.0+ package structure
-            import neptune.new as neptune
-        except ImportError:
-            # neptune-client>=1.0.0 package structure
-            import neptune
+        import neptune
 
         run = neptune.init_run(
             project="tests/dry-run",
@@ -149,6 +144,29 @@ class TestNeptune:
         # Checkpoint callback was not used
         assert not neptune_run_object.exists('training/model/checkpoint')
 
+    def test_fit_with_handler(
+            self,
+            net_cls,
+            classifier_module,
+            data,
+            neptune_logger_cls,
+            neptune_run_object,
+    ):
+        net = net_cls(
+            classifier_module,
+            callbacks=[neptune_logger_cls(neptune_run_object['my_namespace'])],
+            max_epochs=5,
+        )
+        net.fit(*data)
+
+        assert neptune_run_object.exists('my_namespace/training/epoch_duration')
+        assert neptune_run_object.exists('my_namespace/training/train/epoch/loss')
+        assert neptune_run_object.exists('my_namespace/training/validation/epoch/loss')
+        assert neptune_run_object.exists('my_namespace/training/validation/epoch/acc')
+
+        # Checkpoint callback was not used
+        assert not neptune_run_object.exists('my_namespace/training/model/checkpoint')
+
     def test_log_on_batch_level_on(
             self,
             net_cls,
@@ -168,7 +186,7 @@ class TestNeptune:
 
         # (5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls) + base metrics
         assert mock_experiment.__getitem__.call_count == 110 + self.NUM_BASE_METRICS
-        mock_experiment['training']['train']['batch']['batch_size'].log.assert_any_call(4)
+        mock_experiment['training']['train']['batch']['batch_size'].append.assert_any_call(4)
 
     def test_log_on_batch_level_off(
             self,
@@ -206,12 +224,7 @@ class TestNeptune:
             neptune_logger_cls,
             neptune_run_object,
     ):
-        try:
-            # neptune-client=0.9.0+ package structure
-            from neptune.new.attributes.file_set import FileSet
-        except ImportError:
-            # neptune-client>=1.0.0 package structure
-            from neptune.attributes.file_set import FileSet
+        from neptune.attributes.file_set import FileSet
         from skorch.callbacks import Checkpoint
 
         with tempfile.TemporaryDirectory() as directory:
