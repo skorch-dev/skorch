@@ -91,7 +91,7 @@ In addition to the types above, you can pass dictionaries or lists of
 one of those data types, e.g. a dictionary of
 :class:`numpy.ndarray`\s. When you pass dictionaries, the keys of the
 dictionaries are used as the argument name for the
-:func:`~torch.nn.Module.forward` method of the net's
+:meth:`~torch.nn.Module.forward` method of the net's
 ``module``. Similarly, the column names of pandas ``DataFrame``\s are
 used as argument names. The example below should illustrate how to use
 this feature:
@@ -128,7 +128,7 @@ this feature:
     net.fit(X, y)
 
 Note that the keys in the dictionary ``X`` exactly match the argument
-names in the :func:`~torch.nn.Module.forward` method. This way, you
+names in the :meth:`~torch.nn.Module.forward` method. This way, you
 can easily work with several different types of input features.
 
 The :class:`.Dataset` from skorch makes the assumption that you always
@@ -144,3 +144,24 @@ apply your own transformation on the data, you should subclass
 :class:`.Dataset` and override the
 :func:`~skorch.dataset.Dataset.transform` method, then pass your
 custom class to :class:`.NeuralNet` as the ``dataset`` argument.
+
+Preventing dictionary unpacking
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As noted, when ``X`` is a dictionary, it is automatically unpacked when passed
+to the module's :meth:`~torch.nn.Module.forward` method. Sometimes, you may want
+to prevent this, e.g. because you're using a ``module`` from another library
+that expects a dict as input, or because the exact dict keys are unknown. This
+can be achieved by wrapping the original ``module`` and packing the dict again:
+
+.. code:: python
+
+    from other_lib import ModuleExpectingDict
+
+    class WrappedModule(ModuleExpectingDict):
+        def forward(self, **kwargs):
+            # catch **kwargs, pass as a dict
+            return super().forward(kwargs)
+
+Similarly, wrapping the ``module`` can be used to make any other desired changes
+to the input arguments.
