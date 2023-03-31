@@ -14,9 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
-- Fixed install command to work with recent changes in Google Colab. (#928)
-
-- Fixes a couple of bugs related to using non-default modules and criteria (#927)
+- Fixed install command to work with recent changes in Google Colab (#928)
+- Fixed a couple of bugs related to using non-default modules and criteria (#927)
+- Fixed a bug when using `AccelerateMixin` in a multi-GPU setup
 
 ## [0.12.1] - 2022-11-18
 
