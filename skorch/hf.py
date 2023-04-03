@@ -314,9 +314,6 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
     .. _tokenizers: https://huggingface.co/docs/tokenizers/python/latest/index.html
 
     """
-    import transformers as _transformers
-    import tokenizers as _tokenizers
-
     prefixes_ = [
         'model', 'normalizer', 'post_processor', 'pre_tokenizer', 'tokenizer', 'trainer'
     ]
@@ -550,6 +547,8 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
           The fitted instance of the tokenizer.
 
         """
+        from transformers import PreTrainedTokenizerFast
+
         # from sklearn, triggers a parameter validation
         if isinstance(X, str):
             raise ValueError(
@@ -562,7 +561,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
         trainer = self.initialize_trainer()
         self.tokenizer_.train_from_iterator(X, trainer)
         self.tokenizer_.add_special_tokens([self.pad_token])
-        self.fast_tokenizer_ = self._transformers.PreTrainedTokenizerFast(
+        self.fast_tokenizer_ = PreTrainedTokenizerFast(
             tokenizer_object=self.tokenizer_,
             pad_token=self.pad_token,
         )
@@ -745,8 +744,6 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
 
     """
 
-    import transformers as _transformers
-
     def __init__(
             self,
             tokenizer,
@@ -789,6 +786,8 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
           The fitted instance of the tokenizer.
 
         """
+        from transformers import AutoTokenizer
+
         # from sklearn, triggers a parameter validation
         # even though X is not used, we leave this check in for consistency
         if isinstance(X, str):
@@ -800,7 +799,7 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
             raise ValueError("Setting vocab_size has no effect if train=False")
 
         if isinstance(self.tokenizer, (str, os.PathLike)):
-            self.fast_tokenizer_ = self._transformers.AutoTokenizer.from_pretrained(
+            self.fast_tokenizer_ = AutoTokenizer.from_pretrained(
                 self.tokenizer
             )
         else:
