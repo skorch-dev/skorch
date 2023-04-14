@@ -10,12 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add support for compiled PyTorch modules using the `torch.compile` function, introduced in [PyTorch 2.0 release](https://pytorch.org/get-started/pytorch-2.0/), which can greatly improve performance on new GPU architectures; to use it, initialize your net with the `compile=True` argument, further compilation arguments can be specified using the dunder notation, e.g. `compile__dynamic=True`
+- Add a class [`DistributedHistory`](https://skorch.readthedocs.io/en/latest/history.html#skorch.history.DistributedHistory) which should be used when training in a multi GPU setting (#955)
 
 ### Changed
 
 ### Fixed
 - Fixed install command to work with recent changes in Google Colab. (#928)
-
 - Fixes a couple of bugs related to using non-default modules and criteria (#927)
 
 ## [0.12.1] - 2022-11-18
