@@ -371,7 +371,7 @@ class DistributedHistory:
     >>> def train(accelerator):
     ...     is_master = accelerator.is_main_process
     ...     world_size = accelerator.num_processes
-    ...     rank = accelerator.process_index
+    ...     rank = accelerator.local_process_index
     ...     store = TCPStore(
     ...         "127.0.0.1", port=1234, world_size=world_size, is_master=is_master)
     ...     dist_history = DistributedHistory(
