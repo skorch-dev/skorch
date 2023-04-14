@@ -429,6 +429,9 @@ class DistributedHistory:
     def __delitem__(self, i):
         raise NotImplementedError
 
+    def clear(self):
+        self.history.clear()
+
     def new_epoch(self):
         self.sync()
         self._history.new_epoch()
