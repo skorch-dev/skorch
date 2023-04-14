@@ -101,6 +101,23 @@ instance from being copied (or, to be precise, deep-copied):
 Note that this is a hacky solution, so monitor your results closely to ensure
 nothing strange is going on.
 
+There is also a problem with caching not working correctly in multi-GPU
+training. Therefore, if using a scoring callback (e.g.
+:class:`skorch.callbacks.EpochScoring`), turn caching off by passing
+``use_caching=False``. Be aware that when using
+:class:`skorch.NeuralNetClassifier`, a scorer for accuracy on the validation set
+is added automatically. Caching can be turned off like this:
+
+.. code:: python
+
+    net = NeuralNetClassifier(..., valid_acc__use_caching=False)
+
+When running a lot of scorers, the lack of caching can slow down training
+considerably because inference is called once for each scorer, even if the
+results are always the same. A possible solution to this is to write your own
+scoring callback that records multiple scores to the ``history`` using a single
+inference call.
+
 Tokenizers
 ----------
 
