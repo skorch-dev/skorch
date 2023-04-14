@@ -430,6 +430,14 @@ class TestDistributedHistoryMultiprocessing:
     @pytest.mark.parametrize('nprocs', [1, 2, 3, 4])
     def test_distributed_history(self, nprocs):
         from skorch.toy import make_classifier
+        from skorch._version import Version
+
+        # TODO: remove this once PyTorch 1.11 is no longer supported
+        version_torch = Version(torch.__version__)
+        if version_torch < Version('1.12.0'):
+            # This test fails with 'Segmentation fault (core dumped)' using
+            # PyTorch 1.11 and pytest on CI
+            pytest.skip(msg="Skipping for PyTorch < 1.12")
 
         X, y = make_classification(
             500, 20, n_informative=10, random_state=0, flip_y=0.1
