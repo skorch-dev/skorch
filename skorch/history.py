@@ -386,10 +386,14 @@ class DistributedHistory:
       :class:`torch.distributed.TCPStore` has been tested to work.
 
     rank : int
-      The rank of this process.
+      The rank of this particular process among all processes. Each process
+      should have a unique rank between 0 and ``world_size`` - 1. If using
+      ``accelerate``, the rank can be determined as
+      ``accelerator.local_process_index``.
 
     world_size : int
-      The number of processes in the training.
+      The number of processes in the training. When using ``accelerate``, the
+      world size can be determined as ``accelerator.num_processes``.
 
     Attributes
     ----------
@@ -520,10 +524,13 @@ class DistributedHistory:
         self._sync_queue.clear()
 
     def __getstate__(self):
-        # unfortunately, TCPStore is not pickleable
         state = self.__dict__.copy()
         try:
+            # Unfortunately, TCPStore and FileStore are not pickleable. We still
+            # try, in case the user provides another type that can be pickled.
             pickle.dumps(state['store'])
-        except TypeError:
+        except (TypeError, pickle.PicklingError):
+            # TCPStore and FileStore raise TypeError, others could be
+            # PicklingError
             state['store'] = None
         return state
