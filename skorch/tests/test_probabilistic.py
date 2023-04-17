@@ -124,8 +124,8 @@ class MyBernoulliLikelihood(gpytorch.likelihoods.BernoulliLikelihood):
     a custom class with a (pointless) parameter.
 
     """
-    def __init__(self, *args, max_plate_nesting=1, **kwargs):
-        self.max_plate_nesting = max_plate_nesting
+    def __init__(self, *args, some_parameter=1, **kwargs):
+        self.some_parameter = some_parameter
         super().__init__(*args, **kwargs)
 
 
@@ -340,7 +340,8 @@ class BaseProbabilisticTests:
         params = {
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
-            'likelihood__max_plate_nesting': [1, 2],
+            # this parameter does not exist but that's okay
+            'likelihood__some_parameter': [1, 2],
         }
         gp.set_params(verbose=0)
         gs = GridSearchCV(gp, params, refit=True, cv=3, scoring=self.scoring)
@@ -432,19 +433,21 @@ class BaseProbabilisticTests:
     @pytest.mark.parametrize('kwargs,expected', [
         ({}, ""),
         (
-            {'likelihood__max_plate_nesting': 2},
+            # this parameter does not exist but that's okay
+            {'likelihood__some_parameter': 2},
             ("Re-initializing module because the following "
-             "parameters were re-set: likelihood__max_plate_nesting.\n"
+             "parameters were re-set: likelihood__some_parameter.\n"
              "Re-initializing criterion.\n"
              "Re-initializing optimizer.")
         ),
         (
             {
-                'likelihood__max_plate_nesting': 2,
+                # this parameter does not exist but that's okay
+                'likelihood__some_parameter': 2,
                 'optimizer__momentum': 0.567,
             },
             ("Re-initializing module because the following "
-             "parameters were re-set: likelihood__max_plate_nesting.\n"
+             "parameters were re-set: likelihood__some_parameter.\n"
              "Re-initializing criterion.\n"
              "Re-initializing optimizer.")
         ),
