@@ -284,8 +284,11 @@ External resources
 Communication
 =============
 
+- `GitHub discussions <https://github.com/skorch-dev/skorch/discussions>`_: 
+  user questions, thoughts, install issues, general discussions.
+
 - `GitHub issues <https://github.com/skorch-dev/skorch/issues>`_: bug
-  reports, feature requests, install issues, RFCs, thoughts, etc.
+  reports, feature requests, RFCs, etc.
 
 - Slack: We run the #skorch channel on the `PyTorch Slack server
   <https://pytorch.slack.com/>`_, for which you can `request access

@@ -626,7 +626,10 @@ class NeuralNet:
 
     def initialize_history(self):
         """Initializes the history."""
-        self.history_ = History()
+        if self.history_ is None:
+            self.history_ = History()
+        else:
+            self.history_.clear()
         return self
 
     def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
