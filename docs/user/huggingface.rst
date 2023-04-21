@@ -80,8 +80,8 @@ functions and classes creating copies are:
   not `Pipeline`).
 
 When using any of those in a multi-GPU setup with :class:`.AccelerateMixin`, you
-may encounter errors. A possible fix is to prevent the :class:`.AccelerateMixin`
-instance from being copied (or, to be precise, deep-copied):
+may encounter errors. A possible fix is to prevent the ``Accelerator`` instance
+from being copied (or, to be precise, deep-copied):
 
 .. code:: python
 
@@ -117,6 +117,11 @@ considerably because inference is called once for each scorer, even if the
 results are always the same. A possible solution to this is to write your own
 scoring callback that records multiple scores to the ``history`` using a single
 inference call.
+
+Moreover, if your training relies on the training history on some capacity, e.g.
+because you want to early stop when the validation loss stops improving, you
+should use :class:`.DistributedHistory` instead of the default history. More
+information on this can be found :ref:`here <dist-history>`.
 
 Tokenizers
 ----------
