@@ -1,6 +1,7 @@
 """Contains history class and helper functions."""
 
 import json
+import pickle
 
 from skorch.utils import open_file_like
 
@@ -301,3 +302,235 @@ class History(list):
             items, = items
 
         return items
+
+
+class DistributedHistory:
+    """History for use in training using multiple processes
+
+    When using skorch with :class:`.AccelerateMixin` for multi GPU training, use
+    this class instead of the default :class:`.History` class.
+
+    When using PyTorch :class:`torch.nn.parallel.DistributedDataParallel`, the
+    whole training process is forked and batches are processed in parallel. That
+    means that the standard :class:`.History` does not see all the batches that
+    are being processed, which results in the different processes having
+    histories that are out of sync. This is bad because the history is used as a
+    reference to influence the training, e.g. to control early stopping.
+
+    This class solves the problem by using a distributed store from PyTorch,
+    e.g. :class:`torch.distributed.TCPStore`, to synchronize the batch
+    information across processes. This ensures that the information stored in
+    the individual history copies is identical for ``history[:, 'batches']``.
+    When it comes to the epoch-level information, it can still diverge between
+    processes (e.g. the recorded duration of the epoch).
+
+    To use this class, instantiate it and pass it as the ``history`` argument to
+    the net.
+
+    Click here for more information on `PyTorch distributed key-value stores
+    <https://pytorch.org/docs/stable/distributed.html#distributed-key-value-store>`_.
+
+    Notes
+    -----
+    If using this class results in the processes hanging or timing out, double
+    check that the ``rank`` and ``world_size`` arguments are set correctly.
+    Otherwise, the history instances will be waiting for records that are
+    actually never written.
+
+    If the speed of the processes is very uneven, there can also be timeouts. To
+    increase the waiting time, pass a corresponding ``timeout`` argument to the
+    ``store`` instance.
+
+    Objects stored with this history make a json roundtrip. Therefore, if you
+    store objects that don't survive a json roundtrip (say, numpy arrays), don't
+    use this class.
+
+    The PyTorch ``Store`` classes cannot be pickled. Therefore, if a net using
+    this history class is pickled, the ``store`` attribute is discarded so that
+    the pickling does not fail. This means, however, that an unpickled net
+    cannot be used for further training without manually setting the ``store``
+    attribute on the ``history``.
+
+    Examples
+    --------
+    >>> # general
+    >>> from skorch import NeuralNetClassifier
+    >>> from torch.distributed import TCPStore
+    >>> from torch.nn.parallel import DistributedDataParallel
+    >>> def train(rank, world_size, is_master):
+    ...     store = TCPStore(
+    ...         "127.0.0.1", port=1234, world_size=world_size)
+    ...     dist_history = DistributedHistory(
+    ...         store=store, rank=rank, world_size=world_size)
+    ...     net = NeuralNetClassifier(..., history=dist_history)
+    ...     net.fit(X, y)
+    >>> # with accelerate
+    >>> from accelerate import Accelerator
+    >>> from skorch.hf import AccelerateMixin
+    >>> accelerator = Accelerator(...)
+    >>> def train(accelerator):
+    ...     is_master = accelerator.is_main_process
+    ...     world_size = accelerator.num_processes
+    ...     rank = accelerator.local_process_index
+    ...     store = TCPStore(
+    ...         "127.0.0.1", port=1234, world_size=world_size, is_master=is_master)
+    ...     dist_history = DistributedHistory(
+    ...         store=store, rank=rank, world_size=world_size)
+    ...     net = AcceleratedNet(..., history=dist_history)
+    ...     net.fit(X, y)
+
+    Parameters
+    ----------
+    store : torch.distributed.Store
+      The torch distributed ``Store`` instance,
+      :class:`torch.distributed.TCPStore` has been tested to work.
+
+    rank : int
+      The rank of this particular process among all processes. Each process
+      should have a unique rank between 0 and ``world_size`` - 1. If using
+      ``accelerate``, the rank can be determined as
+      ``accelerator.local_process_index``.
+
+    world_size : int
+      The number of processes in the training. When using ``accelerate``, the
+      world size can be determined as ``accelerator.num_processes``.
+
+    Attributes
+    ----------
+    history : skorch.history.History
+      The actual skorch ``History`` object can be accessed using the
+      :class:`.History` attribute. You should call ``net.history.sync()`` to
+      ensure that all data is synced into the history before reading from it.
+
+    """
+    def __init__(self, *args, store, rank, world_size):
+        self.store = store
+        self.rank = rank
+        self.world_size = world_size
+
+        self._history = History(*args)
+        self._cur_batch = 0
+        self._sync_queue = []
+
+    @property
+    def history(self):
+        self.sync()
+        return self._history
+
+    def to_list(self):
+        return self.history.to_list()
+
+    @classmethod
+    def from_file(cls, f):
+        raise NotImplementedError
+
+    def to_file(self, f):
+        return self.history.to_file(f)
+
+    def __len__(self):
+        return len(self.history)
+
+    def __delitem__(self, i):
+        raise NotImplementedError
+
+    def clear(self):
+        self.history.clear()
+
+    def new_epoch(self):
+        self.sync()
+        self._history.new_epoch()
+        self._cur_batch = 0
+
+    def new_batch(self):
+        self.sync()
+        self._history.new_batch()
+        self._cur_batch += 1
+
+    def record(self, attr, value):
+        self._history.record(attr, value)
+
+    def record_batch(self, attr, value):
+        """Add a new value to the given column for the current
+        batch.
+
+        Instead of writing to the history directly, write to the distributed
+        store. Then, once the history is being read from, the values from the
+        store are synchronized.
+
+        This class "remembers" which values were written to the store by
+        creating a key that uniquely identifies the values. Choosing a correct
+        key is crucial here, since it must not only be unique (say, a uuid), but
+        also sufficient to replay the history so that they can be recorded
+        correctly.
+
+        When the structure of the key is changed, it must be changed accordingly
+        inside of the sync method.
+
+        """
+        rank = self.rank
+        batch = self._cur_batch
+        epoch = len(self._history)
+        key = [epoch, batch, rank, attr]
+        self.store.set(json.dumps(key), json.dumps(value))
+
+        # the queue not only stores the keys for this process, but the keys for
+        # all processes
+        for rank in range(self.world_size):
+            key = [epoch, batch, rank, attr]
+            self._sync_queue.append(key)
+
+    def __getitem__(self, i):
+        self.sync()
+        return self._history[i]
+
+    def sync(self):
+        """Collect batch records across all ranks from store and write them to
+        the history
+
+        Syncing is not a single atomic operation, if something breaks the flow,
+        we can end up with an inconsistent state.
+
+        """
+        if not self._sync_queue:
+            return
+
+        # this ensures that that the values are visited in a stable order
+        # grouped by batches: order by batch count and within the batches in the
+        # order of the rank and within the ranks in the alphabetical order of
+        # the attributes
+        keys_sorted = sorted(self._sync_queue)
+        keys_json = [json.dumps(key) for key in keys_sorted]
+        self.store.wait(keys_json)
+
+        batch_prev = None
+        rank_prev = None
+
+        for (_, batch, rank, attr), key_json in zip(keys_sorted, keys_json):
+            if batch_prev is None:
+                batch_prev = batch
+            if rank_prev is None:
+                rank_prev = rank
+
+            # each time the batch counter or rank changes, it means that the
+            # next batch needs to be started
+            if (batch != batch_prev) or (rank != rank_prev):
+                self._history.new_batch()
+                batch_prev = batch
+                rank_prev = rank
+
+            val = json.loads(self.store.get(key_json))
+            self._history.record_batch(attr, val)
+
+        self._sync_queue.clear()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        try:
+            # Unfortunately, TCPStore and FileStore are not pickleable. We still
+            # try, in case the user provides another type that can be pickled.
+            pickle.dumps(state['store'])
+        except (TypeError, pickle.PicklingError):
+            # TCPStore and FileStore raise TypeError, others could be
+            # PicklingError
+            state['store'] = None
+        return state

@@ -1068,6 +1068,19 @@ class TestNeuralNet:
     def test_history_is_filled(self, net_fit):
         assert len(net_fit.history) == net_fit.max_epochs
 
+    def test_initializing_net_with_custom_history(self, net_cls, module_cls, data):
+        # It is possible to pass a custom history instance to the net and have
+        # the net use said history
+        from skorch.history import History
+
+        class MyHistory(History):
+            pass
+
+        net = net_cls(module_cls, history=MyHistory(), max_epochs=3)
+        X, y = data
+        net.fit(X[:100], y[:100])
+        assert isinstance(net.history, MyHistory)
+
     def test_set_params_works(self, net, data):
         X, y = data
         net.fit(X, y)
