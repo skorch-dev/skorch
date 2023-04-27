@@ -64,7 +64,7 @@ def _add_activation_hook(model, input, output, *, recs, layer_name):
         raise TypeError(f"Activations of type {type(v)} are not supported")
 
 
-def add_activation_hooks(net):
+def add_activation_hooks(net, match_fn=None):
     """Add forward hooks to all layers to record activations
 
     Ignore the top level modules like ``net.module_`` and ``net.criterion_``.
@@ -78,6 +78,11 @@ def add_activation_hooks(net):
     ----------
     net : skorch.NeuralNet
       The neural net instance (has to be initialized).
+
+    match_fn : callable or None (default=None)
+      If not ``None``, this should be a callable/function that takes the name of
+      a layer as input and returns a bool as output, where ``False`` indicates
+      that this layer should be excluded.
 
     Returns
     -------
@@ -104,6 +109,9 @@ def add_activation_hooks(net):
     for module_name, module in named_modules(net):
         recs[module_name] = []
         for layer_name, submodule in module.named_modules():
+            if match_fn and not match_fn(layer_name):
+                continue
+
             if submodule is module:
                 # is recording activations for whole module useful? skip for now
                 continue
@@ -146,13 +154,18 @@ def _add_grad_hook(grad, *, rec_grad, rec_param_update, param_name, tensor):
     rec_param_update[-1][param_name] = (grad.std() / (eps + tensor.std())).item()
 
 
-def add_grad_hooks(net):
+def add_grad_hooks(net, match_fn=None):
     """Add backward hooks to all parameters to record gradients
 
     Parameters
     ----------
     net : skorch.NeuralNet
       The neural net instance (has to be initialized).
+
+    match_fn : callable or None (default=None)
+      If not ``None``, this should be a callable/function that takes the name of
+      a parameter as input and returns a bool as output, where ``False``
+      indicates that this parameter should be excluded.
 
     Returns
     -------
@@ -180,6 +193,9 @@ def add_grad_hooks(net):
         recs_param_update[module_name] = []
 
         for param_name, tensor in module.named_parameters():
+            if match_fn and not match_fn(param_name):
+                continue
+
             if not tensor.requires_grad:
                 continue
 
@@ -279,6 +295,19 @@ class SkorchDoctor:
     net : skorch.NeuralNet
       The skorch net to be diagnosed.
 
+    match_fn : callable or None (default=None)
+      If ``match_fn=None``, all activations, gradients, and parameter updates
+      are recorded.
+
+      If not ``None``, this should be a callable/function that takes the name of
+      a layer or parameter as input and returns a bool as output, where
+      ``False`` indicates that this output should be excluded. As an example, if
+      you have a module with a :class:`torch.nn.Linear` layer called ``"fc"``
+      and you only want to keep records from that layer, and also not record any
+      gradients on biases, the ``match_fn`` could be defined as:
+
+      ``match_fn = lambda name: ("fc" in name) and ("bias" not in name)``
+
     Attributes
     ----------
     num_steps_ : int
@@ -338,8 +367,9 @@ class SkorchDoctor:
       Whether the instance has been fitted.
 
     """
-    def __init__(self, net):
+    def __init__(self, net, match_fn=None):
         self.net = net
+        self.match_fn = match_fn
 
     def initialize(self):
         """Initialize the SkorchDoctor
@@ -355,12 +385,23 @@ class SkorchDoctor:
         module_names = [name for name, _ in named_modules(self.net)]
         self.module_names_ = module_names
 
-        activation_recs, activation_handles = add_activation_hooks(self.net)
-        gradient_recs, param_update_recs, grad_handles = add_grad_hooks(self.net)
+        activation_recs, activation_handles = add_activation_hooks(
+            self.net, self.match_fn
+        )
+        gradient_recs, param_update_recs, grad_handles = add_grad_hooks(
+            self.net, self.match_fn
+        )
         self.activation_recs_ = activation_recs
         self.gradient_recs_ = gradient_recs
         self.param_update_recs_ = param_update_recs
         self.handles_ = activation_handles + grad_handles
+
+        if not self.handles_:
+            # this means nothing is being recorded
+            msg = "No activations, gradients, or updates are being recorded"
+            if self.match_fn:
+                msg += ", please check the match_fn"
+            raise ValueError(msg)
 
         return self
 

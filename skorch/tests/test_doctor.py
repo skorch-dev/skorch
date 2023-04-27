@@ -316,6 +316,45 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
         score_net = doctor.net.score(X, y)
         np.testing.assert_allclose(score_doctor, score_net)
 
+    def test_recs_with_filter(self, module_cls, net_cls, doctor_cls, data, custom_split):
+        # when initializing SkorchDoctor with a match_fn, only records whose
+        # keys match should be kept
+        def match_fn(name):
+            return "lin0" in name
+
+        net = net_cls(module_cls, max_epochs=3, batch_size=32, train_split=custom_split)
+        doctor = doctor_cls(net, match_fn=match_fn)
+        doctor.fit(*data)
+
+        for rec in doctor.activation_recs_['module']:
+            for key in rec.keys():
+                assert match_fn(key)
+
+        for rec in doctor.gradient_recs_['module']:
+            for key in rec.keys():
+                assert match_fn(key)
+
+        for rec in doctor.param_update_recs_['module']:
+            for key in rec.keys():
+                assert match_fn(key)
+
+    def test_recs_with_filter_no_match(
+            self, module_cls, net_cls, doctor_cls, data, custom_split
+    ):
+        # raise a helpful error if the match function filters away everything
+        def match_fn(name):
+            return "this-substring-does-not-exist" in name
+
+        net = net_cls(module_cls, max_epochs=3, batch_size=32, train_split=custom_split)
+        doctor = doctor_cls(net, match_fn=match_fn)
+
+        msg = (
+            "No activations, gradients, or updates are being recorded, "
+            "please check the match_fn"
+        )
+        with pytest.raises(ValueError, match=msg):
+            doctor.fit(*data)
+
     ############
     # PLOTTING #
     ############
