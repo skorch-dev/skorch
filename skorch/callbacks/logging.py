@@ -81,19 +81,18 @@ class NeptuneLogger(Callback):
     $ python -m pip install psutil
 
     You can view example experiment logs here:
-    https://app.neptune.ai/shared/skorch-integration/e/SKOR-23/
+    https://app.neptune.ai/o/common/org/skorch-integration/e/SKOR-32/all
 
     Examples
     --------
     $ # Install Neptune
-    $ python -m pip install neptune-client
+    $ python -m pip install neptune
 
     >>> # Create a Neptune run
-    >>> import neptune.new as neptune
-    >>> from neptune.new.types import File
-    ...
-    ... # This example uses the API token for anonymous users.
-    ... # For your own projects, use the token associated with your neptune.ai account.
+    >>> import neptune
+    >>> from neptune.types import File
+    >>> # This example uses the API token for anonymous users.
+    >>> # For your own projects, use the token associated with your neptune.ai account.
     >>> run = neptune.init_run(
     ...     api_token=neptune.ANONYMOUS_API_TOKEN,
     ...     project='shared/skorch-integration',
@@ -113,32 +112,30 @@ class NeptuneLogger(Callback):
     >>> net.fit(X, y)
 
     >>> # Save the checkpoints to Neptune
-    >>> neptune_logger.run["checkpoints].upload_files("./checkpoints")
+    >>> neptune_logger.run["checkpoints"].upload_files("./checkpoints")
 
     >>> # Log additional metrics after training has finished
     >>> from sklearn.metrics import roc_auc_score
-    ... y_proba = net.predict_proba(X)
-    ... auc = roc_auc_score(y, y_proba[:, 1])
-    ...
-    ... neptune_logger.run["roc_auc_score"].log(auc)
+    >>> y_proba = net.predict_proba(X)
+    >>> auc = roc_auc_score(y, y_proba[:, 1])
+    >>> neptune_logger.run["roc_auc_score"].log(auc)
 
     >>> # Log charts, such as an ROC curve
     >>> from sklearn.metrics import RocCurveDisplay
-    ...
     >>> roc_plot = RocCurveDisplay.from_estimator(net, X, y)
     >>> neptune_logger.run["roc_curve"].upload(File.as_html(roc_plot.figure_))
 
     >>> # Log the net object after training
-    ... net.save_params(f_params='basic_model.pkl')
-    ... neptune_logger.run["basic_model"].upload(File('basic_model.pkl'))
+    >>> net.save_params(f_params='basic_model.pkl')
+    >>> neptune_logger.run["basic_model"].upload(File('basic_model.pkl'))
 
     >>> # Close the run
-    ... neptune_logger.run.stop()
+    >>> neptune_logger.run.stop()
 
     Parameters
     ----------
-    run : neptune.new.Run
-      Instantiated ``Run`` class.
+    run : neptune.Run or neptune.handler.Handler
+      Instantiated ``Run`` or ``Handler`` class.
 
     log_on_batch_end : bool (default=False)
       Whether to log loss and other metrics on batch level.
@@ -231,18 +228,36 @@ class NeptuneLogger(Callback):
 
     def on_train_end(self, net, **kwargs):
         try:
-            self._metric_logger['train/epoch/event_lr'].log(net.history[:, 'event_lr'])
+            self._metric_logger['train/epoch/event_lr'].append(net.history[:, 'event_lr'])
         except KeyError:
             pass
         if self.close_after_train:
-            self.run.stop()
+            try:  # >1.0 package structure
+                from neptune.handler import Handler
+            except ImportError:  # <1.0 package structure
+                from neptune.new.handler import Handler
+
+            # Neptune integrations now accept passing Handler object
+            # to an integration.
+            # Ref: https://docs.neptune.ai/api/field_types/#handler
+            # Example of getting an handler from a `Run` object.
+            # handler = run["foo"]
+            # handler['bar'] = 1  # Logs to `foo/bar`
+            # NOTE: Handler provides most of the functionality of `Run`
+            # for logging, however it doesn't implement a few methods like
+            # `stop`, `wait`, etc.
+            root_obj = self.run
+            if isinstance(self.run, Handler):
+                root_obj = self.run.get_root_object()
+
+            root_obj.stop()
 
     def _log_metric(self, name, logs, batch):
         kind, _, key = name.partition('_')
 
         if not key:
             key = 'epoch_duration' if kind == 'dur' else kind
-            self._metric_logger[key].log(logs[name])
+            self._metric_logger[key].append(logs[name])
         else:
             if kind == 'valid':
                 kind = 'validation'
@@ -253,7 +268,7 @@ class NeptuneLogger(Callback):
                 granularity = 'epoch'
 
             # for example:     train /   epoch   / loss
-            self._metric_logger[kind][granularity][key].log(logs[name])
+            self._metric_logger[kind][granularity][key].append(logs[name])
 
     @staticmethod
     def _model_summary_file(model):

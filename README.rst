@@ -244,10 +244,10 @@ instructions for PyTorch, visit the `PyTorch website
 <http://pytorch.org/>`__. skorch officially supports the last four
 minor PyTorch versions, which currently are:
 
-- 1.10.2
 - 1.11.0
 - 1.12.1
-- 1.13.0
+- 1.13.1
+- 2.0.0
 
 However, that doesn't mean that older versions don't work, just that
 they aren't tested. Since skorch mostly relies on the stable part of
@@ -284,8 +284,11 @@ External resources
 Communication
 =============
 
+- `GitHub discussions <https://github.com/skorch-dev/skorch/discussions>`_: 
+  user questions, thoughts, install issues, general discussions.
+
 - `GitHub issues <https://github.com/skorch-dev/skorch/issues>`_: bug
-  reports, feature requests, install issues, RFCs, thoughts, etc.
+  reports, feature requests, RFCs, etc.
 
 - Slack: We run the #skorch channel on the `PyTorch Slack server
   <https://pytorch.slack.com/>`_, for which you can `request access
