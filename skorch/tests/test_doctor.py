@@ -326,6 +326,11 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
         doctor = doctor_cls(net, match_fn=match_fn)
         doctor.fit(*data)
 
+        # check trivial case of empty lists
+        assert doctor.activation_recs_['module']
+        assert doctor.gradient_recs_['module']
+        assert doctor.param_update_recs_['module']
+
         for rec in doctor.activation_recs_['module']:
             for key in rec.keys():
                 assert match_fn(key)
