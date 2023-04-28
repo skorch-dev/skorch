@@ -88,6 +88,8 @@ current epoch. To write a value to the current batch, use
 Distributed history
 -------------------
 
+.. _dist-history:
+
 When training a net in a distributed setting, e.g. when using
 :class:`torch.nn.parallel.DistributedDataParallel`, directly or indirectly with
 the help of :class:`.AccelerateMixin`, the default history class should not be

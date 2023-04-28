@@ -1011,6 +1011,14 @@ class AccelerateMixin:
         super().on_train_end(net, X=X, y=y, **kwargs)
         self.module_ = self.accelerator.unwrap_model(self.module_)
 
+    def evaluation_step(self, batch, training=False):
+        # More context:
+        # https://github.com/skorch-dev/skorch/issues/944
+        # https://huggingface.co/docs/accelerate/quicktour#distributed-evaluation
+        output = super().evaluation_step(batch, training=training)
+        y_pred = self.accelerator.gather_for_metrics(output)
+        return y_pred
+
 
 class HfHubStorage:
     """Helper class that allows writing data to the Hugging Face Hub.

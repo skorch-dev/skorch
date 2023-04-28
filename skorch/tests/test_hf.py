@@ -696,6 +696,9 @@ class TestAccelerate:
             def unwrap_model(self, model):
                 return model
 
+            def gather_for_metrics(self, output):
+                return output
+
             # pylint: disable=unused-argument
             @contextmanager
             def accumulate(self, model):

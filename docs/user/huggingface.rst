@@ -14,6 +14,9 @@ accelerate_ to skorch. E.g., this allows you to use mixed precision training
 (AMP), multi-GPU training, training with a TPU, or gradient accumulation. For the
 time being, this feature should be considered experimental.
 
+Using accelerate
+^^^^^^^^^^^^^^^^
+
 To use this feature, create a new subclass of the neural net class you want to
 use and inherit from the mixin class. E.g., if you want to use a
 :class:`.NeuralNet`, it would look like this:
@@ -62,6 +65,63 @@ To install accelerate_, run the following command inside your Python environment
     Therefore, if your optimizer requires that (e.g.
     :class:`torch.optim.LBFGS`), you cannot use accelerate.
 
+
+Caution when using a multi-GPU setup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There is a known issue when using accelerate in a multi-GPU setup *if copies of
+the net are created*. In particular, be aware that sklearn often creates copies
+under the hood, which may not immediately obvious to a user. Examples of
+functions and classes creating copies are:
+
+- `GridSearchCV`, `RandomizedSearchCV` etc.
+- `cross_validate`, `cross_val_score` etc.
+- `VotingClassifier`, `CalibratedClassifierCV` and other meta estimators (but
+  not `Pipeline`).
+
+When using any of those in a multi-GPU setup with :class:`.AccelerateMixin`, you
+may encounter errors. A possible fix is to prevent the ``Accelerator`` instance
+from being copied (or, to be precise, deep-copied):
+
+.. code:: python
+
+    class AcceleratedNet(AccelerateMixin, NeuralNet):
+        pass
+
+    class MyAccelerator(Accelerator):
+        def __deepcopy__(self, memo):
+            return self
+
+    accelerator = MyAccelerator()
+    net = AcceleratedNet(..., accelerator=accelerator)
+    # now grid search et al. should work
+    gs = GridSearchCV(net, ...)
+    gs.fit(X, y)
+
+Note that this is a hacky solution, so monitor your results closely to ensure
+nothing strange is going on.
+
+There is also a problem with caching not working correctly in multi-GPU
+training. Therefore, if using a scoring callback (e.g.
+:class:`skorch.callbacks.EpochScoring`), turn caching off by passing
+``use_caching=False``. Be aware that when using
+:class:`skorch.NeuralNetClassifier`, a scorer for accuracy on the validation set
+is added automatically. Caching can be turned off like this:
+
+.. code:: python
+
+    net = NeuralNetClassifier(..., valid_acc__use_caching=False)
+
+When running a lot of scorers, the lack of caching can slow down training
+considerably because inference is called once for each scorer, even if the
+results are always the same. A possible solution to this is to write your own
+scoring callback that records multiple scores to the ``history`` using a single
+inference call.
+
+Moreover, if your training relies on the training history on some capacity, e.g.
+because you want to early stop when the validation loss stops improving, you
+should use :class:`.DistributedHistory` instead of the default history. More
+information on this can be found :ref:`here <dist-history>`.
 
 Tokenizers
 ----------
