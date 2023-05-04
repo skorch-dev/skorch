@@ -224,8 +224,9 @@ class NeuralNet:
     ----------
     prefixes_ : list of str
       Contains the prefixes to special parameters. E.g., since there
-      is the ``'module'`` prefix, it is possible to set parameters like
-      so: ``NeuralNet(..., optimizer__momentum=0.95)``.
+      is the ``'optimizer'`` prefix, it is possible to set parameters like
+      so: ``NeuralNet(..., optimizer__momentum=0.95)``. Some prefixes are
+      populated dynamically, based on what modules and criteria are defined.
 
     cuda_dependent_attributes_ : list of str
       Contains a list of all attribute prefixes whose values depend on a
@@ -1080,6 +1081,7 @@ class NeuralNet:
                 'on_grad_computed',
                 named_parameters=TeeGenerator(self.get_all_learnable_params()),
                 batch=batch,
+                training=True,
             )
             return step['loss']
 

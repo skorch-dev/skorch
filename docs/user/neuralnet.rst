@@ -523,3 +523,40 @@ Those arguments are used to initialize your ``module``, ``criterion``,
 etc. They are not fixed because we cannot know them in advance; in
 fact, you can define any parameter for your ``module`` or other
 components.
+
+Diagnosing problems during training
+-----------------------------------
+
+When you find that your net is not training very well but have no idea why, the
+:class:`skorch.helper.SkorchDoctor` can come to your aide. This class wraps your
+net and automatically records the activations of all layers, as well as the
+gradients and updates of all parameters. On top of that, it provides a couple of
+plotting functions to visualize those values (using them requires ``matplotlib``
+to be installed):
+
+.. code:: python
+
+    net = NeuralNet(...)
+    doctor = SkorchDoctor(net)
+
+    X_sample, y_sample = X[:100], y[:100]  # a few samples are enough
+    doctor.fit(X_sample, y_sample)
+
+    # now use the attributes and plotting functions to better
+    # understand the training process
+    doctor.activation_logs_  # the recorded activations
+    doctor.gradient_logs_  # the recorded gradients
+    doctor.param_update_logs_  # the recorded parameter updates
+
+    # the next steps require matplotlib to be installed
+    doctor.plot_loss()
+    doctor.plot_activations()
+    doctor.plot_gradients()
+    doctor.plot_param_updates()
+    doctor.plot_activations_over_time(<layer-name>)
+    doctor.plot_gradients_over_time(<param-name>)
+
+These tools allow you to make more educated decisions about how to improve your
+training process then just randomly trying out different hyper-parameters.
+
+A more complete example can be found in the `SkorchDoctor notebook <https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Skorch_Doctor.ipynb>`_.

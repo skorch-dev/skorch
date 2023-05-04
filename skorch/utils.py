@@ -634,6 +634,7 @@ def _sigmoid_then_2d(x):
     # return x.T
 
 
+# pylint: disable=protected-access
 def _infer_predict_nonlinearity(net):
     """Infers the correct nonlinearity to apply for this net
 

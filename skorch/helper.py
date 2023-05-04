@@ -12,6 +12,7 @@ from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 import torch
 
+from skorch._doctor import SkorchDoctor
 from skorch.cli import parse_args
 from skorch.utils import _make_split
 from skorch.utils import to_numpy
@@ -20,9 +21,10 @@ from skorch.utils import to_tensor
 
 
 __all__ = [
-    "SliceDict",
-    "SliceDataset",
     "DataFrameTransformer",
+    "SliceDataset",
+    "SkorchDoctor",
+    "SliceDict",
     "predefined_split",
     "parse_args",
 ]
