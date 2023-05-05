@@ -56,7 +56,7 @@ class Callback:
         """
 
     def _get_param_names(self):
-        return (key for key in self.__dict__ if not key.endswith('_'))
+        return [key for key in self.__dict__ if not key.endswith('_')]
 
     def get_params(self, deep=True):
         return BaseEstimator.get_params(self, deep=deep)
