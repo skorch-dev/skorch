@@ -1102,6 +1102,27 @@ class TestNeuralNet:
         assert net.module_.sequential[3].in_features == 20
         assert np.isclose(net.lr, 0.2)
 
+    def test_unknown_set_params_gives_helpful_message(self, net_fit):
+        # test that the error message of set_params includes helpful
+        # information instead of, e.g., generator expressions.
+        # sklearn 0.2x does not output the parameter names so we can
+        # skip detailled checks of the error message there.
+
+        sklearn_0_2x_string = "Check the list of available parameters with `estimator.get_params().keys()`"
+
+        with pytest.raises(ValueError) as e:
+            net_fit.set_params(invalid_parameter_xyz=42)
+
+        exception_str = str(e.value)
+
+        if sklearn_0_2x_string in exception_str:
+            return
+
+        expected_keys = ["module", "criterion"]
+
+        for key in expected_keys:
+            assert key in exception_str[exception_str.find("Valid parameters are: ") :]
+
     def test_set_params_then_initialize_remembers_param(
             self, net_cls, module_cls):
         net = net_cls(module_cls)
