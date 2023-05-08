@@ -1934,7 +1934,7 @@ class NeuralNet:
         return args, kwargs
 
     def _get_param_names(self):
-        return (k for k in self.__dict__ if not k.endswith('_'))
+        return [k for k in self.__dict__ if not k.endswith('_')]
 
     def _get_params_callbacks(self, deep=True):
         """sklearn's .get_params checks for `hasattr(value,
