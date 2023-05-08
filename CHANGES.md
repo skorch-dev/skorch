@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.13.0] - 2023-05-09
+
+### Added
 - Add support for compiled PyTorch modules using the `torch.compile` function, introduced in [PyTorch 2.0 release](https://pytorch.org/get-started/pytorch-2.0/), which can greatly improve performance on new GPU architectures; to use it, initialize your net with the `compile=True` argument, further compilation arguments can be specified using the dunder notation, e.g. `compile__dynamic=True`
 - Add a class [`DistributedHistory`](https://skorch.readthedocs.io/en/latest/history.html#skorch.history.DistributedHistory) which should be used when training in a multi GPU setting (#955)
 - `SkorchDoctor`: A helper class that assists in understanding and debugging the neural net training, see [this notebook](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Skorch_Doctor.ipynb) (#912)
@@ -304,3 +312,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.11.0]: https://github.com/skorch-dev/skorch/compare/v0.10.0...v0.11.0
 [0.12.0]: https://github.com/skorch-dev/skorch/compare/v0.11.0...v0.12.0
 [0.12.1]: https://github.com/skorch-dev/skorch/compare/v0.12.0...v0.12.1
+[0.13.0]: https://github.com/skorch-dev/skorch/compare/v0.12.1...v0.13.0
