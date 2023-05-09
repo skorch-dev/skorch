@@ -888,6 +888,19 @@ class AccelerateMixin:
       leave device handling to accelerate. Therefore, it is best to leave this
       argument to be None, which means that skorch does not set the device.
 
+    unwrap_after_train : bool (default=True)
+      By default, with this option being ``True``, the module(s) and criterion
+      are automatically "unwrapped" after training. This means that their
+      initial state -- from before they were prepared by the ``accelerator`` --
+      is restored. This is necessary to pickle the net.
+
+      There are circumstances where you might want to disable this behavior. For
+      instance, when you want to further train the model with AMP enabled (using
+      ``net.partial_fit`` or ``warm_start=True``). Also, unwrapping the modules
+      means that the advantage of using mixed precision is lost during
+      inference. In those cases, if you don't need to pickle the net, you should
+      set ``unwrap_after_train=False``.
+
     callbacks__print_log__sink : 'auto' or callable
       If 'auto', uses the ``print`` function of the accelerator, if it has one.
       This avoids printing the same output multiple times when training
@@ -900,6 +913,7 @@ class AccelerateMixin:
             *args,
             accelerator,
             device=None,
+            unwrap_after_train=True,
             callbacks__print_log__sink='auto',
             **kwargs
     ):
@@ -910,6 +924,7 @@ class AccelerateMixin:
             **kwargs
         )
         self.accelerator = accelerator
+        self.unwrap_after_train = unwrap_after_train
 
     def _validate_params(self):
         super()._validate_params()
@@ -1009,7 +1024,15 @@ class AccelerateMixin:
     # pylint: disable=unused-argument
     def on_train_end(self, net, X=None, y=None, **kwargs):
         super().on_train_end(net, X=X, y=y, **kwargs)
-        self.module_ = self.accelerator.unwrap_model(self.module_)
+        if not self.unwrap_after_train:
+            return self
+
+        for name in self._modules + self._criteria:
+            module = getattr(self, name + '_')
+            if isinstance(module, torch.nn.Module):
+                orig = self.accelerator.unwrap_model(module, keep_fp32_wrapper=False)
+                setattr(self, name + '_', orig)
+        return self
 
     def evaluation_step(self, batch, training=False):
         # More context:

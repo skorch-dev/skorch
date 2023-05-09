@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add support for compiled PyTorch modules using the `torch.compile` function, introduced in [PyTorch 2.0 release](https://pytorch.org/get-started/pytorch-2.0/), which can greatly improve performance on new GPU architectures; to use it, initialize your net with the `compile=True` argument, further compilation arguments can be specified using the dunder notation, e.g. `compile__dynamic=True`
 - Add a class [`DistributedHistory`](https://skorch.readthedocs.io/en/latest/history.html#skorch.history.DistributedHistory) which should be used when training in a multi GPU setting (#955)
 - `SkorchDoctor`: A helper class that assists in understanding and debugging the neural net training, see [this notebook](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Skorch_Doctor.ipynb) (#912)
+- When using `AccelerateMixin`, it is now possible to prevent unwrapping of the modules by setting `unwrap_after_train=True`
 
 ### Changed
 
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `_get_param_names` returns a list instead of a generator so that subsequent
   error messages return useful information instead of a generator `repr`
   string (#925)
+- Fixed a bug that caused modules to not be sufficiently unwrapped at the end of training when using `AccelerateMixin`, which could prevent them from being pickleable
 
 ## [0.12.1] - 2022-11-18
 
