@@ -562,9 +562,9 @@ class TestAccelerate:
         assert np.isfinite(net.history[:, "train_loss"]).all()
 
     @pytest.mark.parametrize('mixed_precision', [
-        pytest.param('fp16', marks=pytest.mark.xfail(raises=pickle.PicklingError)),
-        pytest.param('bf16', marks=pytest.mark.xfail(raises=pickle.PicklingError)),
         'no',  # no acceleration works because forward is left the same
+        'fp16',
+        pytest.param('bf16', marks=pytest.mark.xfail(raises=pickle.PicklingError)),
     ])
     def test_mixed_precision_pickling(
             self, net_cls, accelerator_cls, data, mixed_precision
@@ -601,8 +601,50 @@ class TestAccelerate:
 
         accelerator = accelerator_cls(mixed_precision=mixed_precision)
         net = net_cls(accelerator=accelerator)
-        net.initialize()
+        X, y = data
+        net.fit(X[:100], y[:100])
         pickle.loads(pickle.dumps(net))
+
+    def test_unwrapping_all_modules(self, module_cls, accelerator_cls, data):
+        # This test is for a bug we had previously where only 'module_' was
+        # unwrapped, not all possible modules and criteria.
+        if not torch.cuda.is_available():
+            pytest.skip('skipping test because device does not support it')
+
+        class MyNet(AcceleratedNet):
+            """Net with two different modules"""
+            def initialize_module(self):
+                super().initialize_module()
+                self.module2_ = module_cls()
+                return self
+
+        accelerator = accelerator_cls(mixed_precision='fp16')
+        net = MyNet(module_cls, accelerator=accelerator, unwrap_after_train=True)
+        X, y = data
+        net.fit(X[:100], y[:100])
+
+        # there isn't really an elegant way to check if the modules have been
+        # correctly unwrapped
+        assert not hasattr(net.criterion_.forward, '__wrapped__')
+        assert not hasattr(net.module_.forward, '__wrapped__')
+        assert not hasattr(net.module2_.forward, '__wrapped__')
+
+    def test_not_unwrapping_modules(self, net_cls, accelerator_cls, data):
+        # Make it possible not to unwrap the modules after training. This is
+        # useful, e.g., to allow further training with warm start or to do
+        # inference with AMP, but it prevents the model from being pickled.
+        if not torch.cuda.is_available():
+            pytest.skip('skipping test because device does not support it')
+
+        accelerator = accelerator_cls(mixed_precision='fp16')
+        net = net_cls(accelerator=accelerator, unwrap_after_train=False)
+        X, y = data
+        net.fit(X[:100], y[:100])
+
+        # there isn't really an elegant way to check if the modules have been
+        # correctly unwrapped
+        assert hasattr(net.criterion_.forward, '__wrapped__')
+        assert hasattr(net.module_.forward, '__wrapped__')
 
     @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
     def test_mixed_precision_save_load_params(
@@ -693,7 +735,7 @@ class TestAccelerate:
                 loss.backward(**kwargs)
                 loss.backward_was_called = True
 
-            def unwrap_model(self, model):
+            def unwrap_model(self, model, keep_fp32_wrapper=True):
                 return model
 
             def gather_for_metrics(self, output):
