@@ -1777,19 +1777,6 @@ class NeuralNet:
           mini-batches.
 
         """
-        # TODO: remove in skorch v0.13, see #835
-        if isinstance(dataset, DataLoader):
-            msg = (
-                "get_iterator was called with a DataLoader instance but it should be "
-                "called with a Dataset instead. Probably, you implemented a custom "
-                "run_single_epoch method. Its first argument is now a DataLoader, "
-                "not a Dataset. For more information, look here: "
-                "https://skorch.readthedocs.io/en/latest/user/FAQ.html"
-                "#migration-from-0-11-to-0-12. This will raise an error in skorch v0.13"
-            )
-            warnings.warn(msg, DeprecationWarning)
-            return dataset
-
         if training:
             kwargs = self.get_params_for('iterator_train')
             iterator = self.iterator_train

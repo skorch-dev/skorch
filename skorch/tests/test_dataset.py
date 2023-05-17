@@ -918,11 +918,3 @@ class TestValidSplit:
 
     def test_random_state_and_float_does_not_raise(self, valid_split_cls):
         valid_split_cls(0.5, random_state=0)  # does not raise
-
-    def test_cvsplit_deprecation(self):
-        from skorch.dataset import CVSplit
-        with pytest.warns(
-            DeprecationWarning,
-            match="is deprecated, use the new name ValidSplit instead",
-        ):
-            CVSplit()

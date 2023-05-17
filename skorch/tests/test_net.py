@@ -3778,44 +3778,6 @@ class TestNeuralNet:
         y_pred = net.predict(X)
         assert y_pred.shape == (100, 2)
 
-    # TODO: remove in skorch v0.13
-    def test_net_with_custom_run_single_epoch(self, net_cls, module_cls, data):
-        # See #835. We changed the API to initialize the DataLoader only once
-        # per epoch. This test is to make sure that code that overrides
-        # run_single_epoch still works for the time being.
-        from skorch.dataset import get_len
-
-        class MyNet(net_cls):
-            def run_single_epoch(self, dataset, training, prefix, step_fn, **fit_params):
-                # code as in skorch<=0.11
-                # first argument should now be an iterator, not a dataset
-                if dataset is None:
-                    return
-
-                # make sure that the "dataset" (really the DataLoader) can still
-                # access the Dataset if needed
-                assert hasattr(dataset, 'dataset')
-
-                batch_count = 0
-                for batch in self.get_iterator(dataset, training=training):
-                    self.notify("on_batch_begin", batch=batch, training=training)
-                    step = step_fn(batch, **fit_params)
-                    self.history.record_batch(prefix + "_loss", step["loss"].item())
-                    batch_size = (get_len(batch[0]) if isinstance(batch, (tuple, list))
-                                  else get_len(batch))
-                    self.history.record_batch(prefix + "_batch_size", batch_size)
-                    self.notify("on_batch_end", batch=batch, training=training, **step)
-                    batch_count += 1
-
-                self.history.record(prefix + "_batch_count", batch_count)
-
-        net = MyNet(module_cls, max_epochs=2)
-        X, y = data
-        with pytest.deprecated_call():
-            net.fit(X, y)
-        # does not raise
-        net.predict(X)
-
 
 class TestNetSparseInput:
     @pytest.fixture(scope='module')
