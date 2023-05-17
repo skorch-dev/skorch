@@ -27,7 +27,7 @@ conda env remove -y -n $CONDA_ENV
 set -e
 
 echo "creating empty conda env"
-conda env create -q -n $CONDA_ENV
+conda create -y -q -n $CONDA_ENV python=$PYTHON_VERSION
 
 remove_env() {
     source deactivate
