@@ -1,6 +1,7 @@
 docutils<0.18
 gpytorch>=1.5
 numpy>=1.13.3
+tabulate>=0.7.7
 torch>=1.11.0
 transformers
 sphinx-rtd-theme==0.4.0
