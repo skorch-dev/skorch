@@ -1934,7 +1934,7 @@ class NeuralNet:
             return params
 
         callbacks_ = getattr(self, 'callbacks_', [])
-        for key, val in chain(callbacks_, self._default_callbacks):
+        for key, val in chain(self._default_callbacks, callbacks_):
             name = 'callbacks__' + key
             params[name] = val
             if val is None:  # callback deactivated
