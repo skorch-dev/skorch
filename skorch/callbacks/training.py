@@ -130,13 +130,6 @@ class Checkpoint(Callback):
     dirname: str (default='')
       Directory where files are stored.
 
-    load_best: bool (default=False)
-      Load the best checkpoint automatically once training ended.
-      This can be particularly helpful in combination with early stopping
-      as it allows for scoring with the best model, even when early stopping
-      ended training a number of epochs later. Note that this will only
-      work when ``monitor != None``.
-
     event_name: str, (default='event_cp')
       Name of event to be placed in history when checkpoint is triggered.
       Pass ``None`` to disable placing events in history.
@@ -145,6 +138,20 @@ class Checkpoint(Callback):
       The target that the information about created checkpoints is
       sent to. This can be a logger or ``print`` function (to send to
       stdout). By default the output is discarded.
+
+    load_best: bool (default=False)
+      Load the best checkpoint automatically once training ended.
+      This can be particularly helpful in combination with early stopping
+      as it allows for scoring with the best model, even when early stopping
+      ended training a number of epochs later. Note that this will only
+      work when ``monitor != None``.
+
+    use_safetensors : bool (default=False)
+      Whether to use the ``safetensors`` library to persist the state. By
+      default, PyTorch is used, which in turn uses :mod:`pickle` under the
+      hood. When enabling ``safetensors``, be aware that only PyTorch
+      tensors can be stored. Therefore, certain attributes like the
+      optimizer cannot be saved.
 
     """
     def __init__(
@@ -160,6 +167,7 @@ class Checkpoint(Callback):
             event_name='event_cp',
             sink=noop,
             load_best=False,
+            use_safetensors=False,
             **kwargs
     ):
         self.monitor = monitor
@@ -173,6 +181,7 @@ class Checkpoint(Callback):
         self.event_name = event_name
         self.sink = sink
         self.load_best = load_best
+        self.use_safetensors = use_safetensors
         self._check_kwargs(kwargs)
         vars(self).update(**kwargs)
         self._validate_filenames()
@@ -183,6 +192,10 @@ class Checkpoint(Callback):
                 raise TypeError(
                     "{cls_name} got an unexpected argument '{key}', did you mean "
                     "'f_{key}'?".format(cls_name=self.__class__.__name__, key=key))
+        if self.use_safetensors and self.f_optimizer is not None:
+            raise ValueError(
+                "Cannot save optimizer state when using safetensors, "
+                "please set f_optimizer=None or don't use safetensors.")
 
     def initialize(self):
         self._validate_filenames()
@@ -194,7 +207,7 @@ class Checkpoint(Callback):
         if not self.load_best or self.monitor is None:
             return
         self._sink("Loading best checkpoint after training.", net.verbose)
-        net.load_params(checkpoint=self)
+        net.load_params(checkpoint=self, use_safetensors=self.use_safetensors)
 
     def on_epoch_end(self, net, **kwargs):
         if "{}_best".format(self.monitor) in net.history[-1]:
@@ -290,7 +303,7 @@ class Checkpoint(Callback):
 
     def _save_params(self, f, net, f_name, log_name):
         try:
-            net.save_params(**{f_name: f})
+            net.save_params(**{f_name: f, 'use_safetensors': self.use_safetensors})
         except Exception as e:  # pylint: disable=broad-except
             self._sink(
                 "Unable to save {} to {}, {}: {}".format(
@@ -659,9 +672,16 @@ class LoadInitState(Callback):
     checkpoint: :class:`.Checkpoint`
       Checkpoint to get filenames from.
 
+    use_safetensors : bool (default=False)
+      Whether to use the ``safetensors`` library to load the state. By default,
+      PyTorch is used, which in turn uses :mod:`pickle` under the hood. When the
+      state was saved using ``safetensors``, (e.g. by enabling it with the
+      :class:`.Checkpoint`), you should set this to ``True``.
+
     """
-    def __init__(self, checkpoint):
+    def __init__(self, checkpoint, use_safetensors=False):
         self.checkpoint = checkpoint
+        self.use_safetensors = use_safetensors
 
     def initialize(self):
         self.did_load_ = False
@@ -673,9 +693,15 @@ class LoadInitState(Callback):
             self.did_load_ = True
             with suppress(FileNotFoundError):
                 if isinstance(self.checkpoint, TrainEndCheckpoint):
-                    net.load_params(checkpoint=self.checkpoint.checkpoint_)
+                    net.load_params(
+                        checkpoint=self.checkpoint.checkpoint_,
+                        use_safetensors=self.use_safetensors
+                    )
                 else:
-                    net.load_params(checkpoint=self.checkpoint)
+                    net.load_params(
+                        checkpoint=self.checkpoint,
+                        use_safetensors=self.use_safetensors
+                    )
 
 
 class TrainEndCheckpoint(Callback):
@@ -743,6 +769,13 @@ class TrainEndCheckpoint(Callback):
     dirname: str (default='')
       Directory where files are stored.
 
+    use_safetensors : bool (default=False)
+      Whether to use the ``safetensors`` library to persist the state. By
+      default, PyTorch is used, which in turn uses :mod:`pickle` under the
+      hood. When enabling ``safetensors``, be aware that only PyTorch
+      tensors can be stored. Therefore, certain attributes like the
+      optimizer cannot be saved.
+
     sink : callable (default=noop)
       The target that the information about created checkpoints is
       sent to. This can be a logger or ``print`` function (to send to
@@ -758,6 +791,7 @@ class TrainEndCheckpoint(Callback):
             f_pickle=None,
             fn_prefix='train_end_',
             dirname='',
+            use_safetensors=False,
             sink=noop,
             **kwargs
     ):
@@ -768,6 +802,7 @@ class TrainEndCheckpoint(Callback):
         self.f_pickle = f_pickle
         self.fn_prefix = fn_prefix
         self.dirname = dirname
+        self.use_safetensors = use_safetensors
         self.sink = sink
         Checkpoint._check_kwargs(self, kwargs)
         vars(self).update(**kwargs)
@@ -783,6 +818,7 @@ class TrainEndCheckpoint(Callback):
             dirname=self.dirname,
             event_name=None,
             sink=self.sink,
+            use_safetensors=self.use_safetensors,
             **self._f_kwargs()
         )
         self.checkpoint_.initialize()

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add support for saving and loading parameters with [safetensors](https://github.com/huggingface/safetensors/); use `net.save_params(..., use_safetensors=True)` and `net.load_params(..., use_safetensors=True)` (requires to install the `safetensors` library)
+
 ### Changed
 
 ### Fixed

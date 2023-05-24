@@ -591,8 +591,9 @@ class TestNeuralNet:
         with pytest.raises(AttributeError, match=msg):
             net_fit.load_params(f_unknown='some-file.pt')
 
+    @pytest.mark.parametrize('use_safetensors', [False, True])
     def test_save_load_state_dict_file(
-            self, net_cls, module_cls, net_fit, data, tmpdir):
+            self, net_cls, module_cls, net_fit, data, tmpdir, use_safetensors):
         net = net_cls(module_cls).initialize()
         X, y = data
 
@@ -602,16 +603,17 @@ class TestNeuralNet:
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
         with open(str(p), 'wb') as f:
-            net_fit.save_params(f_params=f)
+            net_fit.save_params(f_params=f, use_safetensors=use_safetensors)
         del net_fit
         with open(str(p), 'rb') as f:
-            net.load_params(f_params=f)
+            net.load_params(f_params=f, use_safetensors=use_safetensors)
 
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
 
+    @pytest.mark.parametrize('use_safetensors', [False, True])
     def test_save_load_state_dict_str(
-            self, net_cls, module_cls, net_fit, data, tmpdir):
+            self, net_cls, module_cls, net_fit, data, tmpdir, use_safetensors):
         net = net_cls(module_cls).initialize()
         X, y = data
 
@@ -620,9 +622,9 @@ class TestNeuralNet:
         assert not np.isclose(score_before, score_untrained)
 
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
-        net_fit.save_params(f_params=str(p))
+        net_fit.save_params(f_params=str(p), use_safetensors=use_safetensors)
         del net_fit
-        net.load_params(f_params=str(p))
+        net.load_params(f_params=str(p), use_safetensors=use_safetensors)
 
         score_after = accuracy_score(y, net.predict(X))
         assert np.isclose(score_after, score_before)
@@ -664,6 +666,49 @@ class TestNeuralNet:
         assert net._modules == ['module']
         assert net._criteria == ['criterion']
         assert net._optimizers == ['optimizer']
+
+    @pytest.mark.parametrize('file_str', [True, False])
+    def test_save_load_safetensors_used(self, net_fit, file_str, tmpdir):
+        # Safetensors' capacity to save and load net params is already covered
+        # in other tests. This is a test to exclude the (trivial) bug that even
+        # with use_safetensors=True, safetensors is not actually being used
+        # (instead accidentally using pickle or something like that). To test
+        # this, we directly open the stored file using safetensors and check its
+        # contents. If it were, say, a pickle file, this test would fail.
+        from safetensors import safe_open
+
+        p = tmpdir.mkdir('skorch').join('testmodel.safetensors')
+
+        if file_str:
+            net_fit.save_params(f_params=str(p), use_safetensors=True)
+        else:
+            with open(str(p), 'wb') as f:
+                net_fit.save_params(f_params=f, use_safetensors=True)
+
+        state_dict_loaded = {}
+        with safe_open(str(p), framework='pt', device=net_fit.device) as f:
+            for key in f.keys():
+                state_dict_loaded[key] = f.get_tensor(key)
+
+        state_dict = net_fit.module_.state_dict()
+        assert state_dict_loaded.keys() == state_dict.keys()
+        for key in state_dict:
+            torch.testing.assert_close(state_dict[key], state_dict_loaded[key])
+
+    def test_save_optimizer_with_safetensors_raises(self, net_cls, module_cls, tmpdir):
+        # safetensors cannot safe anything except for tensors. The state_dict of
+        # the optimizer contains other stuff. Therefore, an error with a helpful
+        # message is raised.
+        p = tmpdir.mkdir('skorch').join('optimizer.safetensors')
+        net = net_cls(module_cls).initialize()
+
+        with pytest.raises(ValueError) as exc:
+            net.save_params(f_optimizer=str(p), use_safetensors=True)
+
+            msg = exc.value.args[0]
+            assert msg.startswith("You are trying to store")
+            assert "optimizer.safetensors" in msg
+            assert msg.endswith("don't use safetensors.")
 
     @pytest.fixture(scope='module')
     def net_fit_adam(self, net_cls, module_cls, data):
@@ -774,9 +819,10 @@ class TestNeuralNet:
         assert orig_steps == new_steps
 
     @pytest.mark.parametrize("explicit_init", [True, False])
+    @pytest.mark.parametrize('use_safetensors', [False, True])
     def test_save_and_load_from_checkpoint(
             self, net_cls, module_cls, data, checkpoint_cls, tmpdir,
-            explicit_init):
+            explicit_init, use_safetensors):
 
         skorch_dir = tmpdir.mkdir('skorch')
         f_params = skorch_dir.join('params.pt')
@@ -784,12 +830,18 @@ class TestNeuralNet:
         f_criterion = skorch_dir.join('criterion.pt')
         f_history = skorch_dir.join('history.json')
 
-        cp = checkpoint_cls(
+        kwargs = dict(
             monitor=None,
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
             f_criterion=str(f_criterion),
-            f_history=str(f_history))
+            f_history=str(f_history),
+            use_safetensors=use_safetensors,
+        )
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        cp = checkpoint_cls(**kwargs)
         net = net_cls(
             module_cls, max_epochs=4, lr=0.1,
             optimizer=torch.optim.Adam, callbacks=[cp])
@@ -797,16 +849,18 @@ class TestNeuralNet:
         del net
 
         assert f_params.exists()
-        assert f_optimizer.exists()
         assert f_criterion.exists()
         assert f_history.exists()
+        if not use_safetensors:
+            # safetensors cannot safe optimizers
+            assert f_optimizer.exists()
 
         new_net = net_cls(
             module_cls, max_epochs=4, lr=0.1,
             optimizer=torch.optim.Adam, callbacks=[cp])
         if explicit_init:
             new_net.initialize()
-        new_net.load_params(checkpoint=cp)
+        new_net.load_params(checkpoint=cp, use_safetensors=use_safetensors)
 
         assert len(new_net.history) == 4
 
@@ -831,8 +885,9 @@ class TestNeuralNet:
         assert exp_basedir.join('unet_optimizer.pt').exists()
         assert exp_basedir.join('unet_history.json').exists()
 
+    @pytest.mark.parametrize('use_safetensors', [False, True])
     def test_save_and_load_from_checkpoint_formatting(
-            self, net_cls, module_cls, data, checkpoint_cls, tmpdir):
+            self, net_cls, module_cls, data, checkpoint_cls, tmpdir, use_safetensors):
 
         def epoch_3_scorer(net, *_):
             return 1 if net.history[-1, 'epoch'] == 3 else 0
@@ -842,21 +897,23 @@ class TestNeuralNet:
             scoring=epoch_3_scorer, on_train=True)
 
         skorch_dir = tmpdir.mkdir('skorch')
-        f_params = skorch_dir.join(
-            'model_epoch_{last_epoch[epoch]}.pt')
-        f_optimizer = skorch_dir.join(
-            'optimizer_epoch_{last_epoch[epoch]}.pt')
-        f_criterion = skorch_dir.join(
-            'criterion_epoch_{last_epoch[epoch]}.pt')
-        f_history = skorch_dir.join(
-            'history.json')
+        f_params = skorch_dir.join('model_epoch_{last_epoch[epoch]}.pt')
+        f_optimizer = skorch_dir.join('optimizer_epoch_{last_epoch[epoch]}.pt')
+        f_criterion = skorch_dir.join('criterion_epoch_{last_epoch[epoch]}.pt')
+        f_history = skorch_dir.join('history.json')
 
-        cp = checkpoint_cls(
+        kwargs = dict(
             monitor='epoch_3_scorer',
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
             f_criterion=str(f_criterion),
-            f_history=str(f_history))
+            f_history=str(f_history),
+            use_safetensors=use_safetensors,
+        )
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        cp = checkpoint_cls(**kwargs)
 
         net = net_cls(
             module_cls, max_epochs=5, lr=0.1,
@@ -867,16 +924,18 @@ class TestNeuralNet:
         del net
 
         assert skorch_dir.join('model_epoch_3.pt').exists()
-        assert skorch_dir.join('optimizer_epoch_3.pt').exists()
         assert skorch_dir.join('criterion_epoch_3.pt').exists()
         assert skorch_dir.join('history.json').exists()
+        if not use_safetensors:
+            # safetensors cannot safe optimizers
+            assert skorch_dir.join('optimizer_epoch_3.pt').exists()
 
         new_net = net_cls(
             module_cls, max_epochs=5, lr=0.1,
             optimizer=torch.optim.Adam, callbacks=[
                 ('my_score', scoring), cp
             ])
-        new_net.load_params(checkpoint=cp)
+        new_net.load_params(checkpoint=cp, use_safetensors=use_safetensors)
 
         # original run saved checkpoint at epoch 3
         assert len(new_net.history) == 3
@@ -956,6 +1015,10 @@ class TestNeuralNet:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_save_load_state_cuda_intercompatibility(
             self, net_cls, module_cls, tmpdir):
+        # This test checks that cuda weights can be loaded even without cuda,
+        # falling back to 'cpu', but there should be a warning. This test does
+        # not work with safetensors. The reason is probably that the patch does
+        # not affect safetensors.
         from skorch.exceptions import DeviceWarning
         net = net_cls(module_cls, device='cuda').initialize()
 
@@ -971,17 +1034,18 @@ class TestNeuralNet:
             'are available. Loading on device "cpu" instead.')
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
+    @pytest.mark.parametrize('use_safetensors', [False, True])
     def test_save_params_cuda_load_params_cpu_when_cuda_available(
-            self, net_cls, module_cls, data, tmpdir):
+            self, net_cls, module_cls, data, use_safetensors, tmpdir):
         # Test that if we have a cuda device, we can save cuda
         # parameters and then load them to cpu
         X, y = data
         net = net_cls(module_cls, device='cuda', max_epochs=1).fit(X, y)
         p = tmpdir.mkdir('skorch').join('testmodel.pkl')
-        net.save_params(f_params=str(p))
+        net.save_params(f_params=str(p), use_safetensors=use_safetensors)
 
         net2 = net_cls(module_cls, device='cpu').initialize()
-        net2.load_params(f_params=str(p))
+        net2.load_params(f_params=str(p), use_safetensors=use_safetensors)
         net2.predict(X)  # does not raise
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
@@ -2929,13 +2993,14 @@ class TestNeuralNet:
         hidden_units = net.custom_.state_dict()['sequential.3.weight'].shape[1]
         assert hidden_units == 99
 
+    @pytest.mark.parametrize('use_safetensors', [False, True])
     def test_save_load_state_dict_custom_module(
-            self, net_custom_module_cls, module_cls, tmpdir):
+            self, net_custom_module_cls, module_cls, use_safetensors, tmpdir):
         # test that we can store and load an arbitrary attribute like 'custom'
         net = net_custom_module_cls(module_cls).initialize()
         weights_before = net.custom_.state_dict()['sequential.3.weight']
         tmpdir_custom = str(tmpdir.mkdir('skorch').join('custom.pkl'))
-        net.save_params(f_custom=tmpdir_custom)
+        net.save_params(f_custom=tmpdir_custom, use_safetensors=use_safetensors)
         del net
 
         # initialize a new net, weights should differ
@@ -2944,7 +3009,7 @@ class TestNeuralNet:
         assert not (weights_before == weights_new).all()
 
         # after loading, weights should be the same again
-        net_new.load_params(f_custom=tmpdir_custom)
+        net_new.load_params(f_custom=tmpdir_custom, use_safetensors=use_safetensors)
         weights_loaded = net_new.custom_.state_dict()['sequential.3.weight']
         assert (weights_before == weights_loaded).all()
 
