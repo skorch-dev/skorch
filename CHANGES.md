@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add the option to globally override the use of caching in scoring callbacks on the net by setting the `use_caching` argument on the net (this overrides the settings of individual callbacks)
+
 ### Changed
 
 ### Fixed
