@@ -171,6 +171,6 @@ class TestNeuralNetRegressor:
         X, y = data
         X, y = X[:100], y[:100]  # less data to run faster
         y = y.flatten()  # make y 1d or else sklearn will complain
-        regr = BaggingRegressor(estimator=net, n_estimators=2, random_state=0)
+        regr = BaggingRegressor(net, n_estimators=2, random_state=0)
         regr.fit(X, y)  # does not raise
         assert not recwarn.list  # ensure there is no broadcast warning from torch
