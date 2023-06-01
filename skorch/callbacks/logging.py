@@ -285,11 +285,11 @@ class NeptuneLogger(Callback):
     @staticmethod
     def _model_summary_file(model):
         try:
-            # neptune-client=0.9.0+ package structure
-            from neptune.new.types import File
-        except ImportError:
             # neptune-client>=1.0.0 package structure
             from neptune.types import File
+        except ImportError:
+            # neptune-client=0.9.0+ package structure
+            from neptune.new.types import File
 
         return File.from_content(str(model), extension='txt')
 
