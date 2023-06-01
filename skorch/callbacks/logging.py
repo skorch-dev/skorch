@@ -176,6 +176,18 @@ class NeptuneLogger(Callback):
         self.keys_ignored = keys_ignored
         self.base_namespace = base_namespace
 
+        self._log_integration_version()
+
+    def _log_integration_version(self) -> None:
+        try:
+            from importlib.metadata import version
+            skorch_version = version("skorch")
+        except ImportError:
+            import pkg_resources
+            skorch_version = pkg_resources.get_distribution('skorch').version
+
+        self.run['source_code/integrations/skorch'] = skorch_version
+
     @property
     def _metric_logger(self):
         return self.run[self._base_namespace]
