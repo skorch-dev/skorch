@@ -26,19 +26,26 @@ TODO:
   - raise an error
 
 - a way to format the text/labels/few shot samples before they're
-  string-interpolated
+  string-interpolated, maybe Jinja2?
 
 - Test if this works with a more diverse range of LLMs
 
 """
 
+from string import Formatter
+
 import numpy as np
 import torch
 from sklearn.base import BaseEstimator, ClassifierMixin
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, AutoModelForCausalLM
-from transformers import LogitsProcessor
+from sklearn.utils import check_random_state
+from transformers import (
+    AutoModelForCausalLM,
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    LogitsProcessor,
+)
 
-
+# TODO: move prompts to separate module
 DEFAULT_PROMPT_ZERO_SHOT = """You are a text classification assistant.
 
 The text to classify:
@@ -75,6 +82,49 @@ The text to classify:
 
 Your response:
 """
+
+
+def _check_format_string(text, kwargs):
+    """Check if string can be exactly formatted with kwargs
+
+    This is necessary because even though calling .format(...) on a string will
+    raise if a key is missing, it ignores extra keys, and we want to error in
+    this case.
+
+    Parameters
+    ----------
+    text : str
+      The string to format.
+
+    kwargs : dict
+      The values to use for formatting.
+
+    Raises
+    ------
+    ValueError
+      If the text contains placeholders that are not in kwargs, or if kwargs
+      contains keys that are not in the text, raises a ``ValueError``.
+
+    """
+    formatter = Formatter()
+    keys = {key for _, key, _, _ in formatter.parse(text) if key is not None}
+    keys_expected = set(kwargs.keys())
+    num_keys = len(keys_expected)
+
+    if keys != keys_expected:
+        keys_missing = keys_expected - keys
+        keys_extra = keys - keys_expected
+        msg = (
+            f"The prompt is not correct, it should have exactly {num_keys} "
+            "placeholders: " + ", ".join(f"'{key}'" for key in sorted(keys_expected))
+        )
+        if keys_missing:
+            msg += ", missing keys: "
+            msg += ", ".join(f"'{key}'" for key in sorted(keys_missing))
+        if keys_extra:
+            msg += ", extra keys: "
+            msg += ", ".join(f"'{key}'" for key in sorted(keys_extra))
+        raise ValueError(msg)
 
 
 def _insert_2nd_to_last(tensor, middle, dim=-1):
@@ -316,8 +366,10 @@ class ZeroShotClassifier(_LlmBase):
         self.use_caching = use_caching
 
     def check_prompt(self, prompt):
-        # TODO checkf if prompt has the right format
         if prompt is not None:
+            _check_format_string(
+                prompt, {'text': "some text", 'labels': ["foo", "bar"]}
+            )
             return prompt
 
         return DEFAULT_PROMPT_ZERO_SHOT
@@ -332,7 +384,7 @@ class ZeroShotClassifier(_LlmBase):
         assert not fit_params
 
     def __repr__(self):
-        # TODO
+        # TODO self.tokenizer has a very ugly repr, can we replace it?
         return super().__repr__()
 
 
@@ -347,6 +399,7 @@ class FewShotClassifier(_LlmBase):
             max_samples=5,
             generate_kwargs=None,
             use_caching=True,
+            random_state=None,
     ):
         self.model = model
         self.tokenizer = tokenizer
@@ -355,11 +408,16 @@ class FewShotClassifier(_LlmBase):
         self.max_samples = max_samples
         self.generate_kwargs = generate_kwargs
         self.use_caching = use_caching
+        self.random_state = random_state
 
     def check_prompt(self, prompt):
-        # TODO checkf if prompt has the right format
         if prompt is not None:
-            return prompt
+            kwargs = {
+                'text': "some text",
+                'labels': ["foo", "bar"],
+                'examples': ["some examples"],
+            }
+            _check_format_string(prompt, kwargs)
 
         return DEFAULT_PROMPT_FEW_SHOT
 
@@ -368,8 +426,10 @@ class FewShotClassifier(_LlmBase):
         # check if stratified shuffle split could be used
         examples = []
         seen_targets = set()
-        # TODO seed
-        indices = np.random.permutation(np.arange(len(y)))
+        rng = check_random_state(self.random_state)
+        indices = rng.permutation(np.arange(len(y)))
+
+        # first batch, fill with one example for each label
         for i in range(len(y)):
             j = indices[i]
             if y[j] not in seen_targets:
@@ -382,12 +442,16 @@ class FewShotClassifier(_LlmBase):
         if len(examples) == n_samples:
             return examples
 
+        # second batch, fill with random other examples
         for i in range(i, len(y)):
             j = indices[i]
             examples.append((X[j], y[j]))
             if len(examples) == n_samples:
                 break
-        return examples
+
+        # return in reverse order so that the label diversity from the 1st batch
+        # comes last
+        return examples[::-1]
 
     def fit(self, X, y, **fit_params):
         super().fit(X, y, **fit_params)
@@ -413,5 +477,5 @@ class FewShotClassifier(_LlmBase):
         assert not fit_params
 
     def __repr__(self):
-        # TODO
+        # TODO self.tokenizer has a very ugly repr, can we replace it?
         return super().__repr__()
