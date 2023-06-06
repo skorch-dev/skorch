@@ -360,9 +360,13 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
             # thus the product of individual probalities is correct
             probas_all_labels.append(torch.prod(probas_at_idx).item())
 
+        prob_sum = sum(probas_all_labels)
+        if prob_sum == 0.0:
+            raise ValueError("All probabilities are zero.")
+
         y_prob = np.array(probas_all_labels).astype(np.float64)
         if self.probas_sum_to_1:
-            y_prob /= y_prob.sum()
+            y_prob /= prob_sum
 
         return y_prob
 
