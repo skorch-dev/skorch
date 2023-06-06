@@ -126,17 +126,25 @@ def _load_model_and_tokenizer(
 
     architecture = None
     for arch in config.architectures:
-        if ('Generation' in arch) or ('LMHead' in arch) or ('CausalLM' in arch):
+        if any(substr in arch for substr in architectures):
             architecture = arch
             break
 
     if architecture is None:
-        raise ValueError("TODO")
+        raise ValueError(
+            f"Could not identify architecture for model '{name}', try loading "
+            "model and tokenizer directly using the corresponding 'Auto' classes "
+            "from transformers and pass them to the classifier"
+        )
 
     transformers_module = importlib.import_module("transformers")
     cls = getattr(transformers_module, architecture, None)
     if cls is None:
-        raise ValueError("TODO")
+        raise ValueError(
+            f"Could not find a class '{architecture}' in transformers, try loading "
+            "model and tokenizer directly using the corresponding 'Auto' classes "
+            "from transformers and pass them to the classifier"
+        )
 
     model = cls.from_pretrained(name).to(device)
     tokenizer = AutoTokenizer.from_pretrained(name)
