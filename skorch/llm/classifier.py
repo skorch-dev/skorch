@@ -154,7 +154,9 @@ def _extend_inputs(inputs, extra):
     """Extend input arguments with an extra column"""
     input_ids = inputs['input_ids']
     attention_mask = inputs['attention_mask']
-    extra = torch.atleast_2d(torch.LongTensor(extra)).to(input_ids.device)
+    extra = torch.atleast_2d(
+        torch.tensor(extra, dtype=torch.long, device=input_ids.device)
+    )
 
     inputs_extended = inputs.copy()
     inputs_extended['input_ids'] = _insert_2nd_to_last(input_ids, extra)
