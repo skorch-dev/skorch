@@ -57,6 +57,13 @@ class TestZeroShotClassifier:
         assert (y_proba >= 0.0).all()
         assert (y_proba <= 1.0).all()
 
+    def test_init_from_model_name(self, classifier_cls, X):
+        clf = classifier_cls('google/flan-t5-small')
+        # check that none of the below raise
+        clf.fit(None, ['positive', 'negative'])
+        clf.predict_proba(X)
+        clf.predict(X)
+
     def test_proba_for_unlikely_label_low(self, model, tokenizer, classifier_cls, X):
         clf = classifier_cls(model=model, tokenizer=tokenizer)
         clf.fit(None, ['positive', 'negative', 'zip'])
@@ -232,6 +239,13 @@ class TestFewShotClassifier:
         assert np.allclose(y_proba.sum(axis=1), 1.0)
         assert (y_proba >= 0.0).all()
         assert (y_proba <= 1.0).all()
+
+    def test_init_from_model_name(self, classifier_cls, X, y):
+        clf = classifier_cls('google/flan-t5-small')
+        # check that none of the below raise
+        clf.fit(X, y)
+        clf.predict_proba(X)
+        clf.predict(X)
 
     def test_proba_for_unlikely_label_low(
             self, model, tokenizer, classifier_cls, X, y, X_test

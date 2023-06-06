@@ -2,12 +2,6 @@
 
 TODO:
 
-- Determine if it's possible to initialize the model and tokenizer from a single
-  argument (no task required), e.g. clf = ZeroShotClassifier(model_name='gpt2').
-  The problem is that for the model, it is not obvious which class to use
-  (AutoModelForSeq2SeqLM, AutoModelForCausalLM, anything else?). Ideally, this
-  should be inferred somehow.
-
 - Have a "fast/greedy" option for predict - it is not necessary to calculate
   probabilities for all classes up until the last token. When class A has
   probability p_A and class B has p_B(t) < p_A at token t, then no matter what
@@ -32,18 +26,14 @@ TODO:
 
 """
 
+import importlib
 from string import Formatter
 
 import numpy as np
 import torch
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils import check_random_state
-from transformers import (
-    AutoModelForCausalLM,
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    LogitsProcessor,
-)
+from transformers import AutoConfig, AutoTokenizer, LogitsProcessor
 
 # TODO: move prompts to separate module
 DEFAULT_PROMPT_ZERO_SHOT = """You are a text classification assistant.
@@ -125,6 +115,68 @@ def _check_format_string(text, kwargs):
             msg += ", extra keys: "
             msg += ", ".join(f"'{key}'" for key in sorted(keys_extra))
         raise ValueError(msg)
+
+
+def _load_model_and_tokenizer(
+        name, device, architectures=('Generation', 'LMHead', 'CausalLM')
+):
+    """Load a transformers model based only on its name
+
+    This is a bit tricky, because we usually require the task as well to load
+    the correct model. However, asking users to pass name and task is not very
+    user friendly because it makes, for instance, defining grid search
+    parameters more cumbersome if two parameters need to be changed together.
+
+    To solve this, we basically guess the correct architecture based on its
+    name.
+
+    Parameters
+    ----------
+    name : str
+      The name of the transformers model to load, e.g. ``google/flan-t5-small``.
+
+    device : str or torch.device
+      The device to use for the model, e.g. ``'cpu'`` or
+      ``torch.device('cuda:0')``.
+
+    architectures : tuple of str (default=('Generation', 'LMHead', 'CausalLM'))
+      The allowed architectures to load. An architecture is chosen if one of the
+      strings is a substring of the architecture name.
+
+    Returns
+    -------
+    model : torch.nn.Module
+      The pretraiend transformers model.
+
+    tokenizer
+      The tokenizer for the model.
+
+    Raises
+    ------
+    ValueError
+      If the model architecture cannot be inferred from the name, raise a
+      ``ValueError``.
+
+    """
+    config = AutoConfig.from_pretrained(name)
+
+    architecture = None
+    for arch in config.architectures:
+        if ('Generation' in arch) or ('LMHead' in arch) or ('CausalLM' in arch):
+            architecture = arch
+            break
+
+    if architecture is None:
+        raise ValueError("TODO")
+
+    transformers_module = importlib.import_module("transformers")
+    cls = getattr(transformers_module, architecture, None)
+    if cls is None:
+        raise ValueError("TODO")
+
+    model = cls.from_pretrained(name).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(name)
+    return model, tokenizer
 
 
 def _insert_2nd_to_last(tensor, middle, dim=-1):
@@ -252,27 +304,14 @@ class _CacheModelWrapper:
 
 
 class _LlmBase(BaseEstimator, ClassifierMixin):
-    @classmethod
-    def from_auto_model_for_seq2seq_lm(cls, modelname, device=None, **kwargs):
-        # TODO: infer the correct type of model, check e.g. here:
-        # https://github.com/huggingface/transformers/blob/118e9810687dd713b6be07af79e80eeb1d916908/src/transformers/pipelines/__init__.py#L428
-        # if this works, this should be moved to __init__ but keep the
-        # possibility to initialize with model and tokenizer directly
-        tokenizer = AutoTokenizer.from_pretrained(modelname)
-        model = AutoModelForSeq2SeqLM.from_pretrained(modelname)
-        if device:
-            model = model.to(device)
-        return cls(model=model, tokenizer=tokenizer, **kwargs)
-
-    @classmethod
-    def from_auto_model_for_causal_lm(cls, modelname, device=None, **kwargs):
-        tokenizer = AutoTokenizer.from_pretrained(modelname)
-        model = AutoModelForCausalLM.from_pretrained(modelname)
-        if device:
-            model = model.to(device)
-        return cls(model=model, tokenizer=tokenizer, **kwargs)
+    """TODO"""
+    def check_X_y(self, X, y, **fit_params):
+        raise NotImplementedError
 
     def check_prompt(self, prompt):
+        raise NotImplementedError
+
+    def get_prompt(self, text):
         raise NotImplementedError
 
     def check_classes(self, y):
@@ -284,23 +323,46 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
 
     @property
     def device_(self):
-        return self.model.device
+        # Use whatever device the model is on, not self.device. If a user
+        # initializes with a model that is on GPU, we don't want to require them
+        # to adjust the device argument, which would be annoying
+        return self.model_.device
 
-    def check_X_y(self, X, y, **fit_params):
-        raise NotImplementedError
+    def check_args(self):
+        # users should either pass the model name, or the model and tokenizer,
+        # but not both
+        cls_name = self.__class__.__name__
+        msg = (
+            f"{cls_name} needs to be initialized with either a model name, "
+            "or a model & tokenizer, but not both."
+        )
+        if self.model_name is not None:
+            if (self.model is not None) or (self.tokenizer is not None):
+                raise ValueError(msg)
+        else:
+            if (self.model is None) or (self.tokenizer is None):
+                raise ValueError(msg)
 
     def fit(self, X, y, **fit_params):
+        self.check_args()
         self.check_X_y(X, y)
+        if self.model_name is not None:
+            self.model_, self.tokenizer_ = _load_model_and_tokenizer(
+                self.model_name, device=self.device
+            )
+        else:
+            self.model_, self.tokenizer_ = self.model, self.tokenizer
+
         self.classes_ = self.check_classes(y)
         self.prompt_ = self.check_prompt(self.prompt)
-        self.label_ids_ = self.tokenizer(self.classes_.tolist(),)['input_ids']
+        self.label_ids_ = self.tokenizer_(self.classes_.tolist())['input_ids']
         self.cached_model_ = _CacheModelWrapper(
-            self.model, self.tokenizer, use_caching=self.use_caching
+            self.model_, self.tokenizer_, use_caching=self.use_caching
         )
         return self
 
     def _predict_one(self, text):
-        inputs = self.tokenizer(
+        inputs = self.tokenizer_(
             text,
             return_tensors='pt',
         ).to(self.device_)
@@ -348,18 +410,23 @@ class ZeroShotClassifier(_LlmBase):
     """TODO"""
     def __init__(
             self,
-            model,
-            tokenizer,
+            model_name=None,
+            *,
+            model=None,
+            tokenizer=None,
             prompt=None,
             probas_sum_to_1=True,
             generate_kwargs=None,
+            device='cpu',
             use_caching=True,
     ):
+        self.model_name = model_name
         self.model = model
         self.tokenizer = tokenizer
         self.prompt = prompt
         self.probas_sum_to_1 = probas_sum_to_1
         self.generate_kwargs = generate_kwargs
+        self.device = device
         self.use_caching = use_caching
 
     def check_prompt(self, prompt):
@@ -389,21 +456,26 @@ class FewShotClassifier(_LlmBase):
     """TODO"""
     def __init__(
             self,
-            model,
-            tokenizer,
+            model_name=None,
+            *,
+            model=None,
+            tokenizer=None,
             prompt=None,
             probas_sum_to_1=True,
             max_samples=5,
             generate_kwargs=None,
+            device='cpu',
             use_caching=True,
             random_state=None,
     ):
+        self.model_name = model_name
         self.model = model
         self.tokenizer = tokenizer
         self.prompt = prompt
         self.probas_sum_to_1 = probas_sum_to_1
         self.max_samples = max_samples
         self.generate_kwargs = generate_kwargs
+        self.device = device
         self.use_caching = use_caching
         self.random_state = random_state
 
