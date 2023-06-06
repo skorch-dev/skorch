@@ -136,13 +136,14 @@ def _insert_2nd_to_last(tensor, middle, dim=-1):
 
 def _extend_inputs(inputs, extra):
     """Extend input arguments with an extra column"""
-    extra = torch.atleast_2d(extra)
+    input_ids = inputs['input_ids']
+    attention_mask = inputs['attention_mask']
+    extra = torch.atleast_2d(torch.LongTensor(extra)).to(input_ids.device)
+
     inputs_extended = inputs.copy()
-    inputs_extended['input_ids'] = _insert_2nd_to_last(
-        inputs_extended['input_ids'], extra
-    )
+    inputs_extended['input_ids'] = _insert_2nd_to_last(input_ids, extra)
     inputs_extended['attention_mask'] = _insert_2nd_to_last(
-        inputs_extended['attention_mask'], torch.ones_like(extra)
+        attention_mask, torch.ones_like(extra)
     )
     return inputs_extended
 
@@ -209,7 +210,7 @@ class _CacheModelWrapper:
         # note that label_id i corresponds to score i+1
         # this is because the first score is for the input w/o label_id (only
         # the prompt) for this reason, the two sequences are offset by +1
-        for lid, score in zip(label_id.tolist(), scores[1:]):
+        for lid, score in zip(label_id, scores[1:]):
             input_id.insert(-1, lid)
             key = str(input_id)
             self.cache[key] = score
@@ -219,7 +220,7 @@ class _CacheModelWrapper:
 
         logits_cached = self.get_cache(kwargs)
         while logits_cached is not None:
-            if label_id[:1] == self.tokenizer.eos_token_id:
+            if label_id[0] == self.tokenizer.eos_token_id:
                 # don't extend with eos_token -- it is already there at the end,
                 # we don't need it twice
                 break
@@ -292,11 +293,7 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
         self.check_X_y(X, y)
         self.classes_ = self.check_classes(y)
         self.prompt_ = self.check_prompt(self.prompt)
-        self.label_ids_ = self.tokenizer(
-            self.classes_.tolist(),
-            return_tensors='pt',
-            padding=True,  # TODO check if padding is really needed
-        ).to(self.device_)['input_ids']
+        self.label_ids_ = self.tokenizer(self.classes_.tolist(),)['input_ids']
         self.cached_model_ = _CacheModelWrapper(
             self.model, self.tokenizer, use_caching=self.use_caching
         )
@@ -317,7 +314,7 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
 
             n = len(logits)
             label_id = label_id[:n]  # don't need EOS, PAD, etc.
-            probas_at_idx = probas[torch.arange(n), label_id.cpu()]
+            probas_at_idx = probas[torch.arange(n), label_id]
             # multiplying the probabilities for token A, B, C, ... This is
             # because we are interested in P(A) AND P(B|A) AND P(C|A,B), etc.
             # p(A) * P(B|A) =

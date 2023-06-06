@@ -83,7 +83,7 @@ class TestZeroShotClassifier:
 
     def test_same_X_same_probas(self, model, tokenizer, classifier_cls, X):
         clf = classifier_cls(model=model, tokenizer=tokenizer)
-        clf.fit(None, ['foobar'])
+        clf.fit(None, ['foo', 'bar'])
 
         y_proba = clf.predict_proba(X)
         y_proba2 = clf.predict_proba(X)
