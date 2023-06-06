@@ -151,13 +151,6 @@ def _load_model_and_tokenizer(
     return model, tokenizer
 
 
-def _insert_2nd_to_last(tensor, middle, dim=-1):
-    # Insert 2nd to last because last token is EOS token
-    n = tensor.shape[dim]
-    left_side, right_side = tensor.split([n - 1, 1], dim=dim)
-    return torch.cat((left_side, middle, right_side), dim=dim)
-
-
 def _extend_inputs(inputs, extra):
     """Extend input arguments with an extra column"""
     input_ids = inputs['input_ids']
@@ -165,11 +158,11 @@ def _extend_inputs(inputs, extra):
     extra = torch.atleast_2d(
         torch.tensor(extra, dtype=torch.long, device=input_ids.device)
     )
-
     inputs_extended = inputs.copy()
-    inputs_extended['input_ids'] = _insert_2nd_to_last(input_ids, extra)
-    inputs_extended['attention_mask'] = _insert_2nd_to_last(
-        attention_mask, torch.ones_like(extra)
+
+    inputs_extended['input_ids'] = torch.cat((input_ids, extra), dim=-1)
+    inputs_extended['attention_mask'] = torch.cat(
+        (attention_mask, torch.ones_like(extra)), dim=-1
     )
     return inputs_extended
 
@@ -195,9 +188,9 @@ class _LogitsRecorder(LogitsProcessor):
 class _CacheModelWrapper:
     """Helper class that caches model generations
 
-    If one token sequence is [1, 2, 3] and the next token sequence is [1, 2, 4],
-    for the 2nd sequence, the generation will retrieve the cached logits for [1,
-    2] and only generate [4].
+    For label ids, if one token sequence is [1, 2, 3] and the next token
+    sequence is [1, 2, 4], for the 2nd sequence, the generation will retrieve
+    the cached logits for [1, 2] and only generate [4].
 
     Set use_caching=False to disable it, e.g. for debugging.
 
@@ -207,43 +200,44 @@ class _CacheModelWrapper:
         self.tokenizer = tokenizer
         self.use_caching = use_caching
         self.cache = {}
-        self._cached_calls = 0
+        self._total_calls = 0
         self._uncached_calls = 0
+
+    def _make_key(self, kwargs):
+        input_ids = kwargs['input_ids']
+        input_id = input_ids[0].tolist()
+        key = str(input_id)
+        return key
 
     def get_cache(self, kwargs):
         if not self.use_caching:
-            return None
+            return
 
-        input_ids = kwargs['input_ids']
-        input_id = input_ids[0].tolist()
-        key = str(input_id)
+        key = self._make_key(kwargs)
         val = self.cache.get(key)
-
-        # for debugging
-        self._cached_calls += val is not None
-        self._uncached_calls += val is None
-
         return val
 
     def set_cache(self, kwargs, label_id, scores):
-        input_ids = kwargs['input_ids']
-        input_id = input_ids[0].tolist()
+        if not self.use_caching:
+            return
 
+        key = self._make_key(kwargs)
         # store 1st element
-        key = str(input_id)
         self.cache[key] = scores[0]
 
         # note that label_id i corresponds to score i+1
         # this is because the first score is for the input w/o label_id (only
-        # the prompt) for this reason, the two sequences are offset by +1
+        # the prompt); for this reason, the two sequences are offset by +1
+        input_id = kwargs['input_ids'][0].tolist()
         for lid, score in zip(label_id, scores[1:]):
-            input_id.insert(-1, lid)
+            input_id.append(lid)
             key = str(input_id)
             self.cache[key] = score
 
     def generate_logits(self, *, label_id, **kwargs):
-        recorded_logits = []
+        self._total_calls += 1  # mainly for debugging
 
+        recorded_logits = []
         logits_cached = self.get_cache(kwargs)
         while logits_cached is not None:
             if label_id[0] == self.tokenizer.eos_token_id:
@@ -256,7 +250,7 @@ class _CacheModelWrapper:
             label_id = label_id[1:]
             logits_cached = self.get_cache(kwargs)
 
-        if not len(label_id):
+        if not label_id:
             # the whole generation was cached
             return recorded_logits
 
@@ -264,13 +258,15 @@ class _CacheModelWrapper:
             # no need to generate on pad tokens
             return recorded_logits
 
+        self._uncached_calls += 1  # mainly for debugging
         recorder = _LogitsRecorder(
             label_ids=label_id,
             tokenizer=self.tokenizer,
         )
         self.model.generate(
             logits_processor=[recorder],
-            max_new_tokens=len(label_id),
+            #min_new_tokens=max(1, len(label_id) - 1),
+            max_new_tokens=len(label_id), # TODO: should this be the max len of all labels?
             **kwargs
         )
         self.set_cache(kwargs, label_id, recorder.recorded_scores)
@@ -317,6 +313,9 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
             if (self.model is None) or (self.tokenizer is None):
                 raise ValueError(msg)
 
+    def _is_encoder_decoder(self, model):
+        return hasattr(model, 'get_encoder')
+
     def fit(self, X, y, **fit_params):
         self.check_args()
         self.check_X_y(X, y)
@@ -327,6 +326,21 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
         else:
             self.model_, self.tokenizer_ = self.model, self.tokenizer
 
+        if self._is_encoder_decoder(self.model_) and self.use_caching:
+            # Explanation: When we have a prompt [1, 2, 3] and label [4, 5], and
+            # if the model is an encoder-decoder architecture (seq2seq), then
+            # [1, 2, 3] is encoded and [4, 5] are generated by the decoder. If
+            # we wanted to cache, we would store the result (among others) for
+            # [1, 2, 3, 4]. However, encoding [1, 2, 3, 4] and generating [5] is
+            # not the same operation as encoding [1, 2, 3] and generating [4,
+            # 5]. Granted, the logits could be very close, but we cannot be sure
+            # and it will depend on the model. Therefore, for the time being, we
+            # don't allow caching for encoder-decoder models.
+            raise ValueError(
+                "Caching is not supported for encoder-decoder models, "
+                "initialize the model with use_caching=False."
+            )
+
         self.classes_ = self.check_classes(y)
         self.prompt_ = self.check_prompt(self.prompt)
         self.label_ids_ = self.tokenizer_(self.classes_.tolist())['input_ids']
@@ -336,15 +350,12 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
         return self
 
     def _predict_one(self, text):
-        inputs = self.tokenizer_(
-            text,
-            return_tensors='pt',
-        ).to(self.device_)
+        inputs = self.tokenizer_(text, return_tensors='pt').to(self.device_)
 
         probas_all_labels = []
         for label_id in self.label_ids_:
             logits = self.cached_model_.generate_logits(label_id=label_id, **inputs)
-            logits = logits[:-1]  # TODO last token is EOS, keep it or not?
+            #logits = logits[:-1]  # TODO last token is EOS, keep it or not?
             logits = torch.vstack(logits)
             probas = torch.nn.functional.softmax(logits, dim=-1)
 
