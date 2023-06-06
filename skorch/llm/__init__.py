@@ -1,5 +1,5 @@
-from skorch.llm.classifier import DEFAULT_PROMPT_FEW_SHOT, DEFAULT_PROMPT_ZERO_SHOT
 from skorch.llm.classifier import FewShotClassifier, ZeroShotClassifier
+from skorch.llm.prompts import DEFAULT_PROMPT_FEW_SHOT, DEFAULT_PROMPT_ZERO_SHOT
 
 
 __all__ = [

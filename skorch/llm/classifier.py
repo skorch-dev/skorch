@@ -35,43 +35,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils import check_random_state
 from transformers import AutoConfig, AutoTokenizer, LogitsProcessor
 
-# TODO: move prompts to separate module
-DEFAULT_PROMPT_ZERO_SHOT = """You are a text classification assistant.
-
-The text to classify:
-
-```
-{text}
-```
-
-Choose the label among the following possibilities with the highest probability:
-
-{labels}
-
-Only return the label, nothing more.
-
-Your response:
-"""
-
-DEFAULT_PROMPT_FEW_SHOT = """You are a text classification assistant.
-
-Choose the label among the following possibilities with the highest probability.
-Only return the label, nothing more:
-
-{labels}
-
-Here are a few examples:
-
-{examples}
-
-The text to classify:
-
-```
-{text}
-```
-
-Your response:
-"""
+from skorch.llm.prompts import DEFAULT_PROMPT_FEW_SHOT, DEFAULT_PROMPT_ZERO_SHOT
 
 
 def _check_format_string(text, kwargs):
