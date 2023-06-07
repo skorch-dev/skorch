@@ -539,6 +539,37 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
             y_pred[mask_low_probas] = None
         return y_pred
 
+    def __repr__(self):
+        # The issue is that the repr for the transformer model can be quite huge
+        # and the repr for the tokenizer quite ugly. We solve this by
+        # temporarily replacing them by their class names. We should, however,
+        # not completely rewrite the repr code because sklearn does some special
+        # magic with the repr. This is why super().__repr__() should be used.
+        if (self.model is None) and (self.tokenizer is None):
+            # the user initialized the class with model name, the repr should be
+            # fine
+            return super().__repr__()
+
+        model_prev = self.model
+        tokenizer_prev = self.tokenizer
+        rep = None
+
+        # we are very defensive, making sure to restore the temporarily made
+        # change in case of an error
+        try:
+            self.model = self.model.__class__.__name__
+            self.tokenizer = self.tokenizer.__class__.__name__
+            rep = super().__repr__()
+        finally:
+            self.model = model_prev
+            self.tokenizer = tokenizer_prev
+
+        if rep is None:
+            # if the repr could not be generated, fall back to using the ugly
+            # repr
+            rep = super().__repr__()
+
+        return rep
 
 class ZeroShotClassifier(_LlmBase):
     """Zero-shot classification using a Large Language Model (LLM).
@@ -740,10 +771,6 @@ class ZeroShotClassifier(_LlmBase):
 
         """
         return self._fit(X, y, **fit_params)
-
-    def __repr__(self):
-        # TODO self.tokenizer has a very ugly repr, can we replace it?
-        return super().__repr__()
 
 
 class FewShotClassifier(_LlmBase):
@@ -1027,7 +1054,3 @@ class FewShotClassifier(_LlmBase):
                 "X and y don't have the same number of samples, found "
                 f"{len_X} and {len_y} samples, respectively"
         )
-
-    def __repr__(self):
-        # TODO self.tokenizer has a very ugly repr, can we replace it?
-        return super().__repr__()

@@ -400,6 +400,19 @@ class TestZeroShotClassifier:
         expected = [None, None, 'positive']
         np.testing.assert_array_equal(y_pred, expected)
 
+    def test_repr(self, classifier_cls, model, tokenizer):
+        expected = (
+            "ZeroShotClassifier(model='T5ForConditionalGeneration', "
+            "tokenizer='T5TokenizerFast', use_caching=False)"
+        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        assert str(clf) == expected
+        assert repr(clf) == expected
+
+        clf.fit(None, ['positive', 'negative'])
+        assert str(clf) == expected
+        assert repr(clf) == expected
+
 
 class TestFewShotClassifier:
     """Most of the functionality of FewShotClassifier is shared with
@@ -646,3 +659,17 @@ class TestFewShotClassifier:
             "```\nexample-1\n```\n\nYour response:\nlabel-a\n"
         )
         assert clf.get_prompt(x) == expected
+
+    def test_repr(self, classifier_cls, model, tokenizer, X, y):
+        expected = (
+            "FewShotClassifier(model='T5ForConditionalGeneration', "
+            "tokenizer='T5TokenizerFast', use_caching=False)"
+        )
+
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        assert str(clf) == expected
+        assert repr(clf) == expected
+
+        clf.fit(X, y)
+        assert str(clf) == expected
+        assert repr(clf) == expected
