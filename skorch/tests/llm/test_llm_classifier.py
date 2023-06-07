@@ -118,6 +118,17 @@ class TestZeroShotClassifier:
         with pytest.raises(ValueError, match=msg):
             clf.fit(None, ['positive', 'negative'])
 
+    def test_init_no_fitting_architecture_raises(self, classifier_cls):
+        # resnet-18 exists but cannot be used for language generation
+        clf = classifier_cls('microsoft/resnet-18')
+        msg = (
+            "Could not identify architecture for model 'microsoft/resnet-18', "
+            "try loading model and tokenizer directly using the corresponding 'Auto' classes "
+            "from transformers and pass them to the classifier"
+        )
+        with pytest.raises(ValueError, match=msg):
+            clf.fit(None, ['positive', 'negative'])
+
     def test_predict(self, model, tokenizer, classifier_cls, X):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         clf.fit(None, ['negative', 'positive'])
