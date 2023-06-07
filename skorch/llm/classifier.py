@@ -1,6 +1,6 @@
-"""Using LLMs from transformers for zero/few shot learning
+"""Using LLMs from transformers for zero/few-shot learning
 
-TODO:
+Open tasks:
 
 - Have a "fast/greedy" option for predict - it is not necessary to calculate
   probabilities for all classes up until the last token. When class A has
@@ -11,18 +11,16 @@ TODO:
   pipeline, e.g. to extract structured knowledge from a text ("Does this
   product description contain the size of the item?")
 
-- Probability threshold to identify if the prompt might be totally off. If
-  probability is too low:
-
-  - do nothing special (default)
-  - predict returns None at those indices
-  - give a warning
-  - raise an error
-
-- a way to format the text/labels/few shot samples before they're
+- a way to format the text/labels/few-shot samples before they're
   string-interpolated, maybe Jinja2?
 
 - Test if this works with a more diverse range of LLMs
+
+- Enable multi-label classification. Would probably require sigmoid instead of
+  softmax and a (empirically determined?) threshold.
+
+- Check if it is possible to enable caching for encoder-decoder LLMs like
+  flan-t5.
 
 """
 
@@ -34,6 +32,7 @@ import numpy as np
 import torch
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils import check_random_state
+from sklearn.utils.validation import check_is_fitted
 from transformers import AutoConfig, AutoTokenizer, LogitsProcessor
 
 from skorch.exceptions import SkorchException
@@ -280,7 +279,10 @@ class LowProbabilityError(SkorchException):
 
 
 class _LlmBase(BaseEstimator, ClassifierMixin):
-    """TODO
+    """Base class for LLM models
+
+    This class handles a few of the checks, as well as the whole prediction
+    machinery.
 
     Required attributes are:
 
@@ -289,7 +291,6 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
     - tokenizer
     - prompt
     - probas_sum_to_1
-    - generate_kwargs
     - device
     - error_low_prob
     - threshold_low_prob
@@ -305,12 +306,16 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
     def get_prompt(self, text):
         raise NotImplementedError
 
+    def fit(self, X, y, **fit_params):
+        # note: should call _fit
+        raise NotImplementedError
+
     def check_classes(self, y):
         return np.unique(y)
 
     def check_is_fitted(self):
-        # TODO
-        pass
+        required_attrs = ['model_', 'tokenizer_', 'prompt_', 'classes_', 'label_ids_']
+        check_is_fitted(self, required_attrs)
 
     @property
     def device_(self):
@@ -351,7 +356,8 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
     def _is_encoder_decoder(self, model):
         return hasattr(model, 'get_encoder')
 
-    def fit(self, X, y, **fit_params):
+    def _fit(self, X, y, **fit_params):
+        """Prepare everything to enable predictions."""
         self.check_args()
         self.check_X_y(X, y)
         if self.model_name is not None:
@@ -400,7 +406,6 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
         probas_all_labels = []
         for label_id in self.label_ids_:
             logits = self.cached_model_.generate_logits(label_id=label_id, **inputs)
-            #logits = logits[:-1]  # TODO last token is EOS, keep it or not?
             logits = torch.vstack(logits)
             probas = torch.nn.functional.softmax(logits, dim=-1)
 
@@ -456,7 +461,36 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
         return y_proba
 
     def predict_proba(self, X):
-        """TODO"""
+        """Return the probabilities predicted by the LLM.
+
+        Predictions will be forced to be one of the labels the model learned
+        during ``fit``. Each column in ``y_proba`` corresponds to one class. The
+        order of the classes can be checked in the ``.classes_`` attribute. In
+        general, it is alphabetic. So the first column is the probability for
+        the first class in ``.classes_``, the second column is the probability
+        for the second class in ``.classes_``, etc.
+
+        If ``error_low_prob`` is set to ``'warn'``, then a warning is given if,
+        for at least one sample, the sum of the probabilities for all classes is
+        below the threshold set in ``threshold_low_prob``. If ``error_low_prob``
+        is set to ``'raise'``, then an error is raised instead.
+
+        Parameters
+        ----------
+        X : input data
+          Typically, this is a list/array of strings. E.g., this could be a list
+          of reviews and the target is the sentiment. Technically, however, this
+          can also contain numerical or categorical data, although it is
+          unlikely that the LLM will generate good predictions for those.
+
+        Returns
+        -------
+        y_proba : numpy ndarray
+          The probabilities for each class. If ``probas_sum_to_1`` is set to
+          ``False``, then the sum of the probabilities for each sample will not
+          add up to 1
+
+        """
         # y_proba not normalized here
         y_proba = self._predict_proba(X)
 
@@ -468,7 +502,35 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
         return y_proba
 
     def predict(self, X):
-        """TODO"""
+        """Return the classes predicted by the LLM.
+
+        Predictions will be forced to be one of the labels the model learned
+        during ``fit`` (see the ``classes_`` attribute). The model will never
+        predict a different label.
+
+        If ``error_low_prob`` is set to ``'warn'``, then a warning is given if,
+        for at least one sample, the sum of the probabilities for all classes is
+        below the threshold set in ``threshold_low_prob``. If ``error_low_prob``
+        is set to ``'raise'``, then an error is raised instead.
+
+        If ``error_low_prob`` is set to ``'return_none'``, then the predicted
+        class will be replaced by ``None`` if the sum of the probabilities is
+        below the threshold set in ``threshold_low_prob``.
+
+        Parameters
+        ----------
+        X : input data
+          Typically, this is a list/array of strings. E.g., this could be a list
+          of reviews and the target is the sentiment. Technically, however, this
+          can also contain numerical or categorical data, although it is
+          unlikely that the LLM will generate good predictions for those.
+
+        Returns
+        -------
+        y_pred : numpy ndarray
+          The label for each class.
+
+        """
         # y_proba not normalized but it's not neeeded here
         y_proba = self._predict_proba(X)
         pred_ids = y_proba.argmax(1)
@@ -482,7 +544,113 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
 
 
 class ZeroShotClassifier(_LlmBase):
-    """TODO"""
+    """Zero-shot classification using a Large Language Model (LLM).
+
+    This class allows you to use an LLM from Hugging Face transformers for
+    zero-shot classification. There is no training during the ``fit`` call,
+    instead, the LLM will be prompted to predict the labels for each sample.
+
+    Parameters
+    ----------
+    model_name : str or None (default=None)
+      The name of the model to use. This is the same name as used on Hugging
+      Face Hub. For example, to use GPT2, pass ``'gpt2'``, to use the small
+      flan-t5 model, pass ``'google/flan-t5-small'``. If the ``model_name``
+      parameter is passed, don't pass ``model`` or ``tokenizer`` parameters.
+
+    model : torch.nn.Module or None (default=None)
+      The model to use. This should be a PyTorch text generation model from
+      Hugging Face Hub or a model with the same API. Most notably, the model
+      should have a ``generate`` method. If you pass the ``model``, you should
+      also pass the ``tokenizer``, but you shall not pass the ``model_name``.
+
+      Passing the model explicitly instead of the ``model_name`` can have a few
+      advantages. Most notably, this allows you to modify the model, e.g.
+      changing its config or how the model is loaded. For instance, some models
+      can only be loaded with the option ``trust_remote_code=True``. If using
+      the ``model_name`` argument, the default settings will be used instead.
+      Passing the model explicitly also allows you to use custom models that are
+      not uploaded to Hugging Face Hub.
+
+    tokenizer (default=None)
+      A tokenizer that is compatible with the model. Typically, this is loaded
+      using the ``AutoTokenizer.from_pretrained`` method provided by Hugging
+      Face transformers. If you pass the ``tokenizer``, you should also pass the
+      ``model``, but you should not pass the ``model_name``.
+
+    prompt : str or None (default=None)
+      The prompt to use. This is the text that will be passed to the model to
+      generate the prediction. If no prompt is passed, a default prompt will be
+      used. The prompt should be a Python string with two placeholders, one
+      called ``text`` and one called ``labels``. The ``text`` placeholder will
+      replaced by the contents from ``X`` and the ``labels`` placeholder will be
+      replaced by the unique labels taken from ``y``.
+
+      An example prompt could be something like this: ``"Classify this text:
+      {text}\nPossible labels are {labels}"\n``. All general tips for good
+      prompt crafting apply here as well. Be aware that if the prompt is too
+      long, it will exceed the context size of the model.
+
+    probas_sum_to_1 : bool (default=True)
+      If ``True``, then the probabilities for each sample will be normalized to
+      sum to 1. If ``False``, the probabilities will not be normalized.
+
+      In general, without normalization, the probabilities will not sum to 1
+      because the LLM can generate any token, not just the labels. Since the
+      model is restricted to only generate the available labels, there will be
+      some probability mass that is unaccounted for. You could consider the
+      missing probability mass to be an implicit 'other' class.
+
+      In general, you should set this parameter to ``True`` because the default
+      assumption is that probabilities sum to 1. However, setting this to
+      ``False`` can be useful for debugging purposes, as it allows you to see
+      how much probability the LLM assigns to different tokens. If the total
+      probabilities are very low, it could be a sign that the LLM is not
+      powerful enough or that the prompt is not well crafted.
+
+    device : str or torch.device (default='cpu')
+      The device to use. In general, using a GPU or other accelerated hardware
+      is advised if runtime performance is critical.
+
+      Note that if the ``model`` parameter is passed explicitly, the device of
+      that model takes precedence over the value of ``device``.
+
+    error_low_prob : {'ignore', 'warn', 'raise', 'return_none'} (default='ignore')
+      Controls what should happen if the sum of the probabilities for a sample
+      is below a given threshold. When encountering low probabilities, the
+      options are to do one of the following:
+
+        - ``'ignore'``: do nothing
+        - ``'warn'``: issue a warning
+        - ``'raise'``: raise an error
+        - ``'return_none'``: return ``None`` as the prediction when calling
+          ``.predict``
+
+      The threshold is controlled by the ``threshold_low_prob`` parameter.
+
+    threshold_low_prob : float (default=0.0)
+      The threshold for the sum of the probabilities below which they are
+      considered to be too low. The consequences of low probabilities are
+      controlled by the ``error_low_prob`` parameter.
+
+    use_caching : bool (default=True)
+      If ``True``, the predictions for each sample will be cached, as well as
+      the intermediate result for each generated token. This can speed up
+      predictions when some samples are duplicated, or when labels have a long
+      common prefix. An example of the latter would be if a label is called
+      "intent.support.email" and another label is called "intent.support.phone",
+      then the tokens for the common prefix "intent.support." are reused for
+      both labels, as their probabilities are identical.
+
+      Note that caching is currently not supported for encoder-decoder
+      architectures such as flan-t5. If you want to use such an architecture,
+      turn caching off.
+
+      If you see any issues you might suspect are caused by caching, turn this
+      option off, see if it helps, and report the issue on the skorch GitHub
+      page.
+
+    """
     def __init__(
             self,
             model_name=None,
@@ -491,7 +659,6 @@ class ZeroShotClassifier(_LlmBase):
             tokenizer=None,
             prompt=None,
             probas_sum_to_1=True,
-            generate_kwargs=None,
             device='cpu',
             error_low_prob='ignore',
             threshold_low_prob=0.0,
@@ -502,29 +669,70 @@ class ZeroShotClassifier(_LlmBase):
         self.tokenizer = tokenizer
         self.prompt = prompt
         self.probas_sum_to_1 = probas_sum_to_1
-        self.generate_kwargs = generate_kwargs
         self.device = device
         self.error_low_prob = error_low_prob
         self.threshold_low_prob = threshold_low_prob
         self.use_caching = use_caching
 
     def check_prompt(self, prompt):
-        if prompt is not None:
-            _check_format_string(
-                prompt, {'text': "some text", 'labels': ["foo", "bar"]}
-            )
-            return prompt
+        """Check if the prompt is well formed.
 
-        return DEFAULT_PROMPT_ZERO_SHOT
+        If no prompt is provided, return the default prompt.
+
+        Raises
+        ------
+        ValueError
+          When the prompt is not well formed.
+
+        """
+        if prompt is None:
+            prompt = DEFAULT_PROMPT_ZERO_SHOT
+
+
+        kwargs = {
+            'text': "some text",
+            'labels': ["foo", "bar"],
+        }
+        _check_format_string(prompt, kwargs)
+        return prompt
 
     def get_prompt(self, text):
+        """Return the prompt for the given sample."""
         self.check_is_fitted()
         return self.prompt_.format(text=text, labels=self.classes_)
 
     def check_X_y(self, X, y, **fit_params):
+        """Check that input data is well-behaved."""
         # TODO proper errors
         assert y is not None
         assert not fit_params
+
+    def fit(self, X, y, **fit_params):
+        """Prepare everything to enable predictions.
+
+        There is no actual fitting going on here, as the LLM is used as is.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples,)
+          The input data. For zero-shot classification, this can be ``None``.
+
+        y : array-like of shape (n_samples,)
+          The target classes. Ensure that each class that the LLM should be able
+          to predict is present at least once. Classes that are not present
+          during the ``fit`` call will never be predicted.
+
+        **fit_params : dict
+          Additional fitting parameters. This is mostly a placeholder for
+          sklearn-compatibility, as there is no actual fitting process.
+
+        Returns
+        -------
+        self
+          The fitted estimator.
+
+        """
+        return self._fit(X, y, **fit_params)
 
     def __repr__(self):
         # TODO self.tokenizer has a very ugly repr, can we replace it?
@@ -532,7 +740,124 @@ class ZeroShotClassifier(_LlmBase):
 
 
 class FewShotClassifier(_LlmBase):
-    """TODO"""
+    """Few-shot classification using a Large Language Model (LLM).
+
+    This class allows you to use an LLM from Hugging Face transformers for
+    few-shot classification. There is no training during the ``fit`` call,
+    instead, the LLM will be prompted to predict the labels for each sample.
+
+    Parameters
+    ----------
+    model_name : str or None (default=None)
+      The name of the model to use. This is the same name as used on Hugging
+      Face Hub. For example, to use GPT2, pass ``'gpt2'``, to use the small
+      flan-t5 model, pass ``'google/flan-t5-small'``. If the ``model_name``
+      parameter is passed, don't pass ``model`` or ``tokenizer`` parameters.
+
+    model : torch.nn.Module or None (default=None)
+      The model to use. This should be a PyTorch text generation model from
+      Hugging Face Hub or a model with the same API. Most notably, the model
+      should have a ``generate`` method. If you pass the ``model``, you should
+      also pass the ``tokenizer``, but you shall not pass the ``model_name``.
+
+      Passing the model explicitly instead of the ``model_name`` can have a few
+      advantages. Most notably, this allows you to modify the model, e.g.
+      changing its config or how the model is loaded. For instance, some models
+      can only be loaded with the option ``trust_remote_code=True``. If using
+      the ``model_name`` argument, the default settings will be used instead.
+      Passing the model explicitly also allows you to use custom models that are
+      not uploaded to Hugging Face Hub.
+
+    tokenizer (default=None)
+      A tokenizer that is compatible with the model. Typically, this is loaded
+      using the ``AutoTokenizer.from_pretrained`` method provided by Hugging
+      Face transformers. If you pass the ``tokenizer``, you should also pass the
+      ``model``, but you should not pass the ``model_name``.
+
+    prompt : str or None (default=None)
+      The prompt to use. This is the text that will be passed to the model to
+      generate the prediction. If no prompt is passed, a default prompt will be
+      used. The prompt should be a Python string with three placeholders, one
+      called ``text``, one called ``labels``, and one called ``examples``. The
+      ``text`` placeholder will replaced by the contents from ``X`` passed to
+      during inference and the ``labels`` placeholder will be replaced by the
+      unique labels taken from ``y``. The examples will be taken from the ``X``
+      and ``y`` seen during ``fit``.
+
+      An example prompt could be something like this: ``"Classify this text:
+      {text}\nPossible labels are {labels}\nHere are some examples:
+      {examples}\n"``. All general tips for good prompt crafting apply here as
+      well. Be aware that if the prompt is too long, it will exceed the context
+      size of the model.
+
+    probas_sum_to_1 : bool (default=True)
+      If ``True``, then the probabilities for each sample will be normalized to
+      sum to 1. If ``False``, the probabilities will not be normalized.
+
+      In general, without normalization, the probabilities will not sum to 1
+      because the LLM can generate any token, not just the labels. Since the
+      model is restricted to only generate the available labels, there will be
+      some probability mass that is unaccounted for. You could consider the
+      missing probability mass to be an implicit 'other' class.
+
+      In general, you should set this parameter to ``True`` because the default
+      assumption is that probabilities sum to 1. However, setting this to
+      ``False`` can be useful for debugging purposes, as it allows you to see
+      how much probability the LLM assigns to different tokens. If the total
+      probabilities are very low, it could be a sign that the LLM is not
+      powerful enough or that the prompt is not well crafted.
+
+    max_samples: int (default=5)
+      The number of samples to use for few-shot learning. The few-shot samples
+      are taken from the ``X`` and ``y`` passed to ``fit``.
+
+      This number should be large enough for the LLM to generalize, but not too
+      large so as to exceed the context window size. More samples will also
+      lower prediction speed.
+
+    device : str or torch.device (default='cpu')
+      The device to use. In general, using a GPU or other accelerated hardware
+      is advised if runtime performance is critical.
+
+      Note that if the ``model`` parameter is passed explicitly, the device of
+      that model takes precedence over the value of ``device``.
+
+    error_low_prob : {'ignore', 'warn', 'raise', 'return_none'} (default='ignore')
+      Controls what should happen if the sum of the probabilities for a sample
+      is below a given threshold. When encountering low probabilities, the
+      options are to do one of the following:
+
+        - ``'ignore'``: do nothing
+        - ``'warn'``: issue a warning
+        - ``'raise'``: raise an error
+        - ``'return_none'``: return ``None`` as the prediction when calling
+          ``.predict``
+
+      The threshold is controlled by the ``threshold_low_prob`` parameter.
+
+    threshold_low_prob : float (default=0.0)
+      The threshold for the sum of the probabilities below which they are
+      considered to be too low. The consequences of low probabilities are
+      controlled by the ``error_low_prob`` parameter.
+
+    use_caching : bool (default=True)
+      If ``True``, the predictions for each sample will be cached, as well as
+      the intermediate result for each generated token. This can speed up
+      predictions when some samples are duplicated, or when labels have a long
+      common prefix. An example of the latter would be if a label is called
+      "intent.support.email" and another label is called "intent.support.phone",
+      then the tokens for the common prefix "intent.support." are reused for
+      both labels, as their probabilities are identical.
+
+      Note that caching is currently not supported for encoder-decoder
+      architectures such as flan-t5. If you want to use such an architecture,
+      turn caching off.
+
+      If you see any issues you might suspect are caused by caching, turn this
+      option off, see if it helps, and report the issue on the skorch GitHub
+      page.
+
+    """
     def __init__(
             self,
             model_name=None,
@@ -542,7 +867,6 @@ class FewShotClassifier(_LlmBase):
             prompt=None,
             probas_sum_to_1=True,
             max_samples=5,
-            generate_kwargs=None,
             device='cpu',
             error_low_prob='ignore',
             threshold_low_prob=0.0,
@@ -555,7 +879,6 @@ class FewShotClassifier(_LlmBase):
         self.prompt = prompt
         self.probas_sum_to_1 = probas_sum_to_1
         self.max_samples = max_samples
-        self.generate_kwargs = generate_kwargs
         self.device = device
         self.error_low_prob = error_low_prob
         self.threshold_low_prob = threshold_low_prob
@@ -563,19 +886,36 @@ class FewShotClassifier(_LlmBase):
         self.random_state = random_state
 
     def check_prompt(self, prompt):
-        if prompt is not None:
-            kwargs = {
-                'text': "some text",
-                'labels': ["foo", "bar"],
-                'examples': ["some examples"],
-            }
-            _check_format_string(prompt, kwargs)
+        """Check if the prompt is well formed.
 
-        return DEFAULT_PROMPT_FEW_SHOT
+        If no prompt is provided, return the default prompt.
 
-    def _get_examples(self, X, y, n_samples):
-        # TODO ensure that each label is present
-        # check if stratified shuffle split could be used
+        Raises
+        ------
+        ValueError
+          When the prompt is not well formed.
+
+        """
+
+        if prompt is None:
+            prompt = DEFAULT_PROMPT_FEW_SHOT
+
+        kwargs = {
+            'text': "some text",
+            'labels': ["foo", "bar"],
+            'examples': ["some examples"],
+        }
+        _check_format_string(prompt, kwargs)
+        return prompt
+
+    def get_examples(self, X, y, n_samples):
+        """Given input data ``X`` and ``y``, return a subset of ``n_samples``
+        for few-shot learning.
+
+        This method aims at providing at least one example for each existing
+        class.
+
+        """
         examples = []
         seen_targets = set()
         rng = check_random_state(self.random_state)
@@ -589,6 +929,8 @@ class FewShotClassifier(_LlmBase):
                 seen_targets.add(y[j])
             if len(seen_targets) == len(self.classes_):
                 # each target represented
+                break
+            if len(examples) == n_samples:
                 break
 
         if len(examples) == n_samples:
@@ -605,14 +947,46 @@ class FewShotClassifier(_LlmBase):
         # comes last
         return examples[::-1]
 
+
     def fit(self, X, y, **fit_params):
-        super().fit(X, y, **fit_params)
-        self.examples_ = self._get_examples(
-            X, y, n_samples=min(self.max_samples, len(y))
-        )
+        """Prepare everything to enable predictions.
+
+        There is no actual fitting going on here, as the LLM is used as is. The
+        examples used for few-shot learning will be derived from the provided
+        input data. The selection mechanism for this is that, for each possible
+        label, at least one example is taken from the data (if ``max_samples``
+        is large enough).
+
+        To change the way that examples are selected, override the
+        ``get_examples`` method.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples,)
+          The input data. For zero-shot classification, this can be ``None``.
+
+        y : array-like of shape (n_samples,)
+          The target classes. Ensure that each class that the LLM should be able
+          to predict is present at least once. Classes that are not present
+          during the ``fit`` call will never be predicted.
+
+        **fit_params : dict
+          Additional fitting parameters. This is mostly a placeholder for
+          sklearn-compatibility, as there is no actual fitting process.
+
+        Returns
+        -------
+        self
+          The fitted estimator.
+
+        """
+        self._fit(X, y, **fit_params)
+        n_samples = min(self.max_samples, len(y))
+        self.examples_ = self.get_examples(X, y, n_samples=n_samples)
         return self
 
     def get_prompt(self, text):
+        """Return the prompt for the given sample."""
         self.check_is_fitted()
         few_shot_examples = []
         for xi, yi in self.examples_:
@@ -622,6 +996,7 @@ class FewShotClassifier(_LlmBase):
         return self.prompt_.format(text=text, labels=self.classes_, examples=examples)
 
     def check_X_y(self, X, y, **fit_params):
+        """Check that input data is well-behaved."""
         # TODO proper errors
         assert X is not None
         assert y is not None

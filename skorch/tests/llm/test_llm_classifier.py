@@ -5,6 +5,7 @@ import timeit
 
 import numpy as np
 import pytest
+from sklearn.exceptions import NotFittedError
 
 
 class TestZeroShotClassifier:
@@ -128,6 +129,16 @@ class TestZeroShotClassifier:
         )
         with pytest.raises(ValueError, match=msg):
             clf.fit(None, ['positive', 'negative'])
+
+    def test_no_fit_predict_raises(self, classifier_cls, model, tokenizer, X):
+        # When calling predict/predict_proba before fitting, an error is raised
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+
+        # don't check the exact message, as it might change in the future
+        with pytest.raises(NotFittedError):
+            clf.predict(X)
+        with pytest.raises(NotFittedError):
+            clf.predict_proba(X)
 
     def test_predict(self, model, tokenizer, classifier_cls, X):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
@@ -410,6 +421,29 @@ class TestFewShotClassifier:
         # classes_ are sorted
         expected = np.array(['foobar', 'negative', 'positive', 'very positive'])
         np.testing.assert_equal(clf.classes_, expected)
+
+    def test_fit_fewer_samples_than_classes(self, model, tokenizer, classifier_cls):
+        # Check that there is no error if we allow fewer samples than there are
+        # classes.
+        clf = classifier_cls(
+            model=model, tokenizer=tokenizer, use_caching=False, max_samples=3
+        )
+        X = 4 * ["something text, doesn't matter what"]
+        y = ['positive', 'negative', 'very positive', 'foobar']
+        clf.fit(X, y)
+        assert len(clf.examples_) == 3
+
+    def test_fit_fewer_samples_than_max_samples(
+            self, model, tokenizer, classifier_cls, X, y
+    ):
+        # Check that there is no error if X and y are smaller than max_samples
+        clf = classifier_cls(
+            model=model, tokenizer=tokenizer, use_caching=False, max_samples=5
+        )
+        assert len(X) < 5
+
+        clf.fit(X, y)
+        assert len(clf.examples_) == len(X)
 
     def test_predict(self, model, tokenizer, classifier_cls, X, X_test, y_test):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
