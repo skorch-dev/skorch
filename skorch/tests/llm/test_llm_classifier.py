@@ -140,6 +140,28 @@ class TestZeroShotClassifier:
         with pytest.raises(NotFittedError):
             clf.predict_proba(X)
 
+    def test_fit_y_none_raises(self, classifier_cls, model, tokenizer):
+        # X can be None but y should not be None
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        msg = "y cannot be None, as it is used to infer the existing classes"
+        with pytest.raises(ValueError, match=msg):
+            clf.fit(None, None)
+
+    def test_fit_warning_if_y_not_strings(
+            self, classifier_cls, model, tokenizer, recwarn
+    ):
+        # y should be strings but also accepts other types, but will give a
+        # warning
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        clf.fit(None, [1, 2, 3])
+        assert len(recwarn.list) == 1
+
+        expected = (
+            "y should contain the name of the labels as strings, e.g. "
+            "'positive' and 'negative', don't pass label-encoded targets"
+        )
+        assert str(recwarn.list[0].message) == expected
+
     def test_predict(self, model, tokenizer, classifier_cls, X):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         clf.fit(None, ['negative', 'positive'])
@@ -454,6 +476,54 @@ class TestFewShotClassifier:
 
         clf.fit(X, y)
         assert len(clf.examples_) == len(X)
+
+    def test_fit_X_none_raises(self, model, tokenizer, classifier_cls, y):
+        # for zero-shot, having no X is acceptable, but not for few-shot
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        msg = "For few-shot learning, pass at least one example"
+        with pytest.raises(ValueError, match=msg):
+            clf.fit(None, y)
+
+    def test_fit_X_empty_raises(self, model, tokenizer, classifier_cls, y):
+        # for zero-shot, having no X is acceptable, but not for few-shot
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        msg = "For few-shot learning, pass at least one example"
+        with pytest.raises(ValueError, match=msg):
+            clf.fit([], y)
+
+    def test_fit_y_none_raises(self, model, tokenizer, classifier_cls, X):
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        msg = "y cannot be None, as it is used to infer the existing classes"
+        with pytest.raises(ValueError, match=msg):
+            clf.fit(X, None)
+
+    def test_fit_warning_if_y_not_strings(
+            self, classifier_cls, model, tokenizer, X, recwarn
+    ):
+        # y should be strings but also accepts other types, but will give a
+        # warning
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        clf.fit(X, [1, 2, 3])
+        assert len(recwarn.list) == 1
+
+        expected = (
+            "y should contain the name of the labels as strings, e.g. "
+            "'positive' and 'negative', don't pass label-encoded targets"
+        )
+        assert str(recwarn.list[0].message) == expected
+
+    def test_fit_X_and_y_not_matching_raises(
+            self, model, tokenizer, classifier_cls, X, y
+    ):
+        # in contrast to zero-shot, few-shot requires X and y to have the same
+        # number of samples
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        msg = (
+            "X and y don't have the same number of samples, found 2 and 3 samples, "
+            "respectively"
+        )
+        with pytest.raises(ValueError, match=msg):
+            clf.fit(X[:2], y[:3])
 
     def test_predict(self, model, tokenizer, classifier_cls, X, X_test, y_test):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)

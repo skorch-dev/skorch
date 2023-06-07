@@ -380,7 +380,8 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
 
         self.classes_ = self.check_classes(y)
         self.prompt_ = self.check_prompt(self.prompt)
-        self.label_ids_ = self.tokenizer_(self.classes_.tolist())['input_ids']
+        classes = [str(c) for c in self.classes_]
+        self.label_ids_ = self.tokenizer_(classes)['input_ids']
         self.cached_model_ = _CacheModelWrapper(
             self.model_, self.tokenizer_, use_caching=self.use_caching
         )
@@ -1004,11 +1005,28 @@ class FewShotClassifier(_LlmBase):
 
     def check_X_y(self, X, y, **fit_params):
         """Check that input data is well-behaved."""
-        # TODO proper errors
-        assert X is not None
-        assert y is not None
-        assert len(X) == len(y)
-        assert not fit_params
+        if (X is None) or (not len(X)):
+            raise ValueError("For few-shot learning, pass at least one example")
+
+        if y is None:
+            raise ValueError(
+                "y cannot be None, as it is used to infer the existing classes"
+            )
+
+        if not isinstance(y[0], str):
+            # don't raise an error, as, hypothetically, the LLM could also
+            # predict encoded targets, but it's not advisable
+            warnings.warn(
+                "y should contain the name of the labels as strings, e.g. "
+                "'positive' and 'negative', don't pass label-encoded targets"
+            )
+
+        len_X, len_y = len(X), len(y)
+        if len_X != len_y:
+            raise ValueError(
+                "X and y don't have the same number of samples, found "
+                f"{len_X} and {len_y} samples, respectively"
+        )
 
     def __repr__(self):
         # TODO self.tokenizer has a very ugly repr, can we replace it?
