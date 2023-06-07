@@ -96,6 +96,28 @@ class TestZeroShotClassifier:
         with pytest.raises(ValueError, match=msg):
             clf.fit(None, ['positive', 'negative'])
 
+    def test_init_wrong_error_low_prob_raises(self, classifier_cls, model, tokenizer):
+        clf = classifier_cls(model=model, tokenizer=tokenizer, error_low_prob='foo')
+        msg = (
+            "error_low_prob must be one of ignore, raise, warn, return_none; "
+            "got foo instead"
+        )
+        with pytest.raises(ValueError, match=msg):
+            clf.fit(None, ['positive', 'negative'])
+
+    def test_init_wrong_threshold_low_prob_raises(
+            self, classifier_cls, model, tokenizer
+    ):
+        clf = classifier_cls(model=model, tokenizer=tokenizer, threshold_low_prob=-0.1)
+        msg = "threshold_low_prob must be between 0 and 1, got -0.1 instead"
+        with pytest.raises(ValueError, match=msg):
+            clf.fit(None, ['positive', 'negative'])
+
+        clf = classifier_cls(model=model, tokenizer=tokenizer, threshold_low_prob=99)
+        msg = "threshold_low_prob must be between 0 and 1, got 99 instead"
+        with pytest.raises(ValueError, match=msg):
+            clf.fit(None, ['positive', 'negative'])
+
     def test_predict(self, model, tokenizer, classifier_cls, X):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         clf.fit(None, ['negative', 'positive'])
@@ -243,17 +265,93 @@ class TestZeroShotClassifier:
         with pytest.raises(ValueError, match=re.escape(msg)):
             clf.fit(None, ['positive', 'negative'])
 
-    def test_gpt2(self, classifier_cls, X):
+    def test_causal_lm(self, classifier_cls, X):
+        # flan-t5 has an encoder-decoder architecture, here we check that a pure
+        # decoder architecture works as well. We're just interested in it
+        # working, not if the predictions are good.
         name = 'gpt2'
-        name = 'bigscience/bloom-560m'
-        #name = 'bigcode/santacoder'
-        clf = classifier_cls(name, probas_sum_to_1=False)
+        clf = classifier_cls(name, probas_sum_to_1=False, use_caching=True)
         clf.fit(None, ['negative', 'positive'])
         clf.predict_proba(X[:3])
         clf.predict(X[:3])
 
+    def test_no_low_probability_no_warning(
+            self, classifier_cls, model, tokenizer, X, recwarn
+    ):
+        # test to explicitly ensure that there is no false warning, as this
+        # would go undetected otherwise
+        clf = classifier_cls(
+            model=model,
+            tokenizer=tokenizer,
+            use_caching=False,
+            threshold_low_prob=0.000001,
+            error_low_prob='warn',
+        )
+        clf.fit(None, ['negative', 'positive'])
+        clf.predict_proba(X)
+        assert not recwarn.list
+
+    def test_low_probability_warning(self, classifier_cls, model, tokenizer, X, recwarn):
+        # With a threshold of 0.99, empirically, 2 samples will fall below it
+        # and 1 is above it.
+        clf = classifier_cls(
+            model=model,
+            tokenizer=tokenizer,
+            use_caching=False,
+            threshold_low_prob=0.99,
+            error_low_prob='warn',
+        )
+        clf.fit(None, ['negative', 'positive'])
+        clf.predict_proba(X)
+
+        msg = "Found 2 samples to have a total probability below the threshold of 0.99"
+        assert len(recwarn.list) == 1
+        # use startswith because the exact number of decimals is not clear
+        assert str(recwarn.list[0].message).startswith(msg)
+
+    def test_low_probability_error(self, classifier_cls, model, tokenizer, X):
+        from skorch.llm.classifier import LowProbabilityError
+
+        # With a threshold of 0.99, empirically, 2 samples will fall below it
+        # and 1 is above it.
+        clf = classifier_cls(
+            model=model,
+            tokenizer=tokenizer,
+            use_caching=False,
+            threshold_low_prob=0.99,
+            error_low_prob='raise',
+        )
+        clf.fit(None, ['negative', 'positive'])
+
+        msg = (
+            r"The sum of all probabilities is \d\.\d+, "
+            "which is below the minimum threshold of 0.99"
+        )
+        with pytest.raises(LowProbabilityError, match=msg):
+            clf.predict_proba(X)
+
+    def test_low_probability_return_none(self, classifier_cls, model, tokenizer, X):
+        clf = classifier_cls(
+            model=model,
+            tokenizer=tokenizer,
+            use_caching=False,
+            threshold_low_prob=0.99,
+            error_low_prob='return_none',
+        )
+        clf.fit(None, ['negative', 'positive'])
+        y_pred = clf.predict(X)
+
+        # With a threshold of 0.99, empirically, the first 2 samples will fall
+        # below it and the last is above it.
+        expected = [None, None, 'positive']
+        np.testing.assert_array_equal(y_pred, expected)
+
 
 class TestFewShotClassifier:
+    """Most of the functionality of FewShotClassifier is shared with
+    ZeroShotClassifier and is thus not tested again here
+
+    """
     @pytest.fixture(scope='class')
     def model(self):
         from transformers import AutoModelForSeq2SeqLM

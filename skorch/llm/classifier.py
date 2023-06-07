@@ -27,6 +27,7 @@ TODO:
 """
 
 import importlib
+import warnings
 from string import Formatter
 
 import numpy as np
@@ -35,6 +36,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils import check_random_state
 from transformers import AutoConfig, AutoTokenizer, LogitsProcessor
 
+from skorch.exceptions import SkorchException
 from skorch.llm.prompts import DEFAULT_PROMPT_FEW_SHOT, DEFAULT_PROMPT_ZERO_SHOT
 
 
@@ -265,16 +267,35 @@ class _CacheModelWrapper:
         )
         self.model.generate(
             logits_processor=[recorder],
-            #min_new_tokens=max(1, len(label_id) - 1),
-            max_new_tokens=len(label_id), # TODO: should this be the max len of all labels?
+            # TODO: should this be the max len of all labels?
+            max_new_tokens=len(label_id),
             **kwargs
         )
         self.set_cache(kwargs, label_id, recorder.recorded_scores)
         return recorded_logits + recorder.recorded_scores[:]
 
 
+class LowProbabilityError(SkorchException):
+    """Error raised when the predictions of an LLM have low probability"""
+
+
 class _LlmBase(BaseEstimator, ClassifierMixin):
-    """TODO"""
+    """TODO
+
+    Required attributes are:
+
+    - model_name
+    - model
+    - tokenizer
+    - prompt
+    - probas_sum_to_1
+    - generate_kwargs
+    - device
+    - error_low_prob
+    - threshold_low_prob
+    - use_caching
+
+    """
     def check_X_y(self, X, y, **fit_params):
         raise NotImplementedError
 
@@ -313,6 +334,20 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
             if (self.model is None) or (self.tokenizer is None):
                 raise ValueError(msg)
 
+        possible_values_error_low_prob = ['ignore', 'raise', 'warn', 'return_none']
+        if self.error_low_prob not in possible_values_error_low_prob:
+            raise ValueError(
+                "error_low_prob must be one of "
+                f"{', '.join(possible_values_error_low_prob)}; "
+                f"got {self.error_low_prob} instead"
+            )
+
+        if (self.threshold_low_prob < 0) or (self.threshold_low_prob > 1):
+            raise ValueError(
+                "threshold_low_prob must be between 0 and 1, "
+                f"got {self.threshold_low_prob} instead"
+            )
+
     def _is_encoder_decoder(self, model):
         return hasattr(model, 'get_encoder')
 
@@ -350,6 +385,16 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
         return self
 
     def _predict_one(self, text):
+        """Make a prediction for a single sample
+
+        The returned probabilites are *not normalized* yet.
+
+        Raises a ``LowProbabilityError`` if the total probability of all labels
+        is 0, or, assuming ``error_low_prob`` is ``'raise'``, when it is below
+        ``threshold_low_prob``. This check is done here because we want to raise
+        eagerly instead of going through all samples and then raise.
+
+        """
         inputs = self.tokenizer_(text, return_tensors='pt').to(self.device_)
 
         probas_all_labels = []
@@ -373,26 +418,67 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
 
         prob_sum = sum(probas_all_labels)
         if prob_sum == 0.0:
-            raise ValueError("All probabilities are zero.")
+            raise LowProbabilityError("The sum of all probabilities is zero.")
+
+        probs_are_low = prob_sum < self.threshold_low_prob
+        if probs_are_low and (self.error_low_prob == 'raise'):
+            raise LowProbabilityError(
+                f"The sum of all probabilities is {prob_sum:.3f}, "
+                f"which is below the minimum threshold of {self.threshold_low_prob:.3f}"
+            )
 
         y_prob = np.array(probas_all_labels).astype(np.float64)
-        if self.probas_sum_to_1:
-            y_prob /= prob_sum
-
         return y_prob
 
-    def predict_proba(self, X):
+    def _predict_proba(self, X):
+        """Return the unnormalized y_proba
+
+        Warns if the total probability for a sample is below the threshold and
+        ``error_low_prob`` is ``'warn'``.
+
+        """
         self.check_is_fitted()
         y_proba = []
         for xi in X:
             text = self.get_prompt(xi)
-            pred = self._predict_one(text)
-            y_proba.append(pred)
-        return np.vstack(y_proba)
+            proba = self._predict_one(text)
+            y_proba.append(proba)
+        y_proba = np.vstack(y_proba)
+
+        if self.error_low_prob == 'warn':
+            total_low_probas = (y_proba.sum(1) < self.threshold_low_prob).sum()
+            if total_low_probas:
+                warnings.warn(
+                    f"Found {total_low_probas} samples to have a total probability "
+                    f"below the threshold of {self.threshold_low_prob:.3f}."
+                )
+
+        return y_proba
+
+    def predict_proba(self, X):
+        """TODO"""
+        # y_proba not normalized here
+        y_proba = self._predict_proba(X)
+
+        if self.probas_sum_to_1:
+            # normalizing here is okay because we already checked earlier that
+            # the sum is not 0
+            y_proba /= y_proba.sum(1, keepdims=True)
+
+        return y_proba
 
     def predict(self, X):
-        pred_ids = self.predict_proba(X).argmax(1)
-        return self.classes_[pred_ids]
+        """TODO"""
+        # y_proba not normalized but it's not neeeded here
+        y_proba = self._predict_proba(X)
+        pred_ids = y_proba.argmax(1)
+        y_pred = self.classes_[pred_ids]
+
+        if self.error_low_prob == 'return_none':
+            y_pred = y_pred.astype(object)  # prevents None from being cast to str
+            mask_low_probas = y_proba.sum(1) < self.threshold_low_prob
+            y_pred[mask_low_probas] = None
+        return y_pred
 
 
 class ZeroShotClassifier(_LlmBase):
@@ -407,6 +493,8 @@ class ZeroShotClassifier(_LlmBase):
             probas_sum_to_1=True,
             generate_kwargs=None,
             device='cpu',
+            error_low_prob='ignore',
+            threshold_low_prob=0.0,
             use_caching=True,
     ):
         self.model_name = model_name
@@ -416,6 +504,8 @@ class ZeroShotClassifier(_LlmBase):
         self.probas_sum_to_1 = probas_sum_to_1
         self.generate_kwargs = generate_kwargs
         self.device = device
+        self.error_low_prob = error_low_prob
+        self.threshold_low_prob = threshold_low_prob
         self.use_caching = use_caching
 
     def check_prompt(self, prompt):
@@ -454,6 +544,8 @@ class FewShotClassifier(_LlmBase):
             max_samples=5,
             generate_kwargs=None,
             device='cpu',
+            error_low_prob='ignore',
+            threshold_low_prob=0.0,
             use_caching=True,
             random_state=None,
     ):
@@ -465,6 +557,8 @@ class FewShotClassifier(_LlmBase):
         self.max_samples = max_samples
         self.generate_kwargs = generate_kwargs
         self.device = device
+        self.error_low_prob = error_low_prob
+        self.threshold_low_prob = threshold_low_prob
         self.use_caching = use_caching
         self.random_state = random_state
 
