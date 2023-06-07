@@ -287,6 +287,16 @@ class TestZeroShotClassifier:
         with pytest.raises(ValueError, match=re.escape(msg)):
             clf.fit(None, ['positive', 'negative'])
 
+    def test_get_prompt(self, classifier_cls, model, tokenizer):
+        prompt = "Foo {labels} bar {text}"
+        clf = classifier_cls(
+            model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt
+        )
+        clf.fit(None, ['label-a', 'label-b'])
+        x = "My input"
+        expected = "Foo ['label-a', 'label-b'] bar My input"
+        assert clf.get_prompt(x) == expected
+
     def test_causal_lm(self, classifier_cls, X):
         # flan-t5 has an encoder-decoder architecture, here we check that a pure
         # decoder architecture works as well. We're just interested in it
@@ -548,3 +558,21 @@ class TestFewShotClassifier:
         )
         with pytest.raises(ValueError, match=re.escape(msg)):
             clf.fit(X, y)
+
+    def test_get_prompt(self, classifier_cls, model, tokenizer):
+        prompt = "Foo {labels} bar {text} baz {examples}"
+        clf = classifier_cls(
+            model=model,
+            tokenizer=tokenizer,
+            use_caching=False,
+            prompt=prompt,
+            random_state=0,
+        )
+        clf.fit(['example-1', 'example-2'], ['label-a', 'label-b'])
+        x = "My input"
+        expected = (
+            "Foo ['label-a', 'label-b'] bar My input baz "
+            "```\nexample-2\n```\n\nYour response:\nlabel-b\n\n"
+            "```\nexample-1\n```\n\nYour response:\nlabel-a\n"
+        )
+        assert clf.get_prompt(x) == expected

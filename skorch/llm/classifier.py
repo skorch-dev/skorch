@@ -35,8 +35,8 @@ from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_is_fitted
 from transformers import AutoConfig, AutoTokenizer, LogitsProcessor
 
-from skorch.exceptions import SkorchException
-from skorch.llm.prompts import DEFAULT_PROMPT_FEW_SHOT, DEFAULT_PROMPT_ZERO_SHOT
+from skorch.exceptions import LowProbabilityError
+from skorch.llm.prompts import DEFAULT_PROMPT_FEW_SHOT, DEFAULT_PROMPT_ZERO_SHOT, DELIM
 
 
 def _check_format_string(text, kwargs):
@@ -272,10 +272,6 @@ class _CacheModelWrapper:
         )
         self.set_cache(kwargs, label_id, recorder.recorded_scores)
         return recorded_logits + recorder.recorded_scores[:]
-
-
-class LowProbabilityError(SkorchException):
-    """Error raised when the predictions of an LLM have low probability"""
 
 
 class _LlmBase(BaseEstimator, ClassifierMixin):
@@ -699,13 +695,23 @@ class ZeroShotClassifier(_LlmBase):
     def get_prompt(self, text):
         """Return the prompt for the given sample."""
         self.check_is_fitted()
-        return self.prompt_.format(text=text, labels=self.classes_)
+        return self.prompt_.format(text=text, labels=self.classes_.tolist())
 
     def check_X_y(self, X, y, **fit_params):
         """Check that input data is well-behaved."""
-        # TODO proper errors
-        assert y is not None
-        assert not fit_params
+        # X can be None but not y
+        if y is None:
+            raise ValueError(
+                "y cannot be None, as it is used to infer the existing classes"
+            )
+
+        if not isinstance(y[0], str):
+            # don't raise an error, as, hypothetically, the LLM could also
+            # predict encoded targets, but it's not advisable
+            warnings.warn(
+                "y should contain the name of the labels as strings, e.g. "
+                "'positive' and 'negative', don't pass label-encoded targets"
+            )
 
     def fit(self, X, y, **fit_params):
         """Prepare everything to enable predictions.
@@ -990,10 +996,11 @@ class FewShotClassifier(_LlmBase):
         self.check_is_fitted()
         few_shot_examples = []
         for xi, yi in self.examples_:
-            # TODO make the formatting of samples modifiable
-            few_shot_examples.append(f"```\n{xi}\n```\n\nYour response:\n{yi}\n")
+            few_shot_examples.append(f"{DELIM}\n{xi}\n{DELIM}\n\nYour response:\n{yi}\n")
         examples = "\n".join(few_shot_examples)
-        return self.prompt_.format(text=text, labels=self.classes_, examples=examples)
+        return self.prompt_.format(
+            text=text, labels=self.classes_.tolist(), examples=examples
+        )
 
     def check_X_y(self, X, y, **fit_params):
         """Check that input data is well-behaved."""
