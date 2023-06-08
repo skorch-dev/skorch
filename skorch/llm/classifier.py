@@ -105,13 +105,13 @@ def _load_model_and_tokenizer(
       ``torch.device('cuda:0')``.
 
     architectures : tuple of str (default=('Generation', 'LMHead', 'CausalLM'))
-      The allowed architectures to load. An architecture is chosen if one of the
-      strings is a substring of the architecture name.
+      The architectures allowed to be loaded. An architecture is chosen if one
+      of the strings is a substring of the actual architecture name.
 
     Returns
     -------
     model : torch.nn.Module
-      The pretraiend transformers model.
+      The pre-trained transformers model.
 
     tokenizer
       The tokenizer for the model.
