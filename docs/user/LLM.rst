@@ -4,7 +4,7 @@ Support for Large Language Models
 
 Large Language Models (LLMs) find more and more different applications, as their
 capacity and availability are growing over time. Even though skorch is not
-primarily focused on working with pretrained models, it does provide a few
+primarily focused on working with pre-trained models, it does provide a few
 :ref:`integrations with the Hugging Face ecosystem <Hugging Face Integration>`
 and thus with the pre-trained models on Hugging Face. Some use cases for LLMs
 supported by skorch are detailed in this document.
@@ -33,7 +33,7 @@ could look like this:
 
 Thanks to the ability to understand text, a LLM should be perfectly capable to
 classify this review to be either positive or negative. With the help of skorch
-and pretrained Hugging Face models, we can perform this type of prediction in a
+and pre-trained Hugging Face models, we can perform this type of prediction in a
 convenient way. Let's show how this looks in code:
 
 .. code:: python
@@ -248,6 +248,51 @@ warning from Hugging Face transformers. If in doubt, just run a grid search on
 the ``max_samples`` parameter, you will see how it affects the scores and
 inference time.
 
+Detecting issues with LLMs
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+LLMs are a bit of a black box, so it can be difficult to detect possible issues.
+skorch provides some options to help a little bit with noticing issues in the
+first place.
+
+In general, if the model doesn't perform as expected, you should find that
+reflected in the metrics. In the examples above, if the prompt was not well
+chosen or if the LLM was not up to the task, we would expect the accuracy to
+have a low value. This should be a first indicator that something is wrong.
+
+To dig deeper, it can be useful to figure out if the probabilities that the
+model assigns to the labels are low. At first glance, this is not easy to
+detect. If we call ``predict_proba``, the total probabilities for each label
+will always sum up to 1, as is expected from probabilities. However, if we
+initialize the classifier with the parameter ``probas_sum_to_1=False``, we will
+receive the *unnormalized* probabilities.
+
+For example, given that we have set this option, let's assume that the returned
+probabilities for "negative" and "positive" are 0.1 and 0.2. This means that the
+LLM assigns a probability of 0.7 to neither of these two labels. If we observe
+this, it is a strong indicator that the prompt is not working well for this
+specific LLM, as it tries to steer the generated text in the wrong direction.
+Consider adjusting the prompt, choosing a different LLM, or performing few-shot
+learning if you aren't already.
+
+skorch provides more options to detect such issues. Set the argument
+``error_low_prob`` to ``"warn"`` and you will get a warning when the
+(unnormalized) probabilities are too low. Set the argument to ``raise`` to raise
+an error instead.
+
+If you find that the model only occasionally assigns low probabilities to the
+labels, you may want to set ``error_low_prob='none'``. In that case, skorch will
+not complain about low probabilities, but for each sample with low
+probabilities, ``.predict`` will actually return ``None`` instead of the label
+with the highest probability (``.predict_proba`` is unaffected). You can later
+decide what to do with those particular predictions.
+
+If you make use of any of those options, you should also change
+``threshold_low_prob``. This is a float that indicates what probability is
+actually considered to be "low". For the sentiment example from above, if we set
+this value to ``0.5``, it means that the probability is considered low if the
+sum of the probabilities for both "negative" and "positive" is less than 0.5.
+
 Advantages
 ----------
 
@@ -270,7 +315,7 @@ classification?
   only get the generated text as output. But often, we would like to know the
   associated probabilities: Is the model 99% sure that the label is "positive"
   or only 51%? skorch provides the ``.predict_proba`` method, which will return
-  those probabilites to you.
+  those probabilities to you.
 
 * Caching: skorch performs some caching under the hood. This can lead to faster
   prediction times, especially when the labels are long and share a common
@@ -288,7 +333,7 @@ classification?
   everything runs locally on your machine. No data is sent to any API provider,
   such as OpenAI. If you work with sensitive data or company data, you don't
   have to worry about leaking it to the outside world. (Tip: If you actually
-  prefer to use OpenAI API, take a look at `sckit-llm
+  prefer to use OpenAI API, take a look at `scikit-llm
   <https://github.com/iryna-kondr/scikit-llm>`_)
 
 
