@@ -193,7 +193,7 @@ class TestZeroShotClassifier:
         clf.fit(None, ['positive', 'negative', 'zip'])
         y_proba = clf.predict_proba(X)
         assert y_proba.shape == (3, 3)
-        assert (y_proba[:, -1] < 1e-3).all()
+        assert (y_proba[:, -1] < 2e-3).all()
 
     def test_predict_proba_labels_differing_num_tokens(
             self, model, tokenizer, classifier_cls, X
@@ -346,13 +346,13 @@ class TestZeroShotClassifier:
         assert not recwarn.list
 
     def test_low_probability_warning(self, classifier_cls, model, tokenizer, X, recwarn):
-        # With a threshold of 0.99, empirically, 2 samples will fall below it
+        # With a threshold of 0.993, empirically, 2 samples will fall below it
         # and 1 is above it.
         clf = classifier_cls(
             model=model,
             tokenizer=tokenizer,
             use_caching=False,
-            threshold_low_prob=0.99,
+            threshold_low_prob=0.993,
             error_low_prob='warn',
         )
         clf.fit(None, ['negative', 'positive'])
@@ -366,13 +366,13 @@ class TestZeroShotClassifier:
     def test_low_probability_error(self, classifier_cls, model, tokenizer, X):
         from skorch.llm.classifier import LowProbabilityError
 
-        # With a threshold of 0.99, empirically, 2 samples will fall below it
+        # With a threshold of 0.993, empirically, 2 samples will fall below it
         # and 1 is above it.
         clf = classifier_cls(
             model=model,
             tokenizer=tokenizer,
             use_caching=False,
-            threshold_low_prob=0.99,
+            threshold_low_prob=0.993,
             error_low_prob='raise',
         )
         clf.fit(None, ['negative', 'positive'])
@@ -389,7 +389,7 @@ class TestZeroShotClassifier:
             model=model,
             tokenizer=tokenizer,
             use_caching=False,
-            threshold_low_prob=0.99,
+            threshold_low_prob=0.993,
             error_low_prob='return_none',
         )
         clf.fit(None, ['negative', 'positive'])
@@ -397,7 +397,7 @@ class TestZeroShotClassifier:
 
         # With a threshold of 0.99, empirically, the first 2 samples will fall
         # below it and the last is above it.
-        expected = [None, None, 'positive']
+        expected = [None, 'negative', None]
         np.testing.assert_array_equal(y_pred, expected)
 
     def test_repr(self, classifier_cls, model, tokenizer):

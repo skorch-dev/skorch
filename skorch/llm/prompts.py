@@ -1,4 +1,9 @@
-"""Different prompts used for LLMs"""
+"""Different prompts used for LLMs
+
+Note: When changing the prompt, some tests may start to fail because they check
+the predictions using the default prompts.
+
+"""
 
 
 DELIM = "```"
