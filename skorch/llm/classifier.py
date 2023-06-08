@@ -204,6 +204,9 @@ class _CacheModelWrapper:
         self._total_calls = 0
         self._uncached_calls = 0
 
+    def clear(self):
+        self.cache.clear()
+
     def _make_key(self, kwargs):
         input_ids = kwargs['input_ids']
         input_id = input_ids[0].tolist()
@@ -542,6 +545,16 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
             y_pred[mask_low_probas] = None
         return y_pred
 
+    def clear_model_cache(self):
+        """Clear the cache of the model
+
+        Call this to free some memory.
+
+        """
+        if self.use_caching and hasattr(self, 'cached_model_'):
+            # caching is used and model cache has been initialized
+            self.cached_model_.clear()
+
     def __repr__(self):
         # The issue is that the repr for the transformer model can be quite huge
         # and the repr for the tokenizer quite ugly. We solve this by
@@ -573,6 +586,7 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
             rep = super().__repr__()
 
         return rep
+
 
 class ZeroShotClassifier(_LlmBase):
     """Zero-shot classification using a Large Language Model (LLM).

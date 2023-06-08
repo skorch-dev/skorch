@@ -413,6 +413,21 @@ class TestZeroShotClassifier:
         assert str(clf) == expected
         assert repr(clf) == expected
 
+    def test_clear_model_cache(self, classifier_cls, X):
+        clf = classifier_cls('gpt2')
+        clf.fit(None, ['very negative', 'very positive'])
+
+        cache = clf.cached_model_.cache
+        assert not cache  # empty at this point
+
+        clf.predict(X)
+        # 2 entries for each sample, one for the prompt itself, one for the
+        # prompt + "very"
+        assert len(cache) == 2 * len(X)
+
+        clf.clear_model_cache()
+        assert not cache  # empty again
+
 
 class TestFewShotClassifier:
     """Most of the functionality of FewShotClassifier is shared with
