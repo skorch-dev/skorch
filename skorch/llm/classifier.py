@@ -406,6 +406,9 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
             logits = torch.vstack(logits)
             probas = torch.nn.functional.softmax(logits, dim=-1)
 
+            # in case we deal with BFloats which are not supported on CPU
+            probas = probas.to(torch.float)
+
             n = len(logits)
             label_id = label_id[:n]  # don't need EOS, PAD, etc.
             probas_at_idx = probas[torch.arange(n), label_id]
