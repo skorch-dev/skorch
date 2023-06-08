@@ -915,6 +915,10 @@ class FewShotClassifier(_LlmBase):
       option off, see if it helps, and report the issue on the skorch GitHub
       page.
 
+    random_state : int, RandomState instance or None (default=None)
+      The choice of examples that are picked for few-shot learning is random. To
+      fix the random seed, use this argument.
+
     Attributes
     ----------
     classes_ : ndarray of shape (n_classes, )
@@ -982,18 +986,19 @@ class FewShotClassifier(_LlmBase):
 
         """
         examples = []
-        seen_targets = set()
+        seen_X = set()
+        seen_y = set()
         rng = check_random_state(self.random_state)
         indices = rng.permutation(np.arange(len(y)))
 
         # first batch, fill with one example for each label
-        for i in range(len(y)):
-            j = indices[i]
-            if y[j] not in seen_targets:
-                examples.append((X[j], y[j]))
-                seen_targets.add(y[j])
-            if len(seen_targets) == len(self.classes_):
-                # each target represented
+        for i in indices:
+            if y[i] not in seen_y:
+                examples.append((X[i], y[i]))
+                seen_X.add(str(X[i]))
+                seen_y.add(y[i])
+            if len(seen_y) == len(self.classes_):
+                # each label is represented
                 break
             if len(examples) == n_samples:
                 break
@@ -1002,9 +1007,11 @@ class FewShotClassifier(_LlmBase):
             return examples
 
         # second batch, fill with random other examples
-        for i in range(i, len(y)):
-            j = indices[i]
-            examples.append((X[j], y[j]))
+        for i in indices:
+            if str(X[i]) in seen_X:
+                continue
+
+            examples.append((X[i], y[i]))
             if len(examples) == n_samples:
                 break
 

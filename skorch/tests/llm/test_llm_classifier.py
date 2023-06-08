@@ -688,3 +688,47 @@ class TestFewShotClassifier:
         clf.fit(X, y)
         assert str(clf) == expected
         assert repr(clf) == expected
+
+    def test_get_examples_more_samples_than_X(self, classifier_cls, model, tokenizer, X, y):
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        clf.fit(X, y)
+        examples = clf.get_examples(X, y, n_samples=10)
+
+        # all X's and y's are included in the examples
+        assert len(examples) == len(X)
+        assert sorted(examples) == sorted(zip(X, y))
+
+    def test_get_examples_fewer_samples_than_X(self, classifier_cls, model, tokenizer, X, y):
+        # there are fewer examples than X or even unique labels
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
+        clf.fit(X, y)
+        examples = clf.get_examples(X, y, n_samples=1)
+
+        assert len(examples) == 1
+        assert set(map(tuple, examples)).issubset(set(zip(X, y)))
+
+    def test_get_examples_deterministic(self, classifier_cls, model, tokenizer, X, y):
+        # as long as we set random_state, the examples should be chosen
+        # deterministically
+        clf = classifier_cls(
+            model=model, tokenizer=tokenizer, use_caching=False, random_state=0
+        )
+        clf.fit(X, y)
+        examples = [clf.get_examples(X, y, 3) for _ in range(10)]
+
+        first = examples[0]
+        for other in examples[1:]:
+            assert first == other
+
+    def test_get_works_with_non_str_data(self, classifier_cls, model, tokenizer, y):
+        # even if not recommended, X should also be allowed to be non-string
+        clf = classifier_cls(
+            model=model, tokenizer=tokenizer, use_caching=False, random_state=0
+        )
+        X = list(range(len(y)))
+        clf.fit(X, y)
+        examples = [clf.get_examples(X, y, 3) for _ in range(10)]
+
+        first = examples[0]
+        for other in examples[1:]:
+            assert first == other
