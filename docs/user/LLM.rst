@@ -240,6 +240,11 @@ validation/testing data.
 The rest is no different from what we saw earlier. We can call ``.predict`` and
 ``.predict_proba`` and calculate scores based on those predictions.
 
+When it comes to testing different prompts, the approach is almost the same as
+for zero-shot classification. One difference is that on top of placeholders for
+``{labels}`` and ``{text}``, there should be one more placeholder for
+``{examples}``. This is where the few shot examples will be placed.
+
 One big disadvantage of few-shot learning is that since the prompt is augmented
 with examples, it becomes much longer. Not only will this lead to slower
 prediction times, it also makes it more likely that the prompt length will
