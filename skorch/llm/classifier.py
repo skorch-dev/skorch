@@ -678,6 +678,13 @@ class ZeroShotClassifier(_LlmBase):
       option off, see if it helps, and report the issue on the skorch GitHub
       page.
 
+    Attributes
+    ----------
+    classes_ : ndarray of shape (n_classes, )
+      A list of class labels known to the classifier. This attribute can be used
+      to identify which column in the probabilties returned by ``predict_proba``
+      corresponds to which class.
+
     """
     def __init__(
             self,
@@ -890,6 +897,13 @@ class FewShotClassifier(_LlmBase):
       If you see any issues you might suspect are caused by caching, turn this
       option off, see if it helps, and report the issue on the skorch GitHub
       page.
+
+    Attributes
+    ----------
+    classes_ : ndarray of shape (n_classes, )
+      A list of class labels known to the classifier. This attribute can be used
+      to identify which column in the probabilties returned by ``predict_proba``
+      corresponds to which class.
 
     """
     def __init__(
