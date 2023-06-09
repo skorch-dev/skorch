@@ -380,6 +380,16 @@ classification?
   prefer to use OpenAI API, take a look at `scikit-llm
   <https://github.com/iryna-kondr/scikit-llm>`_)
 
+That said, there are situation where you should not use zero-shot and few-shot
+classification with skorch: When you have sufficient amounts of labeled data, a
+supervised ML approach (like :class:`skorch.NeuralNetClassifier`) will most
+likely work better, require less memory and compute and thus have faster
+inference. If you need more open ended text generation, say abstractive
+summarization instead of predicting a fixed list of labels, this is also not a
+good use case. Another concern could be interpretability -- LLMs are mostly a
+black box, but some other ML methods lend themselves much better for
+interpretation.
+
 
 Technical details
 -----------------
