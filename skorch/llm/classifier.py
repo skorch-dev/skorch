@@ -631,10 +631,14 @@ class ZeroShotClassifier(_LlmBase):
       replaced by the contents from ``X`` and the ``labels`` placeholder will be
       replaced by the unique labels taken from ``y``.
 
-      An example prompt could be something like this: ``"Classify this text:
-      {text}\nPossible labels are {labels}"\n``. All general tips for good
-      prompt crafting apply here as well. Be aware that if the prompt is too
-      long, it will exceed the context size of the model.
+      An example prompt could be something like this:
+
+          "Classify this text: {text}. Possible labels are {labels}". Your
+          response: "
+
+      All general tips for good prompt crafting apply here as well. Be aware
+      that if the prompt is too long, it will exceed the context size of the
+      model.
 
     probas_sum_to_1 : bool (default=True)
       If ``True``, then the probabilities for each sample will be normalized to
@@ -842,9 +846,12 @@ class FewShotClassifier(_LlmBase):
       unique labels taken from ``y``. The examples will be taken from the ``X``
       and ``y`` seen during ``fit``.
 
-      An example prompt could be something like this: ``"Classify this text:
-      {text}\nPossible labels are {labels}\nHere are some examples:
-      {examples}\n"``. All general tips for good prompt crafting apply here as
+      An example prompt could be something like this:
+
+          "Classify this text: {text}. Possible labels are: {labels}. Here are
+          some examples: {examples}. Your response: ".
+
+      All general tips for good prompt crafting apply here as
       well. Be aware that if the prompt is too long, it will exceed the context
       size of the model.
 
