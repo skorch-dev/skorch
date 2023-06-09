@@ -1069,7 +1069,9 @@ class FewShotClassifier(_LlmBase):
         self.check_is_fitted()
         few_shot_examples = []
         for xi, yi in self.examples_:
-            few_shot_examples.append(f"{DELIM}\n{xi}\n{DELIM}\n\nYour response:\n{yi}\n")
+            few_shot_examples.append(
+                f"{DELIM}\n{xi}\n{DELIM}\n\nYour response:\n{yi}\n"
+            )
         examples = "\n".join(few_shot_examples)
         return self.prompt_.format(
             text=text, labels=self.classes_.tolist(), examples=examples

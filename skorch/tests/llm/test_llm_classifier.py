@@ -63,7 +63,7 @@ class TestZeroShotClassifier:
 
     def test_init_without_model_raises(self, classifier_cls, tokenizer):
         msg = (
-            f"ZeroShotClassifier needs to be initialized with either a model name, "
+            "ZeroShotClassifier needs to be initialized with either a model name, "
             "or a model & tokenizer, but not both."
         )
         clf = classifier_cls(tokenizer=tokenizer)
@@ -72,7 +72,7 @@ class TestZeroShotClassifier:
 
     def test_init_without_tokenizer_raises(self, classifier_cls, model):
         msg = (
-            f"ZeroShotClassifier needs to be initialized with either a model name, "
+            "ZeroShotClassifier needs to be initialized with either a model name, "
             "or a model & tokenizer, but not both."
         )
         clf = classifier_cls(model=model)
@@ -81,7 +81,7 @@ class TestZeroShotClassifier:
 
     def test_init_with_model_and_model_name_raises(self, classifier_cls, model):
         msg = (
-            f"ZeroShotClassifier needs to be initialized with either a model name, "
+            "ZeroShotClassifier needs to be initialized with either a model name, "
             "or a model & tokenizer, but not both."
         )
         clf = classifier_cls('google/flan-t5-small', model=model)
@@ -90,7 +90,7 @@ class TestZeroShotClassifier:
 
     def test_init_with_tokenizer_and_model_name_raises(self, classifier_cls, tokenizer):
         msg = (
-            f"ZeroShotClassifier needs to be initialized with either a model name, "
+            "ZeroShotClassifier needs to be initialized with either a model name, "
             "or a model & tokenizer, but not both."
         )
         clf = classifier_cls('google/flan-t5-small', tokenizer=tokenizer)
@@ -124,8 +124,8 @@ class TestZeroShotClassifier:
         clf = classifier_cls('microsoft/resnet-18')
         msg = (
             "Could not identify architecture for model 'microsoft/resnet-18', "
-            "try loading model and tokenizer directly using the corresponding 'Auto' classes "
-            "from transformers and pass them to the classifier"
+            "try loading model and tokenizer directly using the corresponding 'Auto' "
+            "classes from transformers and pass them to the classifier"
         )
         with pytest.raises(ValueError, match=msg):
             clf.fit(None, ['positive', 'negative'])
@@ -345,7 +345,9 @@ class TestZeroShotClassifier:
         clf.predict_proba(X)
         assert not recwarn.list
 
-    def test_low_probability_warning(self, classifier_cls, model, tokenizer, X, recwarn):
+    def test_low_probability_warning(
+            self, classifier_cls, model, tokenizer, X, recwarn
+    ):
         # With a threshold of 0.993, empirically, 2 samples will fall below it
         # and 1 is above it.
         clf = classifier_cls(
@@ -689,7 +691,9 @@ class TestFewShotClassifier:
         assert str(clf) == expected
         assert repr(clf) == expected
 
-    def test_get_examples_more_samples_than_X(self, classifier_cls, model, tokenizer, X, y):
+    def test_get_examples_more_samples_than_X(
+            self, classifier_cls, model, tokenizer, X, y
+    ):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         clf.fit(X, y)
         examples = clf.get_examples(X, y, n_samples=10)
@@ -698,7 +702,9 @@ class TestFewShotClassifier:
         assert len(examples) == len(X)
         assert sorted(examples) == sorted(zip(X, y))
 
-    def test_get_examples_fewer_samples_than_X(self, classifier_cls, model, tokenizer, X, y):
+    def test_get_examples_fewer_samples_than_X(
+            self, classifier_cls, model, tokenizer, X, y
+    ):
         # there are fewer examples than X or even unique labels
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         clf.fit(X, y)
