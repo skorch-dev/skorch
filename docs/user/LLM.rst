@@ -298,6 +298,45 @@ actually considered to be "low". For the sentiment example from above, if we set
 this value to ``0.5``, it means that the probability is considered low if the
 sum of the probabilities for both "negative" and "positive" is less than 0.5.
 
+A common issue you may discover is that the model always returns a very low
+probability. How can we make some progress in that case? A tip is to inspect
+what the model would actually generate for a given prompt. This will help to
+figure out what the LLM is trying to achieve, which may guide us towards finding
+a better prompt. Generating the output is not difficult because skorch just uses
+Hugging Face transformers models, so we can use them to generate sequences
+without any constraint. Here is a code snippet:
+
+.. code:: python
+
+    clf = ZeroShotClassifier(..., probas_sum_to_1=False)
+    clf.fit(X, y)
+    y_proba = clf.predict_proba(X)
+    # we notice that y_proba values are quite low, let's check what the LLM tries
+    # to do:
+    prompt = clf.get_prompt(X[0])  # get prompt for 1st sample from X
+    inputs = clf.tokenizer_(prompt, return_tensors='pt').to(clf.device_)
+    # adjust the min_new_tokens argument as needed
+    output = clf.model_.generate(**inputs, min_new_tokens=20)
+    generation = clf.tokenizer_.decode(output[0])
+    print(generation)
+
+Now we can see what the LLM actually tries to generate if we're not forcing it
+to predict one of the labels. This can often help us understand the underlying
+issue better.
+
+Some examples of issues this helps identifying:
+
+* If the model doesn't return the label but instead generates new example
+  inputs, it might be confused about the structure of the expected response;
+  carefully rewording the prompt or using few-shot learning may help here.
+
+* If the model tries to inserts a new line before the label, add the new line to
+  your prompt.
+
+* If the model doesn't produce any output, check if ``clf.model_.max_length`` is
+  not set too low. Hopefully, these tips can help resolving the most common
+  issues.
+
 Advantages
 ----------
 
