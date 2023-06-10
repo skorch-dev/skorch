@@ -330,8 +330,9 @@ Some examples of issues this helps identifying:
   inputs, it might be confused about the structure of the expected response;
   carefully rewording the prompt or using few-shot learning may help here.
 
-* If the model tries to inserts a new line before the label, add the new line to
-  your prompt.
+* If the model tries to insert a spurious new line/space before the label, add
+  it to your prompt. If the model still insists, change the label to contain
+  that new line/space, e.g. from "positive" to " positive".
 
 * If the model doesn't produce any output, check if ``clf.model_.max_length`` is
   not set too low. Hopefully, these tips can help resolving the most common
