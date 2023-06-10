@@ -46,6 +46,9 @@ def _check_format_string(text, kwargs):
     raise if a key is missing, it ignores extra keys, and we want to error in
     this case.
 
+    Gives a warning if the text contains placeholders that are not in kwargs, or
+    if kwargs contains keys that are not in the text.
+
     Parameters
     ----------
     text : str
@@ -54,32 +57,28 @@ def _check_format_string(text, kwargs):
     kwargs : dict
       The values to use for formatting.
 
-    Raises
-    ------
-    ValueError
-      If the text contains placeholders that are not in kwargs, or if kwargs
-      contains keys that are not in the text, raises a ``ValueError``.
-
     """
     formatter = Formatter()
     keys = {key for _, key, _, _ in formatter.parse(text) if key is not None}
     keys_expected = set(kwargs.keys())
     num_keys = len(keys_expected)
 
-    if keys != keys_expected:
-        keys_missing = keys_expected - keys
-        keys_extra = keys - keys_expected
-        msg = (
-            f"The prompt is not correct, it should have exactly {num_keys} "
-            "placeholders: " + ", ".join(f"'{key}'" for key in sorted(keys_expected))
-        )
-        if keys_missing:
-            msg += ", missing keys: "
-            msg += ", ".join(f"'{key}'" for key in sorted(keys_missing))
-        if keys_extra:
-            msg += ", extra keys: "
-            msg += ", ".join(f"'{key}'" for key in sorted(keys_extra))
-        raise ValueError(msg)
+    if keys == keys_expected:
+        return
+
+    keys_missing = keys_expected - keys
+    keys_extra = keys - keys_expected
+    msg = (
+        f"The prompt may not be correct, it expects {num_keys} "
+        "placeholders: " + ", ".join(f"'{key}'" for key in sorted(keys_expected))
+    )
+    if keys_missing:
+        msg += ", missing keys: "
+        msg += ", ".join(f"'{key}'" for key in sorted(keys_missing))
+    if keys_extra:
+        msg += ", extra keys: "
+        msg += ", ".join(f"'{key}'" for key in sorted(keys_extra))
+    warnings.warn(msg)
 
 
 def _load_model_and_tokenizer(
@@ -624,6 +623,7 @@ class ZeroShotClassifier(_LlmBase):
       ``model``, but you should not pass the ``model_name``.
 
     prompt : str or None (default=None)
+
       The prompt to use. This is the text that will be passed to the model to
       generate the prediction. If no prompt is passed, a default prompt will be
       used. The prompt should be a Python string with two placeholders, one
@@ -837,6 +837,7 @@ class FewShotClassifier(_LlmBase):
       ``model``, but you should not pass the ``model_name``.
 
     prompt : str or None (default=None)
+
       The prompt to use. This is the text that will be passed to the model to
       generate the prediction. If no prompt is passed, a default prompt will be
       used. The prompt should be a Python string with three placeholders, one

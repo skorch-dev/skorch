@@ -277,7 +277,7 @@ class TestZeroShotClassifier:
         clf.predict(X)
 
     def test_defective_prompt_missing_key_raises(
-            self, model, tokenizer, classifier_cls
+            self, model, tokenizer, classifier_cls, recwarn
     ):
         # the prompt has no 'labels' placeholders
         prompt = "Please classify my text:\n{text}\n\n"
@@ -286,14 +286,14 @@ class TestZeroShotClassifier:
         )
 
         msg = (
-            "The prompt is not correct, it should have exactly 2 "
+            "The prompt may not be correct, it expects 2 "
             "placeholders: 'labels', 'text', missing keys: 'labels'"
         )
-        with pytest.raises(ValueError, match=re.escape(msg)):
-            clf.fit(None, ['positive', 'negative'])
+        clf.fit(None, ['positive', 'negative'])
+        assert str(recwarn.list[0].message) == msg
 
     def test_defective_prompt_extra_key_raises(
-            self, model, tokenizer, classifier_cls
+            self, model, tokenizer, classifier_cls, recwarn
     ):
         # the prompt has excess 'examples' placeholder
         prompt = "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
@@ -303,11 +303,11 @@ class TestZeroShotClassifier:
         )
 
         msg = (
-            "The prompt is not correct, it should have exactly 2 "
+            "The prompt may not be correct, it expects 2 "
             "placeholders: 'labels', 'text', extra keys: 'examples'"
         )
-        with pytest.raises(ValueError, match=re.escape(msg)):
-            clf.fit(None, ['positive', 'negative'])
+        clf.fit(None, ['positive', 'negative'])
+        assert str(recwarn.list[0].message) == msg
 
     def test_get_prompt(self, classifier_cls, model, tokenizer):
         prompt = "Foo {labels} bar {text}"
@@ -625,7 +625,7 @@ class TestFewShotClassifier:
         clf.predict(X)
 
     def test_defective_prompt_missing_keys_raises(
-            self, model, tokenizer, classifier_cls, X, y
+            self, model, tokenizer, classifier_cls, X, y, recwarn
     ):
         # the prompt has no 'examples' placeholders
         prompt = "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
@@ -634,15 +634,15 @@ class TestFewShotClassifier:
         )
 
         msg = (
-            "The prompt is not correct, it should have exactly 3 "
+            "The prompt may not be correct, it expects 3 "
             "placeholders: 'examples', 'labels', 'text', missing keys: "
             "'examples'"
         )
-        with pytest.raises(ValueError, match=re.escape(msg)):
-            clf.fit(X, y)
+        clf.fit(X, y)
+        assert str(recwarn.list[0].message) == msg
 
     def test_defective_prompt_extra_keys_raises(
-            self, model, tokenizer, classifier_cls, X, y
+            self, model, tokenizer, classifier_cls, X, y, recwarn
     ):
         # the prompt has extra 'foo' and 'bar' placeholders
         prompt = "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
@@ -652,12 +652,12 @@ class TestFewShotClassifier:
         )
 
         msg = (
-            "The prompt is not correct, it should have exactly 3 "
+            "The prompt may not be correct, it expects 3 "
             "placeholders: 'examples', 'labels', 'text', extra keys: "
             "'bar', 'foo'"
         )
-        with pytest.raises(ValueError, match=re.escape(msg)):
-            clf.fit(X, y)
+        clf.fit(X, y)
+        assert str(recwarn.list[0].message) == msg
 
     def test_get_prompt(self, classifier_cls, model, tokenizer):
         prompt = "Foo {labels} bar {text} baz {examples}"
