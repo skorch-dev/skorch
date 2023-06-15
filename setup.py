@@ -10,7 +10,7 @@ with open('requirements.txt') as f:
     install_requires = [l.strip() for l in f]
 
 
-python_requires = '>=3.7'
+python_requires = '>=3.8'
 
 tests_require = [
     'pytest',
