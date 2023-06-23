@@ -3,7 +3,7 @@
 from sklearn.exceptions import NotFittedError
 
 
-class SkorchException(BaseException):
+class SkorchException(Exception):
     """Base skorch exception."""
 
 
@@ -28,3 +28,7 @@ class DeviceWarning(SkorchWarning):
 
 class SkorchTrainingImpossibleError(SkorchException):
     """The net cannot be used for training"""
+
+
+class LowProbabilityError(SkorchException):
+    """Error raised when the predictions of an LLM have low probability"""

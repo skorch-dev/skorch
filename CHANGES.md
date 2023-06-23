@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add support for [zero-shot and few-shot classification](https://skorch.readthedocs.io/en/latest/user/llm.html#using-language-models-as-zero-and-few-shot-classifiers) with the help of Large Language Models and the Hugging Face transformers library
+
 ### Changed
 
 ### Fixed

@@ -61,6 +61,7 @@ User's Guide
    user/customization
    user/performance
    user/huggingface
+   user/LLM
    user/FAQ
 
 
