@@ -9,9 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add version logging to `NeptuneLogger` callback (#964)
 - Add support for [zero-shot and few-shot classification](https://skorch.readthedocs.io/en/latest/user/llm.html#using-language-models-as-zero-and-few-shot-classifiers) with the help of Large Language Models and the Hugging Face transformers library
 
 ### Changed
+- Moved from `pkg_resources` to `importlib` and subsequently dropping support for Python 3.7
+  as PyTorch moved dropped support and the version itself hit EOL (#928 and #983)
 
 ### Fixed
 
