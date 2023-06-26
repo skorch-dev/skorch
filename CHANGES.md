@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved from `pkg_resources` to `importlib` and subsequently dropping support for Python 3.7
   as PyTorch moved dropped support and the version itself hit EOL (#928 and #983)
 
+- `NeuralNetRegressor` can now be fitted with 1-dimensional `y`, which is necessary in some specific circumstances (e.g. in conjunction with sklearn's `BaggingRegressor`, see #972); for this to work correctly, the output of the of the PyTorch module should also be 1-dimensional; the existing default, i.e. having `y` and `y_pred` be 2-dimensional, remains the recommended way of using `NeuralNetRegressor`
+
 ### Fixed
 
 ## [0.13.0] - 2023-05-17
