@@ -134,8 +134,8 @@ class TestNeuralNetRegressor:
         X, y = X[:100], y[:100].flatten()  # make y 1d
         net.fit(X, y)
 
-        w0, w1 = recwarn.list  # one warning for train, one for valid The
-        # warning comes from PyTorch, so checking the exact wording is prone to
+        w0, w1 = recwarn.list  # one warning for train, one for valid 
+        # The warning comes from PyTorch, so checking the exact wording is prone to
         # error in future PyTorch versions. We thus check a substring of the
         # whole message and cross our fingers that it's not changed.
         msg_substr = (
