@@ -123,7 +123,7 @@ class TestNeuralNetRegressor:
 
     def test_dimension_mismatch_warning(self, net_cls, module_cls, data, recwarn):
         # When the target and the prediction have different dimensionality, mse
-        # loss with broadcast them, calculating all pairwise errors instead of
+        # loss will broadcast them, calculating all pairwise errors instead of
         # only sample-wise. Since the errors are averaged at the end, there is
         # still a valid loss, which makes the error hard to spot. Thankfully,
         # torch gives a warning in that case. We test that this warning exists,
