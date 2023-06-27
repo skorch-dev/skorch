@@ -6,12 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
 ### Added
-
 - Add the option to globally override the use of caching in scoring callbacks on the net by setting the `use_caching` argument on the net (this overrides the settings of individual callbacks)
 
 ### Changed
+### Fixed
+
+## [0.14.0] - 2023-06-24
+
+### Added
+
+- Add version logging to `NeptuneLogger` callback (#964)
+- Add support for [zero-shot and few-shot classification](https://skorch.readthedocs.io/en/latest/user/llm.html#using-language-models-as-zero-and-few-shot-classifiers) with the help of Large Language Models and the Hugging Face transformers library
+
+### Changed
+- Moved from `pkg_resources` to `importlib` and subsequently dropping support for Python 3.7
+  as PyTorch moved dropped support and the version itself hit EOL (#928 and #983)
+
+- `NeuralNetRegressor` can now be fitted with 1-dimensional `y`, which is necessary in some specific circumstances (e.g. in conjunction with sklearn's `BaggingRegressor`, see #972); for this to work correctly, the output of the of the PyTorch module should also be 1-dimensional; the existing default, i.e. having `y` and `y_pred` be 2-dimensional, remains the recommended way of using `NeuralNetRegressor`
 
 ### Fixed
 
@@ -317,3 +329,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.12.0]: https://github.com/skorch-dev/skorch/compare/v0.11.0...v0.12.0
 [0.12.1]: https://github.com/skorch-dev/skorch/compare/v0.12.0...v0.12.1
 [0.13.0]: https://github.com/skorch-dev/skorch/compare/v0.12.1...v0.13.0
+[0.14.0]: https://github.com/skorch-dev/skorch/compare/v0.13.0...v0.14.0

@@ -3,8 +3,7 @@
 import sys
 import warnings
 
-import pkg_resources
-from pkg_resources import parse_version
+import importlib.metadata
 
 from .history import History
 from .net import NeuralNet
@@ -12,6 +11,7 @@ from .classifier import NeuralNetClassifier
 from .classifier import NeuralNetBinaryClassifier
 from .regressor import NeuralNetRegressor
 from . import callbacks
+from ._version import Version
 
 
 MIN_TORCH_VERSION = '1.1.0'
@@ -26,8 +26,8 @@ except ModuleNotFoundError:
         "(aka 'torch'). "
         "Visit https://pytorch.org/ for installation instructions.")
 
-torch_version = pkg_resources.get_distribution('torch').version
-if parse_version(torch_version) < parse_version(MIN_TORCH_VERSION):
+torch_version = torch.__version__
+if Version(torch_version) < Version(MIN_TORCH_VERSION):
     msg = ('skorch depends on a newer version of PyTorch (at least {req}, not '
            '{installed}). Visit https://pytorch.org for installation details')
     raise ImportWarning(msg.format(req=MIN_TORCH_VERSION, installed=torch_version))
@@ -42,8 +42,7 @@ __all__ = [
     'callbacks',
 ]
 
-
 try:
-    __version__ = pkg_resources.get_distribution('skorch').version
+    __version__ = importlib.metadata.version("skorch")
 except:  # pylint: disable=bare-except
     __version__ = 'n/a'

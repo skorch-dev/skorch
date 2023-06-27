@@ -11,3 +11,4 @@
 * [Hugging Face Hub Checkpoints](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_Model_Checkpoint.ipynb)
 * [Hugging Face Vision Transformer](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Hugging_Face_VisionTransformer.ipynb)
 * [Skorch Doctor](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Skorch_Doctor.ipynb)
+* [Classification with LLMs](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/LLM_Classifier.ipynb)

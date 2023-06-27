@@ -176,6 +176,11 @@ class NeptuneLogger(Callback):
         self.keys_ignored = keys_ignored
         self.base_namespace = base_namespace
 
+    def _log_integration_version(self) -> None:
+        from skorch import __version__
+
+        self.run['source_code/integrations/skorch'] = __version__
+
     @property
     def _metric_logger(self):
         return self.run[self._base_namespace]
@@ -195,6 +200,8 @@ class NeptuneLogger(Callback):
             self._base_namespace = self.base_namespace[:-1]
         else:
             self._base_namespace = self.base_namespace
+
+        self._log_integration_version()
 
         return self
 
@@ -273,11 +280,11 @@ class NeptuneLogger(Callback):
     @staticmethod
     def _model_summary_file(model):
         try:
-            # neptune-client=0.9.0+ package structure
-            from neptune.new.types import File
-        except ImportError:
             # neptune-client>=1.0.0 package structure
             from neptune.types import File
+        except ImportError:
+            # neptune-client=0.9.0+ package structure
+            from neptune.new.types import File
 
         return File.from_content(str(model), extension='txt')
 

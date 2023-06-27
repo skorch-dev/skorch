@@ -2,7 +2,7 @@
 REST Service
 ============
 
-In this section we'll take the RNN sentiment classifer from the
+In this section we'll take the RNN sentiment classifier from the
 example `Predicting sentiment on the IMDB dataset
 <https://github.com/skorch-dev/skorch/blob/master/examples/rnn_classifer/RNN_sentiment_classification.ipynb>`_
 and use it to demonstrate how to easily expose your PyTorch module on
