@@ -58,7 +58,7 @@ If you want to help developing, run:
     pylint skorch  # static code checks
 
 You may adjust the Python version to any of the supported Python versions, i.e.
-Python 3.7 or higher.
+Python 3.8 or higher.
 
 Using pip
 ^^^^^^^^^

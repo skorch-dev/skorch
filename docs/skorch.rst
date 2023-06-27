@@ -11,6 +11,7 @@ skorch
    helper
    hf
    history
+   llm
    net
    probabilistic
    regressor

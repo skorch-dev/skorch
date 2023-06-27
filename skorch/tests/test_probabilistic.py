@@ -638,10 +638,6 @@ class TestGPRegressorVariational(BaseProbabilisticTests):
     # Since GPyTorch v1.10, GPRegressor works with pickle/deepcopy.
 
     def test_pickling(self, gp_fit, data):
-        # TODO: remove once Python 3.7 is no longer supported
-        if version_gpytorch < Version('1.10'):
-            pytest.skip("GPyTorch < 1.10 does not support pickling.")
-
         loaded = pickle.loads(pickle.dumps(gp_fit))
         X, _ = data
 
@@ -650,10 +646,6 @@ class TestGPRegressorVariational(BaseProbabilisticTests):
         assert np.allclose(y_pred_before, y_pred_after)
 
     def test_deepcopy(self, gp_fit, data):
-        # TODO: remove once Python 3.7 is no longer supported
-        if version_gpytorch < Version('1.10'):
-            pytest.skip("GPyTorch < 1.10 does not support deepcopy.")
-
         copied = copy.deepcopy(gp_fit)
         X, _ = data
 

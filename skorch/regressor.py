@@ -66,15 +66,6 @@ class NeuralNetRegressor(NeuralNet, RegressorMixin):
             # The user implements its own mechanism for generating y.
             return
 
-        if get_dim(y) == 1:
-            msg = (
-                "The target data shouldn't be 1-dimensional but instead have "
-                "2 dimensions, with the second dimension having the same size "
-                "as the number of regression targets (usually 1). Please "
-                "reshape your target data to be 2-dimensional "
-                "(e.g. y = y.reshape(-1, 1).")
-            raise ValueError(msg)
-
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
         """See ``NeuralNet.fit``.

@@ -74,6 +74,9 @@ class TestNeptune:
     def test_experiment_closed_automatically(self, net_fitted, mock_experiment):
         assert mock_experiment.stop.call_count == 1
 
+    def test_version_logged(self, net_fitted, mock_experiment):
+        assert mock_experiment.exists("source_code/integrations/skorch")
+
     def test_experiment_log_call_counts(self, net_fitted, mock_experiment):
         # (3 x dur + 3 x train_loss + 3 x valid_loss + 3 x valid_acc = 12) + base metrics
         assert mock_experiment.__getitem__.call_count == 12 + self.NUM_BASE_METRICS
