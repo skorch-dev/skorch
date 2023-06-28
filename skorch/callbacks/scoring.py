@@ -405,7 +405,7 @@ class EpochScoring(ScoringBase):
         dataset_valid
           Incoming validation data or dataset.
 
-        use_caching : bool (default=False)
+        use_caching : bool
           Whether caching of inference is being used.
 
         Returns
