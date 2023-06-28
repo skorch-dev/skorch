@@ -952,14 +952,6 @@ class TestScoringCacheGlobalControl:
 
     """
     @pytest.fixture
-    def cache_net_forward(self):
-        from skorch.callbacks.scoring import _cache_net_forward_iter
-
-        with patch('skorch.callbacks.scoring._cache_net_forward_iter') as mock:
-            mock.side_effect = _cache_net_forward_iter
-            yield mock
-
-    @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
         return NeuralNetClassifier
