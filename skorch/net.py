@@ -220,6 +220,20 @@ class NeuralNet:
       notation, e.g. when initializing the net with ``compile__dynamic=True``,
       ``torch.compile`` will be called with ``dynamic=True``.
 
+    use_caching : bool or 'auto' (default='auto')
+      Optionally override the caching behavior of scoring callbacks. Callbacks
+      such as :class:`.EpochScoring` and :class:`.BatchScoring` allow to cache
+      the inference call to save time when calculating scores during training at
+      the expense of memory. In certain situations, e.g. when memory is tight,
+      you may want to disable caching. As it is cumbersome to change the setting
+      on each callback individually, this parameter allows to override their
+      behavior globally.
+      By default (``'auto'``), the callbacks will determine if caching is used
+      or not. If this argument is set to ``False``, caching will be disabled on
+      all callbacks. If set to ``True``, caching will be enabled on all
+      callbacks.
+      Implementation note: It is the job of the callbacks to honor this setting.
+
     Attributes
     ----------
     prefixes_ : list of str
@@ -295,6 +309,7 @@ class NeuralNet:
             verbose=1,
             device='cpu',
             compile=False,
+            use_caching='auto',
             **kwargs
     ):
         self.module = module
@@ -313,6 +328,7 @@ class NeuralNet:
         self.verbose = verbose
         self.device = device
         self.compile = compile
+        self.use_caching = use_caching
 
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
@@ -2019,6 +2035,13 @@ class NeuralNet:
             suffix = key[len(prefix):].lstrip('_')
             suggestion = prefix + '__' + suffix
             msgs.append(tmpl.format(key, suggestion))
+
+        valid_vals_use_caching = ('auto', False, True)
+        if self.use_caching not in valid_vals_use_caching:
+            msgs.append(
+                f"Incorrect value for use_caching used ('{self.use_caching}'), "
+                f"use one of: {', '.join(map(str, valid_vals_use_caching))}"
+            )
 
         if msgs:
             full_msg = '\n'.join(msgs)

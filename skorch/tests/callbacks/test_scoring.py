@@ -1,5 +1,6 @@
 """Tests for scoring"""
 
+import re
 from functools import partial
 from unittest.mock import Mock
 from unittest.mock import patch
@@ -521,7 +522,7 @@ class TestEpochScoring:
                     dataset_valid,
                     **kwargs):
                 _, y_test, y_proba = self.get_test_data(
-                    dataset_train, dataset_valid)
+                    dataset_train, dataset_valid, use_caching=self.use_caching)
                 y_pred = np.concatenate(y_proba).argmax(1)
 
                 # record 2 valid scores
@@ -941,6 +942,102 @@ class TestBatchScoring:
         # the bug, the cache would be exhausted early because of the
         # train split, and we would get back less.
         assert len(y_pred) == len(X)
+
+
+class TestScoringCacheGlobalControl:
+    """This test is about the possibility to control cache usage globally
+
+    See this issue for more context:
+    https://github.com/skorch-dev/skorch/issues/957
+
+    """
+    @pytest.fixture
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.mark.parametrize('net_use_caching', ['auto', True, False])
+    def test_net_overrides_caching(
+            self, net_cls, classifier_module, classifier_data, net_use_caching
+    ):
+        from skorch.callbacks import BatchScoring, EpochScoring
+
+        call_count = 0
+
+        class MyNet(net_cls):
+            def infer(self, x, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                return super().infer(x, **kwargs)
+
+        X, y = classifier_data
+        X, y = X[:40], y[:40]  # small amount of data is sufficient
+        batch_size = 4
+        max_epochs = 3
+
+        # calculation of expected call count of infer
+        # net:
+        # 40 samples with a batch size of 4 => 10 calls to net.infer per epoch
+        # 3 epochs => 30 calls as a baseline
+        # callbacks:
+        # 32 samples for train => 8 calls if on_train=True  => 24 for 3 epochs
+        #  8 samples for valid => 2 calls if on_train=False =>  6 for 3 epochs
+
+        callbacks = [
+            # this callback adds 24 calls
+            BatchScoring(
+                scoring='f1',
+                use_caching=False,
+                on_train=True,
+            ),
+            # this callback adds 6 calls
+            BatchScoring(
+                scoring='accuracy',
+                use_caching=True,
+                on_train=False,
+            ),
+            # this callback adds 24 calls
+            EpochScoring(
+                scoring='recall',
+                use_caching=True,
+                on_train=True,
+            ),
+            # this callback adds 6 calls
+            EpochScoring(
+                scoring='precision',
+                use_caching=False,
+                on_train=False,
+            ),
+        ]
+
+        net = MyNet(
+            classifier_module,
+            batch_size=batch_size,
+            max_epochs=max_epochs,
+            callbacks=callbacks,
+            use_caching=net_use_caching,
+            # turn off default scorer to not mess with the numbers
+            callbacks__valid_acc=None,
+        )
+        net.fit(X, y)
+
+        if net_use_caching == 'auto':
+            assert call_count == 30 + 24 + 0 + 0 + 6
+        elif net_use_caching is True:
+            assert call_count == 30 + 0 + 0 + 0 + 0
+        elif net_use_caching is False:
+            assert call_count == 30 + 24 + 6 + 24 + 6
+        else:
+            assert False, "incorrect parameter passed"
+
+    def test_net_use_caching_wrong_value_raises(self, net_cls, classifier_module):
+        net = net_cls(classifier_module, use_caching='wrong-value')
+        msg = re.escape(
+            "Incorrect value for use_caching used ('wrong-value'), "
+            "use one of: auto, False, True"
+        )
+        with pytest.raises(ValueError, match=msg):
+            net.initialize()
 
 
 class TestPassthrougScoring:
