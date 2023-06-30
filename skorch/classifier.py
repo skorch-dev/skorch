@@ -13,8 +13,7 @@ from skorch.callbacks import PrintLog
 from skorch.callbacks import EpochScoring
 from skorch.callbacks import PassthroughScoring
 from skorch.dataset import ValidSplit
-from skorch.utils import get_dim, to_numpy
-from skorch.utils import is_dataset
+from skorch.utils import data_from_dataset, is_dataset, get_dim, to_numpy
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks
 
@@ -114,6 +113,15 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
                    "``iterator_train`` and ``iterator_valid`` parameters "
                    "respectively.")
             raise ValueError(msg)
+
+        if (y is None) and is_dataset(X):
+            try:
+                _, y_ds = data_from_dataset(X)
+                self.classes_inferred_ = np.unique(to_numpy(y_ds))
+            except AttributeError:
+                # If this fails, we might still be good to go, so don't raise
+                pass
+
         if y is not None:
             # pylint: disable=attribute-defined-outside-init
             self.classes_inferred_ = np.unique(to_numpy(y))
