@@ -33,6 +33,7 @@ def cache_net_infer(net, use_caching, y_preds):
     Deprecated.
 
     """
+    # TODO: remove this function
 
     warnings.warn(
         "cache_net_infer is no longer uesd to provide caching for "
@@ -64,7 +65,12 @@ def _cache_net_forward_iter(net, use_caching, y_preds):
     method will subsequently return cached predictions. Leaving the
     context will undo the overwrite of the ``forward_iter`` method.
 
+    Note that the net may override the use of caching.
+
     """
+    if net.use_caching != 'auto':
+        use_caching = net.use_caching
+
     if not use_caching:
         yield net
         return
@@ -229,7 +235,8 @@ class BatchScoring(ScoringBase):
     use_caching : bool (default=True)
       Re-use the model's prediction for computing the loss to calculate
       the score. Turning this off will result in an additional inference
-      step for each batch.
+      step for each batch. Note that the net may override the use of
+      caching.
 
     """
     # pylint: disable=unused-argument,arguments-differ
@@ -345,7 +352,7 @@ class EpochScoring(ScoringBase):
       in an additional inference step for each epoch and an
       inability to use arbitrary datasets as input (since we
       don't know how to extract ``y_true`` from an arbitrary
-      dataset).
+      dataset). Note that the net may override the use of caching.
 
     """
     def _initialize_cache(self):
@@ -364,7 +371,11 @@ class EpochScoring(ScoringBase):
     # pylint: disable=arguments-differ
     def on_batch_end(
             self, net, batch, y_pred, training, **kwargs):
-        if not self.use_caching or training != self.on_train:
+        use_caching = self.use_caching
+        if net.use_caching !=  'auto':
+            use_caching = net.use_caching
+
+        if (not use_caching) or (training != self.on_train):
             return
 
         # We collect references to the prediction and target data
@@ -379,7 +390,7 @@ class EpochScoring(ScoringBase):
             self.y_trues_.append(y)
         self.y_preds_.append(y_pred)
 
-    def get_test_data(self, dataset_train, dataset_valid):
+    def get_test_data(self, dataset_train, dataset_valid, use_caching):
         """Return data needed to perform scoring.
 
         This is a convenience method that handles picking of
@@ -393,6 +404,9 @@ class EpochScoring(ScoringBase):
 
         dataset_valid
           Incoming validation data or dataset.
+
+        use_caching : bool
+          Whether caching of inference is being used.
 
         Returns
         -------
@@ -413,7 +427,7 @@ class EpochScoring(ScoringBase):
         """
         dataset = dataset_train if self.on_train else dataset_valid
 
-        if self.use_caching:
+        if use_caching:
             X_test = dataset
             y_pred = self.y_preds_
             y_test = [self.target_extractor(y) for y in self.y_trues_]
@@ -459,7 +473,15 @@ class EpochScoring(ScoringBase):
             dataset_train,
             dataset_valid,
             **kwargs):
-        X_test, y_test, y_pred = self.get_test_data(dataset_train, dataset_valid)
+        use_caching = self.use_caching
+        if net.use_caching !=  'auto':
+            use_caching = net.use_caching
+
+        X_test, y_test, y_pred = self.get_test_data(
+            dataset_train,
+            dataset_valid,
+            use_caching=use_caching,
+        )
         if X_test is None:
             return
 
