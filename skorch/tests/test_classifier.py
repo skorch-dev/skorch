@@ -136,6 +136,30 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=0, classes=['foo', 'bar']).fit(*data)
         assert net.classes_ == ['foo', 'bar']
 
+    def test_classes_are_set_with_tensordataset_explicit_y(
+            self, net_cls, module_cls, data
+    ):
+        # see 990
+        X = torch.from_numpy(data[0])
+        y = torch.arange(len(X)) % 10
+        dataset = torch.utils.data.TensorDataset(X, y)
+        net = net_cls(module_cls, max_epochs=0).fit(dataset, y)
+        assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
+    def test_classes_are_set_with_tensordataset_implicit_y(
+            self, net_cls, module_cls, data
+    ):
+        # see 990
+        from skorch.dataset import ValidSplit
+
+        X = torch.from_numpy(data[0])
+        y = torch.arange(len(X)) % 10
+        dataset = torch.utils.data.TensorDataset(X, y)
+        net = net_cls(
+            module_cls, max_epochs=0, train_split=ValidSplit(3, stratified=False)
+        ).fit(dataset, None)
+        assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
     @pytest.mark.parametrize('classes', [[], np.array([])])
     def test_pass_empty_classes_raises(
             self, net_cls, module_cls, data, classes):
