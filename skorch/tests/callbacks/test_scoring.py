@@ -220,10 +220,11 @@ class TestEpochScoring:
             max_epochs=2,
             train_split=train_split,
         )
-        with pytest.raises(ValueError) as exc:
+        # don't check precise error message, because it stems from sklearn and
+        # may change in the future
+        msg = "'does-not-exist'"
+        with pytest.raises(ValueError, match=msg):
             net.fit(*data)
-        msg = "'does-not-exist' is not a valid scoring value."
-        assert exc.value.args[0].startswith(msg)
 
     def test_with_score_as_custom_func(
             self, net_cls, module_cls, scoring_cls, train_split, data, score55,
@@ -788,10 +789,11 @@ class TestBatchScoring:
             max_epochs=2,
             train_split=train_split,
         )
-        with pytest.raises(ValueError) as exc:
+        # don't check precise error message, because it stems from sklearn and
+        # may change in the future
+        msg = "'does-not-exist'"
+        with pytest.raises(ValueError, match=msg):
             net.fit(*data)
-        msg = "'does-not-exist' is not a valid scoring value."
-        assert exc.value.args[0].startswith(msg)
 
     def test_with_score_as_custom_func(
             self, net_cls, module_cls, scoring_cls, train_split, data, score55,

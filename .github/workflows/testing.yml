@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [ master ]
 
+# print more columns
+env:
+  COLUMNS: 120
+
 jobs:
   test:
 
@@ -16,14 +20,21 @@ jobs:
     strategy:
       fail-fast: false  # don't cancel all jobs when one fails
       matrix:
-        python_version: ['3.8', '3.9', '3.10']
-        torch_version: ['1.11.0+cpu', '1.12.1+cpu', '1.13.1+cpu', '2.0.0+cpu']
+        python_version: ['3.8', '3.9', '3.10', '3.11']
+        torch_version: ['1.11.0+cpu', '1.12.1+cpu', '1.13.1+cpu', '2.0.1+cpu']
         os: [ubuntu-latest]
+        exclude:
+          - python_version: '3.11'
+            torch_version: '1.11.0+cpu'
+          - python_version: '3.11'
+            torch_version: '1.12.1+cpu'
+          - python_version: '3.11'
+            torch_version:  '2.0.1+cpu'
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python_version }}
     - name: Install dependencies
@@ -31,6 +42,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install -r requirements-dev.txt
         python -m pip install -r requirements.txt
+        python -m pip install pytest-pretty
         python -m pip install torch==${{ matrix.torch_version }} -f https://download.pytorch.org/whl/torch_stable.html
         python -m pip list
     - name: Install skorch
