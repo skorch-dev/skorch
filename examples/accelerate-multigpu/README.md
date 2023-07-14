@@ -7,7 +7,7 @@ There was an issue with using skorch in a multi-GPU setting with accelerate. Aft
 1. skorch did not call `accelerator.gather_for_metrics`, which resulted in `y_pred` not having the correct size. For more on this, consult the [accelerate docs](https://huggingface.co/docs/accelerate/quicktour#distributed-evaluation).
 2. accelerate has an issue with beeing deepcopied, which happens for instance when using `GridSearchCV`. The problem is that some references get messed up, resulting in the `GradientState` of the `accelerator` instance and of the `dataloader` to diverge. Therefore, the `accelerator` did not "know" when the last batch was encountered and was thus unable to remove the dummy samples added for multi-GPU inference.
 
-The fix for 1. is provided in the same PR as this was added. For 2., the scripts contain a custom `Accelerator` class that overrides `__deepcopy__` to just return `self`. I don't know enough about accelerate internals to determine if this is a safe solution or if it can cause more issues down the line, but it resolves the issue.
+The fix for 1. is provided in the same PR as this was added. For 2., the problem has been fixed [in accelerate](https://github.com/huggingface/accelerate/pull/1694) and is contained in the 0.21 release.
 
 This example contains two scripts, one involving skorch and one with skorch completely removed. The scripts reproduce the issue in a multi-GPU setup (tested on a GCP VM instance with two T4's). Unfortunately, the GitHub Action runners don't have such an option, which is why there is no unit test being added for the bug.
 
