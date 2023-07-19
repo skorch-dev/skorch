@@ -69,17 +69,12 @@ class Net(BaseEstimator):
         return y_proba.argmax(1)
 
 
-class MyAccelerator(Accelerator):
-    def __deepcopy__(self, memo):
-        return self
-
-
 def main():
     X, y = make_classification(10000, n_features=100, n_informative=50, random_state=0)
     X = X.astype(np.float32)
 
     module = MyModule()
-    accelerator = MyAccelerator()
+    accelerator = Accelerator()
     net = Net(module, accelerator)
     # cross_validate creates a deepcopy of the accelerator attribute
     res = cross_validate(

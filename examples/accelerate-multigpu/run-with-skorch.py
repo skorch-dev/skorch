@@ -28,17 +28,11 @@ class AcceleratedNeuralNetClassifier(AccelerateMixin, NeuralNetClassifier):
     pass
 
 
-# prevent the accelerator from being copied by sklearn
-class MyAccelerator(Accelerator):
-    def __deepcopy__(self, memo):
-        return self
-
-
 def main():
     X, y = make_classification(10000, n_features=100, n_informative=50, random_state=0)
     X = X.astype(np.float32)
 
-    accelerator = MyAccelerator()
+    accelerator = Accelerator()
 
     # use history class that works in distributed setting
     # see https://skorch.readthedocs.io/en/latest/user/history.html#distributed-history
@@ -52,6 +46,7 @@ def main():
 
     model = AcceleratedNeuralNetClassifier(
         MyModule,
+        criterion=nn.CrossEntropyLoss,
         accelerator=accelerator,
         max_epochs=3,
         lr=0.001,
