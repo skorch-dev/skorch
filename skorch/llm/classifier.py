@@ -185,6 +185,76 @@ class _LogitsRecorder(LogitsProcessor):
         return scores
 
 
+class _CFGuidance(LogitsProcessor):
+    """Helper class to implement Classifier Free Guidance [1]
+    to guide the model sampling in a direction that takes
+    the prompt more into account than the generated output
+    without the prompt.
+
+    Mathematically this is implemented by the following
+    transformation of the log-probabilities:
+
+    .. math::
+
+        \text{log} \hat{\textbf{P}}_\theta(w|c) \propto
+        \text{log} \textbf{P}_\theta(w_i|w_{j < i}) +
+        \gamma (
+            \text{log} \textbf{P}_\theta(w_i|w_{j<i}, c) -
+            \text{log} \textbf{P}_\theta(w_i|w_{j<i})
+        )
+
+    In essence, the generated logits without context (prompting)
+    are discounted from the logits with context. This weighted
+    discount (gamma defaults to 1.5) is added to the contextless
+    logits to steer sampling.
+
+    In consequence, CFG needs to sample twice from the model,
+    once for with-context and once for without-contet logits.
+
+    The standard way of sampling would be to determine
+    ``log P(w_i | w_{j < i}, c)`` - this is what we already have
+    normally. Therefore, this logit processor will receive
+    these log-probabiltiies as its scores already. Now we
+    also need ``log P(w_i | w{j < i})`` for which we need to
+    run inference once again.
+
+    References
+    ----------
+
+    [1]: TODO
+
+    """
+
+    def __init__(self, model, tokenizer, label_ids, gamma=1.5):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.gamma = gamma
+        self.label_ids = label_ids
+        self.recorded_scores = []
+
+    def __call__(self, input_ids, scores):
+        idx = len(self.recorded_scores)
+
+        P_wi_wjic = scores
+
+        model_input = {
+            'input_ids': torch.tensor(self.label_ids)[None,:].to(self.model.device),
+            'attention_mask': torch.tensor([1] * len(self.label_ids))[None, :].to(self.model.device)
+        }
+        model_output = self.model.generate(**model_input, output_scores=True, return_dict_in_generate=True)
+        P_wi_wji = model_output.scores[idx]
+
+
+        # we pull the logits to CPU because they are not used as input,
+        # therefore there is no device mismatch and we save a bit of GPU memory
+        # TODO remove this by a counter since we're only using the position
+        self.recorded_scores.append(scores[0].clone().cpu())
+
+        scores = P_wi_wji + self.gamma * (P_wi_wjic - P_wi_wji)
+
+        return scores
+
+
 class _CacheModelWrapper:
     """Helper class that caches model generations
 
@@ -195,13 +265,14 @@ class _CacheModelWrapper:
     Set use_caching=False to disable it, e.g. for debugging.
 
     """
-    def __init__(self, model, tokenizer, use_caching=True):
+    def __init__(self, model, tokenizer, use_caching=True, use_cfg=False):
         self.model = model
         self.tokenizer = tokenizer
         self.use_caching = use_caching
         self.cache = {}
         self._total_calls = 0
         self._uncached_calls = 0
+        self.use_cfg = use_cfg
 
     def clear(self):
         self.cache.clear()
@@ -262,12 +333,21 @@ class _CacheModelWrapper:
             return recorded_logits
 
         self._uncached_calls += 1  # mainly for debugging
+        guidance = _CFGuidance(
+            model=self.model,
+            label_ids=label_id,
+            tokenizer=self.tokenizer,
+        )
         recorder = _LogitsRecorder(
             label_ids=label_id,
             tokenizer=self.tokenizer,
         )
+        processors = [recorder]
+        if self.use_cfg:
+            processors.insert(0, guidance)
+
         self.model.generate(
-            logits_processor=[recorder],
+            logits_processor=processors,
             # TODO: should this be the max len of all labels?
             max_new_tokens=len(label_id),
             **kwargs
@@ -385,7 +465,7 @@ class _LlmBase(BaseEstimator, ClassifierMixin):
         classes = [str(c) for c in self.classes_]
         self.label_ids_ = self.tokenizer_(classes)['input_ids']
         self.cached_model_ = _CacheModelWrapper(
-            self.model_, self.tokenizer_, use_caching=self.use_caching
+            self.model_, self.tokenizer_, use_caching=self.use_caching, use_cfg=self.use_cfg,
         )
         return self
 
@@ -719,6 +799,7 @@ class ZeroShotClassifier(_LlmBase):
             error_low_prob='ignore',
             threshold_low_prob=0.0,
             use_caching=True,
+            use_cfg=False,
     ):
         self.model_name = model_name
         self.model = model
@@ -729,6 +810,7 @@ class ZeroShotClassifier(_LlmBase):
         self.error_low_prob = error_low_prob
         self.threshold_low_prob = threshold_low_prob
         self.use_caching = use_caching
+        self.use_cfg = use_cfg
 
     def check_prompt(self, prompt):
         """Check if the prompt is well formed.
@@ -948,6 +1030,7 @@ class FewShotClassifier(_LlmBase):
             error_low_prob='ignore',
             threshold_low_prob=0.0,
             use_caching=True,
+            use_cfg=False,
             random_state=None,
     ):
         self.model_name = model_name
@@ -960,6 +1043,7 @@ class FewShotClassifier(_LlmBase):
         self.error_low_prob = error_low_prob
         self.threshold_low_prob = threshold_low_prob
         self.use_caching = use_caching
+        self.use_cfg = use_cfg
         self.random_state = random_state
 
     def check_prompt(self, prompt):
