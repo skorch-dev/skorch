@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Add the option to globally override the use of caching in scoring callbacks on the net by setting the `use_caching` argument on the net (this overrides the settings of individual callbacks)
+- Add support for saving and loading parameters with [safetensors](https://github.com/huggingface/safetensors/); use `net.save_params(..., use_safetensors=True)` and `net.load_params(..., use_safetensors=True)` (requires to install the `safetensors` library)
 
 ### Changed
 ### Fixed

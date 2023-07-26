@@ -7,6 +7,9 @@ Saving and Loading
 General approach
 ----------------
 
+Pickling the whole net
+^^^^^^^^^^^^^^^^^^^^^^
+
 skorch provides several ways to persist your model. First it is
 possible to store the model using Python's :mod:`pickle`
 function. This saves the whole model, including hyperparameters. This
@@ -38,6 +41,9 @@ its parameters, or when your :class:`.NeuralNet` is part of an sklearn
 The disadvantage of pickling is that if your underlying code changes,
 unpickling might raise errors. Also, some Python code (e.g. lambda
 functions) cannot be pickled.
+
+Pickling specific parts of the net
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For this reason, we provide a second method for persisting your model.
 To use it, call the :func:`~skorch.net.NeuralNet.save_params` and
@@ -109,6 +115,50 @@ feature can be used to continue training:
     attribute. This attribute will be missing after
     :meth:`~skorch.net.NeuralNet.load_params`. Therefore, if you need
     it, you should :func:`pickle.dump` the whole net.
+
+Using safetensors
+^^^^^^^^^^^^^^^^^
+
+skorch also supports storing tensors using the `safetensors
+<https://github.com/huggingface/safetensors/>`_ library. There are a few
+advantages to using ``safetensors``, which is documented on their website, but
+most notably, it is secure as it does not use :mod:`pickle`.
+
+To get started, first, install the library in your virtual environment, if it's
+not already installed:
+
+.. code:: bash
+
+    python -m pip install safetensors
+
+When using :func:`~skorch.net.NeuralNet.save_params` and
+:func:`~skorch.net.NeuralNet.load_params`, under the hood, :func:`torch.save`
+and :func:`torch.load` are used, which rely on :mod:`pickle` and are thus
+unsafe. If security is a concern (or any of the other advantages of
+``safetensors``), you should save parameters using the `use_safetensors=True`
+option:
+
+.. code:: python
+
+    net = NeuralNet(
+        module=MyModule
+        criterion=torch.nn.NLLLoss,
+    )
+    net.fit(X, y)
+    net.save_params(f_params='model.safetensors', use_safetensors=True)
+
+    new_net = NeuralNet(
+        module=MyModule
+        criterion=torch.nn.NLLLoss,
+    )
+    new_net.initialize() # This is important!
+    new_net.load_params(f_params='model.safetensors', use_safetensors=True)
+
+One disadvantage of using ``safetensors`` is that it can only serialize
+``state_dict``\s of torch tensors, nothing else. Therefore, it cannot serialize
+components that have other values in the ``state_dict``, e.g. the optimizer. If
+you absolutely need to save the optimizer, you need to fall back on pickle, as
+described in the previous sections.
 
 Trimming for prediction
 -----------------------
@@ -310,6 +360,16 @@ load this checkpoint to predict with it:
 
 In this case, it is important to initialize the neural net before
 running :meth:`.NeuralNet.load_params`.
+
+In general, all these callbacks also support saving with `safetensors
+<https://github.com/huggingface/safetensors>`_ instead of pickle by passing the
+argument ``use_safetensors=True``. The caveat applies that ``safetensors`` can
+only serialize torch tensors, hence the optimizer cannot be stored. Therefore,
+pass ``f_optimizer=None`` if you want to use ``safetensors``.
+
+Remember that if you want to serialize with ``safetensors``, and you use both
+:class:`.Checkpoint` and :class:`.LoadInitState`, both callbacks need to be
+initialized with ``use_safetensors=True``.
 
 Saving on Hugging Face Hub
 --------------------------
