@@ -98,7 +98,21 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
                 raise AttributeError("{} has no attribute 'classes_'".format(
                     self.__class__.__name__))
             return self.classes
-        return self.classes_inferred_
+
+        try:
+            return self.classes_inferred_
+        except AttributeError as exc:
+            # It's not easily possible to track exactly what circumstances led
+            # to this, so try to make an educated guess and provide a possible
+            # solution.
+            msg = (
+                f"{self.__class__.__name__} could not infer the classes from y; "
+                "this error probably occurred because the net was trained without y "
+                "and some function tried to access the '.classes_' attribute; "
+                "a possible solution is to provide the 'classes' argument when "
+                f"initializing {self.__class__.__name__}"
+            )
+            raise AttributeError(msg) from exc
 
     # pylint: disable=signature-differs
     def check_data(self, X, y):

@@ -177,6 +177,33 @@ class TestNeuralNet:
         cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
 
+    def test_error_when_classes_could_not_be_inferred(self, net_cls, module_cls, data):
+        # Provide a better error message when net.classes_ does not exist,
+        # though it is pretty difficult to know exactly the circumstanes that
+        # led to this, so we have to make a guess.
+        # See https://github.com/skorch-dev/skorch/discussions/1003
+        class MyDataset(torch.utils.data.Dataset):
+            """Dataset class that makes it impossible to access y"""
+            def __len__(self):
+                return len(data[0])
+
+            def __getitem__(self, i):
+                return data[0][i], data[1][i]
+
+        net = net_cls(module_cls, max_epochs=0, train_split=False)
+        ds = MyDataset()
+        net.fit(ds, y=None)
+
+        msg = (
+            "NeuralNetClassifier could not infer the classes from y; "
+            "this error probably occurred because the net was trained without y "
+            "and some function tried to access the '.classes_' attribute; "
+            "a possible solution is to provide the 'classes' argument when "
+            "initializing NeuralNetClassifier"
+        )
+        with pytest.raises(AttributeError, match=msg):
+            net.classes_
+
 
 class TestNeuralNetBinaryClassifier:
     @pytest.fixture(scope='module')
