@@ -2,6 +2,7 @@
 
 import difflib
 import io
+import os
 import pickle
 from contextlib import contextmanager
 from copy import deepcopy
@@ -13,6 +14,7 @@ import pytest
 import torch
 from sklearn.base import clone
 from sklearn.exceptions import NotFittedError
+from sklearn.metrics import accuracy_score
 
 from skorch import NeuralNetClassifier
 from skorch.hf import AccelerateMixin
@@ -646,6 +648,73 @@ class TestAccelerate:
         assert hasattr(net.criterion_.forward, '__wrapped__')
         assert hasattr(net.module_.forward, '__wrapped__')
 
+    @pytest.mark.parametrize(
+        'wrap_loaded_model',
+        [True, False],
+        ids=["loaded wrapped", "loaded not wrapped"],
+    )
+    @pytest.mark.parametrize(
+        'wrap_initial_model',
+        [True, False],
+        ids=["initial wrapped", "initial not wrapped"],
+    )
+    def test_save_load_params(
+            self,
+            net_cls,
+            module_cls,
+            accelerator_cls,
+            data,
+            wrap_initial_model,
+            wrap_loaded_model,
+            tmpdir,
+    ):
+        # There were a few issue with saving and loading parameters for an
+        # accelerated net in a multi-GPU setting.
+
+        # - load_params set the device if device=None to CPU, but we need None
+        # - not waiting for all processes to finish before saving parameters
+        # - all processes saving the parameters, when only main should
+        # - an issue with parameter names depending on the wrapping state
+
+        # Regarding the last point, the issue was that if the module(s) are
+        # wrapped with accelerate, the parameters have an additional prefix,
+        # "module.". So e.g. "dense0.weight" would become
+        # "module.dense0.weight". This resulted in a key mismatch and error. To
+        # prevent this, it is now always ensured that the net is unwrapped when
+        # saving or loading.
+        # This test checks the correct behavior on CPU, iterating through all 4
+        # combinations of wrapping/not wrapping the initial/loaded model.
+
+        # Note that we cannot really test this with unit tests because it
+        # requires a multi-GPU setup. To run a proper test, please run the
+        # `run-save-load.py` script in skorch/examples/accelerate-multi-gpu/.
+        accelerator = accelerator_cls()
+
+        def get_accelerate_net():
+            return net_cls(accelerator=accelerator)
+
+        def get_vanilla_net():
+            return NeuralNetClassifier(module_cls, max_epochs=2, lr=0.1)
+
+        X, y = data
+        net = get_accelerate_net()
+        net.unwrap_after_train = True if wrap_initial_model else False
+        net.fit(X, y)
+        accuracy_before = accuracy_score(y, net.predict(X))
+        f_name = os.path.join(tmpdir, 'params.pt')
+        net.save_params(f_params=f_name)
+
+        if wrap_loaded_model:
+            net_loaded = get_accelerate_net().initialize()
+        else:
+            net_loaded = get_vanilla_net().initialize()
+        net_loaded.load_params(f_params=f_name)
+        accuracy_after = accuracy_score(y, net_loaded.predict(X))
+
+        assert accuracy_before == accuracy_after
+        if wrap_loaded_model:
+            assert net_loaded.device is None
+
     @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
     def test_mixed_precision_save_load_params(
             self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
@@ -740,6 +809,9 @@ class TestAccelerate:
 
             def gather_for_metrics(self, output):
                 return output
+
+            def wait_for_everyone(self):
+                pass
 
             # pylint: disable=unused-argument
             @contextmanager
