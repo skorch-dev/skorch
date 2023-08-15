@@ -688,6 +688,8 @@ class TestAccelerate:
         # Note that we cannot really test this with unit tests because it
         # requires a multi-GPU setup. To run a proper test, please run the
         # `run-save-load.py` script in skorch/examples/accelerate-multi-gpu/.
+
+        # More context in PR #1008
         accelerator = accelerator_cls()
 
         def get_accelerate_net():

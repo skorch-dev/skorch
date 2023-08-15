@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Fixed
 
+- Fixed a couple of issues when saving and loading parameters while using accelerate (via `AccelerateMixin`) in a multi-GPU setting (#1008)
+
 ## [0.14.0] - 2023-06-24
 
 ### Added

@@ -43,7 +43,7 @@ use_cpu: false
 
 ## `run-save-load.py`
 
-The context of this script is that there were issues with saving and loading when using `AccelerateMixin`. The provided script is to ensure that everything works as expected. Same as the first one, for a proper test, this script needs to run in a multi-GPU setting.
+The context of this script is that there were issues with saving and loading when using `AccelerateMixin`. The provided script is to ensure that everything works as expected. Same as the first one, for a proper test, this script needs to run in a multi-GPU setting. For more information, check PR #1008.
 
 Run the scripts like this:
 
