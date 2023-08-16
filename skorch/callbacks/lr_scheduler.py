@@ -142,6 +142,32 @@ class LRScheduler(Callback):
             net, self.policy_, **self.kwargs
         )
 
+    def _step(self, net, lr_scheduler, score=None):
+        """Helper method to step the lr scheduler.
+
+        This takes care of two things:
+
+        1. If the lr scheduler is ReduceLROnPlateau, we need to pass the score.
+        2. If the net is uses AccelerateMixin, stepping has to be skipped in
+           certain conditions.
+
+        For more info on the latter, see:
+        https://huggingface.co/docs/accelerate/v0.21.0/en/quicktour#mixed-precision-training
+
+        """
+        accelerator_maybe = getattr(net, 'accelerator', None)
+        if not accelerator_maybe:
+            if score is None:
+                lr_scheduler.step()
+            else:
+                lr_scheduler.step(score)
+        else:
+            if not accelerator_maybe.optimizer_step_was_skipped:
+                if score is None:
+                    lr_scheduler.step()
+                else:
+                    lr_scheduler.step(score)
+
     def on_epoch_end(self, net, **kwargs):
         if self.step_every != 'epoch':
             return
@@ -158,14 +184,14 @@ class LRScheduler(Callback):
                         "should be placed before the LRScheduler callback"
                     ) from e
 
-            self.lr_scheduler_.step(score)
+            self._step(net, self.lr_scheduler_, score=score)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
             if self.event_name is not None and hasattr(
                     self.lr_scheduler_, "get_last_lr"):
                 net.history.record(self.event_name,
                                    self.lr_scheduler_.get_last_lr()[0])
-            self.lr_scheduler_.step()
+            self._step(net, self.lr_scheduler_)
 
     def on_batch_end(self, net, training, **kwargs):
         if not training or self.step_every != 'batch':
@@ -174,7 +200,7 @@ class LRScheduler(Callback):
                 self.lr_scheduler_, "get_last_lr"):
             net.history.record_batch(self.event_name,
                                      self.lr_scheduler_.get_last_lr()[0])
-        self.lr_scheduler_.step()
+        self._step(net, self.lr_scheduler_)
         self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):

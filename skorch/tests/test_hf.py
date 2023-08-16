@@ -876,6 +876,48 @@ class TestAccelerate:
         updated_expected = [False, False, True, False, False, True, True] * max_epochs
         assert updated == updated_expected
 
+    @pytest.mark.parametrize('mixed_precision', ['no', 'fp16', 'bf16'])
+    @pytest.mark.parametrize('scheduler', ['ReduceLROnPlateau', 'StepLR'])
+    def test_lr_scheduler_with_accelerate(
+            self, net_cls, accelerator_cls, data, mixed_precision, scheduler
+    ):
+        # This test only checks that lr schedulers work with accelerate mixed
+        # precision. The reason why this requires special handling is explained
+        # here:
+        # https://huggingface.co/docs/accelerate/quicktour#mixed-precision-training
+        # There is no test for whether the lr scheduler actually steps correctly
+        # or not, as that would require knowledge of accelerate internals, which
+        # we don't want to rely on.
+        from accelerate.utils import is_bf16_available
+        from skorch.callbacks import LRScheduler
+
+        if (mixed_precision != 'no') and not torch.cuda.is_available():
+            pytest.skip('skipping AMP test because device does not support it')
+        if (mixed_precision == 'bf16') and not is_bf16_available():
+            pytest.skip('skipping bf16 test because device does not support it')
+
+        X, y = data[0][:100], data[1][:100]
+        max_epochs = 10
+
+        if scheduler == 'ReduceLROnPlateau':
+            lr_scheduler = LRScheduler(
+                policy=torch.optim.lr_scheduler.ReduceLROnPlateau,
+            )
+        else:
+            lr_scheduler = LRScheduler(
+                policy=torch.optim.lr_scheduler.StepLR,
+                step_size=2,
+                step_every='batch',
+            )
+
+        accelerator = accelerator_cls()
+        net = net_cls(
+            accelerator=accelerator,
+            max_epochs=max_epochs,
+            callbacks=[lr_scheduler],
+        )
+        net.fit(X, y)
+
 
 class MockHfApi:
     """Mock of huggingface_hub.HfAPI"""
