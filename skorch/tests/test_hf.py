@@ -725,6 +725,7 @@ class TestAccelerate:
             def __init__(self):
                 self.device_placement = True
                 self.print = print
+                self.optimizer_step_was_skipped = False
 
             def prepare(self, *args):
                 for arg in args:
@@ -744,6 +745,11 @@ class TestAccelerate:
             # pylint: disable=unused-argument
             @contextmanager
             def accumulate(self, model):
+                yield
+
+            # pylint: disable=unused-argument
+            @contextmanager
+            def autocast(self, cache_enabled=False, autocast_handler=None):
                 yield
 
         # pylint: disable=missing-docstring,arguments-differ

@@ -997,9 +997,10 @@ class AccelerateMixin:
     def train_step_single(self, batch, **fit_params):
         self._set_training(True)
         Xi, yi = unpack_data(batch)
-        y_pred = self.infer(Xi, **fit_params)
-        loss = self.get_loss(y_pred, yi, X=Xi, training=True)
-        self.accelerator.backward(loss)
+        with self.accelerator.autocast():
+            y_pred = self.infer(Xi, **fit_params)
+            loss = self.get_loss(y_pred, yi, X=Xi, training=True)
+            self.accelerator.backward(loss)
         return {
             'loss': loss,
             'y_pred': y_pred,
