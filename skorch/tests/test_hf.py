@@ -4,6 +4,7 @@ import difflib
 import io
 import os
 import pickle
+import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from functools import partial
@@ -710,9 +711,14 @@ class TestAccelerate:
             net_loaded = get_accelerate_net().initialize()
         else:
             net_loaded = get_vanilla_net().initialize()
-        net_loaded.load_params(f_params=f_name)
-        accuracy_after = accuracy_score(y, net_loaded.predict(X))
 
+        with warnings.catch_warnings():
+            # ensure that there is *no* warning, especially not about setting
+            # the device because it is None
+            warnings.simplefilter("error")
+            net_loaded.load_params(f_params=f_name)
+
+        accuracy_after = accuracy_score(y, net_loaded.predict(X))
         assert accuracy_before == accuracy_after
         if wrap_loaded_model:
             assert net_loaded.device is None

@@ -1087,27 +1087,31 @@ class AccelerateMixin:
     def load_params(self, *args, **kwargs):
         self.accelerator.wait_for_everyone()
         prev_device = self.device
+        if self.device is None:
+            self.device = 'cpu'
 
-        if not self._wrapped_with_accelerator:
-            super().load_params(*args, **kwargs)
-        else:
-            # A potential issue with using accelerate is that a model that has
-            # been prepared with accelerate is wrapped, so that the keys of the
-            # state dict have an additional prefix, "module.". Therefore, when
-            # the model is unwrapped when saving and wrapped when loading, or
-            # vice versa, there will be a mismatch in the state dict keys. Here,
-            # we always unwrap the model first before loading (1st case). This
-            # would still result in an error in the 2nd case, but we take care
-            # of unwrapping the model in that case during saving.
-            self._unwrap_accelerator()
-            try:
+        try:
+            if not self._wrapped_with_accelerator:
                 super().load_params(*args, **kwargs)
-            finally:
-                self._initialize_accelerator()
-
-        # ensure that the device remains unchanged in case it was None before
-        # calling load_params
-        self.device = prev_device
+            else:
+                # A potential issue with using accelerate is that a model that
+                # has been prepared with accelerate is wrapped, so that the keys
+                # of the state dict have an additional prefix, "module.".
+                # Therefore, when the model is unwrapped when saving and wrapped
+                # when loading, or vice versa, there will be a mismatch in the
+                # state dict keys. Here, we always unwrap the model first before
+                # loading (1st case). This would still result in an error in the
+                # 2nd case, but we take care of unwrapping the model in that
+                # case during saving.
+                self._unwrap_accelerator()
+                try:
+                    super().load_params(*args, **kwargs)
+                finally:
+                    self._initialize_accelerator()
+        finally:
+            # ensure that the device remains unchanged in case it was None
+            # before calling load_params
+            self.device = prev_device
 
 
 class HfHubStorage:
