@@ -9,17 +9,12 @@ import numpy as np
 import torch
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CyclicLR
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
-
-try:
-    from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
-except ImportError:
-    # Backward compatibility with torch >= 1.0 && < 1.1
-    TorchCyclicLR = None
 from torch.optim.optimizer import Optimizer
 from skorch.callbacks import Callback
 
@@ -152,7 +147,7 @@ class LRScheduler(Callback):
            certain conditions.
 
         For more info on the latter, see:
-        https://huggingface.co/docs/accelerate/v0.21.0/en/quicktour#mixed-precision-training
+        https://huggingface.co/docs/accelerate/quicktour#mixed-precision-training
 
         """
         accelerator_maybe = getattr(net, 'accelerator', None)
@@ -187,19 +182,22 @@ class LRScheduler(Callback):
             self._step(net, self.lr_scheduler_, score=score)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
-            if self.event_name is not None and hasattr(
-                    self.lr_scheduler_, "get_last_lr"):
-                net.history.record(self.event_name,
-                                   self.lr_scheduler_.get_last_lr()[0])
+            if (
+                    (self.event_name is not None)
+                    and hasattr(self.lr_scheduler_, "get_last_lr")
+            ):
+                net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
             self._step(net, self.lr_scheduler_)
 
     def on_batch_end(self, net, training, **kwargs):
         if not training or self.step_every != 'batch':
             return
-        if self.event_name is not None and hasattr(
-                self.lr_scheduler_, "get_last_lr"):
-            net.history.record_batch(self.event_name,
-                                     self.lr_scheduler_.get_last_lr()[0])
+        if (
+                (self.event_name is not None)
+                and hasattr(self.lr_scheduler_, "get_last_lr")
+        ):
+            net.history.record_batch(
+                self.event_name, self.lr_scheduler_.get_last_lr()[0])
         self._step(net, self.lr_scheduler_)
         self.batch_idx_ += 1
 
@@ -207,8 +205,10 @@ class LRScheduler(Callback):
         """Return scheduler, based on indicated policy, with appropriate
         parameters.
         """
-        if policy not in [ReduceLROnPlateau] and \
-                'last_epoch' not in scheduler_kwargs:
+        if (
+                (policy not in [ReduceLROnPlateau])
+                and ('last_epoch' not in scheduler_kwargs)
+        ):
             last_epoch = len(net.history) - 1
             scheduler_kwargs['last_epoch'] = last_epoch
 

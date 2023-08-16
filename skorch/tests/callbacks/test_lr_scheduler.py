@@ -3,7 +3,6 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
-import torch
 from sklearn.base import clone
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -12,7 +11,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
-from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
+from torch.optim.lr_scheduler import CyclicLR
 
 from skorch import NeuralNetClassifier
 from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler
@@ -28,7 +27,7 @@ class TestLRCallbacks:
         expected = np.array([1.0, 1.0, 0.1, 0.1, 0.01, 0.01])
         assert np.allclose(expected, lrs)
 
-    @pytest.mark.parametrize('policy', [TorchCyclicLR])
+    @pytest.mark.parametrize('policy', [CyclicLR])
     def test_simulate_lrs_batch_step(self, policy):
         lr_sch = LRScheduler(
             policy, base_lr=1, max_lr=5, step_size_up=4, step_every='batch')
@@ -96,7 +95,7 @@ class TestLRCallbacks:
         assert lr_policy.lr_scheduler_.last_epoch == max_epochs
 
     @pytest.mark.parametrize('policy, kwargs', [
-        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3, 'step_every': 'batch'}),
+        (CyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3, 'step_every': 'batch'}),
     ])
     def test_lr_callback_batch_steps_correctly(
             self,
@@ -125,7 +124,7 @@ class TestLRCallbacks:
         assert lr_policy.batch_idx_ == expected
 
     @pytest.mark.parametrize('policy, kwargs', [
-        (TorchCyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3, 'step_every': 'batch'}),
+        (CyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3, 'step_every': 'batch'}),
     ])
     def test_lr_callback_batch_steps_correctly_fallback(
             self,
@@ -177,7 +176,7 @@ class TestLRCallbacks:
 
     def test_lr_scheduler_set_params(self, classifier_module, classifier_data):
         scheduler = LRScheduler(
-            TorchCyclicLR, base_lr=123, max_lr=999, step_every='batch')
+            CyclicLR, base_lr=123, max_lr=999, step_every='batch')
         net = NeuralNetClassifier(
             classifier_module,
             max_epochs=0,
@@ -212,7 +211,7 @@ class TestLRCallbacks:
         batch_size = 128
 
         scheduler = LRScheduler(
-            TorchCyclicLR,
+            CyclicLR,
             base_lr=1,
             max_lr=5,
             step_size_up=4,
