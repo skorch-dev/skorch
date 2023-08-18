@@ -151,17 +151,16 @@ class LRScheduler(Callback):
 
         """
         accelerator_maybe = getattr(net, 'accelerator', None)
-        if not accelerator_maybe:
-            if score is None:
-                lr_scheduler.step()
-            else:
-                lr_scheduler.step(score)
+        accelerator_step_skipped = (
+            accelerator_maybe and accelerator_maybe.optimizer_step_was_skipped
+        )
+        if accelerator_step_skipped:
+            return
+
+        if score is None:
+            lr_scheduler.step()
         else:
-            if not accelerator_maybe.optimizer_step_was_skipped:
-                if score is None:
-                    lr_scheduler.step()
-                else:
-                    lr_scheduler.step(score)
+            lr_scheduler.step(score)
 
     def on_epoch_end(self, net, **kwargs):
         if self.step_every != 'epoch':
