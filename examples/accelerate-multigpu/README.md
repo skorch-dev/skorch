@@ -1,5 +1,9 @@
 # Testing skorch with accelerate in multi GPU setting
 
+This directory contains a couple of script used to test skorch with accelerate in a multi-GPU setting. The scripts cannot run as unit tests because they require a specific hardware setup not provided by the GitHub Action runners.
+
+## `run-with-skorch.py`
+
 The full history of this can be found here: https://github.com/skorch-dev/skorch/issues/944
 
 There was an issue with using skorch in a multi-GPU setting with accelerate. After some searching, it turns out there were two problems:
@@ -36,3 +40,15 @@ tpu_use_cluster: false
 tpu_use_sudo: false
 use_cpu: false
 ```
+
+## `run-save-load.py`
+
+The context of this script is that there were issues with saving and loading when using `AccelerateMixin`. The provided script is to ensure that everything works as expected. Same as the first one, for a proper test, this script needs to run in a multi-GPU setting. For more information, check PR #1008.
+
+Run the scripts like this:
+
+```sh
+accelerate launch run-save-load.py
+```
+
+The accelerate config is the same.
