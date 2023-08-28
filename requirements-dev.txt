@@ -1,4 +1,4 @@
-accelerate>=0.11.0
+accelerate>=0.22.0
 fire
 flaky
 future>=0.17.1
