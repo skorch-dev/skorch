@@ -29,6 +29,10 @@ class TestCheckpoint:
         with patch('skorch.NeuralNet.save_params') as mock:
             yield mock
 
+    @pytest.fixture(params=['torch', 'safetensors'])
+    def use_safetensors(self, request):
+        return request.param == 'safetensors'
+
     @pytest.fixture
     def pickle_dump_mock(self):
         with patch('pickle.dump') as mock:
@@ -69,6 +73,14 @@ class TestCheckpoint:
         msg = "Checkpoint called with both f_params and f_module, please choose one"
         with pytest.raises(TypeError, match=msg):
             checkpoint_cls(f_module='weights.pt', f_params='params.pt').initialize()
+
+    def test_init_with_f_optimizer_and_safetensors_raises(self, checkpoint_cls):
+        msg = (
+            "Cannot save optimizer state when using safetensors, "
+            "please set f_optimizer=None or don't use safetensors."
+        )
+        with pytest.raises(ValueError, match=msg):
+            checkpoint_cls(f_optimizer='optimizer.safetensors', use_safetensors=True)
 
     def test_none_monitor_saves_always(
             self, save_params_mock, net_cls, checkpoint_cls, data):
@@ -225,14 +237,16 @@ class TestCheckpoint:
         }
         save_params_mock.assert_has_calls(
             [
-                call(f_module='model_1_10.pt'),  # params is turned into module
-                call(f_optimizer='optimizer_1_10.pt'),
-                call(f_criterion='criterion_1_10.pt'),
-                call(f_history='history.json'),
-                call(f_module='model_3_10.pt'),  # params is turned into module
-                call(f_optimizer='optimizer_3_10.pt'),
-                call(f_criterion='criterion_3_10.pt'),
-                call(f_history='history.json'),
+                # params is turned into module
+                call(f_module='model_1_10.pt', use_safetensors=False),
+                call(f_optimizer='optimizer_1_10.pt', use_safetensors=False),
+                call(f_criterion='criterion_1_10.pt', use_safetensors=False),
+                call(f_history='history.json', use_safetensors=False),
+                # params is turned into module
+                call(f_module='model_3_10.pt', use_safetensors=False),
+                call(f_optimizer='optimizer_3_10.pt', use_safetensors=False),
+                call(f_criterion='criterion_3_10.pt', use_safetensors=False),
+                call(f_history='history.json', use_safetensors=False),
             ],
             any_order=True,
         )
@@ -244,68 +258,92 @@ class TestCheckpoint:
 
     def test_save_all_targets(
             self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data):
-        net = net_cls(callbacks=[
-            checkpoint_cls(
-                monitor=None,
-                f_params='params.pt',
-                f_pickle='model.pkl',
-                f_optimizer='optimizer.pt',
-                f_criterion='criterion.pt',
-                f_history='history.json',
-            ),
-        ])
-        net.fit(*data)
-
-        assert save_params_mock.call_count == 4 * len(net.history)
-        assert pickle_dump_mock.call_count == len(net.history)
-
-        save_params_mock.assert_has_calls(
-            [
-                call(f_module='params.pt'),  # params is turned into module
-                call(f_optimizer='optimizer.pt'),
-                call(f_criterion='criterion.pt'),
-                call(f_history='history.json'),
-            ] * len(net.history),
-            any_order=True,
-        )
-
-    def test_save_all_targets_with_prefix(
-            self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data):
-
-        cp = checkpoint_cls(
+            net_cls, checkpoint_cls, data, use_safetensors):
+        kwargs = dict(
             monitor=None,
             f_params='params.pt',
             f_pickle='model.pkl',
             f_optimizer='optimizer.pt',
             f_criterion='criterion.pt',
             f_history='history.json',
+            use_safetensors=use_safetensors,
+        )
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        net = net_cls(callbacks=[checkpoint_cls(**kwargs)])
+        net.fit(*data)
+
+        if use_safetensors:
+            # no optimizer
+            assert save_params_mock.call_count == 3 * len(net.history)
+        else:
+            assert save_params_mock.call_count == 4 * len(net.history)
+        assert pickle_dump_mock.call_count == len(net.history)
+
+        kwargs = {'use_safetensors': use_safetensors}
+        calls_expected =             [
+            call(f_module='params.pt', **kwargs),  # params is turned into module
+            call(f_criterion='criterion.pt', **kwargs),
+            call(f_history='history.json', **kwargs),
+        ]
+        if not use_safetensors:
+            # safetensors cannot safe optimizers
+            calls_expected.append(call(f_optimizer='optimizer.pt', **kwargs))
+        save_params_mock.assert_has_calls(
+            calls_expected * len(net.history),
+            any_order=True,
+        )
+
+    def test_save_all_targets_with_prefix(
+            self, save_params_mock, pickle_dump_mock,
+            net_cls, checkpoint_cls, data, use_safetensors):
+
+        kwargs = dict(
+            monitor=None,
+            f_params='params.pt',
+            f_pickle='model.pkl',
+            f_optimizer='optimizer.pt',
+            f_criterion='criterion.pt',
+            f_history='history.json',
+            use_safetensors=use_safetensors,
             fn_prefix="exp1_",
         )
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        cp = checkpoint_cls(**kwargs)
         net = net_cls(callbacks=[cp])
         net.fit(*data)
 
         assert cp.f_history_ == "exp1_history.json"
-        assert save_params_mock.call_count == 4 * len(net.history)
+        if use_safetensors:
+            assert save_params_mock.call_count == 3 * len(net.history)
+        else:
+            assert save_params_mock.call_count == 4 * len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
+
+        kwargs = {'use_safetensors': use_safetensors}
+        calls_expected = [
+            call(f_module='exp1_params.pt', **kwargs),
+            call(f_criterion='exp1_criterion.pt', **kwargs),
+            call(f_history='exp1_history.json', **kwargs),
+        ]
+        if not use_safetensors:
+            # safetensors cannot safe optimizers
+            calls_expected.append(call(f_optimizer='exp1_optimizer.pt', **kwargs))
         save_params_mock.assert_has_calls(
-            [
-                call(f_module='exp1_params.pt'),  # params is turned into module
-                call(f_optimizer='exp1_optimizer.pt'),
-                call(f_criterion='exp1_criterion.pt'),
-                call(f_history='exp1_history.json'),
-            ] * len(net.history),
+            calls_expected * len(net.history),
             any_order=True,
         )
 
     def test_save_all_targets_with_prefix_and_dirname(
             self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data, tmpdir):
+            net_cls, checkpoint_cls, data, tmpdir, use_safetensors):
 
         skorch_dir = tmpdir.mkdir('skorch').join('exp1')
 
-        cp = checkpoint_cls(
+        kwargs = dict(
             monitor=None,
             f_params='params.pt',
             f_history='history.json',
@@ -313,7 +351,13 @@ class TestCheckpoint:
             f_optimizer='optimizer.pt',
             f_criterion='criterion.pt',
             fn_prefix="unet_",
-            dirname=str(skorch_dir))
+            dirname=str(skorch_dir),
+            use_safetensors=use_safetensors,
+        )
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        cp = checkpoint_cls(**kwargs)
         net = net_cls(callbacks=[cp])
         net.fit(*data)
 
@@ -323,15 +367,22 @@ class TestCheckpoint:
         f_history = skorch_dir.join('unet_history.json')
 
         assert cp.f_history_ == str(f_history)
-        assert save_params_mock.call_count == 4 * len(net.history)
+        if use_safetensors:
+            assert save_params_mock.call_count == 3 * len(net.history)
+        else:
+            assert save_params_mock.call_count == 4 * len(net.history)
         assert pickle_dump_mock.call_count == len(net.history)
+
+        kwargs = {'use_safetensors': use_safetensors}
+        calls_expected = [
+            call(f_module=str(f_params), **kwargs),  # params is turned into module
+            call(f_criterion=str(f_criterion), **kwargs),
+            call(f_history=str(f_history), **kwargs),
+        ]
+        if not use_safetensors:
+            calls_expected.append(call(f_optimizer=str(f_optimizer), **kwargs))
         save_params_mock.assert_has_calls(
-            [
-                call(f_module=str(f_params)),  # params is turned into module
-                call(f_optimizer=str(f_optimizer)),
-                call(f_criterion=str(f_criterion)),
-                call(f_history=str(f_history)),
-            ] * len(net.history),
+            calls_expected * len(net.history),
             any_order=True,
         )
         assert skorch_dir.exists()
@@ -370,7 +421,7 @@ class TestCheckpoint:
         assert save_params_mock.call_count == 4
 
     def test_save_custom_module(
-            self, save_params_mock, module_cls, checkpoint_cls, data,
+            self, save_params_mock, module_cls, checkpoint_cls, data, use_safetensors
     ):
         # checkpointing custom modules works
         from skorch import NeuralNetRegressor
@@ -396,13 +447,15 @@ class TestCheckpoint:
             f_criterion=None,
             f_history=None,
             f_mymodule='mymodule.pt',
+            use_safetensors=use_safetensors,
         )
         net = MyNet(module_cls, callbacks=[cp])
         net.fit(*data)
 
         assert save_params_mock.call_count == 1 * len(net.history)
+        kwargs = {'use_safetensors': use_safetensors}
         save_params_mock.assert_has_calls(
-            [call(f_mymodule='mymodule.pt')] * len(net.history)
+            [call(f_mymodule='mymodule.pt', **kwargs)] * len(net.history)
         )
 
     @pytest.fixture
@@ -934,6 +987,9 @@ class TestParamMapper:
 
 
 class TestLoadInitState:
+    @pytest.fixture(params=['torch', 'safetensors'])
+    def use_safetensors(self, request):
+        return request.param == 'safetensors'
 
     @pytest.fixture
     def checkpoint_cls(self):
@@ -972,28 +1028,35 @@ class TestLoadInitState:
 
     def test_load_initial_state(
             self, checkpoint_cls, net_cls, loadinitstate_cls,
-            data, tmpdir):
+            data, tmpdir, use_safetensors):
         skorch_dir = tmpdir.mkdir('skorch')
         f_params = skorch_dir.join('params.pt')
         f_optimizer = skorch_dir.join('optimizer.pt')
         f_criterion = skorch_dir.join('criterion.pt')
         f_history = skorch_dir.join('history.json')
 
-        cp = checkpoint_cls(
+        kwargs = dict(
             monitor=None,
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
             f_criterion=str(f_criterion),
-            f_history=str(f_history)
+            f_history=str(f_history),
+            use_safetensors=use_safetensors,
         )
-        load_init_state = loadinitstate_cls(cp)
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        cp = checkpoint_cls(**kwargs)
+        load_init_state = loadinitstate_cls(cp, use_safetensors=use_safetensors)
         net = net_cls(callbacks=[cp, load_init_state])
         net.fit(*data)
 
         assert f_params.exists()
-        assert f_optimizer.exists()
         assert f_criterion.exists()
         assert f_history.exists()
+        if not use_safetensors:
+            # safetensors cannot safe optimizers
+            assert f_optimizer.exists()
 
         assert len(net.history) == 10
         del net
@@ -1005,7 +1068,7 @@ class TestLoadInitState:
 
     def test_load_initial_state_custom_scoring(
             self, checkpoint_cls, net_cls, loadinitstate_cls,
-            data, tmpdir):
+            data, tmpdir, use_safetensors):
         def epoch_3_scorer(net, *_):
             return 1 if net.history[-1, 'epoch'] == 3 else 0
 
@@ -1023,22 +1086,29 @@ class TestLoadInitState:
         f_history = skorch_dir.join(
             'history.json')
 
-        cp = checkpoint_cls(
+        kwargs = dict(
             monitor='epoch_3_scorer_best',
             f_params=str(f_params),
             f_optimizer=str(f_optimizer),
             f_criterion=str(f_criterion),
-            f_history=str(f_history)
+            f_history=str(f_history),
+            use_safetensors=use_safetensors,
         )
-        load_init_state = loadinitstate_cls(cp)
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        cp = checkpoint_cls(**kwargs)
+        load_init_state = loadinitstate_cls(cp, use_safetensors=use_safetensors)
         net = net_cls(callbacks=[load_init_state, scoring, cp])
 
         net.fit(*data)
 
         assert skorch_dir.join('model_epoch_3.pt').exists()
-        assert skorch_dir.join('optimizer_epoch_3.pt').exists()
         assert skorch_dir.join('criterion_epoch_3.pt').exists()
         assert skorch_dir.join('history.json').exists()
+        if not use_safetensors:
+            # safetensors cannot safe optimizers
+            assert skorch_dir.join('optimizer_epoch_3.pt').exists()
 
         assert len(net.history) == 10
         del net
@@ -1056,6 +1126,10 @@ class TestLoadInitState:
 
 
 class TestTrainEndCheckpoint:
+    @pytest.fixture(params=['torch', 'safetensors'])
+    def use_safetensors(self, request):
+        return request.param == 'safetensors'
+
     @pytest.fixture
     def trainendcheckpoint_cls(self):
         from skorch.callbacks import TrainEndCheckpoint
@@ -1064,11 +1138,6 @@ class TestTrainEndCheckpoint:
     @pytest.fixture
     def save_params_mock(self):
         with patch('skorch.NeuralNet.save_params') as mock:
-            yield mock
-
-    @pytest.fixture
-    def pickle_dump_mock(self):
-        with patch('pickle.dump') as mock:
             yield mock
 
     @pytest.fixture
@@ -1109,53 +1178,104 @@ class TestTrainEndCheckpoint:
             trainendcheckpoint_cls(
                 f_module='weights.pt', f_params='params.pt').initialize()
 
-    def test_saves_at_end(
-            self, save_params_mock, net_cls, trainendcheckpoint_cls, data):
-        sink = Mock()
-        net = net_cls(callbacks=[
+    def test_init_with_f_optimizer_and_safetensors_raises(self, trainendcheckpoint_cls):
+        msg = (
+            "Cannot save optimizer state when using safetensors, "
+            "please set f_optimizer=None or don't use safetensors."
+        )
+        with pytest.raises(ValueError, match=msg):
             trainendcheckpoint_cls(
-                sink=sink, dirname='exp1', fn_prefix='train_end_')
-        ])
+                f_optimizer='optimizer.safetensors', use_safetensors=True
+            )
+
+    def test_saves_at_end(
+            self,
+            save_params_mock,
+            net_cls,
+            trainendcheckpoint_cls,
+            data,
+            use_safetensors,
+    ):
+        sink = Mock()
+        kwargs = dict(
+            sink=sink,
+            dirname='exp1',
+            fn_prefix='train_end_',
+            use_safetensors=use_safetensors,
+        )
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        net = net_cls(callbacks=[trainendcheckpoint_cls(**kwargs)])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 4
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            assert save_params_mock.call_count == 3
+        else:
+            assert save_params_mock.call_count == 4
         assert sink.call_args == call("Final checkpoint triggered")
+
+        kwargs = {'use_safetensors': use_safetensors}
+        calls_expected = [
+            # params is turned into module
+            call(f_module='exp1/train_end_params.pt', **kwargs),
+            call(f_criterion='exp1/train_end_criterion.pt', **kwargs),
+            call(f_history='exp1/train_end_history.json', **kwargs),
+        ]
+        if not use_safetensors:
+            calls_expected.append(
+                call(f_optimizer='exp1/train_end_optimizer.pt', **kwargs)
+            )
         save_params_mock.assert_has_calls(
-            [
-                # params is turned into module
-                call(f_module='exp1/train_end_params.pt'),
-                call(f_optimizer='exp1/train_end_optimizer.pt'),
-                call(f_criterion='exp1/train_end_criterion.pt'),
-                call(f_history='exp1/train_end_history.json'),
-            ],
+            calls_expected,
             any_order=True,
         )
 
     def test_saves_at_end_with_custom_formatting(
-            self, save_params_mock, net_cls, trainendcheckpoint_cls, data):
+            self,
+            save_params_mock,
+            net_cls,
+            trainendcheckpoint_cls,
+            data,
+            use_safetensors,
+    ):
         sink = Mock()
-        net = net_cls(callbacks=[
-            trainendcheckpoint_cls(
-                sink=sink,
-                dirname='exp1',
-                f_params='model_{last_epoch[epoch]}.pt',
-                f_optimizer='optimizer_{last_epoch[epoch]}.pt',
-                f_criterion='criterion_{last_epoch[epoch]}.pt',
-                fn_prefix='train_end_',
-            )
-        ])
+        kwargs = dict(
+            sink=sink,
+            dirname='exp1',
+            f_params='model_{last_epoch[epoch]}.pt',
+            f_optimizer='optimizer_{last_epoch[epoch]}.pt',
+            f_criterion='criterion_{last_epoch[epoch]}.pt',
+            fn_prefix='train_end_',
+            use_safetensors=use_safetensors,
+        )
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            kwargs['f_optimizer'] = None
+        net = net_cls(callbacks=[trainendcheckpoint_cls(**kwargs)])
         net.fit(*data)
 
-        assert save_params_mock.call_count == 4
+        if use_safetensors:
+            # safetensors cannot safe optimizers
+            assert save_params_mock.call_count == 3
+        else:
+            assert save_params_mock.call_count == 4
         assert sink.call_args == call("Final checkpoint triggered")
-        save_params_mock.assert_has_calls(
-            [
+
+        kwargs = {'use_safetensors': use_safetensors}
+        calls_expected = [
                 # params is turned into module
-                call(f_module='exp1/train_end_model_10.pt'),
-                call(f_optimizer='exp1/train_end_optimizer_10.pt'),
-                call(f_criterion='exp1/train_end_criterion_10.pt'),
-                call(f_history='exp1/train_end_history.json'),
-            ],
+            call(f_module='exp1/train_end_model_10.pt', **kwargs),
+            call(f_criterion='exp1/train_end_criterion_10.pt', **kwargs),
+            call(f_history='exp1/train_end_history.json', **kwargs),
+        ]
+        if not use_safetensors:
+            calls_expected.append(
+                call(f_optimizer='exp1/train_end_optimizer_10.pt', **kwargs),
+            )
+        save_params_mock.assert_has_calls(
+            calls_expected,
             any_order=True,
         )
 
@@ -1189,7 +1309,12 @@ class TestTrainEndCheckpoint:
         assert np.isclose(score_loaded, score_after)
 
     def test_save_custom_module(
-            self, save_params_mock, module_cls, trainendcheckpoint_cls, data,
+            self,
+            save_params_mock,
+            module_cls,
+            trainendcheckpoint_cls,
+            data,
+            use_safetensors,
     ):
         # checkpointing custom modules works
         from skorch import NeuralNetRegressor
@@ -1214,12 +1339,16 @@ class TestTrainEndCheckpoint:
             f_criterion=None,
             f_history=None,
             f_mymodule='mymodule.pt',
+            use_safetensors=use_safetensors,
         )
         net = MyNet(module_cls, callbacks=[cp])
         net.fit(*data)
 
+        kwargs = {'use_safetensors': use_safetensors}
         assert save_params_mock.call_count == 1
-        save_params_mock.assert_has_calls([call(f_mymodule='train_end_mymodule.pt')])
+        save_params_mock.assert_has_calls(
+            [call(f_mymodule='train_end_mymodule.pt', **kwargs)]
+        )
 
     def test_pickle_uninitialized_callback(self, trainendcheckpoint_cls):
         # isuue 773

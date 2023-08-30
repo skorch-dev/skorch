@@ -69,39 +69,10 @@ To install accelerate_, run the following command inside your Python environment
 Caution when using a multi-GPU setup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-There is a known issue when using accelerate in a multi-GPU setup *if copies of
-the net are created*. In particular, be aware that sklearn often creates copies
-under the hood, which may not immediately obvious to a user. Examples of
-functions and classes creating copies are:
+There were some issues with old accelerate versions, for best results, please use
+0.21 or above.
 
-- `GridSearchCV`, `RandomizedSearchCV` etc.
-- `cross_validate`, `cross_val_score` etc.
-- `VotingClassifier`, `CalibratedClassifierCV` and other meta estimators (but
-  not `Pipeline`).
-
-When using any of those in a multi-GPU setup with :class:`.AccelerateMixin`, you
-may encounter errors. A possible fix is to prevent the ``Accelerator`` instance
-from being copied (or, to be precise, deep-copied):
-
-.. code:: python
-
-    class AcceleratedNet(AccelerateMixin, NeuralNet):
-        pass
-
-    class MyAccelerator(Accelerator):
-        def __deepcopy__(self, memo):
-            return self
-
-    accelerator = MyAccelerator()
-    net = AcceleratedNet(..., accelerator=accelerator)
-    # now grid search et al. should work
-    gs = GridSearchCV(net, ...)
-    gs.fit(X, y)
-
-Note that this is a hacky solution, so monitor your results closely to ensure
-nothing strange is going on.
-
-There is also a problem with caching not working correctly in multi-GPU
+There is a problem with caching not working correctly in multi-GPU
 training. Therefore, if using a scoring callback (e.g.
 :class:`skorch.callbacks.EpochScoring`), turn caching off by passing
 ``use_caching=False``. Be aware that when using

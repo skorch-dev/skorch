@@ -2,7 +2,9 @@
 
 import difflib
 import io
+import os
 import pickle
+import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from functools import partial
@@ -13,6 +15,7 @@ import pytest
 import torch
 from sklearn.base import clone
 from sklearn.exceptions import NotFittedError
+from sklearn.metrics import accuracy_score
 
 from skorch import NeuralNetClassifier
 from skorch.hf import AccelerateMixin
@@ -646,6 +649,80 @@ class TestAccelerate:
         assert hasattr(net.criterion_.forward, '__wrapped__')
         assert hasattr(net.module_.forward, '__wrapped__')
 
+    @pytest.mark.parametrize(
+        'wrap_loaded_model',
+        [True, False],
+        ids=["loaded wrapped", "loaded not wrapped"],
+    )
+    @pytest.mark.parametrize(
+        'wrap_initial_model',
+        [True, False],
+        ids=["initial wrapped", "initial not wrapped"],
+    )
+    def test_save_load_params(
+            self,
+            net_cls,
+            module_cls,
+            accelerator_cls,
+            data,
+            wrap_initial_model,
+            wrap_loaded_model,
+            tmpdir,
+    ):
+        # There were a few issue with saving and loading parameters for an
+        # accelerated net in a multi-GPU setting.
+
+        # - load_params set the device if device=None to CPU, but we need None
+        # - not waiting for all processes to finish before saving parameters
+        # - all processes saving the parameters, when only main should
+        # - an issue with parameter names depending on the wrapping state
+
+        # Regarding the last point, the issue was that if the module(s) are
+        # wrapped with accelerate, the parameters have an additional prefix,
+        # "module.". So e.g. "dense0.weight" would become
+        # "module.dense0.weight". This resulted in a key mismatch and error. To
+        # prevent this, it is now always ensured that the net is unwrapped when
+        # saving or loading.
+        # This test checks the correct behavior on CPU, iterating through all 4
+        # combinations of wrapping/not wrapping the initial/loaded model.
+
+        # Note that we cannot really test this with unit tests because it
+        # requires a multi-GPU setup. To run a proper test, please run the
+        # `run-save-load.py` script in skorch/examples/accelerate-multi-gpu/.
+
+        # More context in PR #1008
+        accelerator = accelerator_cls()
+
+        def get_accelerate_net():
+            return net_cls(accelerator=accelerator)
+
+        def get_vanilla_net():
+            return NeuralNetClassifier(module_cls, max_epochs=2, lr=0.1)
+
+        X, y = data
+        net = get_accelerate_net()
+        net.unwrap_after_train = True if wrap_initial_model else False
+        net.fit(X, y)
+        accuracy_before = accuracy_score(y, net.predict(X))
+        f_name = os.path.join(tmpdir, 'params.pt')
+        net.save_params(f_params=f_name)
+
+        if wrap_loaded_model:
+            net_loaded = get_accelerate_net().initialize()
+        else:
+            net_loaded = get_vanilla_net().initialize()
+
+        with warnings.catch_warnings():
+            # ensure that there is *no* warning, especially not about setting
+            # the device because it is None
+            warnings.simplefilter("error")
+            net_loaded.load_params(f_params=f_name)
+
+        accuracy_after = accuracy_score(y, net_loaded.predict(X))
+        assert accuracy_before == accuracy_after
+        if wrap_loaded_model:
+            assert net_loaded.device is None
+
     @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
     def test_mixed_precision_save_load_params(
             self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
@@ -660,9 +737,31 @@ class TestAccelerate:
         accelerator = accelerator_cls(mixed_precision=mixed_precision)
         net = net_cls(accelerator=accelerator)
         net.initialize()
+
         filename = tmp_path / 'accel-net-params.pth'
         net.save_params(f_params=filename)
         net.load_params(f_params=filename)
+
+    @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
+    def test_mixed_precision_inference(
+            self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
+    ):
+        from accelerate.utils import is_bf16_available
+
+        if (mixed_precision != 'no') and not torch.cuda.is_available():
+            pytest.skip('skipping AMP test because device does not support it')
+        if (mixed_precision == 'bf16') and not is_bf16_available():
+            pytest.skip('skipping bf16 test because device does not support it')
+
+        X, y = data
+        accelerator = accelerator_cls(mixed_precision=mixed_precision)
+        net = net_cls(accelerator=accelerator)
+        net.fit(X, y)
+        net.predict(X)
+        net.predict_proba(X)
+
+        Xt = torch.from_numpy(X).to(net.device)
+        net.forward(Xt)
 
     def test_force_cpu(self, net_cls, accelerator_cls, data):
         accelerator = accelerator_cls(device_placement=False, cpu=True)
@@ -725,6 +824,7 @@ class TestAccelerate:
             def __init__(self):
                 self.device_placement = True
                 self.print = print
+                self.optimizer_step_was_skipped = False
 
             def prepare(self, *args):
                 for arg in args:
@@ -741,9 +841,17 @@ class TestAccelerate:
             def gather_for_metrics(self, output):
                 return output
 
+            def wait_for_everyone(self):
+                pass
+
             # pylint: disable=unused-argument
             @contextmanager
             def accumulate(self, model):
+                yield
+
+            # pylint: disable=unused-argument
+            @contextmanager
+            def autocast(self, cache_enabled=False, autocast_handler=None):
                 yield
 
         # pylint: disable=missing-docstring,arguments-differ
@@ -869,6 +977,48 @@ class TestAccelerate:
         # every 7th entry is also True.
         updated_expected = [False, False, True, False, False, True, True] * max_epochs
         assert updated == updated_expected
+
+    @pytest.mark.parametrize('mixed_precision', ['no', 'fp16', 'bf16'])
+    @pytest.mark.parametrize('scheduler', ['ReduceLROnPlateau', 'StepLR'])
+    def test_lr_scheduler_with_accelerate(
+            self, net_cls, accelerator_cls, data, mixed_precision, scheduler
+    ):
+        # This test only checks that lr schedulers work with accelerate mixed
+        # precision. The reason why this requires special handling is explained
+        # here:
+        # https://huggingface.co/docs/accelerate/quicktour#mixed-precision-training
+        # There is no test for whether the lr scheduler actually steps correctly
+        # or not, as that would require knowledge of accelerate internals, which
+        # we don't want to rely on.
+        from accelerate.utils import is_bf16_available
+        from skorch.callbacks import LRScheduler
+
+        if (mixed_precision != 'no') and not torch.cuda.is_available():
+            pytest.skip('skipping AMP test because device does not support it')
+        if (mixed_precision == 'bf16') and not is_bf16_available():
+            pytest.skip('skipping bf16 test because device does not support it')
+
+        X, y = data[0][:100], data[1][:100]
+        max_epochs = 10
+
+        if scheduler == 'ReduceLROnPlateau':
+            lr_scheduler = LRScheduler(
+                policy=torch.optim.lr_scheduler.ReduceLROnPlateau,
+            )
+        else:
+            lr_scheduler = LRScheduler(
+                policy=torch.optim.lr_scheduler.StepLR,
+                step_size=2,
+                step_every='batch',
+            )
+
+        accelerator = accelerator_cls()
+        net = net_cls(
+            accelerator=accelerator,
+            max_epochs=max_epochs,
+            callbacks=[lr_scheduler],
+        )
+        net.fit(X, y)
 
 
 class MockHfApi:

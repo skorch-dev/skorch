@@ -13,8 +13,7 @@ from skorch.callbacks import PrintLog
 from skorch.callbacks import EpochScoring
 from skorch.callbacks import PassthroughScoring
 from skorch.dataset import ValidSplit
-from skorch.utils import get_dim, to_numpy
-from skorch.utils import is_dataset
+from skorch.utils import data_from_dataset, is_dataset, get_dim, to_numpy
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks
 
@@ -99,7 +98,21 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
                 raise AttributeError("{} has no attribute 'classes_'".format(
                     self.__class__.__name__))
             return self.classes
-        return self.classes_inferred_
+
+        try:
+            return self.classes_inferred_
+        except AttributeError as exc:
+            # It's not easily possible to track exactly what circumstances led
+            # to this, so try to make an educated guess and provide a possible
+            # solution.
+            msg = (
+                f"{self.__class__.__name__} could not infer the classes from y; "
+                "this error probably occurred because the net was trained without y "
+                "and some function tried to access the '.classes_' attribute; "
+                "a possible solution is to provide the 'classes' argument when "
+                f"initializing {self.__class__.__name__}"
+            )
+            raise AttributeError(msg) from exc
 
     # pylint: disable=signature-differs
     def check_data(self, X, y):
@@ -114,6 +127,15 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
                    "``iterator_train`` and ``iterator_valid`` parameters "
                    "respectively.")
             raise ValueError(msg)
+
+        if (y is None) and is_dataset(X):
+            try:
+                _, y_ds = data_from_dataset(X)
+                self.classes_inferred_ = np.unique(to_numpy(y_ds))
+            except AttributeError:
+                # If this fails, we might still be good to go, so don't raise
+                pass
+
         if y is not None:
             # pylint: disable=attribute-defined-outside-init
             self.classes_inferred_ = np.unique(to_numpy(y))

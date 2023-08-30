@@ -12,6 +12,7 @@ from functools import partial
 from itertools import chain
 from collections import OrderedDict
 from contextlib import contextmanager
+import os
 import tempfile
 import warnings
 
@@ -220,6 +221,20 @@ class NeuralNet:
       notation, e.g. when initializing the net with ``compile__dynamic=True``,
       ``torch.compile`` will be called with ``dynamic=True``.
 
+    use_caching : bool or 'auto' (default='auto')
+      Optionally override the caching behavior of scoring callbacks. Callbacks
+      such as :class:`.EpochScoring` and :class:`.BatchScoring` allow to cache
+      the inference call to save time when calculating scores during training at
+      the expense of memory. In certain situations, e.g. when memory is tight,
+      you may want to disable caching. As it is cumbersome to change the setting
+      on each callback individually, this parameter allows to override their
+      behavior globally.
+      By default (``'auto'``), the callbacks will determine if caching is used
+      or not. If this argument is set to ``False``, caching will be disabled on
+      all callbacks. If set to ``True``, caching will be enabled on all
+      callbacks.
+      Implementation note: It is the job of the callbacks to honor this setting.
+
     Attributes
     ----------
     prefixes_ : list of str
@@ -295,6 +310,7 @@ class NeuralNet:
             verbose=1,
             device='cpu',
             compile=False,
+            use_caching='auto',
             **kwargs
     ):
         self.module = module
@@ -313,6 +329,7 @@ class NeuralNet:
         self.verbose = verbose
         self.device = device
         self.compile = compile
+        self.use_caching = use_caching
 
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
@@ -2020,6 +2037,13 @@ class NeuralNet:
             suggestion = prefix + '__' + suffix
             msgs.append(tmpl.format(key, suggestion))
 
+        valid_vals_use_caching = ('auto', False, True)
+        if self.use_caching not in valid_vals_use_caching:
+            msgs.append(
+                f"Incorrect value for use_caching used ('{self.use_caching}'), "
+                f"use one of: {', '.join(map(str, valid_vals_use_caching))}"
+            )
+
         if msgs:
             full_msg = '\n'.join(msgs)
             raise ValueError(full_msg)
@@ -2408,6 +2432,7 @@ class NeuralNet:
             f_optimizer=None,
             f_criterion=None,
             f_history=None,
+            use_safetensors=False,
             **kwargs):
         """Saves the module's parameters, history, and optimizer,
         not the whole object.
@@ -2437,6 +2462,13 @@ class NeuralNet:
         f_history : file-like object, str, None (default=None)
           Path to history. Pass ``None`` to not save
 
+        use_safetensors : bool (default=False)
+          Whether to use the ``safetensors`` library to persist the state. By
+          default, PyTorch is used, which in turn uses :mod:`pickle` under the
+          hood. When enabling ``safetensors``, be aware that only PyTorch
+          tensors can be stored. Therefore, certain attributes like the
+          optimizer cannot be saved.
+
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
@@ -2449,6 +2481,28 @@ class NeuralNet:
         ...                   f_history='history.json')
 
         """
+        if use_safetensors:
+            def _save_state_dict(state_dict, f_name):
+                from safetensors.torch import save_file, save
+                try:
+                    if isinstance(f_name, (str, os.PathLike)):
+                        save_file(state_dict, f_name)
+                    else:  # file
+                        as_bytes = save(state_dict)
+                        f_name.write(as_bytes)
+                except ValueError as exc:
+                    msg = (
+                        f"You are trying to store {f_name} using safetensors "
+                        "but there was an error. Safetensors can only store "
+                        "tensors, not generic Python objects (as e.g. optimizer "
+                        "states). If you want to store generic Python objects, "
+                        "don't use safetensors."
+                    )
+                    raise ValueError(msg) from exc
+        else:
+            def _save_state_dict(state_dict, f_name):
+                torch.save(module.state_dict(), f_name)
+
         kwargs_module, kwargs_other = _check_f_arguments(
             'save_params',
             f_params=f_params,
@@ -2476,7 +2530,7 @@ class NeuralNet:
             if attr.endswith('_') and not self.initialized_:
                 self.check_is_fitted([attr], msg=msg_init)
             module = self._get_module(attr, msg=msg_module)
-            torch.save(module.state_dict(), f_name)
+            _save_state_dict(module.state_dict(), f_name)
 
         # only valid key in kwargs_other is f_history
         f_history = kwargs_other.get('f_history')
@@ -2516,6 +2570,7 @@ class NeuralNet:
             f_criterion=None,
             f_history=None,
             checkpoint=None,
+            use_safetensors=False,
             **kwargs):
         """Loads the the module's parameters, history, and optimizer,
         not the whole object.
@@ -2547,6 +2602,13 @@ class NeuralNet:
           path is passed in, the ``f_*`` will be loaded. Pass
           ``None`` to not load.
 
+        use_safetensors : bool (default=False)
+          Whether to use the ``safetensors`` library to load the state. By
+          default, PyTorch is used, which in turn uses :mod:`pickle` under the
+          hood. When the state was saved with ``safetensors=True`` when
+          :meth:`skorch.net.NeuralNet.save_params` was called, it should be set
+          to ``True`` here as well.
+
         Examples
         --------
         >>> before = NeuralNetClassifier(mymodule)
@@ -2559,10 +2621,27 @@ class NeuralNet:
         >>>                   f_history='history.json')
 
         """
-        def _get_state_dict(f):
-            map_location = get_map_location(self.device)
-            self.device = self._check_device(self.device, map_location)
-            return torch.load(f, map_location=map_location)
+        if use_safetensors:
+            def _get_state_dict(f_name):
+                from safetensors import safe_open
+                from safetensors.torch import load
+
+                if isinstance(f_name, (str, os.PathLike)):
+                    state_dict = {}
+                    with safe_open(f_name, framework='pt', device=self.device) as f:
+                        for key in f.keys():
+                            state_dict[key] = f.get_tensor(key)
+                else:
+                    # file
+                    as_bytes = f_name.read()
+                    state_dict = load(as_bytes)
+
+                return state_dict
+        else:
+            def _get_state_dict(f_name):
+                map_location = get_map_location(self.device)
+                self.device = self._check_device(self.device, map_location)
+                return torch.load(f_name, map_location=map_location)
 
         kwargs_full = {}
         if checkpoint is not None:

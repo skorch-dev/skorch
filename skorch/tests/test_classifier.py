@@ -136,6 +136,30 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=0, classes=['foo', 'bar']).fit(*data)
         assert net.classes_ == ['foo', 'bar']
 
+    def test_classes_are_set_with_tensordataset_explicit_y(
+            self, net_cls, module_cls, data
+    ):
+        # see 990
+        X = torch.from_numpy(data[0])
+        y = torch.arange(len(X)) % 10
+        dataset = torch.utils.data.TensorDataset(X, y)
+        net = net_cls(module_cls, max_epochs=0).fit(dataset, y)
+        assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
+    def test_classes_are_set_with_tensordataset_implicit_y(
+            self, net_cls, module_cls, data
+    ):
+        # see 990
+        from skorch.dataset import ValidSplit
+
+        X = torch.from_numpy(data[0])
+        y = torch.arange(len(X)) % 10
+        dataset = torch.utils.data.TensorDataset(X, y)
+        net = net_cls(
+            module_cls, max_epochs=0, train_split=ValidSplit(3, stratified=False)
+        ).fit(dataset, None)
+        assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
     @pytest.mark.parametrize('classes', [[], np.array([])])
     def test_pass_empty_classes_raises(
             self, net_cls, module_cls, data, classes):
@@ -152,6 +176,33 @@ class TestNeuralNet:
         from sklearn.calibration import CalibratedClassifierCV
         cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
+
+    def test_error_when_classes_could_not_be_inferred(self, net_cls, module_cls, data):
+        # Provide a better error message when net.classes_ does not exist,
+        # though it is pretty difficult to know exactly the circumstanes that
+        # led to this, so we have to make a guess.
+        # See https://github.com/skorch-dev/skorch/discussions/1003
+        class MyDataset(torch.utils.data.Dataset):
+            """Dataset class that makes it impossible to access y"""
+            def __len__(self):
+                return len(data[0])
+
+            def __getitem__(self, i):
+                return data[0][i], data[1][i]
+
+        net = net_cls(module_cls, max_epochs=0, train_split=False)
+        ds = MyDataset()
+        net.fit(ds, y=None)
+
+        msg = (
+            "NeuralNetClassifier could not infer the classes from y; "
+            "this error probably occurred because the net was trained without y "
+            "and some function tried to access the '.classes_' attribute; "
+            "a possible solution is to provide the 'classes' argument when "
+            "initializing NeuralNetClassifier"
+        )
+        with pytest.raises(AttributeError, match=msg):
+            net.classes_
 
 
 class TestNeuralNetBinaryClassifier:

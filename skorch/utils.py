@@ -440,6 +440,11 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
       If not None, use this function for indexing into the y data. If
       None, try to automatically determine how to index data.
 
+    Raises
+    ------
+    AttributeError
+      If X and y could not be accessed from the dataset.
+
     """
     X, y = _none, _none
 
@@ -450,6 +455,9 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
         y = multi_indexing(y, dataset.indices, indexing=y_indexing)
     elif hasattr(dataset, 'X') and hasattr(dataset, 'y'):
         X, y = dataset.X, dataset.y
+    elif isinstance(dataset, torch.utils.data.dataset.TensorDataset):
+        if len(items := dataset.tensors) == 2:
+            X, y = items
 
     if (X is _none) or (y is _none):
         raise AttributeError("Could not access X and y from dataset.")

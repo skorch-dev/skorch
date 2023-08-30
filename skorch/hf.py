@@ -925,6 +925,7 @@ class AccelerateMixin:
         )
         self.accelerator = accelerator
         self.unwrap_after_train = unwrap_after_train
+        self._wrapped_with_accelerator = False
 
     def _validate_params(self):
         super()._validate_params()
@@ -934,15 +935,10 @@ class AccelerateMixin:
                 "When device placement is performed by the accelerator, set device=None"
             )
 
-    def _initialize_callbacks(self):
-        if self.callbacks__print_log__sink == 'auto':
-            print_func = getattr(self.accelerator, 'print', print)
-            self.callbacks__print_log__sink = print_func
-        super()._initialize_callbacks()
-        return self
-
-    def _initialize_criterion(self, *args, **kwargs):
-        super()._initialize_criterion(*args, **kwargs)
+    def _initialize_accelerator(self):
+        """Prepare everything for use with accelerate"""
+        if self._wrapped_with_accelerator:
+            return self
 
         with self._current_init_context('criterion'):
             for name in self._criteria:
@@ -950,21 +946,11 @@ class AccelerateMixin:
                 if isinstance(criterion, torch.nn.Module):
                     setattr(self, name + '_', self.accelerator.prepare(criterion))
 
-        return self
-
-    def _initialize_module(self, *args, **kwargs):
-        super()._initialize_module(*args, **kwargs)
-
         with self._current_init_context('module'):
             for name in self._modules:
                 module = getattr(self, name + '_')
                 if isinstance(module, torch.nn.Module):
                     setattr(self, name + '_', self.accelerator.prepare(module))
-
-        return self
-
-    def _initialize_optimizer(self, *args, **kwargs):
-        super()._initialize_optimizer(*args, **kwargs)
 
         with self._current_init_context('optimizer'):
             for name in self._optimizers:
@@ -972,15 +958,37 @@ class AccelerateMixin:
                 if isinstance(optimizer, torch.optim.Optimizer):
                     setattr(self, name + '_', self.accelerator.prepare(optimizer))
 
-        return self
-
-    def initialize_callbacks(self, *args, **kwargs):
-        super().initialize_callbacks(*args, **kwargs)
-
         for _, callback in self.callbacks_:
             if isinstance(callback, LRScheduler):
                 callback.policy_ = self.accelerator.prepare(callback.policy_)
 
+        self._wrapped_with_accelerator = True
+        return self
+
+    def initialize(self):
+        """Initializes all of its components and returns self."""
+        # this should be the same as the parent class, except for the one marked
+        # line
+        self.check_training_readiness()
+
+        self._initialize_virtual_params()
+        self._initialize_callbacks()
+        self._initialize_module()
+        self._initialize_criterion()
+        self._initialize_optimizer()
+        self._initialize_history()
+        self._initialize_accelerator()  # <= added
+
+        self._validate_params()
+
+        self.initialized_ = True
+        return self
+
+    def _initialize_callbacks(self):
+        if self.callbacks__print_log__sink == 'auto':
+            print_func = getattr(self.accelerator, 'print', print)
+            self.callbacks__print_log__sink = print_func
+        super()._initialize_callbacks()
         return self
 
     def train_step(self, batch, **fit_params):
@@ -997,9 +1005,10 @@ class AccelerateMixin:
     def train_step_single(self, batch, **fit_params):
         self._set_training(True)
         Xi, yi = unpack_data(batch)
-        y_pred = self.infer(Xi, **fit_params)
-        loss = self.get_loss(y_pred, yi, X=Xi, training=True)
-        self.accelerator.backward(loss)
+        with self.accelerator.autocast():
+            y_pred = self.infer(Xi, **fit_params)
+            loss = self.get_loss(y_pred, yi, X=Xi, training=True)
+            self.accelerator.backward(loss)
         return {
             'loss': loss,
             'y_pred': y_pred,
@@ -1021,17 +1030,23 @@ class AccelerateMixin:
             optimizer = getattr(self, name + '_')
             optimizer.step()
 
-    # pylint: disable=unused-argument
-    def on_train_end(self, net, X=None, y=None, **kwargs):
-        super().on_train_end(net, X=X, y=y, **kwargs)
-        if not self.unwrap_after_train:
-            return self
+    def _unwrap_accelerator(self):
+        if not self._wrapped_with_accelerator:
+            return
 
         for name in self._modules + self._criteria:
             module = getattr(self, name + '_')
             if isinstance(module, torch.nn.Module):
                 orig = self.accelerator.unwrap_model(module, keep_fp32_wrapper=False)
                 setattr(self, name + '_', orig)
+        self._wrapped_with_accelerator = False
+
+    # pylint: disable=unused-argument
+    def on_train_end(self, net, X=None, y=None, **kwargs):
+        self.accelerator.wait_for_everyone()
+        super().on_train_end(net, X=X, y=y, **kwargs)
+        if self.unwrap_after_train:
+            self._unwrap_accelerator()
         return self
 
     def evaluation_step(self, batch, training=False):
@@ -1041,6 +1056,63 @@ class AccelerateMixin:
         output = super().evaluation_step(batch, training=training)
         y_pred = self.accelerator.gather_for_metrics(output)
         return y_pred
+
+    # pylint: disable=missing-function-docstring
+    def save_params(self, *args, **kwargs):
+        # has to be called even if not main process, or else there is a dead lock
+        self.accelerator.wait_for_everyone()
+
+        if not self._wrapped_with_accelerator:
+            if self.accelerator.is_main_process:
+                super().save_params(*args, **kwargs)
+        else:
+            # A potential issue with using accelerate is that a model that has
+            # been prepared with accelerate is wrapped, so that the keys of the
+            # state dict have an additional prefix, "module.". Therefore, when
+            # the model is unwrapped when saving and wrapped when loading, or
+            # vice versa, there will be a mismatch in the state dict keys. To
+            # prevent this, always unwrap before saving. During loading, in case
+            # the model is wrapped, this would result in an error, but we take
+            # care of unwrapping the model in that case during loading.
+            self._unwrap_accelerator()
+            try:
+                # note: although saving is only done on the main process,
+                # unwrapping+wrapping has to be done on all processes, or else
+                # there is an error, not sure why
+                if self.accelerator.is_main_process:
+                    super().save_params(*args, **kwargs)
+            finally:
+                self._initialize_accelerator()
+
+    # pylint: disable=missing-function-docstring
+    def load_params(self, *args, **kwargs):
+        self.accelerator.wait_for_everyone()
+        prev_device = self.device
+        if self.device is None:
+            self.device = 'cpu'
+
+        try:
+            if not self._wrapped_with_accelerator:
+                super().load_params(*args, **kwargs)
+            else:
+                # A potential issue with using accelerate is that a model that
+                # has been prepared with accelerate is wrapped, so that the keys
+                # of the state dict have an additional prefix, "module.".
+                # Therefore, when the model is unwrapped when saving and wrapped
+                # when loading, or vice versa, there will be a mismatch in the
+                # state dict keys. Here, we always unwrap the model first before
+                # loading (1st case). This would still result in an error in the
+                # 2nd case, but we take care of unwrapping the model in that
+                # case during saving.
+                self._unwrap_accelerator()
+                try:
+                    super().load_params(*args, **kwargs)
+                finally:
+                    self._initialize_accelerator()
+        finally:
+            # ensure that the device remains unchanged in case it was None
+            # before calling load_params
+            self.device = prev_device
 
 
 class HfHubStorage:
@@ -1213,6 +1285,7 @@ class HfHubStorage:
         if self.verbose:
             self.sink(f"Uploaded file to {return_url}")
 
+    # pylint: disable=unused-argument
     def close(self, *args):
         self.flush()
 

@@ -9,13 +9,11 @@ with open('VERSION', 'r') as f:
 with open('requirements.txt') as f:
     install_requires = [l.strip() for l in f]
 
+with open('requirements-dev.txt') as f:
+    tests_require = [l.strip() for l in f]
 
-python_requires = '>=3.7'
 
-tests_require = [
-    'pytest',
-    'pytest-cov',
-]
+python_requires = '>=3.8'
 
 docs_require = [
     'Sphinx',

@@ -58,7 +58,7 @@ If you want to help developing, run:
     pylint skorch  # static code checks
 
 You may adjust the Python version to any of the supported Python versions, i.e.
-Python 3.7 or higher.
+Python 3.8 or higher.
 
 Using pip
 ^^^^^^^^^
@@ -101,7 +101,7 @@ minor PyTorch versions, which currently are:
 - 1.11.0
 - 1.12.1
 - 1.13.1
-- 2.0.0
+- 2.0.1
 
 However, that doesn't mean that older versions don't work, just that
 they aren't tested. Since skorch mostly relies on the stable part of

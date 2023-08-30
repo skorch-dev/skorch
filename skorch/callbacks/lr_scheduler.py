@@ -9,17 +9,12 @@ import numpy as np
 import torch
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CyclicLR
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
-
-try:
-    from torch.optim.lr_scheduler import CyclicLR as TorchCyclicLR
-except ImportError:
-    # Backward compatibility with torch >= 1.0 && < 1.1
-    TorchCyclicLR = None
 from torch.optim.optimizer import Optimizer
 from skorch.callbacks import Callback
 
@@ -142,6 +137,31 @@ class LRScheduler(Callback):
             net, self.policy_, **self.kwargs
         )
 
+    def _step(self, net, lr_scheduler, score=None):
+        """Helper method to step the lr scheduler.
+
+        This takes care of two things:
+
+        1. If the lr scheduler is ReduceLROnPlateau, we need to pass the score.
+        2. If the net is uses AccelerateMixin, stepping has to be skipped in
+           certain conditions.
+
+        For more info on the latter, see:
+        https://huggingface.co/docs/accelerate/quicktour#mixed-precision-training
+
+        """
+        accelerator_maybe = getattr(net, 'accelerator', None)
+        accelerator_step_skipped = (
+            accelerator_maybe and accelerator_maybe.optimizer_step_was_skipped
+        )
+        if accelerator_step_skipped:
+            return
+
+        if score is None:
+            lr_scheduler.step()
+        else:
+            lr_scheduler.step(score)
+
     def on_epoch_end(self, net, **kwargs):
         if self.step_every != 'epoch':
             return
@@ -158,31 +178,36 @@ class LRScheduler(Callback):
                         "should be placed before the LRScheduler callback"
                     ) from e
 
-            self.lr_scheduler_.step(score)
+            self._step(net, self.lr_scheduler_, score=score)
             # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
-            if self.event_name is not None and hasattr(
-                    self.lr_scheduler_, "get_last_lr"):
-                net.history.record(self.event_name,
-                                   self.lr_scheduler_.get_last_lr()[0])
-            self.lr_scheduler_.step()
+            if (
+                    (self.event_name is not None)
+                    and hasattr(self.lr_scheduler_, "get_last_lr")
+            ):
+                net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
+            self._step(net, self.lr_scheduler_)
 
     def on_batch_end(self, net, training, **kwargs):
         if not training or self.step_every != 'batch':
             return
-        if self.event_name is not None and hasattr(
-                self.lr_scheduler_, "get_last_lr"):
-            net.history.record_batch(self.event_name,
-                                     self.lr_scheduler_.get_last_lr()[0])
-        self.lr_scheduler_.step()
+        if (
+                (self.event_name is not None)
+                and hasattr(self.lr_scheduler_, "get_last_lr")
+        ):
+            net.history.record_batch(
+                self.event_name, self.lr_scheduler_.get_last_lr()[0])
+        self._step(net, self.lr_scheduler_)
         self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):
         """Return scheduler, based on indicated policy, with appropriate
         parameters.
         """
-        if policy not in [ReduceLROnPlateau] and \
-                'last_epoch' not in scheduler_kwargs:
+        if (
+                (policy not in [ReduceLROnPlateau])
+                and ('last_epoch' not in scheduler_kwargs)
+        ):
             last_epoch = len(net.history) - 1
             scheduler_kwargs['last_epoch'] = last_epoch
 
