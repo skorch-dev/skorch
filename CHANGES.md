@@ -6,11 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+### Changed
+### Fixed
+
+## [0.15.0] - 2023-08-31
+
 ### Added
 - Add the option to globally override the use of caching in scoring callbacks on the net by setting the `use_caching` argument on the net (this overrides the settings of individual callbacks)
 - Add support for saving and loading parameters with [safetensors](https://github.com/huggingface/safetensors/); use `net.save_params(..., use_safetensors=True)` and `net.load_params(..., use_safetensors=True)` (requires to install the `safetensors` library)
 
 ### Changed
+- Nets pickled with skorch version 0.11 can no longer be loaded in version 0.15 (see #880); to transition these nets, pickle them in a skorch version between 0.12 and 0.14, then load them in 0.15
+
 ### Fixed
 
 - Fixed a couple of issues when saving and loading parameters while using accelerate (via `AccelerateMixin`) in a multi-GPU setting (#1008)
@@ -333,3 +342,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.12.1]: https://github.com/skorch-dev/skorch/compare/v0.12.0...v0.12.1
 [0.13.0]: https://github.com/skorch-dev/skorch/compare/v0.12.1...v0.13.0
 [0.14.0]: https://github.com/skorch-dev/skorch/compare/v0.13.0...v0.14.0
+[0.15.0]: https://github.com/skorch-dev/skorch/compare/v0.14.0...v0.15.0
