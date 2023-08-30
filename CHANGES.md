@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed a couple of issues when saving and loading parameters while using accelerate (via `AccelerateMixin`) in a multi-GPU setting, and some other minor accelerate issues (#1008, #1009)
+- Installing skorch with the `[testing]` option now installs all dev requirements (#1015)
 
 ## [0.14.0] - 2023-06-24
 
