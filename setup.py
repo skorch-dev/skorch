@@ -15,11 +15,6 @@ with open('requirements-dev.txt') as f:
 
 python_requires = '>=3.8'
 
-tests_require += [
-    'pytest',
-    'pytest-cov',
-]
-
 docs_require = [
     'Sphinx',
     'sphinx_rtd_theme',
