@@ -2219,24 +2219,6 @@ class NeuralNet:
         return state
 
     def __setstate__(self, state):
-        # TODO remove after 2023-09
-        # in skorch 0.11 -> 0.12, we made a change to parameter validation. We
-        # don't store key/vals in self._kwargs anymore, as the values were
-        # redundant and were not considered as possibly CUDA dependent. Instead,
-        # we now use the attribute '_params_to_validate', which only stores
-        # keys. The code below is to make the net backwards compatible.
-        if '_kwargs' in state:
-            if '_params_to_validate' in state:
-                # there should not be _kwargs AND _params_to_validate
-                raise ValueError(
-                    "Something went wrong here. Please open an issue on "
-                    "https://github.com/skorch-dev/skorch/issues detailing what "
-                    "caused this error and the used skorch version."
-                )
-            kwargs = state.pop('_kwargs')
-            params_to_validate = set(kwargs.keys())
-            state['_params_to_validate'] = params_to_validate
-
         # get_map_location will automatically choose the
         # right device in cases where CUDA is not available.
         map_location = get_map_location(state['device'])
