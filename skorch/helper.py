@@ -370,8 +370,6 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
     contains 1 column.
 
     """
-    import pandas as pd
-
     def __init__(
             self,
             treat_int_as_categorical=False,
@@ -399,6 +397,8 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
           If a wrong dtype is found.
 
         """
+        import pandas as pd
+
         if 'X' in df:
             raise ValueError(
                 "DataFrame contains a column named 'X', which clashes "
@@ -408,7 +408,7 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         wrong_dtypes = []
 
         for col, dtype in zip(df, df.dtypes):
-            if isinstance(dtype, self.pd.api.types.CategoricalDtype):
+            if isinstance(dtype, pd.api.types.CategoricalDtype):
                 continue
             if np.issubdtype(dtype, np.integer):
                 continue
@@ -447,6 +447,8 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
           respective column names as keys.
 
         """
+        import pandas as pd
+
         self._check_dtypes(df)
 
         X_dict = {}
@@ -455,7 +457,7 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         for col, dtype in zip(df, df.dtypes):
             X_col = df[col]
 
-            if isinstance(dtype, self.pd.api.types.CategoricalDtype):
+            if isinstance(dtype, pd.api.types.CategoricalDtype):
                 x = X_col.cat.codes.values
                 if self.int_dtype is not None:
                     x = x.astype(self.int_dtype)
