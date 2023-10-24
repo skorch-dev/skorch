@@ -21,11 +21,9 @@ jobs:
       fail-fast: false  # don't cancel all jobs when one fails
       matrix:
         python_version: ['3.8', '3.9', '3.10', '3.11']
-        torch_version: ['1.11.0+cpu', '1.12.1+cpu', '1.13.1+cpu', '2.0.1+cpu']
+        torch_version: ['1.12.1+cpu', '1.13.1+cpu', '2.0.1+cpu', '2.1.0+cpu']
         os: [ubuntu-latest]
         exclude:
-          - python_version: '3.11'
-            torch_version: '1.11.0+cpu'
           - python_version: '3.11'
             torch_version: '1.12.1+cpu'
           - python_version: '3.11'
