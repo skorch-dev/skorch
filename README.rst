@@ -279,6 +279,8 @@ External resources
   "Skorch: A Union of Scikit learn and PyTorch" at SciPy 2019
 - @thomasjpfan: `talk 3 <https://www.youtube.com/watch?v=yAXsxf2CQ8M>`_
   "Skorch - A Union of Scikit-learn and PyTorch" at PyData 2018
+- @BenjaminBossan: `talk 4 <https://youtu.be/y_n7BjDCS-M>`_ "Extend your
+  scikit-learn workflow with Hugging Face and skorch" at PyData Amsterdam 2023
 
 =============
 Communication
