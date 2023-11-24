@@ -669,7 +669,7 @@ class ProgressBar(Callback):
         # don't save away the temporary pbar_ object which gets created on
         # epoch begin anew anyway. This avoids pickling errors with tqdm.
         state = self.__dict__.copy()
-        del state['pbar_']
+        state.pop('pbar_', None)
         return state
 
 
