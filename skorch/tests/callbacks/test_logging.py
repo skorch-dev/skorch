@@ -770,6 +770,18 @@ class TestProgressBar:
         net = pickle.loads(dump)
         net.fit(*data)
 
+    def test_pickle_without_fit(self, net_cls, progressbar_cls, data):
+        # pickling should work even if the net hasn't been fit.
+        # see https://github.com/skorch-dev/skorch/pull/1034.
+        import pickle
+
+        net = net_cls(callbacks=[
+            progressbar_cls(),
+        ])
+        dump = pickle.dumps(net)
+
+        net = pickle.loads(dump)
+
 
 @pytest.mark.skipif(
     not tensorboard_installed, reason='tensorboard is not installed')
