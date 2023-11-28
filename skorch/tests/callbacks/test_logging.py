@@ -772,6 +772,7 @@ class TestProgressBar:
 
     def test_pickle_without_fit(self, net_cls, progressbar_cls, data):
         # pickling should work even if the net hasn't been fit.
+        # see https://github.com/skorch-dev/skorch/pull/1034.
         import pickle
 
         net = net_cls(callbacks=[
