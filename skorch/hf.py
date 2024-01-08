@@ -1277,6 +1277,10 @@ class HfHubStorage:
             repo_id=self.repo_id,
             **self.kwargs
         )
+        if hasattr(return_url, 'commit_url'):
+            # starting from huggingface_hub, the return type is now a CommitInfo
+            # object instead of a string
+            return_url = return_url.commit_url
         self._buffer = None
         self._needs_flush = False
 
