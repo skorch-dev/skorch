@@ -1597,7 +1597,7 @@ class NeuralNet:
             yp = nonlin(yp)
             y_probas.append(to_numpy(yp))
         y_proba = np.concatenate(y_probas, 0)
-        return y_proba
+        return y_proba.astype(np.float64)
 
     def predict(self, X):
         """Where applicable, return class labels for samples in X.

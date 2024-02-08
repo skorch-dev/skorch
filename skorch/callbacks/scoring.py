@@ -100,7 +100,7 @@ def convert_sklearn_metric_function(scoring):
 
         # those are scoring objects returned by make_scorer starting
         # from sklearn 0.22
-        scorer_names = ('_PredictScorer', '_ProbaScorer', '_ThresholdScorer')
+        scorer_names = ('_PredictScorer', '_ProbaScorer', '_ThresholdScorer', '_Scorer')
         if (
                 hasattr(module, 'startswith') and
                 module.startswith('sklearn.metrics.') and
