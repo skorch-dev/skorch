@@ -172,7 +172,7 @@ class TestNeuralNet:
         expected = "NeuralNetClassifier has no attribute 'classes_'"
         assert msg == expected
 
-    @pytest.mark.xfail(strict=True)
+    @pytest.mark.xfail
     def test_with_calibrated_classifier_cv(self, net_fit, data):
         # TODO: This fails with sklearn 1.4.0 because CCCV does not work when
         # y_proba is float32. This will be fixed in
@@ -381,7 +381,7 @@ class TestNeuralNetBinaryClassifier:
         net.predict_proba(X)
         assert mock.call_count > 0
 
-    @pytest.mark.xfail(strict=True)
+    @pytest.mark.xfail
     def test_with_calibrated_classifier_cv(self, net_fit, data):
         # TODO: This fails with sklearn 1.4.0 because CCCV does not work when
         # y_proba is float32. This will be fixed in
