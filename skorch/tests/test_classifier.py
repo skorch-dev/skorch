@@ -134,7 +134,7 @@ class TestNeuralNet:
 
     def test_pass_classes_explicitly_overrides(self, net_cls, module_cls, data):
         net = net_cls(module_cls, max_epochs=0, classes=['foo', 'bar']).fit(*data)
-        assert net.classes_ == ['foo', 'bar']
+        assert (net.classes_ == np.array(['foo', 'bar'])).all()
 
     def test_classes_are_set_with_tensordataset_explicit_y(
             self, net_cls, module_cls, data
