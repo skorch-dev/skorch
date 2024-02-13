@@ -97,7 +97,7 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
             if not len(self.classes):
                 raise AttributeError("{} has no attribute 'classes_'".format(
                     self.__class__.__name__))
-            return self.classes
+            return np.asarray(self.classes)
 
         try:
             return self.classes_inferred_
@@ -301,7 +301,7 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
 
     @property
     def classes_(self):
-        return [0, 1]
+        return np.array([0, 1])
 
     # pylint: disable=signature-differs
     def check_data(self, X, y):

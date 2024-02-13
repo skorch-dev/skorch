@@ -134,7 +134,7 @@ class TestNeuralNet:
 
     def test_pass_classes_explicitly_overrides(self, net_cls, module_cls, data):
         net = net_cls(module_cls, max_epochs=0, classes=['foo', 'bar']).fit(*data)
-        assert net.classes_ == ['foo', 'bar']
+        assert (net.classes_ == np.array(['foo', 'bar'])).all()
 
     def test_classes_are_set_with_tensordataset_explicit_y(
             self, net_cls, module_cls, data
@@ -172,7 +172,12 @@ class TestNeuralNet:
         expected = "NeuralNetClassifier has no attribute 'classes_'"
         assert msg == expected
 
+    @pytest.mark.xfail
     def test_with_calibrated_classifier_cv(self, net_fit, data):
+        # TODO: This fails with sklearn 1.4.0 because CCCV does not work when
+        # y_proba is float32. This will be fixed in
+        # https://github.com/scikit-learn/scikit-learn/pull/28247, at which
+        # point the test should pass again and the xfail can be removed.
         from sklearn.calibration import CalibratedClassifierCV
         cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
@@ -376,7 +381,12 @@ class TestNeuralNetBinaryClassifier:
         net.predict_proba(X)
         assert mock.call_count > 0
 
+    @pytest.mark.xfail
     def test_with_calibrated_classifier_cv(self, net_fit, data):
+        # TODO: This fails with sklearn 1.4.0 because CCCV does not work when
+        # y_proba is float32. This will be fixed in
+        # https://github.com/scikit-learn/scikit-learn/pull/28247, at which
+        # point the test should pass again and the xfail can be removed.
         from sklearn.calibration import CalibratedClassifierCV
         cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
