@@ -264,6 +264,23 @@ class TestZeroShotClassifier:
         # at least 1/3 faster
         assert cached_time < 0.1 * uncached_time
 
+    def test_caching_works_shared_label_prefix_without_eos(self, classifier_cls):
+        clf = classifier_cls('gpt2')
+
+        # carefully chosen class labels so that one label has the other label as
+        # its prefix. '11111' = '11' + '111'. For models that tokenize single
+        # digits indepdentenly this is far more relevant.
+        X = np.array(["Hey there", "No thank you"])
+        y = ['11', '11111']
+
+        clf.fit(X, y)
+
+        y_pred_1 = clf.predict(X)
+        y_pred_2 = clf.predict(X)
+
+        # does not raise and gives the same results
+        np.testing.assert_array_equal(y_pred_1, y_pred_2)
+
     def test_custom_prompt(self, model, tokenizer, classifier_cls, X):
         prompt = "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
         clf = classifier_cls(
