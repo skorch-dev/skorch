@@ -243,7 +243,7 @@ class _CacheModelWrapper:
         recorded_logits = []
         logits_cached = self.get_cache(kwargs)
         while logits_cached is not None:
-            if label_id[0] == self.tokenizer.eos_token_id:
+            if not label_id or label_id[0] == self.tokenizer.eos_token_id:
                 # don't extend with eos_token -- it is already there at the end,
                 # we don't need it twice
                 break
