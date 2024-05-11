@@ -59,7 +59,7 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
             self,
             module,
             *args,
-            criterion: Union[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss] = torch.nn.NLLLoss,
+            criterion:Union[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss]=torch.nn.NLLLoss,
             train_split=ValidSplit(5, stratified=True),
             classes=None,
             **kwargs
