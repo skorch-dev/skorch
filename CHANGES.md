@@ -11,9 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Fixed
 
-## [0.16.0] - 2024-05-23
+## [1.0.0] - 2024-05-23
 
-This is a maintenance release that contains a number of bug fixes and ensures that skorch continues to work with the latest versions of PyTorch and scikit-learn.
+The 1.0.0 release of skorch is here. We think that skorch is at a very stable point, which is why a 1.0.0 release is appropriate. There are no plans to add any breaking changes or major revisions in the future. Instead, our focus now is to keep skorch up-to-date with the latest versions of PyTorch and scikit-learn, and to fix any bugs that may arise.
 
 ## [0.15.0] - 2023-09-04
 
