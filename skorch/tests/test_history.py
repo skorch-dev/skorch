@@ -27,14 +27,6 @@ class TestHistory:
             return History
 
         if request.param == 'distributed':
-            # TODO: remove this once PyTorch 1.11 is no longer supported
-            version_torch = Version(torch.__version__)
-            if version_torch < Version('1.12.0'):
-                # Tests with DistributedHistory are flaky with PyTorch 1.11 and when
-                # using pytest on CI. Running directly, i.e. without pytest, does
-                # not appear to cause issues.
-                pytest.skip(msg="Skipping multiprocessing for PyTorch < 1.12")
-
             store = TCPStore("127.0.0.1", port=1234, world_size=1, is_master=True)
             return partial(
                 DistributedHistory, store=store, rank=0, world_size=1
@@ -438,14 +430,6 @@ class TestDistributedHistoryMultiprocessing:
     def test_distributed_history(self, nprocs):
         from skorch.toy import make_classifier
         from skorch._version import Version
-
-        # TODO: remove this once PyTorch 1.11 is no longer supported
-        version_torch = Version(torch.__version__)
-        if version_torch < Version('1.12.0'):
-            # Tests with DistributedHistory are flaky with PyTorch 1.11 and when
-            # using pytest on CI. Running directly, i.e. without pytest, does
-            # not appear to cause issues.
-            pytest.skip(msg="Skipping multiprocessing for PyTorch < 1.12")
 
         X, y = make_classification(
             500, 20, n_informative=10, random_state=0, flip_y=0.1
