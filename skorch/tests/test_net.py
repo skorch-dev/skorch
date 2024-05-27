@@ -468,6 +468,7 @@ class TestNeuralNet:
             cuda_available,
             load_dev,
             expect_warning,
+            recwarn,
     ):
         from skorch.exceptions import DeviceWarning
         net = net_cls(module=module_cls, device=save_dev).initialize()
@@ -479,9 +480,12 @@ class TestNeuralNet:
 
         with patch('torch.cuda.is_available', lambda *_: cuda_available):
             with open(str(p), 'rb') as f:
-                expected_warning = DeviceWarning if expect_warning else None
-                with pytest.warns(expected_warning) as w:
+                if not expect_warning:
                     m = pickle.load(f)
+                    assert not recwarn.list
+                else:
+                    with pytest.warns(DeviceWarning) as w:
+                        m = pickle.load(f)
 
         assert torch.device(m.device) == torch.device(load_dev)
 
