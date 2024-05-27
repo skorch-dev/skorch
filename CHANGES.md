@@ -348,4 +348,4 @@ The 1.0.0 release of skorch is here. We think that skorch is at a very stable po
 [0.13.0]: https://github.com/skorch-dev/skorch/compare/v0.12.1...v0.13.0
 [0.14.0]: https://github.com/skorch-dev/skorch/compare/v0.13.0...v0.14.0
 [0.15.0]: https://github.com/skorch-dev/skorch/compare/v0.14.0...v0.15.0
-[0.16.0]: https://github.com/skorch-dev/skorch/compare/v0.15.0...v0.16.0
+[1.0.0]: https://github.com/skorch-dev/skorch/compare/v0.15.0...v1.0.0
