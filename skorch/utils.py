@@ -660,6 +660,8 @@ def _infer_predict_nonlinearity(net):
         return _identity
 
     criterion = getattr(net, net._criteria[0] + '_')
+    # unwrap optimizer in case of torch.compile being used
+    criterion = getattr(criterion, '_orig_mod', criterion)
 
     if isinstance(criterion, CrossEntropyLoss):
         return partial(torch.softmax, dim=-1)

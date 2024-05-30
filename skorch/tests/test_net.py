@@ -4159,3 +4159,36 @@ class TestTorchCompile:
         # compiled, we rely here on torch keeping this public attribute
         assert hasattr(net.module_, 'dynamo_ctx')
         assert hasattr(net.criterion_, 'dynamo_ctx')
+
+    def test_binary_classifier_with_compile(self, data):
+        # issue 1057 the problem was that compile would wrap the optimizer,
+        # resulting in _infer_predict_nonlinearity to return the wrong result
+        # because of a failing isinstance check
+        from skorch import NeuralNetBinaryClassifier
+
+        X, y = data[0], data[1].astype(np.float32)
+
+        class MyNet(nn.Module):
+            def __init__(self):
+                super(MyNet, self).__init__()
+                self.linear = nn.Linear(20, 10)
+                self.output = nn.Linear(10, 1)
+
+            def forward(self, input):
+                out = self.linear(input)
+                out = nn.functional.relu(out)
+                out = self.output(out)
+                return out.squeeze(-1)
+
+        net = NeuralNetBinaryClassifier(
+            MyNet,
+            max_epochs=3,
+            compile=True,
+        )
+        # check that no error is raised
+        net.fit(X, y)
+
+        y_proba = net.predict_proba(X)
+        y_pred = net.predict(X)
+        assert y_proba.shape == (X.shape[0], 2)
+        assert y_pred.shape == (X.shape[0],)
