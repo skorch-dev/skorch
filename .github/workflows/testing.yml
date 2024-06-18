@@ -34,10 +34,12 @@ jobs:
       with:
         python-version: ${{ matrix.python_version }}
     - name: Install dependencies
+      # TODO remove numpy version constraint once we no longer support PyTorch < 2.3
       run: |
         python -m pip install --upgrade pip
         python -m pip install -r requirements-dev.txt
         python -m pip install -r requirements.txt
+        python -m pip install --force-reinstall -U "numpy<2.0.0"
         python -m pip install pytest-pretty
         python -m pip install torch==${{ matrix.torch_version }} -f https://download.pytorch.org/whl/torch_stable.html
         python -m pip list
