@@ -3,6 +3,10 @@
 
 ------------
 
+.. image:: https://assets.piptrends.com/get-last-month-downloads-badge/skorch.svg
+    :alt: skorch Downloads Last Month by pip Trends
+    :target: https://piptrends.com/package/skorch
+
 |build| |coverage| |docs| |huggingface| |powered|
 
 A scikit-learn compatible neural network library that wraps PyTorch.
