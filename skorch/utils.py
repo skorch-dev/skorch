@@ -28,6 +28,7 @@ from torch.utils.data.dataset import Subset
 
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
+from ._version import Version
 
 try:
     import torch_geometric
@@ -768,3 +769,16 @@ def _check_f_arguments(caller_name, **kwargs):
             key = 'module_' if key == 'f_params' else key[2:] + '_'
             kwargs_module[key] = val
     return kwargs_module, kwargs_other
+
+
+def check_torch_weights_only_default_true():
+    """Check if the version of torch is one that made the switch to
+    only_weights=True in torch.load
+
+    The planned switch is PyTorch version 2.6.0, but depending on what happens,
+    this may require updating
+
+    """
+    version_torch = Version(torch.__version__)
+    version_default_switch = Version('2.6.0')
+    return version_torch >= version_default_switch
