@@ -46,7 +46,7 @@ from skorch.utils import params_for
 from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import check_torch_weights_only_default_true
+from skorch.utils import get_torch_load_kwargs
 
 
 # pylint: disable=too-many-instance-attributes
@@ -2652,10 +2652,7 @@ class NeuralNet:
         else:
             torch_load_kwargs = self.torch_load_kwargs
             if torch_load_kwargs is None:
-                if check_torch_weights_only_default_true():
-                    torch_load_kwargs = {"weights_only": True}
-                else:
-                    torch_load_kwargs = {"weights_only": False}
+                torch_load_kwargs = get_torch_load_kwargs()
 
             def _get_state_dict(f_name):
                 map_location = get_map_location(self.device)

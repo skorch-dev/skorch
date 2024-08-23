@@ -3006,18 +3006,18 @@ class TestNeuralNet:
         net = net_cls(module_cls).initialize()
         net.save_params(f_params=tmp_path / 'params.pkl')
         state_dict = net.module_.state_dict()
+        expected_kwargs = {"weights_only": False}
 
         mock_torch_load = Mock(return_value=state_dict)
         monkeypatch.setattr(torch, "load", mock_torch_load)
         monkeypatch.setattr(
-            skorch.net, "check_torch_weights_only_default_true", lambda: False
+            skorch.net, "get_torch_load_kwargs", lambda: expected_kwargs
         )
 
         net.load_params(f_params=tmp_path / 'params.pkl')
 
         call_kwargs = mock_torch_load.call_args_list[0].kwargs
         del call_kwargs['map_location']  # we're not interested in that
-        expected_kwargs = {"weights_only": False}
         assert call_kwargs == expected_kwargs
 
     def test_torch_load_kwargs_auto_weights_only_true_when_load_params(
@@ -3030,18 +3030,18 @@ class TestNeuralNet:
         net = net_cls(module_cls).initialize()
         net.save_params(f_params=tmp_path / 'params.pkl')
         state_dict = net.module_.state_dict()
+        expected_kwargs = {"weights_only": True}
 
         mock_torch_load = Mock(return_value=state_dict)
         monkeypatch.setattr(torch, "load", mock_torch_load)
         monkeypatch.setattr(
-            skorch.net, "check_torch_weights_only_default_true", lambda: True
+            skorch.net, "get_torch_load_kwargs", lambda: expected_kwargs
         )
 
         net.load_params(f_params=tmp_path / 'params.pkl')
 
         call_kwargs = mock_torch_load.call_args_list[0].kwargs
         del call_kwargs['map_location']  # we're not interested in that
-        expected_kwargs = {"weights_only": True}
         assert call_kwargs == expected_kwargs
 
     def test_torch_load_kwargs_forwarded_to_torch_load(
@@ -3050,8 +3050,8 @@ class TestNeuralNet:
         # Here we check that custom set torch load args are forwarded to
         # torch.load.
         # See discussion in 1063
-        torch_load_kwargs = {'weights_only': 123, 'foo': 'bar'}
-        net = net_cls(module_cls, torch_load_kwargs=torch_load_kwargs).initialize()
+        expected_kwargs = {'weights_only': 123, 'foo': 'bar'}
+        net = net_cls(module_cls, torch_load_kwargs=expected_kwargs).initialize()
         net.save_params(f_params=tmp_path / 'params.pkl')
         state_dict = net.module_.state_dict()
 
@@ -3062,7 +3062,7 @@ class TestNeuralNet:
 
         call_kwargs = mock_torch_load.call_args_list[0].kwargs
         del call_kwargs['map_location']  # we're not interested in that
-        assert call_kwargs == torch_load_kwargs
+        assert call_kwargs == expected_kwargs
 
     def test_custom_module_params_passed_to_optimizer(
             self, net_custom_module_cls, module_cls):
