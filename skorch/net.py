@@ -46,7 +46,7 @@ from skorch.utils import params_for
 from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import get_torch_load_kwargs
+from skorch.utils import get_default_torch_load_kwargs
 
 
 # pylint: disable=too-many-instance-attributes
@@ -2652,7 +2652,7 @@ class NeuralNet:
         else:
             torch_load_kwargs = self.torch_load_kwargs
             if torch_load_kwargs is None:
-                torch_load_kwargs = get_torch_load_kwargs()
+                torch_load_kwargs = get_default_torch_load_kwargs()
 
             def _get_state_dict(f_name):
                 map_location = get_map_location(self.device)

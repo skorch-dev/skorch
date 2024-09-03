@@ -3011,7 +3011,7 @@ class TestNeuralNet:
         mock_torch_load = Mock(return_value=state_dict)
         monkeypatch.setattr(torch, "load", mock_torch_load)
         monkeypatch.setattr(
-            skorch.net, "get_torch_load_kwargs", lambda: expected_kwargs
+            skorch.net, "get_default_torch_load_kwargs", lambda: expected_kwargs
         )
 
         net.load_params(f_params=tmp_path / 'params.pkl')
@@ -3035,7 +3035,7 @@ class TestNeuralNet:
         mock_torch_load = Mock(return_value=state_dict)
         monkeypatch.setattr(torch, "load", mock_torch_load)
         monkeypatch.setattr(
-            skorch.net, "get_torch_load_kwargs", lambda: expected_kwargs
+            skorch.net, "get_default_torch_load_kwargs", lambda: expected_kwargs
         )
 
         net.load_params(f_params=tmp_path / 'params.pkl')
@@ -3067,10 +3067,11 @@ class TestNeuralNet:
     def test_torch_load_kwargs_auto_weights_false_pytorch_lt_2_6(
             self, net_cls, module_cls, monkeypatch, tmp_path
     ):
-        # Same test as test_torch_load_kwargs_auto_weights_only_false_when_load_params
-        # but without monkeypatching get_torch_load_kwargs. There is no corresponding
-        # test for >= 2.6.0 since it's not clear yet if the switch will be made in that
-        # version.
+        # Same test as
+        # test_torch_load_kwargs_auto_weights_only_false_when_load_params but
+        # without monkeypatching get_default_torch_load_kwargs. There is no
+        # corresponding test for >= 2.6.0 since it's not clear yet if the switch
+        # will be made in that version.
         # See discussion in 1063.
         from skorch._version import Version
 

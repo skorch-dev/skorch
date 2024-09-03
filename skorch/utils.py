@@ -771,8 +771,8 @@ def _check_f_arguments(caller_name, **kwargs):
     return kwargs_module, kwargs_other
 
 
-def get_torch_load_kwargs():
-    """Returns the kwargs passed to torch.load the correspond to the current
+def get_default_torch_load_kwargs():
+    """Returns the kwargs passed to torch.load that correspond to the current
     torch version.
 
     The plan is to switch from weights_only=False to True in PyTorch version
