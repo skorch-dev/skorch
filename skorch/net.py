@@ -46,6 +46,7 @@ from skorch.utils import params_for
 from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
+from skorch.utils import get_default_torch_load_kwargs
 
 
 # pylint: disable=too-many-instance-attributes
@@ -235,6 +236,33 @@ class NeuralNet:
       callbacks.
       Implementation note: It is the job of the callbacks to honor this setting.
 
+    torch_load_kwargs : dict or None (default=None)
+      Additional arguments that will be passed to torch.load when load pickled
+      parameters.
+
+      In particular, this is important to because PyTorch will switch (probably
+      in version 2.6.0) to only allow weights to be loaded for security reasons
+      (i.e weights_only switches from False to True). As a consequence, loading
+      pickled parameters may raise an error after upgrading torch because some
+      types are used that are considered insecure. In skorch, we will also make
+      that switch at the same time. To resolve the error, follow the
+      instructions in the torch error message to designate the offending types
+      as secure. Only do this if you trust the source of the file.
+
+      If you want to keep loading non-weight types the same way as before,
+      please pass:
+
+          torch_load_kwargs={'weights_only': False}
+
+      You should be aware that this is considered insecure and should only be
+      used if you trust the source of the file. However, this does not introduce
+      new insecurities, it rather corresponds to the status quo from before
+      torch made the switch.
+
+      Another way to avoid this issue is to pass use_safetensors=True when
+      calling save_params and load_params. This avoid using pickle in favor of
+      the safetensors format, which is secure by design.
+
     Attributes
     ----------
     prefixes_ : list of str
@@ -311,6 +339,7 @@ class NeuralNet:
             device='cpu',
             compile=False,
             use_caching='auto',
+            torch_load_kwargs=None,
             **kwargs
     ):
         self.module = module
@@ -330,6 +359,7 @@ class NeuralNet:
         self.device = device
         self.compile = compile
         self.use_caching = use_caching
+        self.torch_load_kwargs = torch_load_kwargs
 
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
@@ -2620,10 +2650,14 @@ class NeuralNet:
 
                 return state_dict
         else:
+            torch_load_kwargs = self.torch_load_kwargs
+            if torch_load_kwargs is None:
+                torch_load_kwargs = get_default_torch_load_kwargs()
+
             def _get_state_dict(f_name):
                 map_location = get_map_location(self.device)
                 self.device = self._check_device(self.device, map_location)
-                return torch.load(f_name, map_location=map_location)
+                return torch.load(f_name, map_location=map_location, **torch_load_kwargs)
 
         kwargs_full = {}
         if checkpoint is not None:

@@ -16,6 +16,7 @@ from unittest.mock import call
 from unittest.mock import patch
 import sys
 import time
+import warnings
 from contextlib import ExitStack
 
 from flaky import flaky
@@ -30,6 +31,7 @@ from sklearn.preprocessing import StandardScaler
 import torch
 from torch import nn
 
+import skorch
 from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
 from skorch.utils import to_numpy
@@ -560,6 +562,17 @@ class TestNeuralNet:
                "Module or Optimizer; make sure that it exists and check for typos.")
         with pytest.raises(AttributeError, match=msg):
             net_fit.load_params(f_unknown='some-file.pt')
+
+    def test_load_params_no_warning(self, net_fit, tmp_path, recwarn):
+        # See discussion in 1063
+        # Ensure that there is no FutureWarning (and DeprecationWarning for good
+        # measure) caused by torch.load.
+        net_fit.save_params(f_params=tmp_path / 'weights.pt')
+        net_fit.load_params(f_params=tmp_path / 'weights.pt')
+        assert not any(
+            isinstance(warning.message, (DeprecationWarning, FutureWarning))
+            for warning in recwarn.list
+        )
 
     @pytest.mark.parametrize('use_safetensors', [False, True])
     def test_save_load_state_dict_file(
@@ -2982,6 +2995,101 @@ class TestNeuralNet:
         net_new.load_params(f_custom=tmpdir_custom, use_safetensors=use_safetensors)
         weights_loaded = net_new.custom_.state_dict()['sequential.3.weight']
         assert (weights_before == weights_loaded).all()
+
+    def test_torch_load_kwargs_auto_weights_only_false_when_load_params(
+            self, net_cls, module_cls, monkeypatch, tmp_path
+    ):
+        # Here we assume that the torch version is low enough that weights_only
+        # defaults to False. Check that when no argument is set in skorch, the
+        # right default is used.
+        # See discussion in 1063
+        net = net_cls(module_cls).initialize()
+        net.save_params(f_params=tmp_path / 'params.pkl')
+        state_dict = net.module_.state_dict()
+        expected_kwargs = {"weights_only": False}
+
+        mock_torch_load = Mock(return_value=state_dict)
+        monkeypatch.setattr(torch, "load", mock_torch_load)
+        monkeypatch.setattr(
+            skorch.net, "get_default_torch_load_kwargs", lambda: expected_kwargs
+        )
+
+        net.load_params(f_params=tmp_path / 'params.pkl')
+
+        call_kwargs = mock_torch_load.call_args_list[0].kwargs
+        del call_kwargs['map_location']  # we're not interested in that
+        assert call_kwargs == expected_kwargs
+
+    def test_torch_load_kwargs_auto_weights_only_true_when_load_params(
+            self, net_cls, module_cls, monkeypatch, tmp_path
+    ):
+        # Here we assume that the torch version is high enough that weights_only
+        # defaults to True. Check that when no argument is set in skorch, the
+        # right default is used.
+        # See discussion in 1063
+        net = net_cls(module_cls).initialize()
+        net.save_params(f_params=tmp_path / 'params.pkl')
+        state_dict = net.module_.state_dict()
+        expected_kwargs = {"weights_only": True}
+
+        mock_torch_load = Mock(return_value=state_dict)
+        monkeypatch.setattr(torch, "load", mock_torch_load)
+        monkeypatch.setattr(
+            skorch.net, "get_default_torch_load_kwargs", lambda: expected_kwargs
+        )
+
+        net.load_params(f_params=tmp_path / 'params.pkl')
+
+        call_kwargs = mock_torch_load.call_args_list[0].kwargs
+        del call_kwargs['map_location']  # we're not interested in that
+        assert call_kwargs == expected_kwargs
+
+    def test_torch_load_kwargs_forwarded_to_torch_load(
+            self, net_cls, module_cls, monkeypatch, tmp_path
+    ):
+        # Here we check that custom set torch load args are forwarded to
+        # torch.load.
+        # See discussion in 1063
+        expected_kwargs = {'weights_only': 123, 'foo': 'bar'}
+        net = net_cls(module_cls, torch_load_kwargs=expected_kwargs).initialize()
+        net.save_params(f_params=tmp_path / 'params.pkl')
+        state_dict = net.module_.state_dict()
+
+        mock_torch_load = Mock(return_value=state_dict)
+        monkeypatch.setattr(torch, "load", mock_torch_load)
+
+        net.load_params(f_params=tmp_path / 'params.pkl')
+
+        call_kwargs = mock_torch_load.call_args_list[0].kwargs
+        del call_kwargs['map_location']  # we're not interested in that
+        assert call_kwargs == expected_kwargs
+
+    def test_torch_load_kwargs_auto_weights_false_pytorch_lt_2_6(
+            self, net_cls, module_cls, monkeypatch, tmp_path
+    ):
+        # Same test as
+        # test_torch_load_kwargs_auto_weights_only_false_when_load_params but
+        # without monkeypatching get_default_torch_load_kwargs. There is no
+        # corresponding test for >= 2.6.0 since it's not clear yet if the switch
+        # will be made in that version.
+        # See discussion in 1063.
+        from skorch._version import Version
+
+        if Version(torch.__version__) >= Version('2.6.0'):
+            pytest.skip("Test only for torch < v2.6.0")
+
+        net = net_cls(module_cls).initialize()
+        net.save_params(f_params=tmp_path / 'params.pkl')
+        state_dict = net.module_.state_dict()
+        expected_kwargs = {"weights_only": False}
+
+        mock_torch_load = Mock(return_value=state_dict)
+        monkeypatch.setattr(torch, "load", mock_torch_load)
+        net.load_params(f_params=tmp_path / 'params.pkl')
+
+        call_kwargs = mock_torch_load.call_args_list[0].kwargs
+        del call_kwargs['map_location']  # we're not interested in that
+        assert call_kwargs == expected_kwargs
 
     def test_custom_module_params_passed_to_optimizer(
             self, net_custom_module_cls, module_cls):
