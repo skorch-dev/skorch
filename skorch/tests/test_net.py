@@ -4266,6 +4266,13 @@ class TestTorchCompile:
         if not hasattr(torch, 'compile'):
             pytest.skip(reason="torch.compile not available")
 
+        # python 3.12 requires torch >= 2.4 to support compile
+        # TODO: remove once we remove support for torch < 2.4
+        from skorch._version import Version
+
+        if Version(torch.__version__) < Version('2.4.0') and sys.version_info >= (3, 12):
+            pytest.skip(reason="When using Python 3.12, torch.compile requires torch >= 2.4")
+
         # use real torch.compile, not mocked, can be a bit slow
         X, y = data
         net = net_cls(module_cls, max_epochs=1, compile=True).initialize()
@@ -4285,6 +4292,13 @@ class TestTorchCompile:
         # resulting in _infer_predict_nonlinearity to return the wrong result
         # because of a failing isinstance check
         from skorch import NeuralNetBinaryClassifier
+
+        # python 3.12 requires torch >= 2.4 to support compile
+        # TODO: remove once we remove support for torch < 2.4
+        from skorch._version import Version
+
+        if Version(torch.__version__) < Version('2.4.0') and sys.version_info >= (3, 12):
+            pytest.skip(reason="When using Python 3.12, torch.compile requires torch >= 2.4")
 
         X, y = data[0], data[1].astype(np.float32)
 
