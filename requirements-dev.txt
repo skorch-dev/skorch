@@ -10,7 +10,7 @@ numpydoc
 openpyxl
 pandas
 pillow
-protobuf>=3.12.0,<4.0dev
+protobuf
 pylint
 pytest>=3.4
 pytest-cov
