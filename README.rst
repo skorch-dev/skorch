@@ -135,7 +135,7 @@ skorch also provides many convenient features, among others:
 Installation
 ============
 
-skorch requires Python 3.8 or higher.
+skorch requires Python 3.9 or higher.
 
 conda installation
 ==================
