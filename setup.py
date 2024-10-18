@@ -13,7 +13,7 @@ with open('requirements-dev.txt') as f:
     tests_require = [l.strip() for l in f]
 
 
-python_requires = '>=3.8'
+python_requires = '>=3.9'
 
 docs_require = [
     'Sphinx',
