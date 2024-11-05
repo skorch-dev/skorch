@@ -484,13 +484,7 @@ class TestNeuralNet:
             with open(str(p), 'rb') as f:
                 if not expect_warning:
                     m = pickle.load(f)
-                    # remove possible future warning about weights_only=False
-                    # TODO: remove filter when torch<=2.4 is dropped
-                    w_list = [
-                        warning for warning in recwarn.list
-                        if "weights_only=False" not in warning.message.args[0]
-                    ]
-                    assert not w_list
+                    assert not any(w.category == DeviceWarning for w in recwarn.list)
                 else:
                     with pytest.warns(DeviceWarning) as w:
                         m = pickle.load(f)
