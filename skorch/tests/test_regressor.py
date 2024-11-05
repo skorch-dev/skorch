@@ -134,17 +134,7 @@ class TestNeuralNetRegressor:
         X, y = X[:100], y[:100].flatten()  # make y 1d
         net.fit(X, y)
 
-        # protobuf uses deprecated utcnow
-        # TODO: remove once protobuf fixed this
-        w_list = [
-            warning for warning in recwarn.list
-            if "protobuf" not in warning.message.args[0]
-            and "utcnow" not in warning.message.args[0]
-        ]
-        w0, w1 = w_list  # one warning for train, one for valid
-        # The warning comes from PyTorch, so checking the exact wording is prone to
-        # error in future PyTorch versions. We thus check a substring of the
-        # whole message and cross our fingers that it's not changed.
+        w0, w1 = recwarn.list # one warning for train, one for valid
         msg_substr = (
             "This will likely lead to incorrect results due to broadcasting. "
             "Please ensure they have the same size"
@@ -166,15 +156,7 @@ class TestNeuralNetRegressor:
 
         net = net_cls(module_pred_1d_cls)
         net.fit(X, y)
-
-        # protobuf uses deprecated utcnow
-        # TODO: remove once protobuf fixed this
-        w_list = [
-            warning for warning in recwarn.list
-            if "protobuf" not in warning.message.args[0]
-            and "utcnow" not in warning.message.args[0]
-        ]
-        assert not w_list
+        assert not recwarn.list
 
     def test_bagging_regressor(
             self, net_cls, module_cls, data, module_pred_1d_cls, recwarn
@@ -188,13 +170,5 @@ class TestNeuralNetRegressor:
         y = y.flatten()  # make y 1d or else sklearn will complain
         regr = BaggingRegressor(net, n_estimators=2, random_state=0)
         regr.fit(X, y)  # does not raise
-
-        # protobuf uses deprecated utcnow
-        # TODO: remove once protobuf fixed this
-        w_list = [
-            warning for warning in recwarn.list
-            if "protobuf" not in warning.message.args[0]
-            and "utcnow" not in warning.message.args[0]
-        ]
         # ensure there is no broadcast warning from torch
-        assert not w_list
+        assert not recwarn.list
