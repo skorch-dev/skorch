@@ -20,8 +20,8 @@ jobs:
     strategy:
       fail-fast: false  # don't cancel all jobs when one fails
       matrix:
-        python_version: ['3.8', '3.9', '3.10', '3.11']
-        torch_version: ['2.1.2+cpu', '2.2.2+cpu', '2.3.1+cpu', '2.4.0+cpu']
+        python_version: ['3.9', '3.10', '3.11', '3.12']
+        torch_version: ['2.2.2+cpu', '2.3.1+cpu', '2.4.1+cpu', '2.5.1+cpu']
         os: [ubuntu-latest]
 
     steps:

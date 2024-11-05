@@ -484,7 +484,7 @@ class TestNeuralNet:
             with open(str(p), 'rb') as f:
                 if not expect_warning:
                     m = pickle.load(f)
-                    assert not recwarn.list
+                    assert not any(w.category == DeviceWarning for w in recwarn.list)
                 else:
                     with pytest.warns(DeviceWarning) as w:
                         m = pickle.load(f)
@@ -495,11 +495,17 @@ class TestNeuralNet:
             # We should have captured two warnings:
             # 1. one for the failed load
             # 2. for switching devices on the net instance
-            assert len(w.list) == 2
-            assert w.list[0].message.args[0] == (
+            # remove possible future warning about weights_only=False
+            # TODO: remove filter when torch<=2.4 is dropped
+            w_list = [
+                warning for warning in w.list
+                if "weights_only=False" not in warning.message.args[0]
+            ]
+            assert len(w_list) == 2
+            assert w_list[0].message.args[0] == (
                 'Requested to load data to CUDA but no CUDA devices '
                 'are available. Loading on device "cpu" instead.')
-            assert w.list[1].message.args[0] == (
+            assert w_list[1].message.args[0] == (
                 'Setting self.device = {} since the requested device ({}) '
                 'is not available.'.format(load_dev, save_dev))
 
@@ -4254,6 +4260,13 @@ class TestTorchCompile:
         if not hasattr(torch, 'compile'):
             pytest.skip(reason="torch.compile not available")
 
+        # python 3.12 requires torch >= 2.4 to support compile
+        # TODO: remove once we remove support for torch < 2.4
+        from skorch._version import Version
+
+        if Version(torch.__version__) < Version('2.4.0') and sys.version_info >= (3, 12):
+            pytest.skip(reason="When using Python 3.12, torch.compile requires torch >= 2.4")
+
         # use real torch.compile, not mocked, can be a bit slow
         X, y = data
         net = net_cls(module_cls, max_epochs=1, compile=True).initialize()
@@ -4273,6 +4286,13 @@ class TestTorchCompile:
         # resulting in _infer_predict_nonlinearity to return the wrong result
         # because of a failing isinstance check
         from skorch import NeuralNetBinaryClassifier
+
+        # python 3.12 requires torch >= 2.4 to support compile
+        # TODO: remove once we remove support for torch < 2.4
+        from skorch._version import Version
+
+        if Version(torch.__version__) < Version('2.4.0') and sys.version_info >= (3, 12):
+            pytest.skip(reason="When using Python 3.12, torch.compile requires torch >= 2.4")
 
         X, y = data[0], data[1].astype(np.float32)
 
