@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added a [notebook]() that shows how to use Learning Rate Scheduler in skorch.(#1074)
+- Added a [notebook](https://github.com/skorch-dev/skorch/blob/master/notebooks/Learning_Rate_Scheduler.ipynb) that shows how to use Learning Rate Scheduler in skorch.(#1074)
 
 ### Changed
 ### Fixed
