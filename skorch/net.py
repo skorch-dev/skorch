@@ -2725,3 +2725,11 @@ class NeuralNet:
 
         parts.append(')')
         return '\n'.join(parts)
+
+    def __sklearn_tags__(self):
+        # TODO: this is just the bare minimum, more tags should be added for
+        # NeuralNet, NeuralNetClassifier, etc. See:
+        # https://scikit-learn.org/dev/developers/develop.html#estimator-tags
+        # https://scikit-learn.org/dev/modules/generated/sklearn.utils.Tags.html#sklearn.utils.Tags
+        tags = BaseEstimator.__sklearn_tags__(self)
+        return tags

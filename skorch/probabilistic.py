@@ -657,6 +657,12 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
         self.partial_fit(X, y, **fit_params)
         return self
 
+    def __sklearn_tags__(self):
+        # TODO: this is just the bare minimum, more tags should be added
+        tags = super().__sklearn_tags__()
+        tags.estimator_type = 'regressor'
+        return tags
+
 
 gp_regr_doc_start = """Gaussian Process regressor
 
@@ -728,6 +734,12 @@ class GPRegressor(_GPRegressorPredictMixin, GPBase):
             likelihood=likelihood,
             **kwargs
         )
+
+    def __sklearn_tags__(self):
+        # TODO: this is just the bare minimum, more tags should be added
+        tags = super().__sklearn_tags__()
+        tags.estimator_type = 'regressor'
+        return tags
 
 
 gp_binary_clf_doc_start = """Gaussian Process binary classifier
@@ -911,6 +923,12 @@ class GPBinaryClassifier(GPBase):
         """
         y_proba = self.predict_proba(X)
         return (y_proba[:, 1] > self.threshold).astype('uint8')
+
+    def __sklearn_tags__(self):
+        # TODO: this is just the bare minimum, more tags should be added
+        tags = super().__sklearn_tags__()
+        tags.estimator_type = 'classifier'
+        return tags
 
 
 # BB: I could never get any reasonable results using ``SoftmaxLikelihood``. In

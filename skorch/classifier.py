@@ -231,6 +231,12 @@ class NeuralNetClassifier(NeuralNet, ClassifierMixin):
         """
         return self.predict_proba(X).argmax(axis=1)
 
+    def __sklearn_tags__(self):
+        # TODO: this is just the bare minimum, more tags should be added
+        tags = super().__sklearn_tags__()
+        tags.estimator_type = 'classifier'
+        return tags
+
 
 neural_net_binary_clf_doc_start = """NeuralNet for binary classification tasks
 
@@ -379,3 +385,9 @@ class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
         """
         y_proba = self.predict_proba(X)
         return (y_proba[:, 1] > self.threshold).astype('uint8')
+
+    def __sklearn_tags__(self):
+        # TODO: this is just the bare minimum, more tags should be added
+        tags = super().__sklearn_tags__()
+        tags.estimator_type = 'classifier'
+        return tags

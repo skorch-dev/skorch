@@ -80,3 +80,9 @@ class NeuralNetRegressor(NeuralNet, RegressorMixin):
         # this is actually a pylint bug:
         # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetRegressor, self).fit(X, y, **fit_params)
+
+    def __sklearn_tags__(self):
+        # TODO: this is just the bare minimum, more tags should be added
+        tags = super().__sklearn_tags__()
+        tags.estimator_type = 'regressor'
+        return tags
