@@ -451,6 +451,9 @@ class TestSliceDataset:
         gs = GridSearchCV(
             net, params, refit=False, cv=3, scoring='accuracy', error_score='raise'
         )
+        # TODO: after sklearn > 1.6 is released, the to_numpy call should no longer be
+        # required and be removed, see:
+        # https://github.com/skorch-dev/skorch/pull/1078#discussion_r1887197261
         gs.fit(slds, to_numpy(y))  # does not raise
 
     def test_grid_search_with_slds_and_internal_split_works(
@@ -467,6 +470,9 @@ class TestSliceDataset:
         gs = GridSearchCV(
             net, params, refit=True, cv=3, scoring='accuracy', error_score='raise'
         )
+        # TODO: after sklearn > 1.6 is released, the to_numpy call should no longer be
+        # required and be removed, see:
+        # https://github.com/skorch-dev/skorch/pull/1078#discussion_r1887197261
         gs.fit(slds, to_numpy(y))  # does not raise
 
     def test_grid_search_with_slds_X_and_slds_y(
