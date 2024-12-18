@@ -276,7 +276,7 @@ class _CacheModelWrapper:
         return recorded_logits + recorder.recorded_scores[:]
 
 
-class _LlmBase(BaseEstimator, ClassifierMixin):
+class _LlmBase(ClassifierMixin, BaseEstimator):
     """Base class for LLM models
 
     This class handles a few of the checks, as well as the whole prediction

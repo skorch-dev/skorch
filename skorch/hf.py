@@ -24,7 +24,7 @@ from skorch.dataset import unpack_data
 from skorch.utils import check_is_fitted, params_for
 
 
-class _HuggingfaceTokenizerBase(BaseEstimator, TransformerMixin):
+class _HuggingfaceTokenizerBase(TransformerMixin, BaseEstimator):
     """Base class for yet to train and pretrained tokenizers
 
     Implements the ``vocabulary_`` attribute and the methods

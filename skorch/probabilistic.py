@@ -12,6 +12,7 @@ import re
 import gpytorch
 import numpy as np
 import torch
+from sklearn.base import ClassifierMixin, RegressorMixin
 
 from skorch.net import NeuralNet
 from skorch.dataset import ValidSplit
@@ -391,7 +392,7 @@ class GPBase(NeuralNet):
             raise pickle.PicklingError(msg) from exc
 
 
-class _GPRegressorPredictMixin:
+class _GPRegressorPredictMixin(RegressorMixin):
     """Mixin class that provides a predict method for GP regressors."""
     def predict(self, X, return_std=False, return_cov=False):
         """Returns the predicted mean and optionally standard deviation.
@@ -778,7 +779,7 @@ def get_gp_binary_clf_doc(doc):
     return doc
 
 
-class GPBinaryClassifier(GPBase):
+class GPBinaryClassifier(ClassifierMixin, GPBase):
     __doc__ = get_gp_binary_clf_doc(NeuralNet.__doc__)
 
     def __init__(
