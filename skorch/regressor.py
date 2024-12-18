@@ -33,7 +33,7 @@ def get_neural_net_reg_doc(doc):
 
 
 # pylint: disable=missing-docstring
-class NeuralNetRegressor(NeuralNet, RegressorMixin):
+class NeuralNetRegressor(RegressorMixin, NeuralNet):
     __doc__ = get_neural_net_reg_doc(NeuralNet.__doc__)
 
     def __init__(

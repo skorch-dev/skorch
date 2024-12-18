@@ -51,7 +51,7 @@ def get_neural_net_clf_doc(doc):
 
 
 # pylint: disable=missing-docstring
-class NeuralNetClassifier(NeuralNet, ClassifierMixin):
+class NeuralNetClassifier(ClassifierMixin, NeuralNet):
     __doc__ = get_neural_net_clf_doc(NeuralNet.__doc__)
 
     def __init__(
@@ -258,7 +258,7 @@ def get_neural_net_binary_clf_doc(doc):
     return doc
 
 
-class NeuralNetBinaryClassifier(NeuralNet, ClassifierMixin):
+class NeuralNetBinaryClassifier(ClassifierMixin, NeuralNet):
     # pylint: disable=missing-docstring
     __doc__ = get_neural_net_binary_clf_doc(NeuralNet.__doc__)
 
