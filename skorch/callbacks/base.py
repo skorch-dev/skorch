@@ -1,9 +1,6 @@
 """ Basic callback definition. """
 
-import warnings
-
 from sklearn.base import BaseEstimator
-from skorch.exceptions import SkorchWarning
 
 
 __all__ = ['Callback']

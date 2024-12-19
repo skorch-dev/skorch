@@ -315,6 +315,55 @@ class TestReduceLROnPlateau:
         with pytest.raises(ValueError, match=msg):
             net.fit(X, y)
 
+    def test_reduce_lr_record_epoch_step(self, classifier_module, classifier_data):
+        epochs = 10 * 3  # patience = 10, get 3 full cycles of lr reduction
+        lr = 123.
+        net = NeuralNetClassifier(
+            classifier_module,
+            max_epochs=epochs,
+            lr=lr,
+            callbacks=[
+                ('scheduler', LRScheduler(ReduceLROnPlateau, monitor='train_loss')),
+            ],
+        )
+        net.fit(*classifier_data)
+
+        # We cannot compare lrs to simulation data, as ReduceLROnPlateau cannot be
+        # simulated. Instead we expect the lr to be reduced by a factor of 10 every
+        # 10+ epochs (as patience = 10), with the exact number depending on the training
+        # progress. Therefore, we can have at most 3 distinct lrs, but it could be less,
+        # so we need to slice the expected lrs.
+        lrs = net.history[:, 'event_lr']
+        lrs_unique = np.unique(lrs)
+        expected = np.unique([123., 12.3, 1.23])[-len(lrs_unique):]
+        assert np.allclose(lrs_unique, expected)
+
+    def test_reduce_lr_record_batch_step(self, classifier_module, classifier_data):
+        epochs = 3
+        lr = 123.
+        net = NeuralNetClassifier(
+            classifier_module,
+            max_epochs=epochs,
+            lr=lr,
+            callbacks=[
+                ('scheduler', LRScheduler(
+                    ReduceLROnPlateau, monitor='train_loss', step_every='batch'
+                )),
+            ],
+        )
+        net.fit(*classifier_data)
+
+        # We cannot compare lrs to simulation data, as ReduceLROnPlateau cannot be
+        # simulated. Instead we expect the lr to be reduced by a factor of 10 every
+        # 10+ batches (as patience = 10), with the exact number depending on the
+        # training progress. Therefore, we can have at most 3 distinct lrs, but it
+        # could be less, so we need to slice the expected, lrs.
+        lrs_nested = net.history[:, 'batches', :, 'event_lr']
+        lrs_flat = sum(lrs_nested, [])
+        lrs_unique = np.unique(lrs_flat)
+        expected = np.unique([123., 12.3, 1.23])[-len(lrs_unique):]
+        assert np.allclose(lrs_unique, expected)
+
 
 class TestWarmRestartLR():
     def assert_lr_correct(

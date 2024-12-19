@@ -162,9 +162,36 @@ class LRScheduler(Callback):
         else:
             lr_scheduler.step(score)
 
+    def _record_last_lr(self, net, kind):
+        # helper function to record the last learning rate if possible;
+        # only record the first lr returned if more than 1 param group
+        if kind not in ('epoch', 'batch'):
+            raise ValueError(f"Argument 'kind' should be 'batch' or 'epoch', get {kind}.")
+
+        if (
+                (self.event_name is None)
+                or not hasattr(self.lr_scheduler_, 'get_last_lr')
+        ):
+            return
+
+        try:
+            last_lrs = self.lr_scheduler_.get_last_lr()
+        except AttributeError:
+            # get_last_lr fails for ReduceLROnPlateau with PyTorch <= 2.2 on 1st epoch.
+            # Take the initial lr instead.
+            last_lrs = [group['lr'] for group in net.optimizer_.param_groups]
+
+        if kind == 'epoch':
+            net.history.record(self.event_name, last_lrs[0])
+        else:
+            net.history.record_batch(self.event_name, last_lrs[0])
+
     def on_epoch_end(self, net, **kwargs):
         if self.step_every != 'epoch':
             return
+
+        self._record_last_lr(net, kind='epoch')
+
         if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
             if callable(self.monitor):
                 score = self.monitor(net)
@@ -179,25 +206,32 @@ class LRScheduler(Callback):
                     ) from e
 
             self._step(net, self.lr_scheduler_, score=score)
-            # ReduceLROnPlateau does not expose the current lr so it can't be recorded
         else:
-            if (
-                    (self.event_name is not None)
-                    and hasattr(self.lr_scheduler_, "get_last_lr")
-            ):
-                net.history.record(self.event_name, self.lr_scheduler_.get_last_lr()[0])
             self._step(net, self.lr_scheduler_)
 
     def on_batch_end(self, net, training, **kwargs):
         if not training or self.step_every != 'batch':
             return
-        if (
-                (self.event_name is not None)
-                and hasattr(self.lr_scheduler_, "get_last_lr")
-        ):
-            net.history.record_batch(
-                self.event_name, self.lr_scheduler_.get_last_lr()[0])
-        self._step(net, self.lr_scheduler_)
+
+        self._record_last_lr(net, kind='batch')
+
+        if isinstance(self.lr_scheduler_, ReduceLROnPlateau):
+            if callable(self.monitor):
+                score = self.monitor(net)
+            else:
+                try:
+                    score = net.history[-1, 'batches', -1, self.monitor]
+                except KeyError as e:
+                    raise ValueError(
+                        f"'{self.monitor}' was not found in history. A "
+                        f"Scoring callback with name='{self.monitor}' "
+                        "should be placed before the LRScheduler callback"
+                    ) from e
+
+            self._step(net, self.lr_scheduler_, score=score)
+        else:
+            self._step(net, self.lr_scheduler_)
+
         self.batch_idx_ += 1
 
     def _get_scheduler(self, net, policy, **scheduler_kwargs):

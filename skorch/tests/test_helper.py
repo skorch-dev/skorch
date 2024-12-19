@@ -437,6 +437,7 @@ class TestSliceDataset:
             self, slds, y, classifier_module):
         from sklearn.model_selection import GridSearchCV
         from skorch import NeuralNetClassifier
+        from skorch.utils import to_numpy
 
         net = NeuralNetClassifier(
             classifier_module,
@@ -450,12 +451,16 @@ class TestSliceDataset:
         gs = GridSearchCV(
             net, params, refit=False, cv=3, scoring='accuracy', error_score='raise'
         )
-        gs.fit(slds, y)  # does not raise
+        # TODO: after sklearn > 1.6 is released, the to_numpy call should no longer be
+        # required and be removed, see:
+        # https://github.com/skorch-dev/skorch/pull/1078#discussion_r1887197261
+        gs.fit(slds, to_numpy(y))  # does not raise
 
     def test_grid_search_with_slds_and_internal_split_works(
             self, slds, y, classifier_module):
         from sklearn.model_selection import GridSearchCV
         from skorch import NeuralNetClassifier
+        from skorch.utils import to_numpy
 
         net = NeuralNetClassifier(classifier_module)
         params = {
@@ -465,7 +470,10 @@ class TestSliceDataset:
         gs = GridSearchCV(
             net, params, refit=True, cv=3, scoring='accuracy', error_score='raise'
         )
-        gs.fit(slds, y)  # does not raise
+        # TODO: after sklearn > 1.6 is released, the to_numpy call should no longer be
+        # required and be removed, see:
+        # https://github.com/skorch-dev/skorch/pull/1078#discussion_r1887197261
+        gs.fit(slds, to_numpy(y))  # does not raise
 
     def test_grid_search_with_slds_X_and_slds_y(
             self, slds, slds_y, classifier_module):

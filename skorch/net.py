@@ -50,7 +50,7 @@ from skorch.utils import get_default_torch_load_kwargs
 
 
 # pylint: disable=too-many-instance-attributes
-class NeuralNet:
+class NeuralNet(BaseEstimator):
     # pylint: disable=anomalous-backslash-in-string
     """NeuralNet base class.
 
@@ -1992,7 +1992,7 @@ class NeuralNet:
         return params
 
     def get_params(self, deep=True, **kwargs):
-        params = BaseEstimator.get_params(self, deep=deep, **kwargs)
+        params = super().get_params(deep=deep, **kwargs)
         # Callback parameters are not returned by .get_params, needs
         # special treatment.
         params_cb = self._get_params_callbacks(deep=deep)
@@ -2111,7 +2111,7 @@ class NeuralNet:
                 normal_params[key] = val
 
         self._apply_virtual_params(virtual_params)
-        BaseEstimator.set_params(self, **normal_params)
+        super().set_params(**normal_params)
 
         for key, val in special_params.items():
             if key.endswith('_'):
