@@ -25,7 +25,7 @@ neural_net_reg_criterion_text = """
 
 
 def get_neural_net_reg_doc(doc):
-    doc = neural_net_reg_doc_start + " " + doc.split("\n ", 4)[-1]
+    doc = neural_net_reg_doc_start + " " + doc.split("\n ", 3)[-1]
     pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_reg_criterion_text + doc[end:]
