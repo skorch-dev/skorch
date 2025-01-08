@@ -46,13 +46,14 @@ class TestLRCallbacks:
         # O = OK epoch
         # I = intertolerable epoch
         #
+        # 1 2 3 4 5   epoch number
         # O I I I I   epoch classification
-        # 0 1 2 3 4   number of bad epochs
-        #     * * *   epochs with LR reduction
+        # 0 1 2 1 2   number of bad epochs
+        #     *   *   epochs with LR reduction
         #
-        # note that simulate returns the LRs before the step, not after,
-        # so we're seeing only 4 updated values.
-        assert all(lrs == [1] + [1, 1, 0.1, 0.1])
+        # note that simulate returns the lrs before the step, not after,
+        # so we're seeing only 4 new simulated values.
+        assert all(lrs == [1, 1, 1, 0.1, 0.1])
 
     def test_simulate_lrs_reduced_lr_on_plateau_array(self):
         lr_sch = LRScheduler(
@@ -65,9 +66,13 @@ class TestLRCallbacks:
         # O = OK epoch
         # I = intertolerable epoch
         #
+        # 1 2 3 4 5   epoch number
         # O O I I O   epoch classification
         # 0 0 1 2 0   number of bad epochs
         #       *     epochs with LR reduction
+        #
+        # note that simulate returns the LRs before the step, not after,
+        # so we're seeing only 4 new simulated values.
         assert all(lrs == [1, 1, 1, 1, 0.1])
 
     @pytest.mark.parametrize('policy, instance, kwargs', [
