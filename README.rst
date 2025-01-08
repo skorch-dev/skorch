@@ -9,25 +9,20 @@ A scikit-learn compatible neural network library that wraps PyTorch.
 
 .. |build| image:: https://github.com/skorch-dev/skorch/workflows/tests/badge.svg
     :alt: Test Status
-    :scale: 100%
 
 .. |coverage| image:: https://github.com/skorch-dev/skorch/blob/master/assets/coverage.svg
     :alt: Test Coverage
-    :scale: 100%
 
 .. |docs| image:: https://readthedocs.org/projects/skorch/badge/?version=latest
     :alt: Documentation Status
-    :scale: 100%
     :target: https://skorch.readthedocs.io/en/latest/?badge=latest
 
 .. |huggingface| image:: https://github.com/skorch-dev/skorch/actions/workflows/test-hf-integration.yml/badge.svg
     :alt: Hugging Face Integration
-    :scale: 100%
     :target: https://github.com/skorch-dev/skorch/actions/workflows/test-hf-integration.yml
 
 .. |powered| image:: https://github.com/skorch-dev/skorch/blob/master/assets/powered.svg
     :alt: Powered by
-    :scale: 100%
     :target: https://github.com/ottogroup/
 
 =========
