@@ -87,10 +87,12 @@ class LRScheduler(Callback):
         initial_lr: float
           Initial learning rate
 
-        step_args: Any
-          Argument to the `.step()` function of the policy. If it is an
+        step_args: None or float or List[float] (default=None)
+          Argument to the ``.step()`` function of the policy. If it is an
           indexable object the simulation will try to associate every step of
-          the simulation with an entry in ``step_args``.
+          the simulation with an entry in ``step_args``. Scalar values are
+          passed at every step, unchanged. In the default setting (``None``)
+          no additional arguments are passed to ``.step()``.
 
         Returns
         -------
