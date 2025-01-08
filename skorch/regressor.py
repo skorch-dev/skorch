@@ -26,7 +26,7 @@ neural_net_reg_criterion_text = """
 
 def get_neural_net_reg_doc(doc):
     indentation = "    "
-    doc = neural_net_reg_doc_start + " " + textwrap.indent(doc.split("\n", 5)[-1], indentation)
+    doc = neural_net_reg_doc_start + " " + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
     pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_reg_criterion_text + doc[end:]
