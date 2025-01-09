@@ -23,41 +23,6 @@ __all__ = ['BatchScoring', 'EpochScoring', 'PassthroughScoring']
 
 
 @contextmanager
-def cache_net_infer(net, use_caching, y_preds):
-    """Caching context for ``skorch.NeuralNet`` instance.
-
-    Returns a modified version of the net whose ``infer`` method will
-    subsequently return cached predictions. Leaving the context will
-    undo the overwrite of the ``infer`` method.
-
-    Deprecated.
-
-    """
-    # TODO: remove this function
-
-    warnings.warn(
-        "cache_net_infer is no longer uesd to provide caching for "
-        "the scoring callbacks and will hence be removed in a "
-        "future release.",
-        DeprecationWarning,
-    )
-
-    if not use_caching:
-        yield net
-        return
-    y_preds = iter(y_preds)
-    net.infer = lambda *a, **kw: next(y_preds)
-
-    try:
-        yield net
-    finally:
-        # By setting net.infer we define an attribute `infer`
-        # that precedes the bound method `infer`. By deleting
-        # the entry from the attribute dict we undo this.
-        del net.__dict__['infer']
-
-
-@contextmanager
 def _cache_net_forward_iter(net, use_caching, y_preds):
     """Caching context for ``skorch.NeuralNet`` instance.
 
