@@ -75,7 +75,7 @@ class LRScheduler(Callback):
         self.step_every = step_every
         vars(self).update(kwargs)
 
-    def simulate(self, steps, initial_lr):
+    def simulate(self, steps, initial_lr, step_args=None):
         """
         Simulates the learning rate scheduler.
 
@@ -86,6 +86,13 @@ class LRScheduler(Callback):
 
         initial_lr: float
           Initial learning rate
+
+        step_args: None or float or List[float] (default=None)
+          Argument to the ``.step()`` function of the policy. If it is an
+          indexable object the simulation will try to associate every step of
+          the simulation with an entry in ``step_args``. Scalar values are
+          passed at every step, unchanged. In the default setting (``None``)
+          no additional arguments are passed to ``.step()``.
 
         Returns
         -------
@@ -99,10 +106,15 @@ class LRScheduler(Callback):
         sch = policy_cls(opt, **self.kwargs)
 
         lrs = []
-        for _ in range(steps):
+        for step_idx in range(steps):
             opt.step()  # suppress warning about .step call order
             lrs.append(opt.param_groups[0]['lr'])
-            sch.step()
+            if step_args is None:
+                sch.step()
+            elif hasattr(step_args, '__getitem__'):
+                sch.step(step_args[step_idx])
+            else:
+                sch.step(step_args)
 
         return np.array(lrs)
 
