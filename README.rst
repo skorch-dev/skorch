@@ -183,6 +183,21 @@ To install skorch from source using conda, proceed as follows:
     python -m pip install -r requirements.txt
     python -m pip install .
 
+If you want to help developing, run:
+
+.. code:: bash
+
+    git clone https://github.com/skorch-dev/skorch.git
+    cd skorch
+    conda create -n skorch-env python=3.10
+    conda activate skorch-env
+    conda install -c pytorch pytorch
+    python -m pip install -r requirements.txt
+    python -m pip install -r requirements-dev.txt
+    python -m pip install -e .
+
+    py.test  # unit tests
+    pylint skorch  # static code checks
 
 You may adjust the Python version to any of the supported Python versions.
 
@@ -200,6 +215,20 @@ For pip, follow these instructions instead:
     # install pytorch version for your system (see below)
     python -m pip install .
 
+If you want to help developing, run:
+
+.. code:: bash
+
+    git clone https://github.com/skorch-dev/skorch.git
+    cd skorch
+    # create and activate a virtual environment
+    python -m pip install -r requirements.txt
+    # install pytorch version for your system (see below)
+    python -m pip install -r requirements-dev.txt
+    python -m pip install -e .
+
+    py.test  # unit tests
+    pylint skorch  # static code checks
 
 PyTorch
 =======
