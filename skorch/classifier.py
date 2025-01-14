@@ -36,7 +36,7 @@ neural_net_clf_additional_text = """
       skorch behavior should be restored, i.e. raising an
       ``AttributeError``, pass an empty list."""
 
-neural_net_clf_additional_attribute = """classes_ : array, shape (n_classes, )
+neural_net_clf_additional_attribute = """    classes_ : array, shape (n_classes, )
       A list of class labels known to the classifier.
 
 """
@@ -50,7 +50,7 @@ def get_neural_net_clf_doc(doc):
     pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_clf_additional_text + doc[end:]
-    doc = doc + textwrap.indent(neural_net_clf_additional_attribute, indentation)
+    doc = doc + neural_net_clf_additional_attribute
     return doc
 
 # pylint: disable=missing-docstring
