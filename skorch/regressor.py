@@ -1,6 +1,7 @@
 """NeuralNet subclasses for regression tasks."""
 
 import re
+import textwrap
 
 from sklearn.base import RegressorMixin
 import torch
@@ -23,14 +24,16 @@ neural_net_reg_criterion_text = """
     criterion : torch criterion (class, default=torch.nn.MSELoss)
       Mean squared error loss."""
 
-
 def get_neural_net_reg_doc(doc):
-    doc = neural_net_reg_doc_start + " " + doc.split("\n ", 4)[-1]
-    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    indentation = "    "
+    # dedent/indent roundtrip required for consistent indention in both
+    # Python <3.13 and Python >=3.13
+    # Because <3.13 => not automatic dedent, but it is the case in >=3.13
+    doc = neural_net_reg_doc_start + " " + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_reg_criterion_text + doc[end:]
     return doc
-
 
 # pylint: disable=missing-docstring
 class NeuralNetRegressor(RegressorMixin, NeuralNet):

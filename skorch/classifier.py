@@ -1,6 +1,7 @@
 """NeuralNet subclasses for classification tasks."""
 
 import re
+import textwrap
 
 import numpy as np
 from sklearn.base import ClassifierMixin
@@ -35,20 +36,22 @@ neural_net_clf_additional_text = """
       skorch behavior should be restored, i.e. raising an
       ``AttributeError``, pass an empty list."""
 
-neural_net_clf_additional_attribute = """classes_ : array, shape (n_classes, )
+neural_net_clf_additional_attribute = """    classes_ : array, shape (n_classes, )
       A list of class labels known to the classifier.
 
 """
 
-
 def get_neural_net_clf_doc(doc):
-    doc = neural_net_clf_doc_start + " " + doc.split("\n ", 4)[-1]
-    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    indentation = "    "
+    # dedent/indent roundtrip required for consistent indention in both
+    # Python <3.13 and Python >=3.13
+    # Because <3.13 => not automatic dedent, but it is the case in >=3.13
+    doc = neural_net_clf_doc_start + " " + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_clf_additional_text + doc[end:]
     doc = doc + neural_net_clf_additional_attribute
     return doc
-
 
 # pylint: disable=missing-docstring
 class NeuralNetClassifier(ClassifierMixin, NeuralNet):
@@ -249,14 +252,16 @@ neural_net_binary_clf_criterion_text = """
       Probabilities above this threshold is classified as 1. ``threshold``
       is used by ``predict`` and ``predict_proba`` for classification."""
 
-
 def get_neural_net_binary_clf_doc(doc):
-    doc = neural_net_binary_clf_doc_start + " " + doc.split("\n ", 4)[-1]
-    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    indentation = "    "
+    # dedent/indent roundtrip required for consistent indention in both
+    # Python <3.13 and Python >=3.13
+    # Because <3.13 => not automatic dedent, but it is the case in >=3.13
+    doc = neural_net_binary_clf_doc_start + " " + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
+    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_binary_clf_criterion_text + doc[end:]
     return doc
-
 
 class NeuralNetBinaryClassifier(ClassifierMixin, NeuralNet):
     # pylint: disable=missing-docstring
