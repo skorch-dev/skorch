@@ -3109,7 +3109,7 @@ class TestNeuralNet:
         net = net_cls(module_cls, torch_load_kwargs=expected_kwargs).initialize()
 
         original_torch_load = torch.load
-        # call origina torch.load without extra params to prevent error:
+        # call original torch.load without extra params to prevent error:
         mock_torch_load = Mock(
             side_effect=lambda *args, **kwargs: original_torch_load(*args)
         )

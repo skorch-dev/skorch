@@ -786,7 +786,7 @@ def get_default_torch_load_kwargs():
     return {"weights_only": False}
 
 
-class MapLocationUnpickler(pickle.Unpickler):
+class _TorchLoadUnpickler(pickle.Unpickler):
     """
     Subclass of pickle.Unpickler that intercepts 'torch.storage._load_from_bytes' calls
     and uses `torch.load(..., map_location=..., torch_load_kwargs=...)`.

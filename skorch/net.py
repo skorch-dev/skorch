@@ -34,7 +34,7 @@ from skorch.exceptions import SkorchAttributeError
 from skorch.exceptions import SkorchTrainingImpossibleError
 from skorch.history import History
 from skorch.setter import optimizer_setter
-from skorch.utils import MapLocationUnpickler
+from skorch.utils import _TorchLoadUnpickler
 from skorch.utils import _identity
 from skorch.utils import _infer_predict_nonlinearity
 from skorch.utils import FirstStepAccumulator
@@ -2259,7 +2259,7 @@ class NeuralNet(BaseEstimator):
         torch_load_kwargs = state.get('torch_load_kwargs') or get_default_torch_load_kwargs()
 
         with tempfile.SpooledTemporaryFile() as f:
-            unpickler = MapLocationUnpickler(
+            unpickler = _TorchLoadUnpickler(
                 f,
                 map_location=map_location,
                 torch_load_kwargs=torch_load_kwargs,
