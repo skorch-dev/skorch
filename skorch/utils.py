@@ -11,11 +11,11 @@ from functools import partial
 import io
 from itertools import tee
 import pathlib
+import pickle
 import warnings
 
 import numpy as np
 from scipy import sparse
-import sklearn
 from sklearn.exceptions import NotFittedError
 from sklearn.utils import _safe_indexing as safe_indexing
 from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
@@ -784,3 +784,35 @@ def get_default_torch_load_kwargs():
     if version_torch >= version_default_switch:
         return {"weights_only": True}
     return {"weights_only": False}
+
+
+class _TorchLoadUnpickler(pickle.Unpickler):
+    """
+    Subclass of pickle.Unpickler that intercepts 'torch.storage._load_from_bytes' calls
+    and uses `torch.load(..., map_location=..., torch_load_kwargs=...)`.
+
+    This way, we can use normal pickle when unpickling a skorch net but still benefit
+    from torch.load to handle the map_location. Note that `with torch.device(...)` does
+    not work for unpickling.
+
+    """
+
+    def __init__(self, *args, map_location, torch_load_kwargs, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.map_location = map_location
+        self.torch_load_kwargs = torch_load_kwargs
+
+    def find_class(self, module, name):
+        # The actual serialized data for PyTorch tensors references
+        # torch.storage._load_from_bytes internally. We intercept that call:
+        if (module == 'torch.storage') and (name == '_load_from_bytes'):
+            # Return a function that uses torch.load with our desired map_location
+            def _load_from_bytes(b):
+                return torch.load(
+                    io.BytesIO(b),
+                    map_location=self.map_location,
+                    **self.torch_load_kwargs
+                )
+            return _load_from_bytes
+
+        return super().find_class(module, name)

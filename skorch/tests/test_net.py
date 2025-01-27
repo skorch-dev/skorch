@@ -3081,6 +3081,7 @@ class TestNeuralNet:
         # See discussion in 1063.
         from skorch._version import Version
 
+        # TODO remove once torch 2.5.0 is no longer supported
         if Version(torch.__version__) >= Version('2.6.0'):
             pytest.skip("Test only for torch < v2.6.0")
 
@@ -3096,6 +3097,40 @@ class TestNeuralNet:
         call_kwargs = mock_torch_load.call_args_list[0].kwargs
         del call_kwargs['map_location']  # we're not interested in that
         assert call_kwargs == expected_kwargs
+
+    def test_torch_load_kwargs_forwarded_to_torch_load_unpickle(
+            self, net_cls, module_cls, monkeypatch, tmp_path
+    ):
+        # See discussion in 1090
+        # Here we check that custom set torch load args are forwarded to
+        # torch.load even when using pickle. This is the same test otherwise as
+        # test_torch_load_kwargs_forwarded_to_torch_load
+        expected_kwargs = {'weights_only': 123, 'foo': 'bar'}
+        net = net_cls(module_cls, torch_load_kwargs=expected_kwargs).initialize()
+
+        original_torch_load = torch.load
+        # call original torch.load without extra params to prevent error:
+        mock_torch_load = Mock(
+            side_effect=lambda *args, **kwargs: original_torch_load(*args)
+        )
+        monkeypatch.setattr(torch, "load", mock_torch_load)
+        dumped = pickle.dumps(net)
+        pickle.loads(dumped)
+
+        call_kwargs = mock_torch_load.call_args_list[0].kwargs
+        del call_kwargs['map_location']  # we're not interested in that
+        assert call_kwargs == expected_kwargs
+
+    def test_unpickle_no_pytorch_warning(self, net_cls, module_cls, recwarn):
+        # See discussion 1090
+        # When using pickle, i.e. when going through __setstate__, we don't want to get
+        # any warnings about the usage of weights_only.
+        net = net_cls(module_cls).initialize()
+        dumped = pickle.dumps(net)
+        pickle.loads(dumped)
+
+        msg_content = "weights_only"
+        assert not any(msg_content in str(w.message) for w in recwarn.list)
 
     def test_custom_module_params_passed_to_optimizer(
             self, net_custom_module_cls, module_cls):
