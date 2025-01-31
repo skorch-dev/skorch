@@ -21,7 +21,7 @@ jobs:
       fail-fast: false  # don't cancel all jobs when one fails
       matrix:
         python_version: ['3.9', '3.10', '3.11', '3.12']
-        torch_version: ['2.2.2+cpu', '2.3.1+cpu', '2.4.1+cpu', '2.5.1+cpu']
+        torch_version: ['2.3.1+cpu', '2.4.1+cpu', '2.5.1+cpu', '2.6.0+cpu']
         os: [ubuntu-latest]
 
     steps:
@@ -39,6 +39,7 @@ jobs:
         python -m pip install --force-reinstall -U "numpy<2.0.0"
         python -m pip install pytest-pretty
         python -m pip install torch==${{ matrix.torch_version }} -f https://download.pytorch.org/whl/torch
+        python -m pip uninstall --yes triton # https://github.com/triton-lang/triton/issues/5722
         python -m pip list
     - name: Install skorch
       run: |

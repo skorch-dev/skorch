@@ -775,10 +775,10 @@ def get_default_torch_load_kwargs():
     """Returns the kwargs passed to torch.load that correspond to the current
     torch version.
 
-    The plan is to switch from weights_only=False to True in PyTorch version
-    2.6.0, but depending on what happens, this may require updating.
+    PyTorch switches from weights_only=False to True in version 2.6.0.
 
     """
+    # TODO: Remove once PyTorch 2.5 is no longer supported
     version_torch = Version(torch.__version__)
     version_default_switch = Version('2.6.0')
     if version_torch >= version_default_switch:
