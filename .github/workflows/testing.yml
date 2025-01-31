@@ -39,7 +39,7 @@ jobs:
         python -m pip install --force-reinstall -U "numpy<2.0.0"
         python -m pip install pytest-pretty
         python -m pip install torch==${{ matrix.torch_version }} -f https://download.pytorch.org/whl/torch
-        python -m pip uninstall triton # https://github.com/triton-lang/triton/issues/5722
+        python -m pip uninstall --yes triton # https://github.com/triton-lang/triton/issues/5722
         python -m pip list
     - name: Install skorch
       run: |
