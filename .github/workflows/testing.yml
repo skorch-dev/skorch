@@ -40,6 +40,7 @@ jobs:
         python -m pip install --force-reinstall -U "numpy<2.0.0"
         python -m pip install pytest-pretty
         python -m pip install torch==${{ matrix.torch_version }} -f https://download.pytorch.org/whl/torch
+        TORCH_VERSION_MAJOR_MINOR=$(python -c "import torch; v=torch.__version__.split('+')[0]; print('.'.join(v.split('.')[:2]))")
         if [[ $(echo "$TORCH_VERSION_MAJOR_MINOR < 2.6" | bc -l) -eq 1 ]]; then
           python -m pip install "triton==3.1"
         fi
