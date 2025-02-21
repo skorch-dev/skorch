@@ -21,7 +21,7 @@ jobs:
       fail-fast: false  # don't cancel all jobs when one fails
       matrix:
         python_version: ['3.9', '3.10', '3.11', '3.12']
-        torch_version: ['2.2.2+cpu', '2.3.1+cpu', '2.4.1+cpu', '2.5.1+cpu']
+        torch_version: ['2.3.1+cpu', '2.4.1+cpu', '2.5.1+cpu', '2.6.0+cpu']
         os: [ubuntu-latest]
 
     steps:
@@ -32,6 +32,7 @@ jobs:
         python-version: ${{ matrix.python_version }}
     - name: Install dependencies
       # TODO remove numpy version constraint once we no longer support PyTorch < 2.3
+      # TODO remove triton 3.1 install if torch < 2.6 no longer supported, see #1093
       run: |
         python -m pip install --upgrade pip
         python -m pip install -r requirements-dev.txt
@@ -39,6 +40,10 @@ jobs:
         python -m pip install --force-reinstall -U "numpy<2.0.0"
         python -m pip install pytest-pretty
         python -m pip install torch==${{ matrix.torch_version }} -f https://download.pytorch.org/whl/torch
+        TORCH_VERSION_MAJOR_MINOR=$(python -c "import torch; v=torch.__version__.split('+')[0]; print('.'.join(v.split('.')[:2]))")
+        if [[ $(echo "$TORCH_VERSION_MAJOR_MINOR < 2.6" | bc -l) -eq 1 ]]; then
+          python -m pip install "triton==3.1"
+        fi
         python -m pip list
     - name: Install skorch
       run: |

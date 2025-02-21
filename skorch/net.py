@@ -13,6 +13,7 @@ from itertools import chain
 from collections import OrderedDict
 from contextlib import contextmanager
 import os
+import pickle
 import tempfile
 import warnings
 
@@ -33,6 +34,7 @@ from skorch.exceptions import SkorchAttributeError
 from skorch.exceptions import SkorchTrainingImpossibleError
 from skorch.history import History
 from skorch.setter import optimizer_setter
+from skorch.utils import _TorchLoadUnpickler
 from skorch.utils import _identity
 from skorch.utils import _infer_predict_nonlinearity
 from skorch.utils import FirstStepAccumulator
@@ -2242,7 +2244,7 @@ class NeuralNet(BaseEstimator):
             state.pop(k)
 
         with tempfile.SpooledTemporaryFile() as f:
-            torch.save(cuda_attrs, f)
+            pickle.dump(cuda_attrs, f)
             f.seek(0)
             state['__cuda_dependent_attributes__'] = f.read()
 
@@ -2254,11 +2256,26 @@ class NeuralNet(BaseEstimator):
         map_location = get_map_location(state['device'])
         load_kwargs = {'map_location': map_location}
         state['device'] = self._check_device(state['device'], map_location)
+        torch_load_kwargs = state.get('torch_load_kwargs') or get_default_torch_load_kwargs()
 
         with tempfile.SpooledTemporaryFile() as f:
+            unpickler = _TorchLoadUnpickler(
+                f,
+                map_location=map_location,
+                torch_load_kwargs=torch_load_kwargs,
+            )
             f.write(state['__cuda_dependent_attributes__'])
             f.seek(0)
-            cuda_attrs = torch.load(f, **load_kwargs)
+            try:
+                cuda_attrs = unpickler.load()
+            except pickle.UnpicklingError:
+                # This object was saved using skorch from before switching to the
+                # custom unpickler, i.e. with torch.save. Fall back to the old loading
+                # code using torch.load. Unfortunately, this means that the user may
+                # get the FutureWarning about weights_only=False. They need to re-save
+                # the net to get rid of the warning
+                f.seek(0)
+                cuda_attrs = torch.load(f, **load_kwargs)
 
         state.update(cuda_attrs)
         state.pop('__cuda_dependent_attributes__')
