@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Add Optuna Example for Skorch()
+- Add Optuna Example for skorch.(#1098)
 ### Added
 ### Changed
 

@@ -2,7 +2,7 @@
 
 ## Description
 
-This example is adapted from the optuna-integration [repo](https://github.com/optuna/optuna-examples/blob/main/pytorch/skorch_simple.py).In this example, we optimize the validation accuracy of hand-written digit recognition using
+This example is adapted from the optuna-integration [repo](https://github.com/optuna/optuna-examples/tree/main/pytorch).In this example, we optimize the validation accuracy of hand-written digit recognition using
 skorch and MNIST. We optimize the neural network architecture. As it is too time
 consuming to use the whole MNIST dataset, we here use a small subset of it.
 
@@ -14,7 +14,7 @@ To install all the dependencies for the example, run:
 pip install -r requirements.txt
 ```
 
-You can run this example as follows, pruning can be turned on and off with the `--pruning`
+You can run this example as follows, pruning can be turned on with the `--pruning`
 argument.
 ```bash
     $ python skorch_example.py [--pruning]
