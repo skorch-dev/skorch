@@ -55,6 +55,10 @@ class ClassifierModule(nn.Module):
             x = x["data"]
         return self.model(x)
 
+X_train_np = X_train.to_numpy().astype(np.float32)
+X_test_np = X_test.to_numpy().astype(np.float32)
+y_test_np = y_test.to_numpy()
+
 def objective(trial: optuna.Trial) -> float:
     # Define hyperparameter search space
     n_layers = trial.suggest_int("n_layers", 1, 3)
@@ -75,7 +79,7 @@ def objective(trial: optuna.Trial) -> float:
 
     net.fit(X_train.to_numpy().astype(np.float32), y_train)
 
-    return accuracy_score(y_test.to_numpy(), net.predict(X_test.to_numpy().astype(np.float32)))
+    return accuracy_score(y_test_np, net.predict(X_test_np))
 
 
 if __name__ == "__main__":
