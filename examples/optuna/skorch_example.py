@@ -62,7 +62,7 @@ y_test_np = y_test.to_numpy()
 def objective(trial: optuna.Trial) -> float:
     # Define hyperparameter search space
     n_layers = trial.suggest_int("n_layers", 1, 3)
-    dropout = trial.suggest_float("dropout", 0.2, 0.5)
+    dropout = trial.suggest_float("dropout", 0.0, 0.5)
     hidden_units = [trial.suggest_int(f"n_units_l{i}", 4, 128, log=True) for i in range(n_layers)]
 
     # Initialize model with suggested hyperparameters
@@ -77,7 +77,7 @@ def objective(trial: optuna.Trial) -> float:
         callbacks=[SkorchPruningCallback(trial, "valid_acc")],
     )
 
-    net.fit(X_train.to_numpy().astype(np.float32), y_train)
+    net.fit(X_train, y_train)
 
     return accuracy_score(y_test_np, net.predict(X_test_np))
 
