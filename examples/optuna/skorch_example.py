@@ -14,23 +14,21 @@ from sklearn.datasets import fetch_openml
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
+def load_mnist_data(subset_ratio=0.4):
+    mnist = fetch_openml("mnist_784", cache=False, parser="auto")  # Explicit parser for compatibility
+    num_samples = int(len(mnist.data) * subset_ratio)
+    return mnist.data.iloc[:num_samples].astype(np.float32), mnist.target.iloc[:num_samples].astype("int64")
 
-SUBSET_RATIO = 0.4
+X, y = load_mnist_data(subset_ratio=0.4)
 
-mnist = fetch_openml("mnist_784", cache=False)
-
-X = pd.DataFrame(mnist.data)
-y = mnist.target.astype("int64")
 indices = np.random.permutation(len(X))
-N = int(len(X) * SUBSET_RATIO)
-X = X.iloc[indices][:N].astype(np.float32)  
-y = y[indices][:N]
+N = int(len(X) * 0.4)  # Directly using the subset ratio instead of undefined SUBSET_RATIO
+X, y = X.iloc[indices][:N], y.iloc[indices][:N]
 
 X /= 255.0
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 class ClassifierModule(nn.Module):
     def __init__(self, n_layers: int, dropout: float, hidden_units: list[int]) -> None:
@@ -41,12 +39,11 @@ class ClassifierModule(nn.Module):
 
         for i in range(n_layers):
             layers.append(nn.Linear(input_dim, hidden_units[i]))
-            layers.append(nn.Dropout(dropout))
             layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout))
             input_dim = hidden_units[i]
 
         layers.append(nn.Linear(input_dim, 10))
-        layers.append(nn.Softmax(dim=-1))  # Final softmax layer
 
         self.model = nn.Sequential(*layers)
 
@@ -55,21 +52,26 @@ class ClassifierModule(nn.Module):
             x = x["data"]
         return self.model(x)
 
-X_train_np = X_train.to_numpy().astype(np.float32)
-X_test_np = X_test.to_numpy().astype(np.float32)
-y_test_np = y_test.to_numpy()
+def convert_to_numpy(X_train, X_test, y_train, y_test):
+    return (
+        X_train.to_numpy().astype(np.float32),
+        X_test.to_numpy().astype(np.float32),
+        y_train.to_numpy(),
+        y_test.to_numpy()
+    )
 
 def objective(trial: optuna.Trial) -> float:
-    # Define hyperparameter search space
     n_layers = trial.suggest_int("n_layers", 1, 3)
     dropout = trial.suggest_float("dropout", 0.0, 0.5)
     hidden_units = [trial.suggest_int(f"n_units_l{i}", 4, 128, log=True) for i in range(n_layers)]
 
-    # Initialize model with suggested hyperparameters
     model = ClassifierModule(n_layers, dropout, hidden_units)
+
+    X_train_np, X_test_np, y_train_np, y_test_np = convert_to_numpy(X_train, X_test, y_train, y_test)
 
     net = skorch.NeuralNetClassifier(
         model,
+        criterion=torch.nn.CrossEntropyLoss,
         max_epochs=trial.suggest_int("max_epochs", 10, 50),
         lr=trial.suggest_float("lr", 1e-4, 1e-1, log=True),
         device=device,
@@ -77,10 +79,9 @@ def objective(trial: optuna.Trial) -> float:
         callbacks=[SkorchPruningCallback(trial, "valid_acc")],
     )
 
-    net.fit(X_train, y_train)
+    net.fit(X_train_np, y_train_np)
 
     return accuracy_score(y_test_np, net.predict(X_test_np))
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="skorch example.")
@@ -107,18 +108,17 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+def main():
     pruner = optuna.pruners.MedianPruner() if args.pruning else optuna.pruners.NopPruner()
-
     study = optuna.create_study(direction="maximize", pruner=pruner)
-    study.optimize(objective, n_trials=100, timeout=600)
+    study.optimize(objective, n_trials=args.n_trials, timeout=args.timeout)
 
-    print("Number of finished trials: {}".format(len(study.trials)))
+    print(f"Number of finished trials: {len(study.trials)}")
+    print(f"Best trial value: {study.best_trial.value}")
 
-    print("Best trial:")
-    trial = study.best_trial
+    print("Best trial parameters:")
+    for key, value in study.best_trial.params.items():
+        print(f"  {key}: {value}")
 
-    print("  Value: {}".format(trial.value))
-
-    print("  Params: ")
-    for key, value in trial.params.items():
-        print("    {}: {}".format(key, value))
+if __name__ == "__main__":
+    main()
