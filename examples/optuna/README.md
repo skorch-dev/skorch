@@ -19,3 +19,8 @@ argument.
 ```bash
     $ python skorch_example.py [--pruning]
 ```
+
+To check all the available commands that are available, run:
+```bash
+    $ python skorch_example.py --help
+```
