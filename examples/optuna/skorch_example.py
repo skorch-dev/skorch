@@ -1,34 +1,21 @@
 import argparse
-import urllib
-
 import numpy as np
 import optuna
 from optuna.integration import SkorchPruningCallback
 import skorch
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import pandas as pd
-
 from sklearn.datasets import fetch_openml
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def load_mnist_data(subset_ratio=0.4):
     mnist = fetch_openml("mnist_784", cache=False, parser="auto")  # Explicit parser for compatibility
     num_samples = int(len(mnist.data) * subset_ratio)
     return mnist.data.iloc[:num_samples].astype(np.float32), mnist.target.iloc[:num_samples].astype("int64")
-
-X, y = load_mnist_data(subset_ratio=0.4)
-
-indices = np.random.permutation(len(X))
-N = int(len(X) * 0.4)  # Directly using the subset ratio instead of undefined SUBSET_RATIO
-X, y = X.iloc[indices][:N], y.iloc[indices][:N]
-
-X /= 255.0
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 class ClassifierModule(nn.Module):
     def __init__(self, n_layers: int, dropout: float, hidden_units: list[int]) -> None:
@@ -60,7 +47,7 @@ def convert_to_numpy(X_train, X_test, y_train, y_test):
         y_test.to_numpy()
     )
 
-def objective(trial: optuna.Trial) -> float:
+def objective(trial: optuna.Trial, X_train, X_test, y_train, y_test) -> float:
     n_layers = trial.suggest_int("n_layers", 1, 3)
     dropout = trial.suggest_float("dropout", 0.0, 0.5)
     hidden_units = [trial.suggest_int(f"n_units_l{i}", 4, 128, log=True) for i in range(n_layers)]
@@ -83,14 +70,38 @@ def objective(trial: optuna.Trial) -> float:
 
     return accuracy_score(y_test_np, net.predict(X_test_np))
 
+def main(args):
+    # Load and preprocess data
+    subset_ratio = 0.4
+    X, y = load_mnist_data(subset_ratio)
+
+    indices = np.random.permutation(len(X))
+    N = int(len(X) * subset_ratio)
+    X, y = X.iloc[indices][:N], y.iloc[indices][:N]
+
+    X /= 255.0
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+    # Run optimization
+    pruner = optuna.pruners.MedianPruner() if args.pruning else optuna.pruners.NopPruner()
+    study = optuna.create_study(direction="maximize", pruner=pruner)
+    study.optimize(lambda trial: objective(trial, X_train, X_test, y_train, y_test), n_trials=args.n_trials, timeout=args.timeout)
+
+    # Print results
+    print(f"Number of finished trials: {len(study.trials)}")
+    print(f"Best trial value: {study.best_trial.value}")
+    print("Best trial parameters:")
+    for key, value in study.best_trial.params.items():
+        print(f"  {key}: {value}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="skorch example.")
     parser.add_argument(
         "--pruning",
         "-p",
         action="store_true",
-        help="Activate the pruning feature. `MedianPruner` stops unpromising "
-        "trials at the early stages of training.",
+        help="Activate the pruning feature. MedianPruner stops unpromising trials early.",
     )
     parser.add_argument(
         "--n_trials",
@@ -107,18 +118,4 @@ if __name__ == "__main__":
         help="Timeout in seconds for the study (default: 600).",
     )
     args = parser.parse_args()
-
-def main():
-    pruner = optuna.pruners.MedianPruner() if args.pruning else optuna.pruners.NopPruner()
-    study = optuna.create_study(direction="maximize", pruner=pruner)
-    study.optimize(objective, n_trials=args.n_trials, timeout=args.timeout)
-
-    print(f"Number of finished trials: {len(study.trials)}")
-    print(f"Best trial value: {study.best_trial.value}")
-
-    print("Best trial parameters:")
-    for key, value in study.best_trial.params.items():
-        print(f"  {key}: {value}")
-
-if __name__ == "__main__":
-    main()
+    main(args)
