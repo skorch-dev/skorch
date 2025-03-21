@@ -1,0 +1,9 @@
+argparse
+urllib3
+numpy
+optuna
+optuna-integration[skorch]
+skorch
+torch
+scikit-learn
+pandas
