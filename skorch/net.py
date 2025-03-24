@@ -660,7 +660,7 @@ class NeuralNet(BaseEstimator):
           Deprecated, don't use it anymore.
 
         """
-        # handle deprecated paramter
+        # handle deprecated parameter
         if triggered_directly is not None:
             warnings.warn(
                 "The 'triggered_directly' argument to 'initialize_optimizer' is "

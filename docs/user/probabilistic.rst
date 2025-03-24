@@ -123,7 +123,7 @@ its prediction. E.g., it could be the case that the model is fairly certain when
 *interpolating* between data points but uncertain about *extrapolating*. This is
 not possible to know when models only learn point predictions.
 
-The obtain the confidence region, you can also use the ``confidence_region``
+To obtain the confidence region, you can also use the ``confidence_region``
 method:
 
 .. code:: python

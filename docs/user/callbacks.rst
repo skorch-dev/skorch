@@ -35,7 +35,7 @@ In general, remember this:
 Callback methods to override
 ----------------------------
 
-The following methods could potentially be overriden when implementing
+The following methods could potentially be overridden when implementing
 your own callbacks.
 
 initialize()

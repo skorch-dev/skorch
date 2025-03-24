@@ -17,7 +17,7 @@ We will focus on accelerating the training process, where the overhead should be
 largest. Below, some mitigations are described, including the potential
 downsides.
 
-First make sure that there is any significant slowdown
+First make sure that there is no significant slowdown
 ------------------------------------------------------
 
 Neural nets are notoriously slow to train. Therefore, if your training takes a
@@ -77,7 +77,7 @@ diagnostics in the ``history`` attribute.
 
 Instead of turning off all callbacks, you can also turn off specific callbacks,
 including default callbacks. This way, you can decide which ones to keep and
-which ones to get rid off. Typically, callbacks that calculate some kind of
+which ones to get rid of. Typically, callbacks that calculate some kind of
 metric tend to be slow.
 
 .. code:: python

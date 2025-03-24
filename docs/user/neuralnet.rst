@@ -53,7 +53,7 @@ Only when the :func:`~skorch.net.NeuralNet.fit` or
 attributes of the net, such as the ``module``, initialized. The name of an
 initialized attribute always ends on an underscore; e.g., the initialized
 ``module`` is called ``module_`` (this is the same nomenclature as sklearn
-uses). Thefore, you always know which attributes you set and which ones were
+uses). Therefore, you always know which attributes you set and which ones were
 created by :class:`.NeuralNet`.
 
 The only exception is the :ref:`history <history>` attribute, which is
