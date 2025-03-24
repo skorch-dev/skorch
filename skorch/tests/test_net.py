@@ -2848,7 +2848,7 @@ class TestNeuralNet:
             self, net_cls, module_cls
     ):
         # When a module references another module, it will yield that modules'
-        # parameters. Therefore, if we collect all paramters, we have to make
+        # parameters. Therefore, if we collect all parameters, we have to make
         # sure that there are no duplicate parameters.
         class MyCriterion(torch.nn.NLLLoss):
             """Criterion that references net.module_"""

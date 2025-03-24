@@ -361,7 +361,7 @@ class SkorchDoctor:
       This data structure seems to be a bit complicated at first but its use is
       quite straightforward. E.g. to get the update of the parameter called
       "dense0.weight" of the "module" in the last training step, use
-      ``doctor.paramter_udpate_recs_['module'][-1]['dense0.weight]``.
+      ``doctor.parameter_udpate_recs_['module'][-1]['dense0.weight]``.
 
     fitted_ : bool
       Whether the instance has been fitted.
@@ -902,7 +902,7 @@ class SkorchDoctor:
           The name of the specific parameter that should be plotted.
 
         module_name : str (default='module')
-          The name of the module that the paramter belongs to. By default, it is
+          The name of the module that the parameter belongs to. By default, it is
           called "module" in skorch, but it's possible to define custom module
           names, in which case the corresponding name should be chosen.
 

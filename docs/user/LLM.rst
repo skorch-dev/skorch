@@ -97,7 +97,7 @@ method. As expected, the model predicts ``'positive'``, which is indeed the
 sentiment that best fits the review.
 
 When calling ``.predict_proba``, we get back 0.055 and 0.945. The first value
-corresponds to "negative" and the second to "positive". This order of these
+corresponds to "negative" and the second to "positive". The order of these
 results is determined by the alphabetical order of the labels, check
 ``clf.classes_`` if you're unsure. So this means that the model predicts a 94.5%
 probability that the label is positive.

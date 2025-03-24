@@ -45,7 +45,7 @@ the desired parameters and you're good to go:
     net.fit(X, y)
 
 accelerate_ recommends to leave the device handling to the Accelerator_, which
-is why ``device`` defautls to ``None`` (thus telling skorch not to change the
+is why ``device`` defaults to ``None`` (thus telling skorch not to change the
 device).
 
 Models using :class:`.AccelerateMixin` cannot be pickled. If you need to save

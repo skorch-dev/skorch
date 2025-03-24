@@ -62,7 +62,7 @@ skorch supports dicts as input but sklearn doesn't. To get around
 that, try to wrap your dictionary into a :class:`.SliceDict`. This is
 a data container that partly behaves like a dict, partly like an
 ndarray. For more details on how to do this, have a look at the
-coresponding `data section
+corresponding `data section
 <https://nbviewer.jupyter.org/github/skorch-dev/skorch/blob/master/notebooks/Advanced_Usage.ipynb#Working-with-sklearn-FunctionTransformer-and-GridSearch>`__
 in the notebook.
 
@@ -417,7 +417,7 @@ the **greatest** score.
 How can I set the random seed of my model?
 ------------------------------------------
 
-skorch does not provide an unified way for setting the seed of your model.
+skorch does not provide a unified way for setting the seed of your model.
 You can utilize the `numpy <https://numpy.org/doc/stable/reference/random/generated/numpy.random.seed.html>`__
 and `torch <https://pytorch.org/docs/stable/generated/torch.manual_seed.html>`__
 seeding interfaces to set random seeds before model initialization and will

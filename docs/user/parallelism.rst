@@ -5,7 +5,7 @@ Parallelism
 Skorch supports distributing work among a cluster of workers via
 `dask.distributed <http://distributed.readthedocs.io>`_.  In this
 section we'll describe how to use Dask to efficiently distribute a
-grid search or a randomized search on hyperparamerers across multiple
+grid search or a randomized search on hyperparameters across multiple
 GPUs and potentially multiple hosts.
 
 Let's assume that you have two GPUs that you want to run a hyper
@@ -35,7 +35,7 @@ packages required to do the work::
 In your code, use joblib's :func:`~joblib.parallel_backend` context
 manager to activate the Dask backend when you run grid searches and
 the like.  Also instantiate a :class:`dask.distributed.Client` to
-point to the Dask scheduler that you want to use.  Let's see how this
+point to the Dask scheduler that you want to use.  Let's see what this
 could look like:
 
 .. code:: python

@@ -57,7 +57,7 @@ the fire_ library, it becomes very easy to write command line
 interfaces without boilerplate. All arguments pertaining to skorch or
 its PyTorch module are immediately available as command line
 arguments, without the need to write a custom parser. If docstrings in
-the numpydoc_ specification are available, there is also an
+the numpydoc_ specification are available, there is also a
 comprehensive help for the user. Overall, this allows you to make your
 work reproducible without the usual hassle.
 
