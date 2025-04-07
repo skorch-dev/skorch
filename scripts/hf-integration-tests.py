@@ -260,29 +260,3 @@ def test_hf_model_hub():
         torch.testing.assert_close(weights[key], weights[key])
 
     print("Testing HF model hub completed")
-
-
-def main():
-    exceptions = []
-
-    try:
-        with temporary_hf_repo():
-            test_hf_model_hub()
-    except Exception as exc:
-        exceptions.append(exc)
-
-    try:
-        test_tokenizers_transfomers()
-    except Exception as exc:
-        exceptions.append(exc)
-
-    if exceptions:
-        print("encountered the following exceptions:")
-        for exc in exceptions:
-            print(exc)
-        raise RuntimeError(f"{len(exceptions)} of 2 tests failed")
-    print("All tests succeeded")
-
-
-if __name__ == '__main__':
-    main()
