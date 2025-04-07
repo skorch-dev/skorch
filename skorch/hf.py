@@ -1301,3 +1301,9 @@ class HfHubStorage:
 
     def read(self):
         raise NotImplementedError("Read is not (yet) implemented")
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if self.local_storage is not None:
+            state["_buffer"] = None  # _buffer is an open file
+        return state
