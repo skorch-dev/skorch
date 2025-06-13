@@ -13,3 +13,4 @@
 * [Skorch Doctor](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Skorch_Doctor.ipynb)
 * [Classification with LLMs](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/LLM_Classifier.ipynb)
 * [Learning Rate Scheduler](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Learning_Rate_Scheduler.ipynb)
+* [Streaming Dataset](https://nbviewer.org/github/skorch-dev/skorch/blob/master/notebooks/Streaming_Dataset.ipynb)
