@@ -50,4 +50,4 @@ jobs:
         python -m pip install .
     - name: Test with pytest
       run: |
-        pytest --cov=. --cov-report=term-missing --cov-config=pyproject.toml
+        pytest 

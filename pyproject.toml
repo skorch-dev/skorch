@@ -102,9 +102,8 @@ ignore = "D204,D401"
 
 [tool.pytest.ini_options]
 addopts = [
-    "--cov=.",
+    "--cov=skorch",
     "--cov-report=term-missing",
-    "--cov-config=pyproject.toml",
 ]
 python_files = "test*.py"
 testpaths = ["skorch/tests"]
