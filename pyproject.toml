@@ -84,7 +84,8 @@ others = [
 
 
 [tool.coverage.run]  
-source = ["skorch"]
+source = ["."]
+include = ["skorch/*"]
 omit = [
     "skorch/tests/*",
     "skorch/_version.py",
@@ -101,26 +102,35 @@ ignore = "D204,D401"
 
 [tool.pytest.ini_options]
 addopts = [
-    "--cov=skorch",
+    "--cov=.",
     "--cov-report=term-missing",
     "--cov-config=pyproject.toml",
-    "skorch/tests/",
 ]
 python_files = "test*.py"
+testpaths = ["skorch/tests"]
+
+[tool.pylint.main]
+load-plugins = "pylint.extensions.no_self_use"
 
 [tool.pylint.messages_control]  
 disable = [
+    "raw-checker-failed",
+    "bad-inline-option", 
+    "locally-disabled",
+    "file-ignored",
+    "suppressed-message",
+    "useless-suppression",
+    "deprecated-pragma",
+    "use-symbolic-message-instead",
+    "use-implicit-booleaness-not-comparison-to-string",
+    "use-implicit-booleaness-not-comparison-to-zero",
     "cyclic-import",
     "fixme",
     "import-error",
-    "locally-disabled",
-    "locally-enabled",
     "no-member",
     "no-name-in-module",
-    "no-self-use",
-    "super-on-old-class",
     "too-many-function-args",
-    "import-outside-toplevel",
+    "import-outside-toplevel"
 ]
 
 [tool.pylint.reports]
@@ -136,7 +146,6 @@ dummy-variables-rgx = "^\\*{0,2}(_$|unused_|dummy_)"
 [tool.pylint.format]
 max-line-length = 88
 max-module-lines = 1500
-no-space-check = []
 
 [tool.pylint.miscellaneous]
 notes = ["FIXME", "XXX", "TODO"]
@@ -156,7 +165,6 @@ variable-rgx = "^[a-zX][a-z0-9_]*$"
 inlinevar-rgx = "^[a-z][a-z0-9_]*$"
 good-names = ["main", "_", "X", "y", "T", "Xt", "Xs", "yt", "f", "__"]
 bad-names = []
-bad-functions = ["input", "apply", "reduce"]
 
 [tool.pylint.typecheck]
 ignored-modules = ["numpy", "pyodbc"]
