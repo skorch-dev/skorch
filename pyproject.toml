@@ -83,7 +83,7 @@ others = [
 ]
 
 
-[tool.coverage.run]   #note: This is a proposed section to replace the .coveragerc file
+[tool.coverage.run]  
 source = ["skorch"]
 omit = [
     "skorch/tests/*",
@@ -108,7 +108,7 @@ addopts = [
 ]
 python_files = "test*.py"
 
-[tool.pylint.messages_control]  #note: This is a proposed section to replace the .pylint file
+[tool.pylint.messages_control]  
 disable = [
     "cyclic-import",
     "fixme",
