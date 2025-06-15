@@ -2,14 +2,18 @@
 requires = ["setuptools>=61.1.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.package-data] #note: This is a proposed section to replace the MANIFEST.ini file
+[tool.setuptools.package-data] 
 "*" = ["VERSION", "LICENSE", "*.rst"]
+
+[tool.setuptools.packages.find]
+include = ["skorch*"]
+exclude = ["notebooks", "assets","skorch.tests*"]
 
 [project]
 name = "skorch"
 dynamic = ["version", "readme"]
 description = "scikit-learn compatible neural network library for pytorch"
-license = {text = "BSD-3-Clause"}
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 dependencies =[
     "numpy>=1.13.3",
