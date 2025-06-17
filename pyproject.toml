@@ -23,6 +23,7 @@ dependencies =[
     "tqdm>=4.14.0",
 ]
 authors = [
+    {name = "Marian Tietz"},
     {name = "Thomas J. Fan"},
     {name = "Daniel Nouri"},
     {name = "Benjamin Bossan"},
@@ -64,7 +65,7 @@ docs = [
     "numpydoc",
 ]
 
-others = [
+full = [
     "accelerate>=0.22.0",
     "tensorboard>=1.14.0",
     "wandb>=0.12.17",
