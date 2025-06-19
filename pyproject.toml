@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["skorch*"]
-exclude = ["notebooks", "assets","skorch.tests*"]
+exclude = ["notebooks", "assets"]
 
 [project]
 name = "skorch"
