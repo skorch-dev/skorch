@@ -1,4 +1,0 @@
-[run]
-omit = 
-       skorch/tests/*
-       skorch/_version.py
