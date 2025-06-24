@@ -69,7 +69,7 @@ If you just want to use skorch, use:
     cd skorch
     # create and activate a virtual environment
     # install pytorch version for your system (see below)
-    python -m pip install pip install .
+    python -m pip install .
 
 If you want to help developing, run:
 
