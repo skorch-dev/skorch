@@ -38,7 +38,7 @@ If you just want to use skorch, use:
     conda create -n skorch-env python=3.10
     conda activate skorch-env
     # install pytorch version for your system (see below)
-    python -m pip install pip install .
+    python -m pip install .
 
 
 If you want to help developing, run:

@@ -191,7 +191,7 @@ If you want to help developing, run:
     conda create -n skorch-env python=3.12
     conda activate skorch-env
     python -m pip install torch
-    python -m pip install pip install '.[test,docs,dev,full]'
+    python -m pip install '.[test,docs,dev,full]'
 
     py.test  # unit tests
     pylint skorch  # static code checks
