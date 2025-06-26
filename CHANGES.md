@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Add an example of hyper-parameter optimization using [Optuna](https://optuna.org/) [here](https://github.com/skorch-dev/skorch/tree/master/examples/optuna) (#1098)
 ### Added
 
 - Add Contributing Guidelines for skorch. (#1097)
+- Add an example of hyper-parameter optimization using [Optuna](https://optuna.org/) [here](https://github.com/skorch-dev/skorch/tree/master/examples/optuna) (#1098)
 - Add Example for Streaming Dataset(#1105)
+- Add pyproject.toml to Improve CI/CD and Tooling (#1108)
+
 ### Changed
 
 - Loading of skorch nets using pickle: When unpickling a skorch net, you may come across a PyTorch warning that goes: "FutureWarning: You are using torch.load with weights_only=False [...]"; to avoid this warning, pickle the net again and use the new pickle file (#1092)
