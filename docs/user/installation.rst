@@ -38,8 +38,8 @@ If you just want to use skorch, use:
     conda create -n skorch-env python=3.10
     conda activate skorch-env
     # install pytorch version for your system (see below)
-    python -m pip install -r requirements.txt
     python -m pip install .
+
 
 If you want to help developing, run:
 
@@ -50,9 +50,7 @@ If you want to help developing, run:
     conda create -n skorch-env python==3.10
     conda activate skorch-env
     # install pytorch version for your system (see below)
-    python -m pip install -r requirements.txt
-    python -m pip install -r requirements-dev.txt
-    python -m pip install -e .
+    python -m pip install '.[test,docs,dev,extended]'
 
     py.test  # unit tests
     pylint skorch  # static code checks
@@ -70,7 +68,6 @@ If you just want to use skorch, use:
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     # create and activate a virtual environment
-    python -m pip install -r requirements.txt
     # install pytorch version for your system (see below)
     python -m pip install .
 
@@ -81,10 +78,8 @@ If you want to help developing, run:
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     # create and activate a virtual environment
-    python -m pip install -r requirements.txt
     # install pytorch version for your system (see below)
-    python -m pip install -r requirements-dev.txt
-    python -m pip install -e .
+    python -m pip install -e '.[test,docs,dev,extended]'
 
     py.test  # unit tests
     pylint skorch  # static code checks

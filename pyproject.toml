@@ -1,0 +1,187 @@
+[build-system]
+requires = ["setuptools>=61.1.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data] 
+"*" = ["VERSION", "LICENSE", "*.rst"]
+
+[tool.setuptools.packages.find]
+include = ["skorch*"]
+exclude = ["notebooks", "assets"]
+
+[project]
+name = "skorch"
+dynamic = ["version", "readme"]
+description = "scikit-learn compatible neural network library for pytorch"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+dependencies =[
+    "numpy>=1.13.3",
+    "scikit-learn>=0.22.0",
+    "scipy>=1.1.0",
+    "tabulate>=0.7.7",
+    "tqdm>=4.14.0",
+]
+authors = [
+    {name = "Marian Tietz"},
+    {name = "Thomas J. Fan"},
+    {name = "Daniel Nouri"},
+    {name = "Benjamin Bossan"},
+    {name = "skorch Developers"}
+]
+classifiers = [                                 #note:classifiers are recommended for packages to be visible on PyPI
+  "License ::BSD 3-Clause  License",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Machine Learning",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pylint",
+    "flake8",
+    "future>=0.17.1",
+]
+
+test = [
+    "pytest>=3.4",
+    "pytest-cov",
+    "flaky",
+]
+
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "numpydoc",
+]
+
+extended = [
+    "accelerate>=0.22.0",
+    "tensorboard>=1.14.0",
+    "wandb>=0.12.17",
+    "neptune",
+    "sacred",
+    "jupyter",
+    "matplotlib>=2.0.2",
+    "pandas",
+    "openpyxl",
+    "transformers",
+    "tokenizers",
+    "safetensors>=0.3.1",
+    "protobuf",
+    "gpytorch>=1.5",
+    "pillow",
+    "fire",
+]
+
+
+[tool.coverage.run]  
+source = ["."]
+include = ["skorch/*"]
+omit = [
+    "skorch/tests/*",
+    "skorch/_version.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+
+[tool.flake8]
+max-line-length = 88
+docstring-convention = "numpy"
+ignore = "D204,D401"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=skorch",
+    "--cov-report=term-missing",
+]
+python_files = "test*.py"
+testpaths = ["skorch/tests"]
+
+[tool.pylint.main]
+load-plugins = "pylint.extensions.no_self_use"
+
+[tool.pylint.messages_control]  
+disable = [
+    "raw-checker-failed",
+    "bad-inline-option", 
+    "locally-disabled",
+    "file-ignored",
+    "suppressed-message",
+    "useless-suppression",
+    "deprecated-pragma",
+    "use-symbolic-message-instead",
+    "use-implicit-booleaness-not-comparison-to-string",
+    "use-implicit-booleaness-not-comparison-to-zero",
+    "cyclic-import",
+    "fixme",
+    "import-error",
+    "no-member",
+    "no-name-in-module",
+    "too-many-function-args",
+    "import-outside-toplevel"
+]
+
+[tool.pylint.reports]
+reports = true
+
+[tool.pylint.similarities]
+min-similarity-lines = 15
+ignore-imports = true
+
+[tool.pylint.variables]
+dummy-variables-rgx = "^\\*{0,2}(_$|unused_|dummy_)"
+
+[tool.pylint.format]
+max-line-length = 88
+max-module-lines = 1500
+
+[tool.pylint.miscellaneous]
+notes = ["FIXME", "XXX", "TODO"]
+
+[tool.pylint.basic]
+no-docstring-rgx = "(__.*__|main|Test|test)"
+docstring-min-length = 10
+module-rgx = "^(_?[a-z][a-z0-9_]*)|__init__$"
+const-rgx = "^(_?[A-Z][A-Z0-9_]*|__[a-z0-9_]+__|_?[a-z][a-z0-9_]*)$"
+class-attribute-rgx = "^(_?[A-Z][A-Z0-9_]*|__[a-z0-9_]+__|_?[a-z][a-z0-9_]*)$"
+class-rgx = "^_?[A-Z][a-zA-Z0-9]*$"
+function-rgx = "^(?:(?P<camel_case>_?[A-Z][a-zA-Z0-9]*)|(?P<snake_case>_?[a-z][a-z0-9_]*))$"
+method-rgx = "^(?:(?P<exempt>__[a-z0-9_]+__|next)|(?P<camel_case>_{0,2}[A-Z][a-zA-Z0-9]*)|(?P<snake_case>_{0,2}[a-z][a-zX0-9_]*))$"
+attr-rgx = "^_{0,2}[a-zX][a-z0-9_]*$"
+argument-rgx = "^[a-zX][a-z0-9_]*$"
+variable-rgx = "^[a-zX][a-z0-9_]*$"
+inlinevar-rgx = "^[a-z][a-z0-9_]*$"
+good-names = ["main", "_", "X", "y", "T", "Xt", "Xs", "yt", "f", "__"]
+bad-names = []
+
+[tool.pylint.typecheck]
+ignored-modules = ["numpy", "pyodbc"]
+
+[tool.pylint.classes]
+defining-attr-methods = ["__init__", "__new__", "setUp", "fit", "initialize"]
+
+[tool.pylint.design]
+max-args = 14
+ignored-argument-names = "_.*"
+max-locals = 24
+max-returns = 9
+max-branches = 21
+max-attributes = 19
+min-public-methods = 0
+max-public-methods = 40
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+readme = {file = "README.rst", content-type = "text/x-rst"}
