@@ -49,7 +49,6 @@ classifiers = [                                 #note:classifiers are recommende
 dev = [
     "pylint",
     "flake8",
-    "fire",
     "future>=0.17.1",
 ]
 
@@ -65,7 +64,7 @@ docs = [
     "numpydoc",
 ]
 
-full = [
+extended = [
     "accelerate>=0.22.0",
     "tensorboard>=1.14.0",
     "wandb>=0.12.17",
@@ -81,6 +80,7 @@ full = [
     "protobuf",
     "gpytorch>=1.5",
     "pillow",
+    "fire",
 ]
 
 

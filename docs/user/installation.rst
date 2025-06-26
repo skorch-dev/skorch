@@ -50,7 +50,7 @@ If you want to help developing, run:
     conda create -n skorch-env python==3.10
     conda activate skorch-env
     # install pytorch version for your system (see below)
-    python -m pip install '.[test,docs,dev,full]'
+    python -m pip install '.[test,docs,dev,extended]'
 
     py.test  # unit tests
     pylint skorch  # static code checks
@@ -79,7 +79,7 @@ If you want to help developing, run:
     cd skorch
     # create and activate a virtual environment
     # install pytorch version for your system (see below)
-    python -m pip install -e '.[test,docs,dev,full]'
+    python -m pip install -e '.[test,docs,dev,extended]'
 
     py.test  # unit tests
     pylint skorch  # static code checks
