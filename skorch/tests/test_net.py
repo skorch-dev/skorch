@@ -3475,7 +3475,7 @@ class TestNeuralNet:
                 super().__init__(*args, **kwargs)
                 self.foo_ = module_cls()
 
-        msg = ("Trying to set torch compoment 'foo_' outside of an initialize method. "
+        msg = ("Trying to set torch component 'foo_' outside of an initialize method. "
                "Consider defining it inside 'initialize_module'")
         with pytest.raises(SkorchAttributeError, match=msg):
             MyNet(module_cls)
@@ -3492,7 +3492,7 @@ class TestNeuralNet:
                 self.opti = torch.optim.Adam(self.module_.parameters())
                 return self
 
-        msg = ("Trying to set torch compoment 'opti' outside of an initialize method. "
+        msg = ("Trying to set torch component 'opti' outside of an initialize method. "
                "Consider defining it inside 'initialize_optimizer'")
         with pytest.raises(SkorchAttributeError, match=msg):
             MyNet(module_cls).initialize()
