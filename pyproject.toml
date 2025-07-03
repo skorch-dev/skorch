@@ -50,6 +50,10 @@ dev = [
     "pylint",
     "flake8",
     "future>=0.17.1",
+    "pre-commit",
+    "black",
+    "isort",
+    "radon"
 ]
 
 test = [
@@ -96,11 +100,6 @@ omit = [
 show_missing = true
 skip_covered = false
 
-[tool.flake8]
-max-line-length = 88
-docstring-convention = "numpy"
-ignore = "D204,D401"
-
 [tool.pytest.ini_options]
 addopts = [
     "--cov=skorch",
@@ -108,6 +107,39 @@ addopts = [
 ]
 python_files = "test*.py"
 testpaths = ["skorch/tests"]
+
+[tool.black]
+line-length = 119
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | docs
+)/
+'''
+
+[tool.flake8]
+max-line-length = 88
+docstring-convention = "numpy"
+ignore = "D204,D401"
+exclude = ["venv"]
+
+# radon(code-complexity tool)
+radon-max-cc = 10
+
+[tool.isort]
+profile = "black"
+multi_line_output = "VERTICAL_HANGING_INDENT"
+force_grid_wrap = 2
+line_length = 99
 
 [tool.pylint.main]
 load-plugins = "pylint.extensions.no_self_use"
