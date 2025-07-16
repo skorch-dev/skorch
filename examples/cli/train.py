@@ -8,18 +8,15 @@ import pickle
 
 import fire
 import numpy as np
+import torch
 from sklearn.datasets import make_classification
 from sklearn.feature_selection import SelectKBest
-from sklearn.pipeline import FeatureUnion
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import Normalizer
-from skorch import NeuralNetClassifier
-import torch
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sklearn.preprocessing import MinMaxScaler, Normalizer
 from torch import nn
 
+from skorch import NeuralNetClassifier
 from skorch.helper import parse_args
-
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -69,12 +66,13 @@ class MLPClassifier(nn.Module):
       Dropout rate. Dropout is applied between layers.
 
     """
+
     def __init__(
-            self,
-            hidden_units=10,
-            num_hidden=1,
-            nonlin=nn.ReLU(),
-            dropout=0,
+        self,
+        hidden_units=10,
+        num_hidden=1,
+        nonlin=nn.ReLU(),
+        dropout=0,
     ):
         super().__init__()
         self.hidden_units = hidden_units
@@ -123,14 +121,21 @@ def get_model(with_pipeline=False):
     """
     model = NeuralNetClassifier(MLPClassifier)
     if with_pipeline:
-        model = Pipeline([
-            ('scale', FeatureUnion([
-                ('minmax', MinMaxScaler()),
-                ('normalize', Normalizer()),
-            ])),
-            ('select', SelectKBest(k=N_FEATURES)),  # keep input size constant
-            ('net', model),
-        ])
+        model = Pipeline(
+            [
+                (
+                    'scale',
+                    FeatureUnion(
+                        [
+                            ('minmax', MinMaxScaler()),
+                            ('normalize', Normalizer()),
+                        ]
+                    ),
+                ),
+                ('select', SelectKBest(k=N_FEATURES)),  # keep input size constant
+                ('net', model),
+            ]
+        )
     return model
 
 

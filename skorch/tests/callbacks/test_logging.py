@@ -1,25 +1,26 @@
 """Tests for callbacks/logging.py"""
 
-from functools import partial
 import os
 import tempfile
 import unittest.mock
-from unittest.mock import Mock
-from unittest.mock import call, patch
+from functools import partial
+from unittest.mock import Mock, call, patch
 
 import numpy as np
 import pytest
 import torch
 from torch import nn
 
-from skorch.tests.conftest import neptune_installed
-from skorch.tests.conftest import sacred_installed
-from skorch.tests.conftest import wandb_installed
-from skorch.tests.conftest import tensorboard_installed
-from skorch.tests.conftest import mlflow_installed
+from skorch.tests.conftest import (
+    mlflow_installed,
+    neptune_installed,
+    sacred_installed,
+    tensorboard_installed,
+    wandb_installed,
+)
 
-@pytest.mark.skipif(
-    not neptune_installed, reason='neptune is not installed')
+
+@pytest.mark.skipif(not neptune_installed, reason='neptune is not installed')
 class TestNeptune:
     # fields logged by on_train_begin and on_train_end
     NUM_BASE_METRICS = 9
@@ -27,6 +28,7 @@ class TestNeptune:
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
@@ -39,6 +41,7 @@ class TestNeptune:
     @pytest.fixture
     def neptune_logger_cls(self):
         from skorch.callbacks import NeptuneLogger
+
         return NeptuneLogger
 
     @pytest.fixture
@@ -58,12 +61,12 @@ class TestNeptune:
 
     @pytest.fixture
     def net_fitted(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            neptune_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        neptune_logger_cls,
+        mock_experiment,
     ):
         return net_cls(
             classifier_module,
@@ -82,33 +85,31 @@ class TestNeptune:
         assert mock_experiment.__getitem__.call_count == 12 + self.NUM_BASE_METRICS
 
     def test_experiment_not_closed(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            neptune_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        neptune_logger_cls,
+        mock_experiment,
     ):
         net_cls(
             classifier_module,
-            callbacks=[
-                neptune_logger_cls(mock_experiment, close_after_train=False)],
+            callbacks=[neptune_logger_cls(mock_experiment, close_after_train=False)],
             max_epochs=2,
         ).fit(*data)
         assert mock_experiment.stop.call_count == 0
 
     def test_ignore_keys(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            neptune_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        neptune_logger_cls,
+        mock_experiment,
     ):
         # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
         # this should not cause a problem
-        npt = neptune_logger_cls(
-            mock_experiment, keys_ignored=['dur', 'valid_loss', 'unknown'])
+        npt = neptune_logger_cls(mock_experiment, keys_ignored=['dur', 'valid_loss', 'unknown'])
         net_cls(
             classifier_module,
             callbacks=[npt],
@@ -119,18 +120,17 @@ class TestNeptune:
         assert mock_experiment.__getitem__.call_count == 6 + self.NUM_BASE_METRICS
 
     def test_keys_ignored_is_string(self, neptune_logger_cls, mock_experiment):
-        npt = neptune_logger_cls(
-            mock_experiment, keys_ignored='a-key').initialize()
+        npt = neptune_logger_cls(mock_experiment, keys_ignored='a-key').initialize()
         expected = {'a-key', 'batches'}
         assert npt.keys_ignored_ == expected
 
     def test_fit_with_real_experiment(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            neptune_logger_cls,
-            neptune_run_object,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        neptune_logger_cls,
+        neptune_run_object,
     ):
         net = net_cls(
             classifier_module,
@@ -148,12 +148,12 @@ class TestNeptune:
         assert not neptune_run_object.exists('training/model/checkpoint')
 
     def test_fit_with_handler(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            neptune_logger_cls,
-            neptune_run_object,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        neptune_logger_cls,
+        neptune_run_object,
     ):
         net = net_cls(
             classifier_module,
@@ -171,40 +171,41 @@ class TestNeptune:
         assert not neptune_run_object.exists('my_namespace/training/model/checkpoint')
 
     def test_log_on_batch_level_on(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            neptune_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        neptune_logger_cls,
+        mock_experiment,
     ):
         net = net_cls(
             classifier_module,
             callbacks=[neptune_logger_cls(mock_experiment, log_on_batch_end=True)],
             max_epochs=5,
             batch_size=4,
-            train_split=False
+            train_split=False,
         )
         net.fit(*data)
 
-        # (5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls) + base metrics
+        # (5 epochs x (40/4 batches x 2 batch metrics + 2 epoch metrics) = 110 calls) +
+        # base metrics
         assert mock_experiment.__getitem__.call_count == 110 + self.NUM_BASE_METRICS
         mock_experiment['training']['train']['batch']['batch_size'].append.assert_any_call(4)
 
     def test_log_on_batch_level_off(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            neptune_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        neptune_logger_cls,
+        mock_experiment,
     ):
         net = net_cls(
             classifier_module,
             callbacks=[neptune_logger_cls(mock_experiment, log_on_batch_end=False)],
             max_epochs=5,
             batch_size=4,
-            train_split=False
+            train_split=False,
         )
         net.fit(*data)
 
@@ -220,14 +221,15 @@ class TestNeptune:
         assert call('batch') not in call_args
 
     def test_fit_with_real_experiment_saving_checkpoints(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            neptune_logger_cls,
-            neptune_run_object,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        neptune_logger_cls,
+        neptune_run_object,
     ):
         from neptune.attributes.file_set import FileSet
+
         from skorch.callbacks import Checkpoint
 
         with tempfile.TemporaryDirectory() as directory:
@@ -257,12 +259,13 @@ class TestNeptune:
 
         neptune_run_object.stop()
 
-@pytest.mark.skipif(
-    not sacred_installed, reason='Sacred is not installed')
+
+@pytest.mark.skipif(not sacred_installed, reason='Sacred is not installed')
 class TestSacred:
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
@@ -275,11 +278,13 @@ class TestSacred:
     @pytest.fixture
     def sacred_logger_cls(self):
         from skorch.callbacks import SacredLogger
+
         return SacredLogger
 
     @pytest.fixture
     def sacred_experiment_cls(self):
         from sacred import Experiment
+
         return Experiment
 
     @pytest.fixture
@@ -290,12 +295,12 @@ class TestSacred:
 
     @pytest.fixture
     def net_fitted(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            sacred_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        sacred_logger_cls,
+        mock_experiment,
     ):
         return net_cls(
             classifier_module,
@@ -304,17 +309,16 @@ class TestSacred:
         ).fit(*data)
 
     def test_ignore_keys(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            sacred_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        sacred_logger_cls,
+        mock_experiment,
     ):
         # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
         # this should not cause a problem
-        logger = sacred_logger_cls(
-            mock_experiment, keys_ignored=['dur', 'valid_loss', 'unknown'])
+        logger = sacred_logger_cls(mock_experiment, keys_ignored=['dur', 'valid_loss', 'unknown'])
         net_cls(
             classifier_module,
             callbacks=[logger],
@@ -327,18 +331,17 @@ class TestSacred:
         assert 'valid_loss' not in call_args
 
     def test_keys_ignored_is_string(self, sacred_logger_cls, mock_experiment):
-        logger = sacred_logger_cls(
-            mock_experiment, keys_ignored='a-key').initialize()
+        logger = sacred_logger_cls(mock_experiment, keys_ignored='a-key').initialize()
         expected = {'a-key', 'batches'}
         assert logger.keys_ignored_ == expected
 
     def test_fit_with_real_experiment(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            sacred_logger_cls,
-            sacred_experiment_cls,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        sacred_logger_cls,
+        sacred_experiment_cls,
     ):
         experiment = sacred_experiment_cls()
 
@@ -354,19 +357,19 @@ class TestSacred:
         experiment.run()
 
     def test_log_on_batch_level_on(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            sacred_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        sacred_logger_cls,
+        mock_experiment,
     ):
         net = net_cls(
             classifier_module,
             callbacks=[sacred_logger_cls(mock_experiment, log_on_batch_end=True)],
             max_epochs=5,
             batch_size=4,
-            train_split=False
+            train_split=False,
         )
         net.fit(*data)
 
@@ -381,19 +384,19 @@ class TestSacred:
         assert 'train_batch_size_epoch' not in logged_keys
 
     def test_log_on_batch_level_off(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            sacred_logger_cls,
-            mock_experiment,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        sacred_logger_cls,
+        mock_experiment,
     ):
         net = net_cls(
             classifier_module,
             callbacks=[sacred_logger_cls(mock_experiment, log_on_batch_end=False)],
             max_epochs=5,
             batch_size=4,
-            train_split=False
+            train_split=False,
         )
         net.fit(*data)
 
@@ -402,12 +405,13 @@ class TestSacred:
         call_args_list = mock_experiment.log_scalar.call_args_list
         assert call('train_batch_size_batch', 4) not in call_args_list
 
-@pytest.mark.skipif(
-    not wandb_installed, reason='wandb is not installed')
+
+@pytest.mark.skipif(not wandb_installed, reason='wandb is not installed')
 class TestWandb:
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
@@ -420,12 +424,14 @@ class TestWandb:
     @pytest.fixture
     def wandb_logger_cls(self):
         from skorch.callbacks import WandbLogger
+
         return WandbLogger
 
     @pytest.fixture
     def wandb_run_cls(self):
         import wandb
-        os.environ['WANDB_MODE'] = 'dryrun' # run offline
+
+        os.environ['WANDB_MODE'] = 'dryrun'  # run offline
         wandb_version = tuple(map(int, wandb.__version__.split('.')[:2]))
         if wandb_version >= (0, 10):
             return wandb.init(anonymous="allow")
@@ -442,17 +448,16 @@ class TestWandb:
         return mock
 
     def test_ignore_keys(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            wandb_logger_cls,
-            mock_run,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        wandb_logger_cls,
+        mock_run,
     ):
         # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
         # this should not cause a problem
-        wandb_cb = wandb_logger_cls(
-            mock_run, keys_ignored=['dur', 'valid_loss', 'unknown'])
+        wandb_cb = wandb_logger_cls(mock_run, keys_ignored=['dur', 'valid_loss', 'unknown'])
         net_cls(
             classifier_module,
             callbacks=[wandb_cb],
@@ -466,18 +471,17 @@ class TestWandb:
         assert 'valid_loss' not in call_args
 
     def test_keys_ignored_is_string(self, wandb_logger_cls, mock_run):
-        wandb_cb = wandb_logger_cls(
-            mock_run, keys_ignored='a-key').initialize()
+        wandb_cb = wandb_logger_cls(mock_run, keys_ignored='a-key').initialize()
         expected = {'a-key', 'batches'}
         assert wandb_cb.keys_ignored_ == expected
 
     def test_fit_with_real_experiment(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            wandb_logger_cls,
-            wandb_run_cls,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        wandb_logger_cls,
+        wandb_run_cls,
     ):
         net = net_cls(
             classifier_module,
@@ -486,10 +490,12 @@ class TestWandb:
         )
         net.fit(*data)
 
+
 class TestPrintLog:
     @pytest.fixture
     def print_log_cls(self):
         from skorch.callbacks import PrintLog
+
         keys_ignored = ['dur', 'event_odd']
         return partial(PrintLog, sink=Mock(), keys_ignored=keys_ignored)
 
@@ -500,6 +506,7 @@ class TestPrintLog:
     @pytest.fixture
     def scoring_cls(self):
         from skorch.callbacks import EpochScoring
+
         return EpochScoring
 
     @pytest.fixture
@@ -512,6 +519,7 @@ class TestPrintLog:
     @pytest.fixture
     def odd_epoch_callback(self):
         from skorch.callbacks import Callback
+
         class OddEpochCallback(Callback):
             def on_epoch_end(self, net, **kwargs):
                 net.history[-1]['event_odd'] = bool(len(net.history) % 2)
@@ -519,11 +527,16 @@ class TestPrintLog:
         return OddEpochCallback().initialize()
 
     @pytest.fixture
-    def net(self, net_cls, module_cls, train_split, mse_scoring,
-            odd_epoch_callback, print_log, data):
+    def net(
+        self, net_cls, module_cls, train_split, mse_scoring, odd_epoch_callback, print_log, data
+    ):
         net = net_cls(
-            module_cls, batch_size=1, train_split=train_split,
-            callbacks=[mse_scoring, odd_epoch_callback], max_epochs=2)
+            module_cls,
+            batch_size=1,
+            train_split=train_split,
+            callbacks=[mse_scoring, odd_epoch_callback],
+            max_epochs=2,
+        )
         net.initialize()
         # replace default PrintLog with test PrintLog
         net.callbacks_[-1] = ('print_log', print_log)
@@ -543,6 +556,7 @@ class TestPrintLog:
     @pytest.fixture
     def ansi(self):
         from skorch.utils import Ansi
+
         return Ansi
 
     def test_call_count(self, sink):
@@ -599,6 +613,7 @@ class TestPrintLog:
     def test_args_passed_to_tabulate(self, history):
         with patch('skorch.callbacks.logging.tabulate') as tab:
             from skorch.callbacks import PrintLog
+
             print_log = PrintLog(
                 tablefmt='latex',
                 floatfmt='.9f',
@@ -611,8 +626,7 @@ class TestPrintLog:
 
     def test_with_additional_key(self, history, print_log_cls):
         keys_ignored = ['event_odd']  # 'dur' no longer ignored
-        print_log = print_log_cls(
-            sink=Mock(), keys_ignored=keys_ignored).initialize()
+        print_log = print_log_cls(sink=Mock(), keys_ignored=keys_ignored).initialize()
         # does not raise
         print_log.on_epoch_end(Mock(history=history))
 
@@ -652,11 +666,10 @@ class TestPrintLog:
         assert odd_row[4] == '+'  # including '+' sign for the 'event_odd'
         assert len(even_row) == 5  # even row does not have 'event_odd' entry
 
-    def test_witout_valid_data(
-            self, net_cls, module_cls, mse_scoring, print_log, data):
+    def test_witout_valid_data(self, net_cls, module_cls, mse_scoring, print_log, data):
         net = net_cls(
-            module_cls, batch_size=1, train_split=None,
-            callbacks=[mse_scoring], max_epochs=2)
+            module_cls, batch_size=1, train_split=None, callbacks=[mse_scoring], max_epochs=2
+        )
         net.initialize()
         # replace default PrintLog with test PrintLog
         net.callbacks_[-1] = ('print_log', print_log)
@@ -697,6 +710,7 @@ class TestProgressBar:
     @pytest.fixture
     def progressbar_cls(self):
         from skorch.callbacks import ProgressBar
+
         return ProgressBar
 
     @pytest.fixture
@@ -712,11 +726,8 @@ class TestProgressBar:
         )
 
         return partial(
-            NeuralNetRegressor,
-            module=module_cls,
-            train_split=None,
-            max_epochs=2,
-            batch_size=10)
+            NeuralNetRegressor, module=module_cls, train_split=None, max_epochs=2, batch_size=10
+        )
 
     @pytest.fixture(scope='module')
     def data(self):
@@ -724,33 +735,44 @@ class TestProgressBar:
         y = np.zeros((20, 1), dtype='float32')
         return X, y
 
-    @pytest.mark.parametrize('postfix', [
-        [],
-        ['train_loss'],
-        ['train_loss', 'valid_loss'],
-        ['doesnotexist'],
-        ['train_loss', 'doesnotexist'],
-    ])
+    @pytest.mark.parametrize(
+        'postfix',
+        [
+            [],
+            ['train_loss'],
+            ['train_loss', 'valid_loss'],
+            ['doesnotexist'],
+            ['train_loss', 'doesnotexist'],
+        ],
+    )
     def test_invalid_postfix(self, postfix, net_cls, progressbar_cls, data):
-        net = net_cls(callbacks=[
-            progressbar_cls(postfix_keys=postfix),
-        ])
+        net = net_cls(
+            callbacks=[
+                progressbar_cls(postfix_keys=postfix),
+            ]
+        )
         net.fit(*data)
 
     @patch('tqdm.tqdm')
-    @pytest.mark.parametrize('scheme,expected_total', [
-        ('auto', [2, 2]),
-        ('count', [None, 2]),
-        (None, [None, None]),
-        (2, [2, 2]),  # correct number of batches_per_epoch (20 // 10)
-        (3, [3, 3]),  # offset by +1, should still work
-        (1, [1, 1]),  # offset by -1, should still work
-    ])
+    @pytest.mark.parametrize(
+        'scheme,expected_total',
+        [
+            ('auto', [2, 2]),
+            ('count', [None, 2]),
+            (None, [None, None]),
+            (2, [2, 2]),  # correct number of batches_per_epoch (20 // 10)
+            (3, [3, 3]),  # offset by +1, should still work
+            (1, [1, 1]),  # offset by -1, should still work
+        ],
+    )
     def test_different_count_schemes(
-            self, tqdm_mock, scheme, expected_total, net_cls, progressbar_cls, data):
-        net = net_cls(callbacks=[
-            progressbar_cls(batches_per_epoch=scheme),
-        ])
+        self, tqdm_mock, scheme, expected_total, net_cls, progressbar_cls, data
+    ):
+        net = net_cls(
+            callbacks=[
+                progressbar_cls(batches_per_epoch=scheme),
+            ]
+        )
         net.fit(*data)
         assert tqdm_mock.call_count == 2
         for i, total in enumerate(expected_total):
@@ -761,9 +783,11 @@ class TestProgressBar:
         # be pickled. Test pickling and restoration.
         import pickle
 
-        net = net_cls(callbacks=[
-            progressbar_cls(),
-        ])
+        net = net_cls(
+            callbacks=[
+                progressbar_cls(),
+            ]
+        )
         net.fit(*data)
         dump = pickle.dumps(net)
 
@@ -775,20 +799,22 @@ class TestProgressBar:
         # see https://github.com/skorch-dev/skorch/pull/1034.
         import pickle
 
-        net = net_cls(callbacks=[
-            progressbar_cls(),
-        ])
+        net = net_cls(
+            callbacks=[
+                progressbar_cls(),
+            ]
+        )
         dump = pickle.dumps(net)
 
         net = pickle.loads(dump)
 
 
-@pytest.mark.skipif(
-    not tensorboard_installed, reason='tensorboard is not installed')
+@pytest.mark.skipif(not tensorboard_installed, reason='tensorboard is not installed')
 class TestTensorBoard:
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
@@ -801,11 +827,13 @@ class TestTensorBoard:
     @pytest.fixture
     def tensorboard_cls(self):
         from skorch.callbacks import TensorBoard
+
         return TensorBoard
 
     @pytest.fixture
     def summary_writer_cls(self):
         from torch.utils.tensorboard import SummaryWriter
+
         return SummaryWriter
 
     @pytest.fixture
@@ -815,12 +843,12 @@ class TestTensorBoard:
 
     @pytest.fixture
     def net_fitted(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            mock_writer,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        tensorboard_cls,
+        mock_writer,
     ):
         return net_cls(
             classifier_module,
@@ -828,21 +856,19 @@ class TestTensorBoard:
             max_epochs=3,
         ).fit(*data)
 
-    @pytest.mark.skipif(
-        True, reason="Waiting for proper implementation of graph tracing")
+    @pytest.mark.skipif(True, reason="Waiting for proper implementation of graph tracing")
     def test_graph_added_once(self, net_fitted, mock_writer):
         # graph should just be added once
         assert mock_writer.add_graph.call_count == 1
 
-    @pytest.mark.skipif(
-        True, reason="Waiting for proper implementation of graph tracing")
+    @pytest.mark.skipif(True, reason="Waiting for proper implementation of graph tracing")
     def test_include_graph_false(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            mock_writer,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        tensorboard_cls,
+        mock_writer,
     ):
         net_cls(
             classifier_module,
@@ -855,12 +881,12 @@ class TestTensorBoard:
         assert mock_writer.close.call_count == 1
 
     def test_writer_not_closed(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            mock_writer,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        tensorboard_cls,
+        mock_writer,
     ):
         net_cls(
             classifier_module,
@@ -879,17 +905,16 @@ class TestTensorBoard:
         assert keys == expected
 
     def test_ignore_keys(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            mock_writer,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        tensorboard_cls,
+        mock_writer,
     ):
         # ignore 'dur' and 'valid_loss', 'unknown' doesn't exist but
         # this should not cause a problem
-        tb = tensorboard_cls(
-            mock_writer, keys_ignored=['dur', 'valid_loss', 'unknown'])
+        tb = tensorboard_cls(mock_writer, keys_ignored=['dur', 'valid_loss', 'unknown'])
         net_cls(
             classifier_module,
             callbacks=[tb],
@@ -907,12 +932,12 @@ class TestTensorBoard:
         assert tb.keys_ignored_ == expected
 
     def test_other_key_mapper(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            mock_writer,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        tensorboard_cls,
+        mock_writer,
     ):
         # just map all keys to uppercase
         tb = tensorboard_cls(mock_writer, key_mapper=lambda s: s.upper())
@@ -939,41 +964,41 @@ class TestTensorBoard:
             {'loss': 0.2, 'epoch': 2, 'foo': ['invalid', 'type']},
         ]
 
-    def test_add_scalar_maybe_uses_last_epoch_values(
-            self, add_scalar_maybe, mock_writer, history):
+    def test_add_scalar_maybe_uses_last_epoch_values(self, add_scalar_maybe, mock_writer, history):
         add_scalar_maybe(history, key='loss', tag='myloss', global_step=2)
         call_kwargs = mock_writer.add_scalar.call_args_list[0][1]
         assert call_kwargs['tag'] == 'myloss'
         assert call_kwargs['scalar_value'] == 0.2
         assert call_kwargs['global_step'] == 2
 
-    def test_add_scalar_maybe_infers_epoch(
-            self, add_scalar_maybe, mock_writer, history):
+    def test_add_scalar_maybe_infers_epoch(self, add_scalar_maybe, mock_writer, history):
         # don't indicate 'global_step' value
         add_scalar_maybe(history, key='loss', tag='myloss')
         call_kwargs = mock_writer.add_scalar.call_args_list[0][1]
         assert call_kwargs['global_step'] == 2
 
     def test_add_scalar_maybe_unknown_key_does_not_raise(
-            self, tensorboard_cls, summary_writer_cls, history):
+        self, tensorboard_cls, summary_writer_cls, history
+    ):
         tb = tensorboard_cls(summary_writer_cls())
         # does not raise:
         tb.add_scalar_maybe(history, key='unknown', tag='bar')
 
     def test_add_scalar_maybe_wrong_type_does_not_raise(
-            self, tensorboard_cls, summary_writer_cls, history):
+        self, tensorboard_cls, summary_writer_cls, history
+    ):
         tb = tensorboard_cls(summary_writer_cls())
         # value of 'foo' is a list but that does not raise:
         tb.add_scalar_maybe(history, key='foo', tag='bar')
 
     def test_fit_with_real_summary_writer(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            summary_writer_cls,
-            tmp_path,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        tensorboard_cls,
+        summary_writer_cls,
+        tmp_path,
     ):
         path = str(tmp_path)
 
@@ -988,20 +1013,21 @@ class TestTensorBoard:
         assert os.listdir(path)
 
     def test_fit_with_dict_input(
-            self,
-            net_cls,
-            classifier_module,
-            data,
-            tensorboard_cls,
-            summary_writer_cls,
-            tmp_path,
+        self,
+        net_cls,
+        classifier_module,
+        data,
+        tensorboard_cls,
+        summary_writer_cls,
+        tmp_path,
     ):
         from skorch.toy import MLPModule
+
         path = str(tmp_path)
         X, y = data
 
         # create a dictionary with unordered keys
-        X_dict = {k: X[:, i:i + 4] for k, i in zip('cebad', range(0, X.shape[1], 4))}
+        X_dict = {k: X[:, i : i + 4] for k, i in zip('cebad', range(0, X.shape[1], 4))}
 
         class MyModule(MLPModule):
             # use different order for args here
@@ -1020,17 +1046,18 @@ class TestTensorBoard:
         assert os.listdir(path)
 
 
-@pytest.mark.skipif(
-    not mlflow_installed, reason='mlflow is not installed')
+@pytest.mark.skipif(not mlflow_installed, reason='mlflow is not installed')
 class TestMLflowLogger:
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
     def logger_cls(self):
         from skorch.callbacks import MlflowLogger
+
         return MlflowLogger
 
     @pytest.fixture
@@ -1042,11 +1069,13 @@ class TestMLflowLogger:
     @pytest.fixture
     def mock_run(self):
         from mlflow.entities import Run
+
         return Mock(Run)
 
     @pytest.fixture
     def mock_client(self):
         from mlflow.tracking import MlflowClient
+
         return Mock(MlflowClient)
 
     @pytest.fixture
@@ -1057,6 +1086,7 @@ class TestMLflowLogger:
     def net_builder_cls(self, net_cls, classifier_module, data):
         def builder(*args, **kwargs):
             return net_cls(classifier_module, *args, **kwargs).fit(*data)
+
         return builder
 
     @pytest.fixture
@@ -1065,6 +1095,7 @@ class TestMLflowLogger:
 
     def test_run_default(self, monkeypatch, logger_cls, mock_run, mock_client):
         import mlflow
+
         mock_active_run = Mock(mlflow.active_run, return_value=mock_run)
         monkeypatch.setattr(mlflow, 'active_run', mock_active_run)
         logger = logger_cls(client=mock_client).initialize()
@@ -1073,6 +1104,7 @@ class TestMLflowLogger:
 
     def test_client_default(self, monkeypatch, logger_cls, mock_run, mock_client):
         import mlflow.tracking
+
         monkeypatch.setattr(mlflow.tracking, 'MlflowClient', mock_client)
         logger = logger_cls(run=mock_run).initialize()
         assert mock_client.called
@@ -1089,10 +1121,7 @@ class TestMLflowLogger:
         # this should not cause a problem
         logger = logger_mock_cls(keys_ignored=['dur', 'valid_loss', 'unknown'])
         net_builder_cls(callbacks=[logger], max_epochs=3)
-        keys = {
-            call_args[0][1]
-            for call_args in logger.client_.log_metric.call_args_list
-        }
+        keys = {call_args[0][1] for call_args in logger.client_.log_metric.call_args_list}
         expected = {'train_loss', 'valid_acc'}
         assert keys == expected
 
@@ -1103,22 +1132,23 @@ class TestMLflowLogger:
 
     @pytest.mark.parametrize(
         'log_on_batch_end, log_on_epoch_end, batch_suffix, epoch_suffix',
-        [(False, False, '', ''),
-         (True, False, '', ''),
-         (False, True, '', ''),
-         (True, True, '_batch', '_epoch')]
+        [
+            (False, False, '', ''),
+            (True, False, '', ''),
+            (False, True, '', ''),
+            (True, True, '_batch', '_epoch'),
+        ],
     )
     def test_epoch_batch_suffixes_defaults(
-            self,
-            logger_mock_cls,
-            log_on_batch_end,
-            log_on_epoch_end,
-            batch_suffix,
-            epoch_suffix,
+        self,
+        logger_mock_cls,
+        log_on_batch_end,
+        log_on_epoch_end,
+        batch_suffix,
+        epoch_suffix,
     ):
         logger = logger_mock_cls(
-            log_on_batch_end=log_on_batch_end,
-            log_on_epoch_end=log_on_epoch_end
+            log_on_batch_end=log_on_batch_end, log_on_epoch_end=log_on_epoch_end
         ).initialize()
         assert logger.batch_suffix_ == batch_suffix
         assert logger.epoch_suffix_ == epoch_suffix
@@ -1126,10 +1156,10 @@ class TestMLflowLogger:
     @pytest.mark.parametrize('batch_suffix', ['', '_foo'])
     @pytest.mark.parametrize('epoch_suffix', ['', '_bar'])
     def test_epoch_batch_custom_suffix(
-            self,
-            logger_mock_cls,
-            batch_suffix,
-            epoch_suffix,
+        self,
+        logger_mock_cls,
+        batch_suffix,
+        epoch_suffix,
     ):
         logger = logger_mock_cls(
             log_on_batch_end=True,
@@ -1149,8 +1179,7 @@ class TestMLflowLogger:
         )
         net_builder_cls(batch_size=10, callbacks=[logger], max_epochs=3)
         assert all(
-            call[0][1].endswith('_batch')
-            for call in logger.client_.log_metric.call_args_list
+            call[0][1].endswith('_batch') for call in logger.client_.log_metric.call_args_list
         )
 
     def test_log_epochs_with_step(self, net_fitted, mock_client):
@@ -1162,15 +1191,11 @@ class TestMLflowLogger:
         logger = logger_mock_cls(log_on_batch_end=True, log_on_epoch_end=False)
         net_builder_cls(batch_size=10, callbacks=[logger], max_epochs=4)
         expected = [x for x in range(1, 21) for _ in range(2)]
-        actual = [
-            call[1].get('step')
-            for call in logger.client_.log_metric.call_args_list
-        ]
+        actual = [call[1].get('step') for call in logger.client_.log_metric.call_args_list]
         assert expected == actual
 
     def test_artifact_filenames(self, net_fitted, mock_client):
-        keys = {call_args[0][1].name
-                for call_args in mock_client.log_artifact.call_args_list}
+        keys = {call_args[0][1].name for call_args in mock_client.log_artifact.call_args_list}
         expected = {'params.pth', 'optimizer.pth', 'criterion.pth', 'history.json'}
         assert keys == expected
 
@@ -1193,6 +1218,7 @@ class TestMLflowLogger:
 
     def test_fit_with_real_run_and_client(self, tmp_path, logger_cls, net_builder_cls):
         from mlflow.tracking import MlflowClient
+
         client = MlflowClient(tracking_uri=tmp_path.as_uri())
         experiment_name = 'foo'
         experiment_id = client.create_experiment(experiment_name)

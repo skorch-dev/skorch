@@ -1,4 +1,5 @@
 """Setter functions for virtual params such as ``optimizer__lr``."""
+
 import re
 
 
@@ -21,10 +22,12 @@ def _extract_optimizer_param_name_and_group(optimizer_name, param):
     match = match_1 or match_2
 
     if not match:
-        raise AttributeError('Invalid parameter "{}" for optimizer "{}"'.format(
-            param,
-            optimizer_name,
-        ))
+        raise AttributeError(
+            'Invalid parameter "{}" for optimizer "{}"'.format(
+                param,
+                optimizer_name,
+            )
+        )
 
     groups = match.groupdict()
     param_group = groups.get('group', 'all')
@@ -45,9 +48,7 @@ def _set_optimizer_param(optimizer, param_group, param_name, value):
         group[param_name] = value
 
 
-def optimizer_setter(
-        net, param, value, optimizer_attr='optimizer_', optimizer_name='optimizer'
-    ):
+def optimizer_setter(net, param, value, optimizer_attr='optimizer_', optimizer_name='optimizer'):
     """Handle setting of optimizer parameters such as learning rate and
     parameter group specific parameters such as momentum.
 
@@ -59,12 +60,11 @@ def optimizer_setter(
         param_name = 'lr'
         net.lr = value
     else:
-        param_group, param_name = _extract_optimizer_param_name_and_group(
-            optimizer_name, param)
+        param_group, param_name = _extract_optimizer_param_name_and_group(optimizer_name, param)
 
     _set_optimizer_param(
         optimizer=getattr(net, optimizer_attr),
         param_group=param_group,
         param_name=param_name,
-        value=value
+        value=value,
     )

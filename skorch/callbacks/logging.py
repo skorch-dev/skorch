@@ -1,23 +1,31 @@
-""" Callbacks for printing, logging and log information."""
+"""Callbacks for printing, logging and log information."""
 
 import sys
-import time
 import tempfile
+import time
 from contextlib import suppress
-from numbers import Number
 from itertools import cycle
+from numbers import Number
 from pathlib import Path
 
 import numpy as np
 import tqdm
 from tabulate import tabulate
 
-from skorch.utils import Ansi
-from skorch.dataset import get_len
 from skorch.callbacks import Callback
+from skorch.dataset import get_len
+from skorch.utils import Ansi
 
-__all__ = ['EpochTimer', 'NeptuneLogger', 'WandbLogger', 'PrintLog', 'ProgressBar',
-           'TensorBoard', 'SacredLogger', 'MlflowLogger']
+__all__ = [
+    'EpochTimer',
+    'NeptuneLogger',
+    'WandbLogger',
+    'PrintLog',
+    'ProgressBar',
+    'TensorBoard',
+    'SacredLogger',
+    'MlflowLogger',
+]
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -38,11 +46,11 @@ def filter_log_keys(keys, keys_ignored=None):
     keys_ignored = keys_ignored or ()
     for key in keys:
         if not (
-                key == 'epoch' or
-                (key in keys_ignored) or
-                key.endswith('_best') or
-                key.endswith('_batch_count') or
-                key.startswith('event_')
+            key == 'epoch'
+            or (key in keys_ignored)
+            or key.endswith('_best')
+            or key.endswith('_batch_count')
+            or key.startswith('event_')
         ):
             yield key
 
@@ -52,6 +60,7 @@ class EpochTimer(Callback):
     history with the name ``dur``.
 
     """
+
     def __init__(self, **kwargs):
         super(EpochTimer, self).__init__(**kwargs)
 
@@ -162,13 +171,13 @@ class NeptuneLogger(Callback):
     """
 
     def __init__(
-            self,
-            run,
-            *,
-            log_on_batch_end=False,
-            close_after_train=True,
-            keys_ignored=None,
-            base_namespace='training',
+        self,
+        run,
+        *,
+        log_on_batch_end=False,
+        close_after_train=True,
+        keys_ignored=None,
+        base_namespace='training',
     ):
         self.run = run
         self.log_on_batch_end = log_on_batch_end
@@ -337,10 +346,10 @@ class WandbLogger(Callback):
     """
 
     def __init__(
-            self,
-            wandb_run,
-            save_model=True,
-            keys_ignored=None,
+        self,
+        wandb_run,
+        save_model=True,
+        keys_ignored=None,
     ):
         self.wandb_run = wandb_run
         self.save_model = save_model
@@ -425,13 +434,14 @@ class PrintLog(Callback):
       be consistent with numerical columns).
 
     """
+
     def __init__(
-            self,
-            keys_ignored=None,
-            sink=print,
-            tablefmt='simple',
-            floatfmt='.4f',
-            stralign='right',
+        self,
+        keys_ignored=None,
+        sink=print,
+        tablefmt='simple',
+        floatfmt='.4f',
+        stralign='right',
     ):
         self.keys_ignored = keys_ignored
         self.sink = sink
@@ -593,12 +603,8 @@ class ProgressBar(Callback):
 
       >>> net.history[-1, 'batches', -1, key]
     """
-    def __init__(
-            self,
-            batches_per_epoch='auto',
-            detect_notebook=True,
-            postfix_keys=None
-    ):
+
+    def __init__(self, batches_per_epoch='auto', detect_notebook=True, postfix_keys=None):
         self.batches_per_epoch = batches_per_epoch
         self.detect_notebook = detect_notebook
         self.postfix_keys = postfix_keys or ['train_loss', 'valid_loss']
@@ -624,8 +630,9 @@ class ProgressBar(Callback):
         return int(np.ceil(get_len(dataset) / batch_size))
 
     def _get_batches_per_epoch(self, net, dataset_train, dataset_valid):
-        return (self._get_batches_per_epoch_phase(net, dataset_train, True) +
-                self._get_batches_per_epoch_phase(net, dataset_valid, False))
+        return self._get_batches_per_epoch_phase(
+            net, dataset_train, True
+        ) + self._get_batches_per_epoch_phase(net, dataset_valid, False)
 
     def _get_postfix_dict(self, net):
         postfix = {}
@@ -647,9 +654,7 @@ class ProgressBar(Callback):
         batches_per_epoch = self.batches_per_epoch
 
         if self.batches_per_epoch == 'auto':
-            batches_per_epoch = self._get_batches_per_epoch(
-                net, dataset_train, dataset_valid
-            )
+            batches_per_epoch = self._get_batches_per_epoch(net, dataset_train, dataset_valid)
         elif self.batches_per_epoch == 'count':
             if len(net.history) <= 1:
                 # No limit is known until the end of the first epoch.
@@ -747,12 +752,13 @@ class TensorBoard(Callback):
       with the "Loss/" prefix.
 
     """
+
     def __init__(
-            self,
-            writer,
-            close_after_train=True,
-            keys_ignored=None,
-            key_mapper=rename_tensorboard_key,
+        self,
+        writer,
+        close_after_train=True,
+        keys_ignored=None,
+        key_mapper=rename_tensorboard_key,
     ):
         self.writer = writer
         self.close_after_train = close_after_train
@@ -1051,6 +1057,7 @@ class MlflowLogger(Callback):
       addition to the keys provided by the user, keys such as those starting
       with ``'event_'`` or ending on ``'_best'`` are ignored by default.
     """
+
     def __init__(
         self,
         run=None,
@@ -1077,10 +1084,12 @@ class MlflowLogger(Callback):
         self.run_ = self.run
         if self.run_ is None:
             import mlflow
+
             self.run_ = mlflow.active_run()
         self.client_ = self.client
         if self.client_ is None:
             from mlflow.tracking import MlflowClient
+
             self.client_ = MlflowClient()
         keys_ignored = self.keys_ignored
         if isinstance(keys_ignored, str):

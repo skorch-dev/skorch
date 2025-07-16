@@ -1,13 +1,13 @@
 """Dataset for cells"""
-from itertools import zip_longest, product, chain
+
 import random
+from itertools import chain, product, zip_longest
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
-from torchvision.transforms.functional import (pad, to_tensor, normalize,
-                                               hflip, vflip, crop)
 from PIL import Image
+from torch.utils.data import Dataset
+from torchvision.transforms.functional import crop, hflip, normalize, pad, to_tensor, vflip
 
 
 def calcuate_bboxes(im_shape, patch_size):
@@ -37,16 +37,12 @@ class PatchedDataset(Dataset):
     padding: int (default=16)
         Amount of paddding around each image and mask
     """
-    def __init__(self,
-                 base_dataset,
-                 patch_size=(256, 256),
-                 random_flips=False,
-                 padding=16):
+
+    def __init__(self, base_dataset, patch_size=(256, 256), random_flips=False, padding=16):
         super().__init__()
         self.base_dataset = base_dataset
         self.patch_size = patch_size
-        self.patch_size_expanded = (patch_size[0] + 2 * padding,
-                                    patch_size[1] + 2 * padding)
+        self.patch_size_expanded = (patch_size[0] + 2 * padding, patch_size[1] + 2 * padding)
         self.padding = padding
         self.random_flips = random_flips
 
@@ -92,6 +88,7 @@ class PatchedDataset(Dataset):
 
 class CellsDataset(Dataset):
     """Constructs cell dataset"""
+
     def __init__(self, sample_dirs):
         super().__init__()
         self.sample_dirs = sample_dirs

@@ -7,48 +7,43 @@ sklearn-conforming classes like NeuralNetClassifier.
 """
 
 import fnmatch
-from collections.abc import Mapping
-from functools import partial
-from itertools import chain
-from collections import OrderedDict
-from contextlib import contextmanager
 import os
 import pickle
 import tempfile
 import warnings
+from collections import OrderedDict
+from collections.abc import Mapping
+from contextlib import contextmanager
+from functools import partial
+from itertools import chain
 
 import numpy as np
-from sklearn.base import BaseEstimator
 import torch
+from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
 
-from skorch.callbacks import EpochTimer
-from skorch.callbacks import PrintLog
-from skorch.callbacks import PassthroughScoring
-from skorch.dataset import Dataset
-from skorch.dataset import ValidSplit
-from skorch.dataset import get_len
-from skorch.dataset import unpack_data
-from skorch.exceptions import DeviceWarning
-from skorch.exceptions import SkorchAttributeError
-from skorch.exceptions import SkorchTrainingImpossibleError
+from skorch.callbacks import EpochTimer, PassthroughScoring, PrintLog
+from skorch.dataset import Dataset, ValidSplit, get_len, unpack_data
+from skorch.exceptions import DeviceWarning, SkorchAttributeError, SkorchTrainingImpossibleError
 from skorch.history import History
 from skorch.setter import optimizer_setter
-from skorch.utils import _TorchLoadUnpickler
-from skorch.utils import _identity
-from skorch.utils import _infer_predict_nonlinearity
-from skorch.utils import FirstStepAccumulator
-from skorch.utils import TeeGenerator
-from skorch.utils import _check_f_arguments
-from skorch.utils import check_is_fitted
-from skorch.utils import duplicate_items
-from skorch.utils import get_map_location
-from skorch.utils import is_dataset
-from skorch.utils import params_for
-from skorch.utils import to_device
-from skorch.utils import to_numpy
-from skorch.utils import to_tensor
-from skorch.utils import get_default_torch_load_kwargs
+from skorch.utils import (
+    FirstStepAccumulator,
+    TeeGenerator,
+    _check_f_arguments,
+    _identity,
+    _infer_predict_nonlinearity,
+    _TorchLoadUnpickler,
+    check_is_fitted,
+    duplicate_items,
+    get_default_torch_load_kwargs,
+    get_map_location,
+    is_dataset,
+    params_for,
+    to_device,
+    to_numpy,
+    to_tensor,
+)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -323,26 +318,26 @@ class NeuralNet(BaseEstimator):
 
     # pylint: disable=too-many-arguments
     def __init__(
-            self,
-            module,
-            criterion,
-            optimizer=torch.optim.SGD,
-            lr=0.01,
-            max_epochs=10,
-            batch_size=128,
-            iterator_train=DataLoader,
-            iterator_valid=DataLoader,
-            dataset=Dataset,
-            train_split=ValidSplit(5),
-            callbacks=None,
-            predict_nonlinearity='auto',
-            warm_start=False,
-            verbose=1,
-            device='cpu',
-            compile=False,
-            use_caching='auto',
-            torch_load_kwargs=None,
-            **kwargs
+        self,
+        module,
+        criterion,
+        optimizer=torch.optim.SGD,
+        lr=0.01,
+        max_epochs=10,
+        batch_size=128,
+        iterator_train=DataLoader,
+        iterator_valid=DataLoader,
+        dataset=Dataset,
+        train_split=ValidSplit(5),
+        callbacks=None,
+        predict_nonlinearity='auto',
+        warm_start=False,
+        verbose=1,
+        device='cpu',
+        compile=False,
+        use_caching='auto',
+        torch_load_kwargs=None,
+        **kwargs,
     ):
         self.module = module
         self.criterion = criterion
@@ -387,13 +382,19 @@ class NeuralNet(BaseEstimator):
     def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', PassthroughScoring(
-                name='train_loss',
-                on_train=True,
-            )),
-            ('valid_loss', PassthroughScoring(
-                name='valid_loss',
-            )),
+            (
+                'train_loss',
+                PassthroughScoring(
+                    name='train_loss',
+                    on_train=True,
+                ),
+            ),
+            (
+                'valid_loss',
+                PassthroughScoring(
+                    name='valid_loss',
+                ),
+            ),
             ('print_log', PrintLog()),
         ]
 
@@ -441,8 +442,7 @@ class NeuralNet(BaseEstimator):
     def on_batch_end(self, net, batch=None, training=False, **kwargs):
         pass
 
-    def on_grad_computed(
-            self, net, named_parameters, batch=None, training=False, **kwargs):
+    def on_grad_computed(self, net, named_parameters, batch=None, training=False, **kwargs):
         pass
 
     def _yield_callbacks(self):
@@ -504,17 +504,19 @@ class NeuralNet(BaseEstimator):
         grouped_cbs, names_set_by_user = self._callbacks_grouped_by_name()
         for name, cbs in grouped_cbs.items():
             if len(cbs) > 1 and name in names_set_by_user:
-                raise ValueError("Found duplicate user-set callback name "
-                                 "'{}'. Use unique names to correct this."
-                                 .format(name))
+                raise ValueError(
+                    "Found duplicate user-set callback name "
+                    "'{}'. Use unique names to correct this.".format(name)
+                )
 
             for i, cb in enumerate(cbs):
                 if len(cbs) > 1:
-                    unique_name = '{}_{}'.format(name, i+1)
+                    unique_name = '{}_{}'.format(name, i + 1)
                     if unique_name in grouped_cbs:
-                        raise ValueError("Assigning new callback name failed "
-                                         "since new name '{}' exists already."
-                                         .format(unique_name))
+                        raise ValueError(
+                            "Assigning new callback name failed "
+                            "since new name '{}' exists already.".format(unique_name)
+                        )
                 else:
                     unique_name = name
                 yield unique_name, cb
@@ -550,8 +552,10 @@ class NeuralNet(BaseEstimator):
             # don't set a parameter for non-existing callback
             params = self.get_params_for('callbacks__{}'.format(name))
             if (cb is None) and params:
-                raise ValueError("Trying to set a parameter for callback {} "
-                                 "which does not exist.".format(name))
+                raise ValueError(
+                    "Trying to set a parameter for callback {} "
+                    "which does not exist.".format(name)
+                )
             if cb is None:
                 continue
 
@@ -664,11 +668,12 @@ class NeuralNet(BaseEstimator):
         if triggered_directly is not None:
             warnings.warn(
                 "The 'triggered_directly' argument to 'initialize_optimizer' is "
-                "deprecated, please don't use it anymore.", DeprecationWarning)
+                "deprecated, please don't use it anymore.",
+                DeprecationWarning,
+            )
 
         named_parameters = self.get_all_learnable_params()
-        args, kwargs = self.get_params_for_optimizer(
-            'optimizer', named_parameters)
+        args, kwargs = self.get_params_for_optimizer('optimizer', named_parameters)
 
         # pylint: disable=attribute-defined-outside-init
         self.optimizer_ = self.optimizer(*args, **kwargs)
@@ -693,8 +698,9 @@ class NeuralNet(BaseEstimator):
         """
         msg = "Re-initializing {}".format(name)
         if triggered_directly and kwargs:
-            msg += (" because the following parameters were re-set: {}"
-                    .format(', '.join(sorted(kwargs))))
+            msg += " because the following parameters were re-set: {}".format(
+                ', '.join(sorted(kwargs))
+            )
         msg += "."
         return msg
 
@@ -730,7 +736,8 @@ class NeuralNet(BaseEstimator):
 
             has_init_criterion = any(
                 isinstance(getattr(self, criterion_name + '_', None), torch.nn.Module)
-                for criterion_name in self._criteria)
+                for criterion_name in self._criteria
+            )
 
             # check if a re-init message is required
             if kwargs or reason or has_init_criterion:
@@ -764,7 +771,8 @@ class NeuralNet(BaseEstimator):
 
             has_init_module = any(
                 isinstance(getattr(self, module_name + '_', None), torch.nn.Module)
-                for module_name in self._modules)
+                for module_name in self._modules
+            )
 
             if kwargs or reason or has_init_module:
                 if self.initialized_ and self.verbose:
@@ -833,7 +841,8 @@ class NeuralNet(BaseEstimator):
             raise ValueError(
                 "Setting compile=True but torch.compile is not available. Please "
                 f"check that your installed PyTorch version ({torch.__version__}) "
-                "supports torch.compile (requires v1.14, v2.0 or higher)")
+                "supports torch.compile (requires v1.14, v2.0 or higher)"
+            )
 
         params = self.get_params_for('compile')
         module_compiled = torch.compile(module, **params)
@@ -1205,8 +1214,7 @@ class NeuralNet(BaseEstimator):
         self.check_training_readiness()
         epochs = epochs if epochs is not None else self.max_epochs
 
-        dataset_train, dataset_valid = self.get_split_datasets(
-            X, y, **fit_params)
+        dataset_train, dataset_valid = self.get_split_datasets(X, y, **fit_params)
         on_epoch_kwargs = {
             'dataset_train': dataset_train,
             'dataset_valid': dataset_valid,
@@ -1219,11 +1227,21 @@ class NeuralNet(BaseEstimator):
         for _ in range(epochs):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
-            self.run_single_epoch(iterator_train, training=True, prefix="train",
-                                  step_fn=self.train_step, **fit_params)
+            self.run_single_epoch(
+                iterator_train,
+                training=True,
+                prefix="train",
+                step_fn=self.train_step,
+                **fit_params,
+            )
 
-            self.run_single_epoch(iterator_valid, training=False, prefix="valid",
-                                  step_fn=self.validation_step, **fit_params)
+            self.run_single_epoch(
+                iterator_valid,
+                training=False,
+                prefix="valid",
+                step_fn=self.validation_step,
+                **fit_params,
+            )
 
             self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
@@ -1257,8 +1275,7 @@ class NeuralNet(BaseEstimator):
             self.notify("on_batch_begin", batch=batch, training=training)
             step = step_fn(batch, **fit_params)
             self.history.record_batch(prefix + "_loss", step["loss"].item())
-            batch_size = (get_len(batch[0]) if isinstance(batch, (tuple, list))
-                          else get_len(batch))
+            batch_size = get_len(batch[0]) if isinstance(batch, (tuple, list)) else get_len(batch)
             self.history.record_batch(prefix + "_batch_size", batch_size)
             self.notify("on_batch_end", batch=batch, training=training, **step)
             batch_count += 1
@@ -1372,9 +1389,7 @@ class NeuralNet(BaseEstimator):
         # first check attributes argument, but if it's empty, check that the
         # indicated _modules exist, and if those are not defined, assume that
         # the standard 'module_' attribute should exist
-        attributes = (
-            attributes or [module + '_' for module in self._modules] or ['module_']
-        )
+        attributes = attributes or [module + '_' for module in self._modules] or ['module_']
         check_is_fitted(self, attributes, *args, **kwargs)
 
     def trim_for_prediction(self):
@@ -1738,9 +1753,11 @@ class NeuralNet(BaseEstimator):
 
         kwargs = self.get_params_for('dataset')
         if kwargs and is_initialized:
-            raise TypeError("Trying to pass an initialized Dataset while "
-                            "passing Dataset arguments ({}) is not "
-                            "allowed.".format(kwargs))
+            raise TypeError(
+                "Trying to pass an initialized Dataset while "
+                "passing Dataset arguments ({}) is not "
+                "allowed.".format(kwargs)
+            )
 
         if is_initialized:
             return dataset
@@ -1890,8 +1907,7 @@ class NeuralNet(BaseEstimator):
         pgroups = []
 
         for pattern, group in kwargs.pop('param_groups', []):
-            matches = [i for i, (name, _) in enumerate(params) if
-                       fnmatch.fnmatch(name, pattern)]
+            matches = [i for i, (name, _) in enumerate(params) if fnmatch.fnmatch(name, pattern)]
             if matches:
                 p = [params.pop(i)[1] for i in reversed(matches)]
                 pgroups.append({'params': p, **group})
@@ -2032,7 +2048,8 @@ class NeuralNet(BaseEstimator):
                     "You set iterator_valid__shuffle=True; this is most likely not "
                     "what you want because the values returned by predict and "
                     "predict_proba will be shuffled.",
-                    UserWarning)
+                    UserWarning,
+                )
 
         # check for wrong arguments
         unexpected_kwargs = []
@@ -2056,16 +2073,18 @@ class NeuralNet(BaseEstimator):
 
         msgs = []
         if unexpected_kwargs:
-            tmpl = ("__init__() got unexpected argument(s) {}. "
-                    "Either you made a typo, or you added new arguments "
-                    "in a subclass; if that is the case, the subclass "
-                    "should deal with the new arguments explicitly.")
+            tmpl = (
+                "__init__() got unexpected argument(s) {}. "
+                "Either you made a typo, or you added new arguments "
+                "in a subclass; if that is the case, the subclass "
+                "should deal with the new arguments explicitly."
+            )
             msg = tmpl.format(', '.join(sorted(unexpected_kwargs)))
             msgs.append(msg)
 
         for prefix, key in sorted(missing_dunder_kwargs, key=lambda tup: tup[1]):
             tmpl = "Got an unexpected argument {}, did you mean {}?"
-            suffix = key[len(prefix):].lstrip('_')
+            suffix = key[len(prefix) :].lstrip('_')
             suggestion = prefix + '__' + suffix
             msgs.append(tmpl.format(key, suggestion))
 
@@ -2120,7 +2139,8 @@ class NeuralNet(BaseEstimator):
                 raise ValueError(
                     "Something went wrong here. Please open an issue on "
                     "https://github.com/skorch-dev/skorch/issues detailing what "
-                    "caused this error.")
+                    "caused this error."
+                )
             setattr(self, key, val)
 
         if cb_params:
@@ -2157,14 +2177,12 @@ class NeuralNet(BaseEstimator):
                 reinit_criterion = True
                 reinit_optimizer = True
 
-                module_params = {k: v for k, v in special_params.items()
-                                 if k.startswith(prefix)}
+                module_params = {k: v for k, v in special_params.items() if k.startswith(prefix)}
                 msg_module = self._format_reinit_msg(
-                    "module", module_params, triggered_directly=True)
-                msg_criterion = self._format_reinit_msg(
-                    "criterion", triggered_directly=False)
-                msg_optimizer = self._format_reinit_msg(
-                    "optimizer", triggered_directly=False)
+                    "module", module_params, triggered_directly=True
+                )
+                msg_criterion = self._format_reinit_msg("criterion", triggered_directly=False)
+                msg_optimizer = self._format_reinit_msg("optimizer", triggered_directly=False)
 
                 # if any module is modified, everything needs to be
                 # re-initialized, no need to check any further
@@ -2174,16 +2192,19 @@ class NeuralNet(BaseEstimator):
                 reinit_criterion = True
                 reinit_optimizer = True
 
-                criterion_params = {k: v for k, v in special_params.items()
-                                    if k.startswith(prefix)}
+                criterion_params = {
+                    k: v for k, v in special_params.items() if k.startswith(prefix)
+                }
                 msg_criterion = self._format_reinit_msg(
-                    "criterion", criterion_params, triggered_directly=True)
-                msg_optimizer = self._format_reinit_msg(
-                    "optimizer", triggered_directly=False)
+                    "criterion", criterion_params, triggered_directly=True
+                )
+                msg_optimizer = self._format_reinit_msg("optimizer", triggered_directly=False)
 
         if not (reinit_module or reinit_criterion or reinit_optimizer):
-            raise ValueError("Something went wrong, please open an issue on "
-                             "https://github.com/skorch-dev/skorch/issues")
+            raise ValueError(
+                "Something went wrong, please open an issue on "
+                "https://github.com/skorch-dev/skorch/issues"
+            )
 
         if reinit_module:
             self._initialize_module(reason=msg_module)
@@ -2219,7 +2240,8 @@ class NeuralNet(BaseEstimator):
             else:
                 raise ValueError(
                     "Trying to set a parameter for callback {} "
-                    "which does not exist.".format(part0))
+                    "which does not exist.".format(part0)
+                )
 
         return self
 
@@ -2283,11 +2305,11 @@ class NeuralNet(BaseEstimator):
         self.__dict__.update(state)
 
     def _register_attribute(
-            self,
-            name,
-            attr,
-            prefixes=True,
-            cuda_dependent_attributes=True,
+        self,
+        name,
+        attr,
+        prefixes=True,
+        cuda_dependent_attributes=True,
     ):
         """Add attribute name to prefixes_ and cuda_dependent_attributes_,
         keep track of modules, criteria, and optimizers.
@@ -2322,8 +2344,7 @@ class NeuralNet(BaseEstimator):
             self.prefixes_ = self.prefixes_[:] + [name]
 
         if cuda_dependent_attributes:
-            self.cuda_dependent_attributes_ = (
-                self.cuda_dependent_attributes_[:] + [name + '_'])
+            self.cuda_dependent_attributes_ = self.cuda_dependent_attributes_[:] + [name + '_']
 
         # make sure to not double register -- this should never happen, but
         # still better to check
@@ -2335,10 +2356,10 @@ class NeuralNet(BaseEstimator):
             self._optimizers = self._optimizers[:] + [name]
 
     def _unregister_attribute(
-            self,
-            name,
-            prefixes=True,
-            cuda_dependent_attributes=True,
+        self,
+        name,
+        prefixes=True,
+        cuda_dependent_attributes=True,
     ):
         """Remove attribute name from prefixes_, cuda_dependent_attributes_ and the
         _modules/_criteria/_optimizers list if applicable.
@@ -2369,7 +2390,8 @@ class NeuralNet(BaseEstimator):
 
         if cuda_dependent_attributes:
             self.cuda_dependent_attributes_ = [
-                a for a in self.cuda_dependent_attributes_ if a != name + '_']
+                a for a in self.cuda_dependent_attributes_ if a != name + '_'
+            ]
 
         if name in self._modules:
             self._modules = [p for p in self._modules if p != name]
@@ -2385,18 +2407,24 @@ class NeuralNet(BaseEstimator):
 
         """
         if (self.init_context_ is None) and isinstance(attr, torch.nn.Module):
-            msg = ("Trying to set torch compoment '{}' outside of an initialize method."
-                   " Consider defining it inside 'initialize_module'".format(name))
+            msg = (
+                "Trying to set torch compoment '{}' outside of an initialize method."
+                " Consider defining it inside 'initialize_module'".format(name)
+            )
             raise SkorchAttributeError(msg)
 
         if (self.init_context_ is None) and isinstance(attr, torch.optim.Optimizer):
-            msg = ("Trying to set torch compoment '{}' outside of an initialize method."
-                   " Consider defining it inside 'initialize_optimizer'".format(name))
+            msg = (
+                "Trying to set torch compoment '{}' outside of an initialize method."
+                " Consider defining it inside 'initialize_optimizer'".format(name)
+            )
             raise SkorchAttributeError(msg)
 
         if not name.endswith('_'):
-            msg = ("Names of initialized modules or optimizers should end "
-                   "with an underscore (e.g. '{}_')".format(name))
+            msg = (
+                "Names of initialized modules or optimizers should end "
+                "with an underscore (e.g. '{}_')".format(name)
+            )
             raise SkorchAttributeError(msg)
 
     def __setattr__(self, name, attr):
@@ -2456,13 +2484,14 @@ class NeuralNet(BaseEstimator):
             raise AttributeError(msg.format(name=name))
 
     def save_params(
-            self,
-            f_params=None,
-            f_optimizer=None,
-            f_criterion=None,
-            f_history=None,
-            use_safetensors=False,
-            **kwargs):
+        self,
+        f_params=None,
+        f_optimizer=None,
+        f_criterion=None,
+        f_history=None,
+        use_safetensors=False,
+        **kwargs,
+    ):
         """Saves the module's parameters, history, and optimizer,
         not the whole object.
 
@@ -2511,8 +2540,10 @@ class NeuralNet(BaseEstimator):
 
         """
         if use_safetensors:
+
             def _save_state_dict(state_dict, f_name):
-                from safetensors.torch import save_file, save
+                from safetensors.torch import save, save_file
+
                 try:
                     if isinstance(f_name, (str, os.PathLike)):
                         save_file(state_dict, f_name)
@@ -2528,7 +2559,9 @@ class NeuralNet(BaseEstimator):
                         "don't use safetensors."
                     )
                     raise ValueError(msg) from exc
+
         else:
+
             def _save_state_dict(state_dict, f_name):
                 torch.save(module.state_dict(), f_name)
 
@@ -2538,7 +2571,8 @@ class NeuralNet(BaseEstimator):
             f_optimizer=f_optimizer,
             f_criterion=f_criterion,
             f_history=f_history,
-            **kwargs)
+            **kwargs,
+        )
 
         if not kwargs_module and not kwargs_other:
             if self.verbose:
@@ -2548,11 +2582,13 @@ class NeuralNet(BaseEstimator):
         msg_init = (
             "Cannot save state of an un-initialized model. "
             "Please initialize first by calling .initialize() "
-            "or by fitting the model with .fit(...).")
+            "or by fitting the model with .fit(...)."
+        )
         msg_module = (
             "You are trying to save 'f_{name}' but for that to work, the net "
             "needs to have an attribute called 'net.{name}_' that is a PyTorch "
-            "Module or Optimizer; make sure that it exists and check for typos.")
+            "Module or Optimizer; make sure that it exists and check for typos."
+        )
 
         for attr, f_name in kwargs_module.items():
             # valid attrs can be 'module_', 'optimizer_', etc.
@@ -2586,21 +2622,23 @@ class NeuralNet(BaseEstimator):
             warnings.warn(
                 'Setting self.device = {} since the requested device ({}) '
                 'is not available.'.format(map_device, requested_device),
-                DeviceWarning)
+                DeviceWarning,
+            )
             return map_device
         # return requested_device instead of map_device even though we
         # checked for *type* equality as we might have 'cuda:0' vs. 'cuda:1'.
         return requested_device
 
     def load_params(
-            self,
-            f_params=None,
-            f_optimizer=None,
-            f_criterion=None,
-            f_history=None,
-            checkpoint=None,
-            use_safetensors=False,
-            **kwargs):
+        self,
+        f_params=None,
+        f_optimizer=None,
+        f_criterion=None,
+        f_history=None,
+        checkpoint=None,
+        use_safetensors=False,
+        **kwargs,
+    ):
         """Loads the the module's parameters, history, and optimizer,
         not the whole object.
 
@@ -2651,6 +2689,7 @@ class NeuralNet(BaseEstimator):
 
         """
         if use_safetensors:
+
             def _get_state_dict(f_name):
                 from safetensors import safe_open
                 from safetensors.torch import load
@@ -2666,6 +2705,7 @@ class NeuralNet(BaseEstimator):
                     state_dict = load(as_bytes)
 
                 return state_dict
+
         else:
             torch_load_kwargs = self.torch_load_kwargs
             if torch_load_kwargs is None:
@@ -2686,8 +2726,12 @@ class NeuralNet(BaseEstimator):
 
         # explicit arguments may override checkpoint arguments
         kwargs_full.update(**kwargs)
-        for key, val in [('f_params', f_params), ('f_optimizer', f_optimizer),
-                         ('f_criterion', f_criterion), ('f_history', f_history)]:
+        for key, val in [
+            ('f_params', f_params),
+            ('f_optimizer', f_optimizer),
+            ('f_criterion', f_criterion),
+            ('f_history', f_history),
+        ]:
             if val:
                 kwargs_full[key] = val
 
@@ -2706,11 +2750,13 @@ class NeuralNet(BaseEstimator):
         msg_init = (
             "Cannot load state of an un-initialized model. "
             "Please initialize first by calling .initialize() "
-            "or by fitting the model with .fit(...).")
+            "or by fitting the model with .fit(...)."
+        )
         msg_module = (
             "You are trying to load 'f_{name}' but for that to work, the net "
             "needs to have an attribute called 'net.{name}_' that is a PyTorch "
-            "Module or Optimizer; make sure that it exists and check for typos.")
+            "Module or Optimizer; make sure that it exists and check for typos."
+        )
 
         for attr, f_name in kwargs_module.items():
             # valid attrs can be 'module_', 'optimizer_', etc.

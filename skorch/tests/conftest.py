@@ -2,10 +2,9 @@
 
 import numpy as np
 import pytest
-from sklearn.datasets import make_classification
-from sklearn.datasets import make_regression
-from sklearn.preprocessing import StandardScaler
 import torch
+from sklearn.datasets import make_classification, make_regression
+from sklearn.preprocessing import StandardScaler
 from torch import nn
 
 F = nn.functional
@@ -50,6 +49,7 @@ def module_cls():
 def classifier_module():
     """Return a simple classifier module class."""
     from skorch.toy import make_classifier
+
     return make_classifier(
         input_units=20,
         hidden_units=10,
@@ -85,8 +85,7 @@ def classifier_data():
 
 @pytest.fixture(scope='module')
 def regression_data():
-    X, y = make_regression(
-        1000, 20, n_informative=10, bias=0, random_state=0)
+    X, y = make_regression(1000, 20, n_informative=10, bias=0, random_state=0)
     X, y = X.astype(np.float32), y.astype(np.float32).reshape(-1, 1)
     Xt = StandardScaler().fit_transform(X)
     yt = StandardScaler().fit_transform(y)
@@ -95,8 +94,7 @@ def regression_data():
 
 @pytest.fixture(scope='module')
 def multioutput_regression_data():
-    X, y = make_regression(
-        1000, 20, n_targets=3, n_informative=10, bias=0, random_state=0)
+    X, y = make_regression(1000, 20, n_targets=3, n_informative=10, bias=0, random_state=0)
     X, y = X.astype(np.float32), y.astype(np.float32)
     Xt = StandardScaler().fit_transform(X)
     yt = StandardScaler().fit_transform(y)
@@ -129,6 +127,7 @@ def train_split():
 @pytest.fixture
 def net_cls():
     from skorch import NeuralNetRegressor
+
     return NeuralNetRegressor
 
 
@@ -142,7 +141,7 @@ def data():
 neptune_installed = False
 try:
     # pylint: disable=unused-import
-    import neptune
+    pass
 
     neptune_installed = True
 except ImportError:
@@ -151,7 +150,7 @@ except ImportError:
 sacred_installed = False
 try:
     # pylint: disable=unused-import
-    import sacred
+    pass
 
     sacred_installed = True
 except ImportError:
@@ -160,7 +159,7 @@ except ImportError:
 wandb_installed = False
 try:
     # pylint: disable=unused-import
-    import wandb
+    pass
 
     wandb_installed = True
 except ImportError:
@@ -169,7 +168,7 @@ except ImportError:
 pandas_installed = False
 try:
     # pylint: disable=unused-import
-    import pandas
+    pass
 
     pandas_installed = True
 except ImportError:
@@ -178,7 +177,7 @@ except ImportError:
 tensorboard_installed = False
 try:
     # pylint: disable=unused-import
-    import tensorboard
+    pass
 
     tensorboard_installed = True
 except ImportError:
@@ -187,9 +186,8 @@ except ImportError:
 mlflow_installed = False
 try:
     # pylint: disable=unused-import
-    import mlflow
+    pass
 
     mlflow_installed = True
 except ImportError:
     pass
-

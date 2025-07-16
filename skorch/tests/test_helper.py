@@ -1,11 +1,12 @@
 """Test for helper.py"""
+
 import pickle
 
 import numpy as np
 import pytest
+import torch
 from sklearn.datasets import make_classification
 from sklearn.pipeline import Pipeline
-import torch
 from torch import nn
 
 from skorch.tests.conftest import pandas_installed
@@ -29,6 +30,7 @@ class TestSliceDict:
     @pytest.fixture(scope='session')
     def sldict_cls(self):
         from skorch.helper import SliceDict
+
         return SliceDict
 
     @pytest.fixture
@@ -41,32 +43,36 @@ class TestSliceDict:
     def test_init_inconsistent_shapes(self, sldict_cls):
         with pytest.raises(ValueError) as exc:
             sldict_cls(f0=np.ones((10, 5)), f1=np.ones((11, 5)))
-        assert str(exc.value) == (
-            "Initialized with items of different lengths: 10, 11")
+        assert str(exc.value) == ("Initialized with items of different lengths: 10, 11")
 
-    @pytest.mark.parametrize('item', [
-        np.ones(4),
-        np.ones((4, 1)),
-        np.ones((4, 4)),
-        np.ones((4, 10, 7)),
-        np.ones((4, 1, 28, 28)),
-    ])
+    @pytest.mark.parametrize(
+        'item',
+        [
+            np.ones(4),
+            np.ones((4, 1)),
+            np.ones((4, 4)),
+            np.ones((4, 10, 7)),
+            np.ones((4, 1, 28, 28)),
+        ],
+    )
     def test_set_item_correct_shape(self, sldict, item):
         # does not raise
         sldict['f2'] = item
 
-    @pytest.mark.parametrize('item', [
-        np.ones(3),
-        np.ones((1, 100)),
-        np.ones((5, 1000)),
-        np.ones((1, 100, 10)),
-        np.ones((28, 28, 1, 100)),
-    ])
+    @pytest.mark.parametrize(
+        'item',
+        [
+            np.ones(3),
+            np.ones((1, 100)),
+            np.ones((5, 1000)),
+            np.ones((1, 100, 10)),
+            np.ones((28, 28, 1, 100)),
+        ],
+    )
     def test_set_item_incorrect_shape_raises(self, sldict, item):
         with pytest.raises(ValueError) as exc:
             sldict['f2'] = item
-        assert str(exc.value) == (
-            "Cannot set array with shape[0] != 4")
+        assert str(exc.value) == ("Cannot set array with shape[0] != 4")
 
     @pytest.mark.parametrize('key', [1, 1.2, (1, 2), [3]])
     def test_set_item_incorrect_key_type(self, sldict, key):
@@ -74,30 +80,35 @@ class TestSliceDict:
             sldict[key] = np.ones((100, 5))
         assert str(exc.value).startswith("Key must be str, not <")
 
-    @pytest.mark.parametrize('item', [
-        np.ones(3),
-        np.ones((1, 100)),
-        np.ones((5, 1000)),
-        np.ones((1, 100, 10)),
-        np.ones((28, 28, 1, 100)),
-    ])
+    @pytest.mark.parametrize(
+        'item',
+        [
+            np.ones(3),
+            np.ones((1, 100)),
+            np.ones((5, 1000)),
+            np.ones((1, 100, 10)),
+            np.ones((28, 28, 1, 100)),
+        ],
+    )
     def test_update_incorrect_shape_raises(self, sldict, item):
         with pytest.raises(ValueError) as exc:
             sldict.update({'f2': item})
-        assert str(exc.value) == (
-            "Cannot set array with shape[0] != 4")
+        assert str(exc.value) == ("Cannot set array with shape[0] != 4")
 
     @pytest.mark.parametrize('item', [123, 'hi', [1, 2, 3]])
     def test_set_first_item_no_shape_raises(self, sldict_cls, item):
         with pytest.raises(AttributeError):
             sldict_cls(f0=item)
 
-    @pytest.mark.parametrize('kwargs, expected', [
-        ({}, 0),
-        (dict(a=np.zeros(12)), 12),
-        (dict(a=np.zeros(12), b=np.ones((12, 5))), 12),
-        (dict(a=np.ones((10, 1, 1)), b=np.ones((10, 10)), c=np.ones(10)), 10),
-    ])
+    @pytest.mark.parametrize(
+        'kwargs, expected',
+        [
+            ({}, 0),
+            (dict(a=np.zeros(12)), 12),
+            (dict(a=np.zeros(12), b=np.ones((12, 5))), 12),
+            (dict(a=np.ones((10, 1, 1)), b=np.ones((10, 10)), c=np.ones(10)), 10),
+        ],
+    )
     def test_len_and_shape(self, sldict_cls, kwargs, expected):
         sldict = sldict_cls(**kwargs)
         assert len(sldict) == expected
@@ -108,34 +119,32 @@ class TestSliceDict:
         assert (sldict['a'] == np.ones(5)).all()
         assert (sldict['b'] == np.zeros(5)).all()
 
-    @pytest.mark.parametrize('sl, expected', [
-        (slice(0, 1), {'f0': np.array([0]), 'f1': np.array([[0, 1, 2]])}),
-        (slice(1, 2), {'f0': np.array([1]), 'f1': np.array([[3, 4, 5]])}),
-        (slice(0, 2), {'f0': np.array([0, 1]),
-                       'f1': np.array([[0, 1, 2], [3, 4, 5]])}),
-        (slice(0, None), dict(f0=np.arange(4),
-                              f1=np.arange(12).reshape(4, 3))),
-        (slice(-1, None), {'f0': np.array([3]),
-                           'f1': np.array([[9, 10, 11]])}),
-        (slice(None, None, -1), dict(f0=np.arange(4)[::-1],
-                                     f1=np.arange(12).reshape(4, 3)[::-1])),
-    ])
+    @pytest.mark.parametrize(
+        'sl, expected',
+        [
+            (slice(0, 1), {'f0': np.array([0]), 'f1': np.array([[0, 1, 2]])}),
+            (slice(1, 2), {'f0': np.array([1]), 'f1': np.array([[3, 4, 5]])}),
+            (slice(0, 2), {'f0': np.array([0, 1]), 'f1': np.array([[0, 1, 2], [3, 4, 5]])}),
+            (slice(0, None), dict(f0=np.arange(4), f1=np.arange(12).reshape(4, 3))),
+            (slice(-1, None), {'f0': np.array([3]), 'f1': np.array([[9, 10, 11]])}),
+            (
+                slice(None, None, -1),
+                dict(f0=np.arange(4)[::-1], f1=np.arange(12).reshape(4, 3)[::-1]),
+            ),
+        ],
+    )
     def test_get_item_slice(self, sldict_cls, sldict, sl, expected):
         sliced = sldict[sl]
         assert_dicts_equal(sliced, sldict_cls(**expected))
 
     def test_slice_list(self, sldict, sldict_cls):
         result = sldict[[0, 2]]
-        expected = sldict_cls(
-            f0=np.array([0, 2]),
-            f1=np.array([[0, 1, 2], [6, 7, 8]]))
+        expected = sldict_cls(f0=np.array([0, 2]), f1=np.array([[0, 1, 2], [6, 7, 8]]))
         assert_dicts_equal(result, expected)
 
     def test_slice_mask(self, sldict, sldict_cls):
         result = sldict[np.array([1, 0, 1, 0]).astype(bool)]
-        expected = sldict_cls(
-            f0=np.array([0, 2]),
-            f1=np.array([[0, 1, 2], [6, 7, 8]]))
+        expected = sldict_cls(f0=np.array([0, 2]), f1=np.array([[0, 1, 2], [6, 7, 8]]))
         assert_dicts_equal(result, expected)
 
     def test_slice_int(self, sldict):
@@ -161,9 +170,9 @@ class TestSliceDict:
         expected_keys = {'f0', 'f1'}
         assert found_keys == expected_keys
 
-    def test_grid_search_with_dict_works(
-            self, sldict_cls, data, classifier_module):
+    def test_grid_search_with_dict_works(self, sldict_cls, data, classifier_module):
         from sklearn.model_selection import GridSearchCV
+
         from skorch import NeuralNetClassifier
 
         net = NeuralNetClassifier(classifier_module)
@@ -294,8 +303,10 @@ class TestSliceDataset:
     def custom_ds(self, data):
         """Return a custom dataset instance"""
         from skorch.dataset import Dataset
+
         class MyDataset(Dataset):
             """Simple pytorch dataset that returns 2 values"""
+
             def __len__(self):
                 return len(self.X)
 
@@ -309,6 +320,7 @@ class TestSliceDataset:
     @pytest.fixture(scope='session')
     def slds_cls(self):
         from skorch.helper import SliceDataset
+
         return SliceDataset
 
     @pytest.fixture
@@ -323,28 +335,27 @@ class TestSliceDataset:
         assert len(slds) == len(y)
         assert slds.shape == (len(y),)
 
-    @pytest.mark.parametrize('sl', [
-        slice(0, 1),
-        slice(1, 2),
-        slice(0, 2),
-        slice(0, None),
-        slice(-1, None),
-        slice(None, None, -1),
-        [0],
-        [55],
-        [-3],
-        [0, 10, 3, -8, 3],
-        np.ones(100, dtype=bool),
-        # boolean mask array of length 100
-        np.array([0, 0, 1, 0] * 25, dtype=bool),
-    ])
+    @pytest.mark.parametrize(
+        'sl',
+        [
+            slice(0, 1),
+            slice(1, 2),
+            slice(0, 2),
+            slice(0, None),
+            slice(-1, None),
+            slice(None, None, -1),
+            [0],
+            [55],
+            [-3],
+            [0, 10, 3, -8, 3],
+            np.ones(100, dtype=bool),
+            # boolean mask array of length 100
+            np.array([0, 0, 1, 0] * 25, dtype=bool),
+        ],
+    )
     def test_len_and_shape_sliced(self, slds, y, sl):
         # torch tensors don't support negative steps, skip test
-        if (
-                isinstance(sl, slice)
-                and (sl == slice(None, None, -1))
-                and isinstance(y, torch.Tensor)
-        ):
+        if isinstance(sl, slice) and (sl == slice(None, None, -1)) and isinstance(y, torch.Tensor):
             return
 
         assert len(slds[sl]) == len(y[sl])
@@ -368,16 +379,19 @@ class TestSliceDataset:
         assert np.allclose(sliced, x)
 
     @pytest.mark.parametrize('n', [0, 1])
-    @pytest.mark.parametrize('sl0, sl1', [
-        ([55], 0),
-        (slice(0, 1), 0),
-        (slice(-1, None), 0),
-        ([55], -1),
-        ([0, 10, 3, -8, 3], 1),
-        (np.ones(100, dtype=bool), 5),
-        # boolean mask array of length 100
-        (np.array([0, 0, 1, 0] * 25, dtype=bool), 6),
-    ])
+    @pytest.mark.parametrize(
+        'sl0, sl1',
+        [
+            ([55], 0),
+            (slice(0, 1), 0),
+            (slice(-1, None), 0),
+            ([55], -1),
+            ([0, 10, 3, -8, 3], 1),
+            (np.ones(100, dtype=bool), 5),
+            # boolean mask array of length 100
+            (np.array([0, 0, 1, 0] * 25, dtype=bool), 6),
+        ],
+    )
     def test_slice_twice(self, slds_cls, custom_ds, X, y, sl0, sl1, n):
         data = X if n == 0 else y
         slds = slds_cls(custom_ds, idx=n)
@@ -386,11 +400,14 @@ class TestSliceDataset:
         assert np.allclose(sliced, x)
 
     @pytest.mark.parametrize('n', [0, 1])
-    @pytest.mark.parametrize('sl0, sl1, sl2', [
-        (slice(0, 50), slice(10, 20), 5),
-        ([0, 10, 3, -8, 3], [1, 2, 3], 2),
-        (np.ones(100, dtype=bool), np.arange(10, 40), 29),
-    ])
+    @pytest.mark.parametrize(
+        'sl0, sl1, sl2',
+        [
+            (slice(0, 50), slice(10, 20), 5),
+            ([0, 10, 3, -8, 3], [1, 2, 3], 2),
+            (np.ones(100, dtype=bool), np.arange(10, 40), 29),
+        ],
+    )
     def test_slice_three_times(self, slds_cls, custom_ds, X, y, sl0, sl1, sl2, n):
         data = y if n else X
         slds = slds_cls(custom_ds, idx=n)
@@ -400,6 +417,7 @@ class TestSliceDataset:
 
     def test_explicitly_pass_indices_at_init(self, slds_cls, custom_ds, X):
         from skorch.utils import to_numpy
+
         # test passing indices directy to __init__
         slds = slds_cls(custom_ds, indices=np.arange(10))
         sliced0 = slds[5:]
@@ -419,23 +437,24 @@ class TestSliceDataset:
             # pylint: disable=pointless-statement
             slds[0]
 
-        msg = ("SliceDataset is trying to access element 2 but there are only "
-               "2 elements.")
+        msg = "SliceDataset is trying to access element 2 but there are only " "2 elements."
         assert exc.value.args[0] == msg
 
     def test_fit_with_slds_works(self, slds, y, classifier_module):
         from skorch import NeuralNetClassifier
+
         net = NeuralNetClassifier(classifier_module)
         net.fit(slds, y)  # does not raise
 
     def test_fit_with_slds_without_valid_works(self, slds, y, classifier_module):
         from skorch import NeuralNetClassifier
+
         net = NeuralNetClassifier(classifier_module, train_split=False)
         net.fit(slds, y)  # does not raise
 
-    def test_grid_search_with_slds_works(
-            self, slds, y, classifier_module):
+    def test_grid_search_with_slds_works(self, slds, y, classifier_module):
         from sklearn.model_selection import GridSearchCV
+
         from skorch import NeuralNetClassifier
         from skorch.utils import to_numpy
 
@@ -448,17 +467,15 @@ class TestSliceDataset:
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
         }
-        gs = GridSearchCV(
-            net, params, refit=False, cv=3, scoring='accuracy', error_score='raise'
-        )
+        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', error_score='raise')
         # TODO: after sklearn > 1.6 is released, the to_numpy call should no longer be
         # required and be removed, see:
         # https://github.com/skorch-dev/skorch/pull/1078#discussion_r1887197261
         gs.fit(slds, to_numpy(y))  # does not raise
 
-    def test_grid_search_with_slds_and_internal_split_works(
-            self, slds, y, classifier_module):
+    def test_grid_search_with_slds_and_internal_split_works(self, slds, y, classifier_module):
         from sklearn.model_selection import GridSearchCV
+
         from skorch import NeuralNetClassifier
         from skorch.utils import to_numpy
 
@@ -467,17 +484,15 @@ class TestSliceDataset:
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
         }
-        gs = GridSearchCV(
-            net, params, refit=True, cv=3, scoring='accuracy', error_score='raise'
-        )
+        gs = GridSearchCV(net, params, refit=True, cv=3, scoring='accuracy', error_score='raise')
         # TODO: after sklearn > 1.6 is released, the to_numpy call should no longer be
         # required and be removed, see:
         # https://github.com/skorch-dev/skorch/pull/1078#discussion_r1887197261
         gs.fit(slds, to_numpy(y))  # does not raise
 
-    def test_grid_search_with_slds_X_and_slds_y(
-            self, slds, slds_y, classifier_module):
+    def test_grid_search_with_slds_X_and_slds_y(self, slds, slds_y, classifier_module):
         from sklearn.model_selection import GridSearchCV
+
         from skorch import NeuralNetClassifier
 
         net = NeuralNetClassifier(
@@ -489,9 +504,7 @@ class TestSliceDataset:
             'lr': [0.01, 0.02],
             'max_epochs': [10, 20],
         }
-        gs = GridSearchCV(
-            net, params, refit=False, cv=3, scoring='accuracy', error_score='raise'
-        )
+        gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', error_score='raise')
         gs.fit(slds, slds_y)  # does not raise
 
     def test_index_with_2d_array_raises(self, slds):
@@ -500,8 +513,10 @@ class TestSliceDataset:
             # pylint: disable=pointless-statement
             slds[i]
 
-        msg = ("SliceDataset only supports slicing with 1 "
-               "dimensional arrays, got 2 dimensions instead.")
+        msg = (
+            "SliceDataset only supports slicing with 1 "
+            "dimensional arrays, got 2 dimensions instead."
+        )
         assert exc.value.args[0] == msg
 
     @pytest.mark.parametrize('n', [0, 1])
@@ -545,11 +560,12 @@ class TestSliceDataset:
         assert isinstance(sliced, MySliceDataset)
 
 
-class TestPredefinedSplit():
+class TestPredefinedSplit:
 
     @pytest.fixture
     def predefined_split(self):
         from skorch.helper import predefined_split
+
         return predefined_split
 
     def test_pickle(self, predefined_split, data):
@@ -566,6 +582,7 @@ class TestDataFrameTransformer:
     @pytest.fixture
     def transformer_cls(self):
         from skorch.helper import DataFrameTransformer
+
         return DataFrameTransformer
 
     @pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
@@ -574,21 +591,25 @@ class TestDataFrameTransformer:
         """DataFrame containing float, int, category types"""
         import pandas as pd
 
-        df = pd.DataFrame({
-            'col_floats': [0.1, 0.2, 0.3],
-            'col_ints': [11, 11, 10],
-            'col_cats': ['a', 'b', 'a'],
-        })
+        df = pd.DataFrame(
+            {
+                'col_floats': [0.1, 0.2, 0.3],
+                'col_ints': [11, 11, 10],
+                'col_cats': ['a', 'b', 'a'],
+            }
+        )
         df['col_cats'] = df['col_cats'].astype('category')
         return df
 
     def test_fit_transform_defaults(self, transformer_cls, df):
         expected = {
-            'X': np.asarray([
-                [0.1, 11.0],
-                [0.2, 11.0],
-                [0.3, 10.0],
-            ]).astype(np.float32),
+            'X': np.asarray(
+                [
+                    [0.1, 11.0],
+                    [0.2, 11.0],
+                    [0.3, 10.0],
+                ]
+            ).astype(np.float32),
             'col_cats': np.asarray([0, 1, 0]),
         }
         Xt = transformer_cls().fit_transform(df)
@@ -596,24 +617,27 @@ class TestDataFrameTransformer:
 
     def test_fit_and_transform_defaults(self, transformer_cls, df):
         expected = {
-            'X': np.asarray([
-                [0.1, 11.0],
-                [0.2, 11.0],
-                [0.3, 10.0],
-            ]).astype(np.float32),
+            'X': np.asarray(
+                [
+                    [0.1, 11.0],
+                    [0.2, 11.0],
+                    [0.3, 10.0],
+                ]
+            ).astype(np.float32),
             'col_cats': np.asarray([0, 1, 0]),
         }
         Xt = transformer_cls().fit(df).transform(df)
         assert_dicts_equal(Xt, expected)
 
-    def test_fit_transform_defaults_two_categoricals(
-            self, transformer_cls, df):
+    def test_fit_transform_defaults_two_categoricals(self, transformer_cls, df):
         expected = {
-            'X': np.asarray([
-                [0.1, 11.0],
-                [0.2, 11.0],
-                [0.3, 10.0],
-            ]).astype(np.float32),
+            'X': np.asarray(
+                [
+                    [0.1, 11.0],
+                    [0.2, 11.0],
+                    [0.3, 10.0],
+                ]
+            ).astype(np.float32),
             'col_cats': np.asarray([0, 1, 0]),
             'col_foo': np.asarray([1, 1, 0]),
         }
@@ -639,18 +663,23 @@ class TestDataFrameTransformer:
         Xt = transformer_cls(treat_int_as_categorical=True).fit_transform(df)
         assert_dicts_equal(Xt, expected)
 
-    @pytest.mark.parametrize('data', [
-        np.array([object, object, object]),
-        np.array(['foo', 'bar', 'baz']),
-    ])
+    @pytest.mark.parametrize(
+        'data',
+        [
+            np.array([object, object, object]),
+            np.array(['foo', 'bar', 'baz']),
+        ],
+    )
     def test_invalid_dtype_raises(self, transformer_cls, df, data):
         df = df.assign(invalid=data)
         with pytest.raises(TypeError) as exc:
             transformer_cls().fit_transform(df)
 
         msg = exc.value.args[0]
-        expected = ("The following columns have dtypes that cannot be "
-                    "interpreted as numerical dtypes: invalid (object)")
+        expected = (
+            "The following columns have dtypes that cannot be "
+            "interpreted as numerical dtypes: invalid (object)"
+        )
         assert msg == expected
 
     def test_two_invalid_dtypes_raises(self, transformer_cls, df):
@@ -662,9 +691,11 @@ class TestDataFrameTransformer:
             transformer_cls().fit_transform(df)
 
         msg = exc.value.args[0]
-        expected = ("The following columns have dtypes that cannot be "
-                    "interpreted as numerical dtypes: invalid0 (object), "
-                    "invalid1 (object)")
+        expected = (
+            "The following columns have dtypes that cannot be "
+            "interpreted as numerical dtypes: invalid0 (object), "
+            "invalid1 (object)"
+        )
         assert msg == expected
 
     @pytest.mark.parametrize('dtype', [np.float16, np.float32, np.float64])
@@ -674,8 +705,7 @@ class TestDataFrameTransformer:
 
     @pytest.mark.parametrize('dtype', [np.int16, np.int32, np.int64])
     def test_set_int_dtype(self, transformer_cls, df, dtype):
-        Xt = transformer_cls(
-            treat_int_as_categorical=True, int_dtype=dtype).fit_transform(df)
+        Xt = transformer_cls(treat_int_as_categorical=True, int_dtype=dtype).fit_transform(df)
         assert Xt['col_cats'].dtype == dtype
         assert Xt['col_ints'].dtype == dtype
 
@@ -698,14 +728,17 @@ class TestDataFrameTransformer:
             transformer_cls().fit(df)
 
         msg = exc.value.args[0]
-        expected = ("DataFrame contains a column named 'X', which clashes "
-                    "with the name chosen for cardinal features; consider "
-                    "renaming that column.")
+        expected = (
+            "DataFrame contains a column named 'X', which clashes "
+            "with the name chosen for cardinal features; consider "
+            "renaming that column."
+        )
         assert msg == expected
 
     @pytest.fixture
     def module_cls(self):
         """Simple module with embedding and linear layers"""
+
         # pylint: disable=missing-docstring
         class MyModule(nn.Module):
             def __init__(self):
@@ -730,6 +763,7 @@ class TestDataFrameTransformer:
     @pytest.fixture
     def net(self, module_cls):
         from skorch import NeuralNetClassifier
+
         net = NeuralNetClassifier(
             module_cls,
             train_split=None,
@@ -739,10 +773,12 @@ class TestDataFrameTransformer:
 
     @pytest.fixture
     def pipe(self, transformer_cls, net):
-        pipe = Pipeline([
-            ('transform', transformer_cls()),
-            ('net', net),
-        ])
+        pipe = Pipeline(
+            [
+                ('transform', transformer_cls()),
+                ('net', net),
+            ]
+        )
         return pipe
 
     def test_fit_and_predict_with_pipeline(self, pipe, df):
@@ -767,8 +803,7 @@ class TestDataFrameTransformer:
         # replace float column with integer having 3 unique units
         df = df.assign(col_floats=[1, 2, 0])
 
-        result = transformer_cls(
-            treat_int_as_categorical=True).describe_signature(df)
+        result = transformer_cls(treat_int_as_categorical=True).describe_signature(df)
         expected = {
             'col_floats': {"dtype": torch.int64, "input_units": 3},
             'col_ints': {"dtype": torch.int64, "input_units": 2},

@@ -1,20 +1,15 @@
-import skorch
 import numpy as np
 import torch
-from torch.autograd import Variable
 from sklearn.metrics import f1_score
+from torch.autograd import Variable
+
+import skorch
 
 
 class Net(skorch.NeuralNet):
 
     def __init__(
-            self,
-            criterion=torch.nn.CrossEntropyLoss,
-            clip=0.25,
-            lr=20,
-            ntokens=10000,
-            *args,
-            **kwargs
+        self, criterion=torch.nn.CrossEntropyLoss, clip=0.25, lr=20, ntokens=10000, *args, **kwargs
     ):
         self.clip = clip
         self.ntokens = ntokens
@@ -75,7 +70,7 @@ class Net(skorch.NeuralNet):
     def predict(self, X):
         return np.argmax(super().predict(X), -1)
 
-    def sample(self, input, temperature=1., hidden=None):
+    def sample(self, input, temperature=1.0, hidden=None):
         hidden = self.module_.init_hidden(1) if hidden is None else hidden
         output, hidden = self.module_(input, hidden)
         probas = output.squeeze().data.div(temperature).exp()
@@ -84,12 +79,11 @@ class Net(skorch.NeuralNet):
             sample = sample[0]
         return sample, self.repackage_hidden(hidden)
 
-    def sample_n(self, num_words, input, temperature=1., hidden=None):
+    def sample_n(self, num_words, input, temperature=1.0, hidden=None):
         preds = [None] * num_words
         for i in range(num_words):
             preds[i], hidden = self.sample(input, hidden=hidden)
-            input = skorch.utils.to_tensor(torch.LongTensor([[preds[i]]]),
-                                           device=self.device)
+            input = skorch.utils.to_tensor(torch.LongTensor([[preds[i]]]), device=self.device)
         return preds, hidden
 
     def score(self, X, y=None):

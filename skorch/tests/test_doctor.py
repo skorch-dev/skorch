@@ -11,11 +11,14 @@ from torch import nn
 
 class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
     """Test functionality of SkorchDoctor using a simple model"""
+
     @pytest.fixture(scope='module')
     def module_cls(self):
         """Return a simple module class with predictable parameters"""
+
         class MyModule(nn.Module):
             """Module with predictable parameters"""
+
             def __init__(self):
                 super().__init__()
 
@@ -40,13 +43,14 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
     def custom_split(self):
         """Split train/valid deterministically so that we know all training
         samples"""
-        class Split():
+
+        class Split:
             """Deterministically split train/valid into 80%/20%"""
+
             def __call__(self, dataset, y=None, groups=None):
                 n = int(len(dataset) * 0.8)
                 dataset_train = torch.utils.data.Subset(dataset, np.arange(n))
-                dataset_valid = torch.utils.data.Subset(
-                    dataset, np.arange(n, len(dataset)))
+                dataset_valid = torch.utils.data.Subset(dataset, np.arange(n, len(dataset)))
                 return dataset_train, dataset_valid
 
         return Split()
@@ -54,11 +58,13 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
     @pytest.fixture(scope='module')
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
     def doctor_cls(self):
         from skorch.helper import SkorchDoctor
+
         return SkorchDoctor
 
     @pytest.fixture(scope='module')
@@ -212,7 +218,7 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
             assert set(batch.keys()) == expected
 
     def test_param_update_recs_values(self, doctor):
-        recs= doctor.param_update_recs_['module']
+        recs = doctor.param_update_recs_['module']
         assert all(np.isscalar(val) for d in recs for val in d.values())
 
         # for the very first batch, before any update, we actually know that the
@@ -258,7 +264,7 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
         assert num_gradient_recs_before == num_gradient_recs_after
 
     def test_callbacks_cleaned_up_after_fit_with_initial_callbacks(
-            self, doctor_cls, net_cls, module_cls, data
+        self, doctor_cls, net_cls, module_cls, data
     ):
         # make sure that the callbacks are the same before and after, this is
         # important because SkorchDoctor will temporarily add a callback
@@ -275,19 +281,14 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
 
         assert len(callbacks_without_doctor) == len(callbacks_with_doctor)
 
-        for (name0, cb0), (name1, cb1) in zip(
-                callbacks_without_doctor, callbacks_with_doctor
-        ):
+        for (name0, cb0), (name1, cb1) in zip(callbacks_without_doctor, callbacks_with_doctor):
             assert name0 == name1
             # pylint: disable=unidiomatic-typecheck
             assert type(cb0) == type(cb1)
 
     def test_get_layer_names(self, doctor):
         layer_names = doctor.get_layer_names()
-        expected = {
-            'criterion': [],
-            'module': ['lin0', 'lin1', 'softmax']
-        }
+        expected = {'criterion': [], 'module': ['lin0', 'lin1', 'softmax']}
         assert layer_names == expected
 
     def test_get_parameter_names(self, doctor):
@@ -343,9 +344,7 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
             for key in rec.keys():
                 assert match_fn(key)
 
-    def test_recs_with_filter_no_match(
-            self, module_cls, net_cls, doctor_cls, data, custom_split
-    ):
+    def test_recs_with_filter_no_match(self, module_cls, net_cls, doctor_cls, data, custom_split):
         # raise a helpful error if the match function filters away everything
         def match_fn(name):
             return "this-substring-does-not-exist" in name
@@ -399,6 +398,7 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
         matplotlib.use("agg")
 
         import matplotlib.pyplot as plt
+
         # not sure why closing is important but sklearn does it:
         # https://github.com/scikit-learn/scikit-learn/blob/964189df31dd2aa037c5bc58c96f88193f61253b/sklearn/conftest.py#L193
         plt.close("all")
@@ -412,8 +412,7 @@ class TestSkorchDoctorSimple:  # pylint: disable=too-many-public-methods
 
         doctor = doctor_cls(net_cls(module_cls))
         msg = (
-            r"SkorchDoctor is not initialized yet. Call 'fit\(X, y\) before using this "
-            "method."
+            r"SkorchDoctor is not initialized yet. Call 'fit\(X, y\) before using this " "method."
         )
         with pytest.raises(NotInitializedError, match=msg):
             doctor.plot_loss()
@@ -598,11 +597,14 @@ class TestSkorchDoctorComplexArchitecture:
     recorded.
 
     """
+
     @pytest.fixture(scope='module')
     def module0_cls(self):
         """Module that returns a tuple"""
+
         class MyModule(nn.Module):
             """Module that returns a tuple, lin0 no grad"""
+
             def __init__(self):
                 super().__init__()
 
@@ -620,8 +622,10 @@ class TestSkorchDoctorComplexArchitecture:
     @pytest.fixture(scope='module')
     def module1_cls(self):
         """Module without learnable params that returns a dict"""
+
         class MyModule(nn.Module):
             """Module that returns a dict"""
+
             def __init__(self):
                 super().__init__()
                 self.softmax = nn.Softmax(dim=-1)
@@ -635,8 +639,10 @@ class TestSkorchDoctorComplexArchitecture:
     @pytest.fixture(scope='module')
     def module2_cls(self, module0_cls, module1_cls):
         """Module that combines module0 and module1"""
+
         class MyModule(nn.Module):
             """Module that returns a dict"""
+
             def __init__(self):
                 super().__init__()
                 self.module0 = module0_cls()
@@ -653,6 +659,7 @@ class TestSkorchDoctorComplexArchitecture:
     def criterion_cls(self):
         class MyCriterion(nn.Module):
             """Criterion that has learnable parameters"""
+
             def __init__(self):
                 super().__init__()
                 self.lin0 = nn.Linear(2, 2)
@@ -672,6 +679,7 @@ class TestSkorchDoctorComplexArchitecture:
 
         class MyNet(NeuralNetClassifier):
             """Customize net that works with non-standard modules"""
+
             def initialize_module(self):
                 kwargs = self.get_params_for('mymodule')
                 module = self.initialized_instance(module2_cls, kwargs)
@@ -704,6 +712,7 @@ class TestSkorchDoctorComplexArchitecture:
     @pytest.fixture(scope='module')
     def doctor_cls(self):
         from skorch.helper import SkorchDoctor
+
         return SkorchDoctor
 
     @pytest.fixture(scope='module')
@@ -716,9 +725,7 @@ class TestSkorchDoctorComplexArchitecture:
     def doctor(self, module0_cls, criterion_cls, net_cls, doctor_cls, data):
         # the passed module doesn't matter as they are hard-coded
         torch.manual_seed(0)
-        net = net_cls(
-            module0_cls, criterion=criterion_cls, max_epochs=3, batch_size=32
-        )
+        net = net_cls(module0_cls, criterion=criterion_cls, max_epochs=3, batch_size=32)
         doctor = doctor_cls(net)
         doctor.fit(*data)
         return doctor
@@ -732,8 +739,13 @@ class TestSkorchDoctorComplexArchitecture:
             assert len(rec) == 6
 
         expected_mymodule = {
-            'module0.lin0', 'module0.lin1', 'module0[0]', 'module0[1]',
-            'module1.softmax', 'module1["logits"]', 'module1["softmax"]',
+            'module0.lin0',
+            'module0.lin1',
+            'module0[0]',
+            'module0[1]',
+            'module1.softmax',
+            'module1["logits"]',
+            'module1["softmax"]',
         }
         assert set(recs['mymodule'][0].keys()) == expected_mymodule
         # nn.Sequential just enumerates the layers
@@ -768,8 +780,13 @@ class TestSkorchDoctorComplexArchitecture:
         layer_names = doctor.get_layer_names()
         expected = {
             'mymodule': [
-                'module0.lin0', 'module0.lin1', 'module0[0]', 'module0[1]',
-                'module1.softmax', 'module1["logits"]', 'module1["softmax"]',
+                'module0.lin0',
+                'module0.lin1',
+                'module0[0]',
+                'module0[1]',
+                'module1.softmax',
+                'module1["logits"]',
+                'module1["softmax"]',
             ],
             'seq': ['0'],
             'mycriterion': ['lin0'],

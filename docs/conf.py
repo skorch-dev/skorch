@@ -119,8 +119,10 @@ todo_include_todos = False
 #
 # html_theme_options = {}
 
+
 def setup(app):
     app.add_css_file('css/my_theme.css')
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -143,15 +145,12 @@ latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     #
     # 'pointsize': '10pt',
-
     # Additional stuff for the LaTeX preamble.
     #
     # 'preamble': '',
-
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
@@ -161,8 +160,13 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'skorch.tex', 'skorch Documentation',
-     'Marian Tietz, Daniel Nouri, Benjamin Bossan', 'manual'),
+    (
+        master_doc,
+        'skorch.tex',
+        'skorch Documentation',
+        'Marian Tietz, Daniel Nouri, Benjamin Bossan',
+        'manual',
+    ),
 ]
 
 
@@ -170,10 +174,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'skorch', 'skorch Documentation',
-     [author], 1)
-]
+man_pages = [(master_doc, 'skorch', 'skorch Documentation', [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -182,21 +183,27 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'skorch', 'skorch Documentation',
-     author, 'skorch', 'One line description of project.',
-     'Miscellaneous'),
+    (
+        master_doc,
+        'skorch',
+        'skorch Documentation',
+        author,
+        'skorch',
+        'One line description of project.',
+        'Miscellaneous',
+    ),
 ]
 
 # -- GitHub source code link ----------------------------------------------
 
 # Functionality to build github source URI, taken from sklearn.
 
-from operator import attrgetter
 import inspect
 import subprocess
-from functools import partial
+from operator import attrgetter
 
 REVISION_CMD = 'git rev-parse --short HEAD'
+
 
 def _get_git_revision():
     try:
@@ -248,23 +255,26 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
     if not fn:
         return
 
-    fn = os.path.relpath(fn,
-                         start=os.path.dirname(__import__(package).__file__))
+    fn = os.path.relpath(fn, start=os.path.dirname(__import__(package).__file__))
     try:
         lineno = inspect.getsourcelines(obj)[1]
     except Exception:
         lineno = ''
-    return url_fmt.format(revision=revision, package=package,
-                          path=fn, lineno=lineno)
+    return url_fmt.format(revision=revision, package=package, path=fn, lineno=lineno)
+
 
 def project_linkcode_resolve(domain, info):
     global _linkcode_git_revision
-    return _linkcode_resolve(domain, info,
-            package='skorch',
-            revision=_linkcode_git_revision,
-            url_fmt='https://github.com/skorch-dev/skorch/'
-                    'blob/{revision}/'
-                    '{package}/{path}#L{lineno}')
+    return _linkcode_resolve(
+        domain,
+        info,
+        package='skorch',
+        revision=_linkcode_git_revision,
+        url_fmt='https://github.com/skorch-dev/skorch/'
+        'blob/{revision}/'
+        '{package}/{path}#L{lineno}',
+    )
+
 
 _linkcode_git_revision = _get_git_revision()
 
