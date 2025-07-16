@@ -1,8 +1,6 @@
-import torch
-import torch.nn as nn
-from torch.nn.functional import binary_cross_entropy_with_logits
-from torchvision.transforms.functional import to_pil_image
 import matplotlib.pyplot as plt
+import torch
+from torchvision.transforms.functional import to_pil_image
 
 
 def convert_cell_to_img(t, padding=16):
@@ -31,22 +29,13 @@ def plot_mask_cells(mask_cells, padding=16):
         ax1, ax2, ax3 = axes
         true_mask, predicted_mask, cell = mask_cell
         plot_mask_cell(
-                true_mask, predicted_mask, cell,
-                'Type {}'.format(idx),
-                ax1, ax2, ax3,
-                padding=padding)
+            true_mask, predicted_mask, cell, 'Type {}'.format(idx), ax1, ax2, ax3, padding=padding
+        )
     fig.tight_layout()
     return fig, axes
 
 
-def plot_mask_cell(true_mask,
-                   predicted_mask,
-                   cell,
-                   suffix,
-                   ax1,
-                   ax2,
-                   ax3,
-                   padding=16):
+def plot_mask_cell(true_mask, predicted_mask, cell, suffix, ax1, ax2, ax3, padding=16):
     """Plots a single cell with a its true mask and predicuted mask"""
     for ax in [ax1, ax2, ax3]:
         ax.grid(False)
@@ -54,8 +43,7 @@ def plot_mask_cell(true_mask,
         ax.set_yticks([])
     ax1.imshow(true_mask[padding:-padding, padding:-padding], cmap='viridis')
     ax1.set_title('True Mask - {}'.format(suffix))
-    ax2.imshow(
-        predicted_mask[padding:-padding, padding:-padding], cmap='viridis')
+    ax2.imshow(predicted_mask[padding:-padding, padding:-padding], cmap='viridis')
     ax2.set_title('Predicted Mask - {}'.format(suffix))
     ax3.imshow(convert_cell_to_img(cell, padding=padding))
     ax3.set_title('Image - {}'.format(suffix))

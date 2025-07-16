@@ -1,18 +1,13 @@
 """skorch base imports"""
 
-import sys
-import warnings
-
 import importlib.metadata
 
-from .history import History
-from .net import NeuralNet
-from .classifier import NeuralNetClassifier
-from .classifier import NeuralNetBinaryClassifier
-from .regressor import NeuralNetRegressor
 from . import callbacks
 from ._version import Version
-
+from .classifier import NeuralNetBinaryClassifier, NeuralNetClassifier
+from .history import History
+from .net import NeuralNet
+from .regressor import NeuralNetRegressor
 
 MIN_TORCH_VERSION = '1.1.0'
 
@@ -24,12 +19,15 @@ except ModuleNotFoundError:
     raise ModuleNotFoundError(
         "No module named 'torch', and skorch depends on PyTorch "
         "(aka 'torch'). "
-        "Visit https://pytorch.org/ for installation instructions.")
+        "Visit https://pytorch.org/ for installation instructions."
+    )
 
 torch_version = torch.__version__
 if Version(torch_version) < Version(MIN_TORCH_VERSION):
-    msg = ('skorch depends on a newer version of PyTorch (at least {req}, not '
-           '{installed}). Visit https://pytorch.org for installation details')
+    msg = (
+        'skorch depends on a newer version of PyTorch (at least {req}, not '
+        '{installed}). Visit https://pytorch.org for installation details'
+    )
     raise ImportWarning(msg.format(req=MIN_TORCH_VERSION, installed=torch_version))
 
 

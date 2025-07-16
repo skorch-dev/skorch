@@ -1,16 +1,16 @@
 import os
-from urllib.request import urlretrieve
 import tarfile
+from urllib.request import urlretrieve
 
-from dstoolbox.transformers import Padder2d
-from dstoolbox.transformers import TextFeaturizer
 import numpy as np
+import torch
+from dstoolbox.transformers import Padder2d, TextFeaturizer
+from palladium.interfaces import DatasetLoader as IDatasetLoader
 from sklearn.datasets import load_files
 from sklearn.pipeline import Pipeline
-from skorch import NeuralNetClassifier
-import torch
 from torch import nn
-from palladium.interfaces import DatasetLoader as IDatasetLoader
+
+from skorch import NeuralNetClassifier
 
 F = nn.functional
 
@@ -26,12 +26,13 @@ def download():
         if not os.path.exists(DATA_FN):
             urlretrieve(DATA_URL, DATA_FN)
         with tarfile.open(DATA_FN, 'r:gz') as f:
+
             def is_within_directory(directory, target):
                 abs_directory = os.path.abspath(directory)
                 abs_target = os.path.abspath(target)
                 prefix = os.path.commonprefix([abs_directory, abs_target])
                 return prefix == abs_directory
-            
+
             def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
                 # See:
                 # https://docs.python.org/3/library/tarfile.html#tarfile.TarFile.extractall
@@ -40,9 +41,9 @@ def download():
                     member_path = os.path.join(path, member.name)
                     if not is_within_directory(path, member_path):
                         raise OSError("Attempted Path Traversal in Tar File")
-            
-                tar.extractall(path, members, numeric_owner=numeric_owner) 
-            
+
+                tar.extractall(path, members, numeric_owner=numeric_owner)
+
             safe_extract(f)
 
 
@@ -75,16 +76,17 @@ class RNNClassifier(nn.Module):
         self.num_layers = num_layers
         self.dropout = dropout
 
-        self.emb = nn.Embedding(
-            vocab_size + 1, embedding_dim=self.embedding_dim)
+        self.emb = nn.Embedding(vocab_size + 1, embedding_dim=self.embedding_dim)
 
         rec_layer = {'lstm': nn.LSTM, 'gru': nn.GRU}[self.rec_layer_type]
         # We have to make sure that the recurrent layer is batch_first,
         # since sklearn assumes the batch dimension to be the first
         self.rec = rec_layer(
-            self.embedding_dim, self.num_units,
-            num_layers=num_layers, batch_first=True,
-            )
+            self.embedding_dim,
+            self.num_units,
+            num_layers=num_layers,
+            batch_first=True,
+        )
 
         self.output = nn.Linear(self.num_units, 2)
 
@@ -104,22 +106,22 @@ class RNNClassifier(nn.Module):
         return out
 
 
-def create_pipeline(
-    vocab_size=1000,
-    max_len=50,
-    use_cuda=False,
-    **kwargs
-):
-    return Pipeline([
-        ('to_idx', TextFeaturizer(max_features=vocab_size)),
-        ('pad', Padder2d(max_len=max_len, pad_value=vocab_size, dtype=int)),
-        ('net', NeuralNetClassifier(
-            RNNClassifier,
-            device=('cuda' if use_cuda else 'cpu'),
-            max_epochs=5,
-            lr=0.01,
-            optimizer=torch.optim.RMSprop,
-            module__vocab_size=vocab_size,
-            **kwargs,
-        ))
-    ])
+def create_pipeline(vocab_size=1000, max_len=50, use_cuda=False, **kwargs):
+    return Pipeline(
+        [
+            ('to_idx', TextFeaturizer(max_features=vocab_size)),
+            ('pad', Padder2d(max_len=max_len, pad_value=vocab_size, dtype=int)),
+            (
+                'net',
+                NeuralNetClassifier(
+                    RNNClassifier,
+                    device=('cuda' if use_cuda else 'cpu'),
+                    max_epochs=5,
+                    lr=0.01,
+                    optimizer=torch.optim.RMSprop,
+                    module__vocab_size=vocab_size,
+                    **kwargs,
+                ),
+            ),
+        ]
+    )

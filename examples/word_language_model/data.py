@@ -1,9 +1,9 @@
 import os
 
-from skorch.utils import to_device
-
 import torch
 from torch.autograd import Variable
+
+from skorch.utils import to_device
 
 
 class Dictionary:
@@ -76,8 +76,8 @@ class Loader:
 
     def get_batch(self, i):
         seq_len = min(self.bptt, len(self.batches) - 1 - i)
-        data = Variable(self.batches[i:i+seq_len], volatile=self.evaluation)
-        target = Variable(self.batches[i+1:i+1+seq_len].view(-1))
+        data = Variable(self.batches[i : i + seq_len], volatile=self.evaluation)
+        target = Variable(self.batches[i + 1 : i + 1 + seq_len].view(-1))
         return data, target
 
     def __iter__(self):

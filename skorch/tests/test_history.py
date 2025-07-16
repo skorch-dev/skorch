@@ -1,15 +1,15 @@
 """Tests for history.py."""
 
+import multiprocessing as mp
 import pickle
 import time
-import multiprocessing as mp
 from functools import partial
 
 import numpy as np
 import pytest
 import torch
-from torch.distributed import TCPStore
 from sklearn.datasets import make_classification
+from torch.distributed import TCPStore
 
 
 class TestHistory:
@@ -21,16 +21,13 @@ class TestHistory:
     def history_cls(self, request):
         # run tests once with default History, once with DistributedHistory
         from skorch.history import DistributedHistory, History
-        from skorch._version import Version
 
         if request.param == 'single':
             return History
 
         if request.param == 'distributed':
             store = TCPStore("127.0.0.1", port=1234, world_size=1, is_master=True)
-            return partial(
-                DistributedHistory, store=store, rank=0, world_size=1
-            )
+            return partial(DistributedHistory, store=store, rank=0, world_size=1)
 
         raise ValueError("Incorrect pytest request parameter '{request.param}'")
 
@@ -145,10 +142,12 @@ class TestHistory:
     def test_history_partial_and_full_index_batches(self, history, ref):
         loss_with_extra = history[:, 'batches', :, ('loss', 'extra_batch')]
 
-        expected_e0 = [(b['loss'], b['extra_batch']) for b in ref[0]['batches']
-                       if 'extra_batch' in b]
-        expected_e1 = [(b['loss'], b['extra_batch']) for b in ref[1]['batches']
-                       if 'extra_batch' in b]
+        expected_e0 = [
+            (b['loss'], b['extra_batch']) for b in ref[0]['batches'] if 'extra_batch' in b
+        ]
+        expected_e1 = [
+            (b['loss'], b['extra_batch']) for b in ref[1]['batches'] if 'extra_batch' in b
+        ]
 
         assert len(loss_with_extra) == self.test_epochs - 1
         assert loss_with_extra[0] == expected_e0
@@ -157,10 +156,8 @@ class TestHistory:
     def test_history_partial_batches_batch_key_3rd(self, history, ref):
         extra_batches = history[:, 'batches', :, 'extra_batch']
 
-        expected_e0 = [b['extra_batch'] for b in ref[0]['batches']
-                       if 'extra_batch' in b]
-        expected_e1 = [b['extra_batch'] for b in ref[1]['batches']
-                       if 'extra_batch' in b]
+        expected_e0 = [b['extra_batch'] for b in ref[0]['batches'] if 'extra_batch' in b]
+        expected_e1 = [b['extra_batch'] for b in ref[1]['batches'] if 'extra_batch' in b]
 
         # In every epoch there are 2 batches with the 'extra_batch'
         # key except for the last epoch. We therefore two results
@@ -172,10 +169,8 @@ class TestHistory:
     def test_history_partial_batches_batch_key_4th(self, history, ref):
         extra_batches = history[:, 'batches', :, 'extra_batch']
 
-        expected_e0 = [b['extra_batch'] for b in ref[0]['batches']
-                       if 'extra_batch' in b]
-        expected_e1 = [b['extra_batch'] for b in ref[1]['batches']
-                       if 'extra_batch' in b]
+        expected_e0 = [b['extra_batch'] for b in ref[0]['batches'] if 'extra_batch' in b]
+        expected_e1 = [b['extra_batch'] for b in ref[1]['batches'] if 'extra_batch' in b]
 
         # In every epoch there are 2 batches with the 'extra_batch'
         # key except for the last epoch. We therefore two results
@@ -198,9 +193,11 @@ class TestHistory:
             history[:, 'not-batches', 0]
 
         msg = exc.value.args[0]
-        expected = ("History indexing beyond the 2nd level is "
-                    "only possible if key 'batches' is used, "
-                    "found key 'not-batches'.")
+        expected = (
+            "History indexing beyond the 2nd level is "
+            "only possible if key 'batches' is used, "
+            "found key 'not-batches'."
+        )
         assert msg == expected
 
     def test_history_with_invalid_epoch_key(self, history):
@@ -219,8 +216,7 @@ class TestHistory:
             history[:, 'batches', :, 'train_loss', :]
 
         msg = exc.value.args[0]
-        expected = ("Tried to index history with 5 indices but only "
-                    "4 indices are possible.")
+        expected = "Tried to index history with 5 indices but only " "4 indices are possible."
         assert msg == expected
 
     def test_history_save_load_cycle_file_obj(self, history_cls, history, tmpdir):
@@ -289,10 +285,13 @@ class TestHistory:
         # Make sure we can access this batch
         assert h[-1, 'batches', 1] == {}
 
-    @pytest.mark.parametrize('value, check_warn', [
-        ([], False),
-        (np.array([]), True),
-    ])
+    @pytest.mark.parametrize(
+        'value, check_warn',
+        [
+            ([], False),
+            (np.array([]), True),
+        ],
+    )
     def test_history_retrieve_empty_list(self, value, history_cls, check_warn, recwarn):
         h = history_cls()
         if hasattr(h, 'store') and isinstance(value, np.ndarray):
@@ -315,10 +314,13 @@ class TestHistory:
         if check_warn:
             assert not recwarn.list
 
-    @pytest.mark.parametrize('has_epoch, epoch_slice', [
-        (False, slice(None)),
-        (True, slice(1, None)),
-    ])
+    @pytest.mark.parametrize(
+        'has_epoch, epoch_slice',
+        [
+            (False, slice(None)),
+            (True, slice(1, None)),
+        ],
+    )
     def test_history_no_epochs_key(self, has_epoch, epoch_slice, history_cls):
         h = history_cls()
         if has_epoch:
@@ -332,10 +334,13 @@ class TestHistory:
             # pylint: disable=pointless-statement
             h[epoch_slice, ['foo', 'bar']]
 
-    @pytest.mark.parametrize('has_batch, batch_slice', [
-        (False, slice(None)),
-        (True, slice(1, None)),
-    ])
+    @pytest.mark.parametrize(
+        'has_batch, batch_slice',
+        [
+            (False, slice(None)),
+            (True, slice(1, None)),
+        ],
+    )
     def test_history_no_batches_key(self, has_batch, batch_slice, history_cls):
         h = history_cls()
         h.new_epoch()
@@ -350,10 +355,13 @@ class TestHistory:
             # pylint: disable=pointless-statement
             h[-1, 'batches', batch_slice, ['foo', 'bar']]
 
-    @pytest.mark.parametrize('has_epoch, epoch_slice', [
-        (False, slice(None)),
-        (True, slice(1, None)),
-    ])
+    @pytest.mark.parametrize(
+        'has_epoch, epoch_slice',
+        [
+            (False, slice(None)),
+            (True, slice(1, None)),
+        ],
+    )
     def test_history_no_epochs_batches(self, has_epoch, epoch_slice, history_cls):
         h = history_cls()
         if has_epoch:
@@ -398,6 +406,7 @@ class TestDistributedHistoryMultiprocessing:
     as in a normal skorch fit loop.
 
     """
+
     @pytest.fixture
     def data(self, classifier_data):
         X, y = classifier_data
@@ -414,9 +423,7 @@ class TestDistributedHistoryMultiprocessing:
         rank, nprocs, module, (X, y) = args
 
         # let's hope the port is free
-        store = TCPStore(
-            '127.0.0.1', 8890 + nprocs, world_size=nprocs, is_master=(rank == 0)
-        )
+        store = TCPStore('127.0.0.1', 8890 + nprocs, world_size=nprocs, is_master=(rank == 0))
         dist_history = DistributedHistory(store=store, rank=rank, world_size=nprocs)
         net = NeuralNetClassifier(module, max_epochs=2, history=dist_history)
         net.history = dist_history
@@ -429,11 +436,8 @@ class TestDistributedHistoryMultiprocessing:
     @pytest.mark.parametrize('nprocs', [1, 2, 3, 4])
     def test_distributed_history(self, nprocs):
         from skorch.toy import make_classifier
-        from skorch._version import Version
 
-        X, y = make_classification(
-            500, 20, n_informative=10, random_state=0, flip_y=0.1
-        )
+        X, y = make_classification(500, 20, n_informative=10, random_state=0, flip_y=0.1)
         X = X.astype(np.float32)
         y = y.astype(np.int64)
 
@@ -445,9 +449,7 @@ class TestDistributedHistoryMultiprocessing:
             dropout=0.5,
         )
 
-        args = zip(
-            range(nprocs), [nprocs] * nprocs, [module] * nprocs, [(X, y)] * nprocs
-        )
+        args = zip(range(nprocs), [nprocs] * nprocs, [module] * nprocs, [(X, y)] * nprocs)
         # https://github.com/pytorch/pytorch/wiki/Autograd-and-Fork
         ctx = mp.get_context('spawn')
         with ctx.Pool(nprocs) as pool:

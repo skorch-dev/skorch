@@ -7,9 +7,9 @@ from collections.abc import Mapping
 from functools import partial
 
 import numpy as np
+import torch
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
-import torch
 
 from skorch.exceptions import NotInitializedError
 from skorch.utils import to_numpy
@@ -116,11 +116,13 @@ def add_activation_hooks(net, match_fn=None):
                 # is recording activations for whole module useful? skip for now
                 continue
 
-            handle = submodule.register_forward_hook(partial(
-                _add_activation_hook,
-                recs=recs[module_name],
-                layer_name=layer_name,
-            ))
+            handle = submodule.register_forward_hook(
+                partial(
+                    _add_activation_hook,
+                    recs=recs[module_name],
+                    layer_name=layer_name,
+                )
+            )
             handles.append(handle)
 
     return recs, handles
@@ -199,13 +201,15 @@ def add_grad_hooks(net, match_fn=None):
             if not tensor.requires_grad:
                 continue
 
-            handle = tensor.register_hook(partial(
-                _add_grad_hook,
-                rec_grad=recs_grad[module_name],
-                rec_param_update=recs_param_update[module_name],
-                param_name=param_name,
-                tensor=tensor,
-            ))
+            handle = tensor.register_hook(
+                partial(
+                    _add_grad_hook,
+                    rec_grad=recs_grad[module_name],
+                    rec_param_update=recs_param_update[module_name],
+                    param_name=param_name,
+                    tensor=tensor,
+                )
+            )
             handles.append(handle)
 
     return recs_grad, recs_param_update, handles
@@ -367,6 +371,7 @@ class SkorchDoctor:
       Whether the instance has been fitted.
 
     """
+
     def __init__(self, net, match_fn=None):
         self.net = net
         self.match_fn = match_fn
@@ -385,12 +390,8 @@ class SkorchDoctor:
         module_names = [name for name, _ in named_modules(self.net)]
         self.module_names_ = module_names
 
-        activation_recs, activation_handles = add_activation_hooks(
-            self.net, self.match_fn
-        )
-        gradient_recs, param_update_recs, grad_handles = add_grad_hooks(
-            self.net, self.match_fn
-        )
+        activation_recs, activation_handles = add_activation_hooks(self.net, self.match_fn)
+        gradient_recs, param_update_recs, grad_handles = add_grad_hooks(self.net, self.match_fn)
         self.activation_recs_ = activation_recs
         self.gradient_recs_ = gradient_recs
         self.param_update_recs_ = param_update_recs
@@ -542,16 +543,16 @@ class SkorchDoctor:
         return ax
 
     def plot_activations(
-            self,
-            step=-1,
-            match_fn=None,
-            axes=None,
-            histtype='step',
-            lw=2,
-            bins=None,
-            density=True,
-            figsize=None,
-            **kwargs
+        self,
+        step=-1,
+        match_fn=None,
+        axes=None,
+        histtype='step',
+        lw=2,
+        bins=None,
+        density=True,
+        figsize=None,
+        **kwargs,
     ):
         """Plot the distribution of activations produced by the layers
 
@@ -588,9 +589,7 @@ class SkorchDoctor:
         self.check_is_fitted()
 
         # only use modules for which the values are not simply empty lists
-        module_names = [
-            key for key, val in self.activation_recs_.items() if any(l for l in val)
-        ]
+        module_names = [key for key, val in self.activation_recs_.items() if any(l for l in val)]
 
         axes = self._get_axes(axes, figsize=figsize, nrows=len(module_names))
 
@@ -619,23 +618,23 @@ class SkorchDoctor:
                         lw=lw,
                         bins=bins,
                         density=density,
-                        **kwargs
+                        **kwargs,
                     )
             ax.legend(loc='best')
             ax.set_title(f"distribution of activations of {module_name}")
         return axes
 
     def plot_gradients(
-            self,
-            step=-1,
-            match_fn=None,
-            axes=None,
-            histtype='step',
-            lw=2,
-            bins=None,
-            density=True,
-            figsize=None,
-            **kwargs
+        self,
+        step=-1,
+        match_fn=None,
+        axes=None,
+        histtype='step',
+        lw=2,
+        bins=None,
+        density=True,
+        figsize=None,
+        **kwargs,
     ):
         """Plot the distribution of gradients of each learnable parameter
 
@@ -673,8 +672,7 @@ class SkorchDoctor:
 
         # only use modules for which the values are not simply empty
         module_names = [
-            key for key, val in self.gradient_recs_.items()
-            if any(d for l in val for d in l)
+            key for key, val in self.gradient_recs_.items() if any(d for l in val for d in l)
         ]
 
         axes = self._get_axes(axes, figsize=figsize, nrows=len(module_names))
@@ -704,7 +702,7 @@ class SkorchDoctor:
                         lw=lw,
                         bins=bins,
                         density=density,
-                        **kwargs
+                        **kwargs,
                     )
 
             ax.legend(loc='best')
@@ -751,8 +749,7 @@ class SkorchDoctor:
 
         # only use modules for which the values are not simply empty
         module_names = [
-            key for key, val in self.gradient_recs_.items()
-            if any(d for l in val for d in l)
+            key for key, val in self.gradient_recs_.items() if any(d for l in val for d in l)
         ]
 
         axes = self._get_axes(axes, figsize=figsize, nrows=len(module_names))
@@ -776,24 +773,22 @@ class SkorchDoctor:
                 ax.plot(xvec, values, label=key, **kwargs)
 
             ax.set_xlabel("step")
-            ax.set_ylabel(
-                f"log10 of stdev of relative parameter updates for {module_name}"
-            )
+            ax.set_ylabel(f"log10 of stdev of relative parameter updates for {module_name}")
             ax.set_title(module_name)
             ax.legend(loc='best')
 
         return axes
 
     def plot_activations_over_time(
-            self,
-            layer_name,
-            module_name='module',
-            ax=None,
-            lw=2,
-            bins=None,
-            figsize=None,
-            color='k',
-            **kwargs
+        self,
+        layer_name,
+        module_name='module',
+        ax=None,
+        lw=2,
+        bins=None,
+        figsize=None,
+        color='k',
+        **kwargs,
     ):
         """Plot the distribution of the activation of a specific layers over
         time
@@ -835,9 +830,7 @@ class SkorchDoctor:
         ax = self._get_axes(ax, figsize=figsize, squeeze=True)
 
         try:
-            activations = [
-                act[layer_name] for act in self.activation_recs_[module_name]
-            ]
+            activations = [act[layer_name] for act in self.activation_recs_[module_name]]
         except KeyError as exc:
             msg = (
                 f"No layer named '{layer_name}' could be found. "
@@ -865,13 +858,7 @@ class SkorchDoctor:
         for step, yval in enumerate(reversed(yvals)):
             bottom = y_scale * (n - step - 1)
             ax.fill_between(
-                bins[1:],
-                yval + bottom,
-                y2=bottom,
-                alpha=alpha,
-                color=color,
-                lw=lw,
-                **kwargs
+                bins[1:], yval + bottom, y2=bottom, alpha=alpha, color=color, lw=lw, **kwargs
             )
 
         ax.set_yticklabels([])
@@ -880,15 +867,15 @@ class SkorchDoctor:
         return ax
 
     def plot_gradient_over_time(
-            self,
-            param_name,
-            module_name='module',
-            ax=None,
-            lw=2,
-            bins=None,
-            figsize=None,
-            color='k',
-            **kwargs
+        self,
+        param_name,
+        module_name='module',
+        ax=None,
+        lw=2,
+        bins=None,
+        figsize=None,
+        color='k',
+        **kwargs,
     ):
         """Plot the distribution of the gradients of a specific parameter over
         time
@@ -930,16 +917,13 @@ class SkorchDoctor:
         ax = self._get_axes(ax, figsize=figsize, squeeze=True)
 
         try:
-            gradients = [
-                grad[param_name] for grad in self.gradient_recs_[module_name]
-            ]
+            gradients = [grad[param_name] for grad in self.gradient_recs_[module_name]]
         except KeyError as exc:
             msg = (
                 f"No parameter named '{param_name}' could be found. "
                 "Use doctor.get_param_names() to check all parameters."
             )
             raise ValueError(msg) from exc
-
 
         n = len(gradients)
 
@@ -961,13 +945,8 @@ class SkorchDoctor:
         for step, yval in enumerate(reversed(yvals)):
             bottom = y_scale * (n - step - 1)
             ax.fill_between(
-                bins[1:],
-                yval + bottom,
-                y2=bottom,
-                alpha=alpha,
-                color=color,
-                lw=lw,
-                **kwargs)
+                bins[1:], yval + bottom, y2=bottom, alpha=alpha, color=color, lw=lw, **kwargs
+            )
 
         ax.set_yticklabels([])
         ax.set_ylabel('step / gradient')

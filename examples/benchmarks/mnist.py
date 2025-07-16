@@ -28,18 +28,16 @@ import argparse
 import time
 
 import numpy as np
-from sklearn.datasets import fetch_openml
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import accuracy_score
-from sklearn.utils import shuffle
 import torch
+from sklearn.datasets import fetch_openml
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.utils import shuffle
 from torch import nn
 
-from skorch.utils import to_device
 from skorch import NeuralNetClassifier
 from skorch.callbacks import EpochScoring
-
+from skorch.utils import to_device
 
 BATCH_SIZE = 128
 LEARNING_RATE = 0.1
@@ -87,14 +85,14 @@ class ClassifierModule(nn.Module):
 
 
 def performance_skorch(
-        X_train,
-        X_test,
-        y_train,
-        y_test,
-        batch_size,
-        device,
-        lr,
-        max_epochs,
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    batch_size,
+    device,
+    lr,
+    max_epochs,
 ):
     torch.manual_seed(0)
     net = NeuralNetClassifier(
@@ -105,12 +103,15 @@ def performance_skorch(
         device=device,
         max_epochs=max_epochs,
         callbacks=[
-            ('tr_acc', EpochScoring(
-                'accuracy',
-                lower_is_better=False,
-                on_train=True,
-                name='train_acc',
-            )),
+            (
+                'tr_acc',
+                EpochScoring(
+                    'accuracy',
+                    lower_is_better=False,
+                    on_train=True,
+                    name='train_acc',
+                ),
+            ),
         ],
     )
     net.fit(X_train, y_train)
@@ -127,24 +128,22 @@ def report(losses, batch_sizes, y, y_proba, epoch, time, training=True):
     acc = accuracy_score(y, y_pred)
 
     template += "acc: {:.4f} | loss: {:.4f} | time: {:.2f}"
-    print(template.format(
-        'train' if training else 'valid', epoch + 1, acc, loss, time))
+    print(template.format('train' if training else 'valid', epoch + 1, acc, loss, time))
 
 
 def train_torch(
-        model,
-        X,
-        y,
-        batch_size,
-        device,
-        lr,
-        max_epochs,
+    model,
+    X,
+    y,
+    batch_size,
+    device,
+    lr,
+    max_epochs,
 ):
     model = to_device(model, device)
 
     idx_train, idx_valid = next(iter(StratifiedKFold(5).split(np.arange(len(X)), y)))
-    X_train, X_valid, y_train, y_valid = (
-        X[idx_train], X[idx_valid], y[idx_train], y[idx_valid])
+    X_train, X_valid, y_train, y_valid = (X[idx_train], X[idx_valid], y[idx_train], y[idx_valid])
     dataset_train = torch.utils.data.TensorDataset(
         torch.tensor(X_train),
         torch.tensor(y_train),
@@ -238,14 +237,14 @@ def valid_step(model, iterator, device, criterion, batch_size):
 
 
 def performance_torch(
-        X_train,
-        X_test,
-        y_train,
-        y_test,
-        batch_size,
-        device,
-        lr,
-        max_epochs,
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    batch_size,
+    device,
+    lr,
+    max_epochs,
 ):
     torch.manual_seed(0)
     model = ClassifierModule()
@@ -292,10 +291,8 @@ def main(device, num_samples):
     )
     time_torch = time.time() - tic
 
-    print("time skorch: {:.4f}, time torch: {:.4f}".format(
-        time_skorch, time_torch))
-    print("score skorch: {:.4f}, score torch: {:.4f}".format(
-        score_skorch, score_torch))
+    print("time skorch: {:.4f}, time torch: {:.4f}".format(time_skorch, time_torch))
+    print("score skorch: {:.4f}, score torch: {:.4f}".format(score_skorch, score_torch))
 
     assert np.isclose(score_skorch, score_torch, rtol=0.01), "Scores are not close enough."
     assert np.isclose(time_skorch, time_torch, rtol=0.3), "Times are not close enough."
@@ -303,9 +300,9 @@ def main(device, num_samples):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="skorch MNIST benchmark")
-    parser.add_argument('--device', type=str, default='cuda',
-                        help='device (e.g. "cuda", "cpu")')
-    parser.add_argument('--num_samples', type=int, default=20000,
-                        help='total number of samples to use')
+    parser.add_argument('--device', type=str, default='cuda', help='device (e.g. "cuda", "cpu")')
+    parser.add_argument(
+        '--num_samples', type=int, default=20000, help='total number of samples to use'
+    )
     args = parser.parse_args()
     main(device=args.device, num_samples=args.num_samples)

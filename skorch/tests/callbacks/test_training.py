@@ -1,18 +1,16 @@
 """Tests for callbacks in training.py"""
 
-from functools import partial
 import pickle
-from unittest.mock import Mock
-from unittest.mock import patch
-from unittest.mock import call
 from copy import deepcopy
+from functools import partial
+from unittest.mock import Mock, call, patch
 
 import numpy as np
 import pytest
-from sklearn.base import clone
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import log_loss
 import torch
+from sklearn.base import clone
+from sklearn.metrics import log_loss
+from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
 
 from skorch.helper import predefined_split
@@ -22,6 +20,7 @@ class TestCheckpoint:
     @pytest.fixture
     def checkpoint_cls(self):
         from skorch.callbacks import Checkpoint
+
         return Checkpoint
 
     @pytest.fixture
@@ -50,11 +49,7 @@ class TestCheckpoint:
             output_units=1,
         )
 
-        return partial(
-            NeuralNetRegressor,
-            module=module_cls,
-            max_epochs=10,
-            batch_size=10)
+        return partial(NeuralNetRegressor, module=module_cls, max_epochs=10, batch_size=10)
 
     @pytest.fixture(scope='module')
     def data(self):
@@ -82,77 +77,86 @@ class TestCheckpoint:
         with pytest.raises(ValueError, match=msg):
             checkpoint_cls(f_optimizer='optimizer.safetensors', use_safetensors=True)
 
-    def test_none_monitor_saves_always(
-            self, save_params_mock, net_cls, checkpoint_cls, data):
+    def test_none_monitor_saves_always(self, save_params_mock, net_cls, checkpoint_cls, data):
         sink = Mock()
-        net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None, sink=sink,
-                           event_name='event_another'),
-        ])
+        net = net_cls(
+            callbacks=[
+                checkpoint_cls(monitor=None, sink=sink, event_name='event_another'),
+            ]
+        )
         net.fit(*data)
 
         assert save_params_mock.call_count == 4 * len(net.history)
         assert sink.call_count == len(net.history)
         assert all((x is True) for x in net.history[:, 'event_another'])
 
-    @pytest.mark.parametrize('message,files', [
-        ('Unable to save module state to params.pt, '
-         'Exception: encoding error',
-         {
-             'f_params': 'params.pt',
-             'f_optimizer': None,
-             'f_criterion': None,
-             'f_history': None,
-         }),
-        ('Unable to save optimizer state to optimizer.pt, '
-         'Exception: encoding error',
-         {
-             'f_params': None,
-             'f_optimizer': 'optimizer.pt',
-             'f_criterion': None,
-             'f_history': None,
-         }),
-        ('Unable to save criterion state to criterion.pt, '
-         'Exception: encoding error',
-         {
-             'f_params': None,
-             'f_optimizer': None,
-             'f_criterion': 'criterion.pt',
-             'f_history': None,
-         }),
-        ('Unable to save history to history.json, '
-         'Exception: encoding error',
-         {
-             'f_params': None,
-             'f_optimizer': None,
-             'f_criterion': None,
-             'f_history': 'history.json',
-         }),
-    ])
+    @pytest.mark.parametrize(
+        'message,files',
+        [
+            (
+                'Unable to save module state to params.pt, ' 'Exception: encoding error',
+                {
+                    'f_params': 'params.pt',
+                    'f_optimizer': None,
+                    'f_criterion': None,
+                    'f_history': None,
+                },
+            ),
+            (
+                'Unable to save optimizer state to optimizer.pt, ' 'Exception: encoding error',
+                {
+                    'f_params': None,
+                    'f_optimizer': 'optimizer.pt',
+                    'f_criterion': None,
+                    'f_history': None,
+                },
+            ),
+            (
+                'Unable to save criterion state to criterion.pt, ' 'Exception: encoding error',
+                {
+                    'f_params': None,
+                    'f_optimizer': None,
+                    'f_criterion': 'criterion.pt',
+                    'f_history': None,
+                },
+            ),
+            (
+                'Unable to save history to history.json, ' 'Exception: encoding error',
+                {
+                    'f_params': None,
+                    'f_optimizer': None,
+                    'f_criterion': None,
+                    'f_history': 'history.json',
+                },
+            ),
+        ],
+    )
     def test_outputs_to_sink_when_save_params_errors(
-            self, save_params_mock, net_cls, checkpoint_cls, data,
-            message, files):
+        self, save_params_mock, net_cls, checkpoint_cls, data, message, files
+    ):
         sink = Mock()
         save_params_mock.side_effect = Exception('encoding error')
-        net = net_cls(callbacks=[
-            checkpoint_cls(monitor=None, sink=sink, **files)
-        ])
+        net = net_cls(callbacks=[checkpoint_cls(monitor=None, sink=sink, **files)])
         net.fit(*data)
 
         assert save_params_mock.call_count == len(net.history)
-        assert sink.call_count == 2*len(net.history)
+        assert sink.call_count == 2 * len(net.history)
         save_error_messages = [call(message)] * len(net.history)
         sink.assert_has_calls(save_error_messages, any_order=True)
 
-    @pytest.mark.parametrize('f_name, mode', [
-        ('f_params', 'w'),
-        ('f_optimizer', 'w'),
-        ('f_criterion', 'w'),
-        ('f_history', 'w'),
-        ('f_pickle', 'wb')
-    ])
+    @pytest.mark.parametrize(
+        'f_name, mode',
+        [
+            ('f_params', 'w'),
+            ('f_optimizer', 'w'),
+            ('f_criterion', 'w'),
+            ('f_history', 'w'),
+            ('f_pickle', 'wb'),
+        ],
+    )
     def test_init_with_dirname_and_file_like_object_error(
-            self, checkpoint_cls, tmpdir, f_name, mode):
+        self, checkpoint_cls, tmpdir, f_name, mode
+    ):
         from skorch.exceptions import SkorchException
 
         skorch_dir = tmpdir.mkdir("skorch")
@@ -165,15 +169,19 @@ class TestCheckpoint:
         expected = "dirname can only be used when f_* are strings"
         assert str(e.value) == expected
 
-    @pytest.mark.parametrize('f_name, mode', [
-        ('f_params', 'w'),
-        ('f_optimizer', 'w'),
-        ('f_criterion', 'w'),
-        ('f_history', 'w'),
-        ('f_pickle', 'wb')
-    ])
+    @pytest.mark.parametrize(
+        'f_name, mode',
+        [
+            ('f_params', 'w'),
+            ('f_optimizer', 'w'),
+            ('f_criterion', 'w'),
+            ('f_history', 'w'),
+            ('f_pickle', 'wb'),
+        ],
+    )
     def test_initialize_with_dirname_and_file_like_object_error(
-            self, checkpoint_cls, tmpdir, f_name, mode):
+        self, checkpoint_cls, tmpdir, f_name, mode
+    ):
         from skorch.exceptions import SkorchException
 
         skorch_dir = tmpdir.mkdir("skorch")
@@ -189,12 +197,13 @@ class TestCheckpoint:
         assert str(e.value) == expected
 
     def test_default_without_validation_raises_meaningful_error(
-            self, net_cls, checkpoint_cls, data):
+        self, net_cls, checkpoint_cls, data
+    ):
         net = net_cls(
             callbacks=[
                 checkpoint_cls(),
             ],
-            train_split=None
+            train_split=None,
         )
         from skorch.exceptions import SkorchException
 
@@ -206,14 +215,13 @@ class TestCheckpoint:
         with pytest.raises(SkorchException, match=msg_expected):
             net.fit(*data)
 
-    def test_string_monitor_and_formatting(
-            self, save_params_mock, net_cls, checkpoint_cls, data):
+    def test_string_monitor_and_formatting(self, save_params_mock, net_cls, checkpoint_cls, data):
         def epoch_3_scorer(net, *_):
             return 1 if net.history[-1, 'epoch'] == 3 else 0
 
         from skorch.callbacks import EpochScoring
-        scoring = EpochScoring(
-            scoring=epoch_3_scorer, on_train=True, lower_is_better=False)
+
+        scoring = EpochScoring(scoring=epoch_3_scorer, on_train=True, lower_is_better=False)
 
         sink = Mock()
         cb = checkpoint_cls(
@@ -221,10 +229,9 @@ class TestCheckpoint:
             f_params='model_{last_epoch[epoch]}_{net.max_epochs}.pt',
             f_optimizer='optimizer_{last_epoch[epoch]}_{net.max_epochs}.pt',
             f_criterion='criterion_{last_epoch[epoch]}_{net.max_epochs}.pt',
-            sink=sink)
-        net = net_cls(callbacks=[
-            ('my_score', scoring), cb
-        ])
+            sink=sink,
+        )
+        net = net_cls(callbacks=[('my_score', scoring), cb])
         net.fit(*data)
 
         assert save_params_mock.call_count == 8
@@ -233,7 +240,7 @@ class TestCheckpoint:
             'f_optimizer': 'optimizer_3_10.pt',
             'f_criterion': 'criterion_3_10.pt',
             'f_history': 'history.json',
-            'f_pickle': None
+            'f_pickle': None,
         }
         save_params_mock.assert_has_calls(
             [
@@ -257,8 +264,8 @@ class TestCheckpoint:
         assert [True, False, True] + [False] * 7 == net.history[:, 'event_cp']
 
     def test_save_all_targets(
-            self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data, use_safetensors):
+        self, save_params_mock, pickle_dump_mock, net_cls, checkpoint_cls, data, use_safetensors
+    ):
         kwargs = dict(
             monitor=None,
             f_params='params.pt',
@@ -282,7 +289,7 @@ class TestCheckpoint:
         assert pickle_dump_mock.call_count == len(net.history)
 
         kwargs = {'use_safetensors': use_safetensors}
-        calls_expected =             [
+        calls_expected = [
             call(f_module='params.pt', **kwargs),  # params is turned into module
             call(f_criterion='criterion.pt', **kwargs),
             call(f_history='history.json', **kwargs),
@@ -296,8 +303,8 @@ class TestCheckpoint:
         )
 
     def test_save_all_targets_with_prefix(
-            self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data, use_safetensors):
+        self, save_params_mock, pickle_dump_mock, net_cls, checkpoint_cls, data, use_safetensors
+    ):
 
         kwargs = dict(
             monitor=None,
@@ -338,8 +345,15 @@ class TestCheckpoint:
         )
 
     def test_save_all_targets_with_prefix_and_dirname(
-            self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data, tmpdir, use_safetensors):
+        self,
+        save_params_mock,
+        pickle_dump_mock,
+        net_cls,
+        checkpoint_cls,
+        data,
+        tmpdir,
+        use_safetensors,
+    ):
 
         skorch_dir = tmpdir.mkdir('skorch').join('exp1')
 
@@ -388,46 +402,49 @@ class TestCheckpoint:
         assert skorch_dir.exists()
 
     def test_save_no_targets(
-            self, save_params_mock, pickle_dump_mock,
-            net_cls, checkpoint_cls, data):
-        net = net_cls(callbacks=[
-            checkpoint_cls(
-                monitor=None,
-                f_params=None,
-                f_optimizer=None,
-                f_criterion=None,
-                f_history=None,
-                f_pickle=None,
-            ),
-        ])
+        self, save_params_mock, pickle_dump_mock, net_cls, checkpoint_cls, data
+    ):
+        net = net_cls(
+            callbacks=[
+                checkpoint_cls(
+                    monitor=None,
+                    f_params=None,
+                    f_optimizer=None,
+                    f_criterion=None,
+                    f_history=None,
+                    f_pickle=None,
+                ),
+            ]
+        )
         net.fit(*data)
 
         assert save_params_mock.call_count == 0
         assert pickle_dump_mock.call_count == 0
 
     def test_warnings_when_monitor_appears_in_history(
-            self, net_cls, checkpoint_cls, save_params_mock, data):
-        net = net_cls(
-            callbacks=[checkpoint_cls(monitor="valid_loss")],
-            max_epochs=1)
+        self, net_cls, checkpoint_cls, save_params_mock, data
+    ):
+        net = net_cls(callbacks=[checkpoint_cls(monitor="valid_loss")], max_epochs=1)
 
         exp_warn = (
             "Checkpoint monitor parameter is set to 'valid_loss' and the "
             "history contains 'valid_loss_best'. Perhaps you meant to set the "
-            "parameter to 'valid_loss_best'")
+            "parameter to 'valid_loss_best'"
+        )
 
         with pytest.warns(UserWarning, match=exp_warn):
             net.fit(*data)
         assert save_params_mock.call_count == 4
 
     def test_save_custom_module(
-            self, save_params_mock, module_cls, checkpoint_cls, data, use_safetensors
+        self, save_params_mock, module_cls, checkpoint_cls, data, use_safetensors
     ):
         # checkpointing custom modules works
         from skorch import NeuralNetRegressor
 
         class MyNet(NeuralNetRegressor):
             """Net with custom module"""
+
             def __init__(self, *args, mymodule=module_cls, **kwargs):
                 self.mymodule = mymodule
                 super().__init__(*args, **kwargs)
@@ -461,12 +478,18 @@ class TestCheckpoint:
     @pytest.fixture
     def load_params(self):
         import torch
+
         return torch.load
 
     @pytest.mark.parametrize('load_best_flag', [False, True])
     def test_automatically_load_checkpoint(
-            self, net_cls, checkpoint_cls, data, tmp_path,
-            load_params, load_best_flag,
+        self,
+        net_cls,
+        checkpoint_cls,
+        data,
+        tmp_path,
+        load_params,
+        load_best_flag,
     ):
         # checkpoint once at the beginning of training.
         # when restoring at the end of training, the parameters
@@ -501,35 +524,39 @@ class TestCheckpoint:
             assert params_cb != params_net
 
 
-
 class TestEarlyStopping:
 
     @pytest.fixture
     def early_stopping_cls(self):
         from skorch.callbacks import EarlyStopping
+
         return EarlyStopping
 
     @pytest.fixture
     def epoch_scoring_cls(self):
         from skorch.callbacks import EpochScoring
+
         return EpochScoring
 
     @pytest.fixture
     def net_clf_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
     def broken_classifier_module(self, classifier_module):
         """Return a classifier that does not improve over time."""
+
         class BrokenClassifier(classifier_module.func):
             def forward(self, x):
                 return super().forward(x) * 0 + 0.5
+
         return BrokenClassifier
 
     def test_typical_use_case_nonstop(
-            self, net_clf_cls, classifier_module, classifier_data,
-            early_stopping_cls):
+        self, net_clf_cls, classifier_module, classifier_data, early_stopping_cls
+    ):
         patience = 5
         max_epochs = 8
         early_stopping_cb = early_stopping_cls(patience=patience)
@@ -546,8 +573,8 @@ class TestEarlyStopping:
         assert len(net.history) == max_epochs
 
     def test_weights_restore(
-            self, net_clf_cls, classifier_module, classifier_data,
-            early_stopping_cls):
+        self, net_clf_cls, classifier_module, classifier_data, early_stopping_cls
+    ):
         patience = 3
         max_epochs = 20
         seed = 1
@@ -566,12 +593,9 @@ class TestEarlyStopping:
         )
 
         # Split dataset to have a fixed validation
-        X_tr, X_val, y_tr, y_val = train_test_split(
-            *classifier_data, random_state=seed)
-        tr_dataset = TensorDataset(
-            torch.as_tensor(X_tr).float(), torch.as_tensor(y_tr))
-        val_dataset = TensorDataset(
-            torch.as_tensor(X_val).float(), torch.as_tensor(y_val))
+        X_tr, X_val, y_tr, y_val = train_test_split(*classifier_data, random_state=seed)
+        tr_dataset = TensorDataset(torch.as_tensor(X_tr).float(), torch.as_tensor(y_tr))
+        val_dataset = TensorDataset(torch.as_tensor(X_val).float(), torch.as_tensor(y_val))
 
         # Fix the network once with early stoppping and fixed seed
         net1 = net_clf_cls(
@@ -590,8 +614,7 @@ class TestEarlyStopping:
         assert len(side_effect) == 2
 
         msg = side_effect[0]
-        expected_msg = ("Stopping since valid_acc has not improved in "
-                        "the last 3 epochs.")
+        expected_msg = "Stopping since valid_acc has not improved in " "the last 3 epochs."
         assert msg == expected_msg
 
         msg = side_effect[1]
@@ -615,10 +638,7 @@ class TestEarlyStopping:
         # Check that weights obtained match
         assert all(
             torch.equal(wi, wj)
-            for wi, wj in zip(
-                net2.module_.state_dict().values(),
-                es_weights.values()
-            )
+            for wi, wj in zip(net2.module_.state_dict().values(), es_weights.values())
         )
 
         # Check validation loss obtained match
@@ -634,8 +654,8 @@ class TestEarlyStopping:
         assert reloaded_net1.callbacks[0].best_model_weights_ is None
 
     def test_typical_use_case_stopping(
-            self, net_clf_cls, broken_classifier_module, classifier_data,
-            early_stopping_cls):
+        self, net_clf_cls, broken_classifier_module, classifier_data, early_stopping_cls
+    ):
         patience = 5
         max_epochs = 8
         side_effect = []
@@ -659,24 +679,26 @@ class TestEarlyStopping:
         # check correct output message
         assert len(side_effect) == 1
         msg = side_effect[0]
-        expected_msg = ("Stopping since valid_loss has not improved in "
-                        "the last 5 epochs.")
+        expected_msg = "Stopping since valid_loss has not improved in " "the last 5 epochs."
         assert msg == expected_msg
 
     def test_custom_scoring_nonstop(
-            self, net_clf_cls, classifier_module, classifier_data,
-            early_stopping_cls, epoch_scoring_cls,
+        self,
+        net_clf_cls,
+        classifier_module,
+        classifier_data,
+        early_stopping_cls,
+        epoch_scoring_cls,
     ):
         lower_is_better = False
         scoring_name = 'valid_roc_auc'
         patience = 5
         max_epochs = 8
         scoring_mock = Mock(side_effect=list(range(2, 10)))
-        scoring_cb = epoch_scoring_cls(
-            scoring_mock, lower_is_better, name=scoring_name)
+        scoring_cb = epoch_scoring_cls(scoring_mock, lower_is_better, name=scoring_name)
         early_stopping_cb = early_stopping_cls(
-            patience=patience, lower_is_better=lower_is_better,
-            monitor=scoring_name)
+            patience=patience, lower_is_better=lower_is_better, monitor=scoring_name
+        )
 
         net = net_clf_cls(
             classifier_module,
@@ -691,18 +713,21 @@ class TestEarlyStopping:
         assert len(net.history) == max_epochs
 
     def test_custom_scoring_stop(
-            self, net_clf_cls, broken_classifier_module, classifier_data,
-            early_stopping_cls, epoch_scoring_cls,
+        self,
+        net_clf_cls,
+        broken_classifier_module,
+        classifier_data,
+        early_stopping_cls,
+        epoch_scoring_cls,
     ):
         lower_is_better = False
         scoring_name = 'valid_roc_auc'
         patience = 5
         max_epochs = 8
-        scoring_cb = epoch_scoring_cls(
-            'roc_auc', lower_is_better, name=scoring_name)
+        scoring_cb = epoch_scoring_cls('roc_auc', lower_is_better, name=scoring_name)
         early_stopping_cb = early_stopping_cls(
-            patience=patience, lower_is_better=lower_is_better,
-            monitor=scoring_name)
+            patience=patience, lower_is_better=lower_is_better, monitor=scoring_name
+        )
 
         net = net_clf_cls(
             broken_classifier_module,
@@ -717,13 +742,13 @@ class TestEarlyStopping:
         assert len(net.history) < max_epochs
 
     def test_stopping_big_absolute_threshold(
-            self, net_clf_cls, classifier_module, classifier_data,
-            early_stopping_cls):
+        self, net_clf_cls, classifier_module, classifier_data, early_stopping_cls
+    ):
         patience = 5
         max_epochs = 8
-        early_stopping_cb = early_stopping_cls(patience=patience,
-                                               threshold_mode='abs',
-                                               threshold=0.1)
+        early_stopping_cb = early_stopping_cls(
+            patience=patience, threshold_mode='abs', threshold=0.1
+        )
 
         net = net_clf_cls(
             classifier_module,
@@ -737,12 +762,11 @@ class TestEarlyStopping:
         assert len(net.history) == patience + 1 < max_epochs
 
     def test_wrong_threshold_mode(
-            self, net_clf_cls, classifier_module, classifier_data,
-            early_stopping_cls):
+        self, net_clf_cls, classifier_module, classifier_data, early_stopping_cls
+    ):
         patience = 5
         max_epochs = 8
-        early_stopping_cb = early_stopping_cls(
-            patience=patience, threshold_mode='incorrect')
+        early_stopping_cb = early_stopping_cls(patience=patience, threshold_mode='incorrect')
         net = net_clf_cls(
             classifier_module,
             callbacks=[
@@ -758,51 +782,58 @@ class TestEarlyStopping:
         assert exc.value.args[0] == expected_msg
 
 
-
 class TestParamMapper:
 
     @pytest.fixture
     def initializer(self):
         from skorch.callbacks import Initializer
+
         return Initializer
 
     @pytest.fixture
     def freezer(self):
         from skorch.callbacks import Freezer
+
         return Freezer
 
     @pytest.fixture
     def unfreezer(self):
         from skorch.callbacks import Unfreezer
+
         return Unfreezer
 
     @pytest.fixture
     def param_mapper(self):
         from skorch.callbacks import ParamMapper
+
         return ParamMapper
 
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.mark.parametrize('at', [0, -1])
-    def test_subzero_at_fails(self, net_cls, classifier_module,
-                              param_mapper, at):
+    def test_subzero_at_fails(self, net_cls, classifier_module, param_mapper, at):
         cb = param_mapper(patterns='*', at=at)
         net = net_cls(classifier_module, callbacks=[cb])
         with pytest.raises(ValueError):
             net.initialize()
 
     @pytest.mark.parametrize('mod_init', [False, True])
-    @pytest.mark.parametrize('weight_pattern', [
-        'sequential.*.weight',
-        lambda name: name.startswith('sequential') and name.endswith('.weight'),
-    ])
-    def test_initialization_is_effective(self, net_cls, classifier_module,
-                                         classifier_data, initializer,
-                                         mod_init, weight_pattern):
+    @pytest.mark.parametrize(
+        'weight_pattern',
+        [
+            'sequential.*.weight',
+            lambda name: name.startswith('sequential') and name.endswith('.weight'),
+        ],
+    )
+    def test_initialization_is_effective(
+        self, net_cls, classifier_module, classifier_data, initializer, mod_init, weight_pattern
+    ):
         from torch.nn.init import constant_
+
         from skorch.utils import to_numpy
 
         module = classifier_module() if mod_init else classifier_module
@@ -814,7 +845,8 @@ class TestParamMapper:
             callbacks=[
                 initializer(weight_pattern, partial(constant_, val=5)),
                 initializer('sequential.3.bias', partial(constant_, val=10)),
-            ])
+            ],
+        )
 
         net.fit(*classifier_data)
 
@@ -823,16 +855,19 @@ class TestParamMapper:
         assert np.allclose(to_numpy(net.module_.sequential[3].bias), 10)
 
     @pytest.mark.parametrize('mod_init', [False, True])
-    @pytest.mark.parametrize('mod_kwargs', [
-        {},
-        # Supply a module__ parameter so the model is forced
-        # to re-initialize. Even then parameters should be
-        # frozen correctly.
-        {'module__hidden_units': 5},
-    ])
-    def test_freezing_is_effective(self, net_cls, classifier_module,
-                                   classifier_data, freezer, mod_init,
-                                   mod_kwargs):
+    @pytest.mark.parametrize(
+        'mod_kwargs',
+        [
+            {},
+            # Supply a module__ parameter so the model is forced
+            # to re-initialize. Even then parameters should be
+            # frozen correctly.
+            {'module__hidden_units': 5},
+        ],
+    )
+    def test_freezing_is_effective(
+        self, net_cls, classifier_module, classifier_data, freezer, mod_init, mod_kwargs
+    ):
         from skorch.utils import to_numpy
 
         module = classifier_module() if mod_init else classifier_module
@@ -844,7 +879,8 @@ class TestParamMapper:
                 freezer('sequential.*.weight'),
                 freezer('sequential.3.bias'),
             ],
-            **mod_kwargs)
+            **mod_kwargs,
+        )
 
         net.initialize()
 
@@ -876,8 +912,9 @@ class TestParamMapper:
         assert not np.allclose(dense0_bias_pre, dense0_bias_post)
         assert np.allclose(dense1_bias_pre, dense1_bias_post)
 
-    def test_unfreezing_is_effective(self, net_cls, classifier_module,
-                                     classifier_data, freezer, unfreezer):
+    def test_unfreezing_is_effective(
+        self, net_cls, classifier_module, classifier_data, freezer, unfreezer
+    ):
         from skorch.utils import to_numpy
 
         net = net_cls(
@@ -888,7 +925,8 @@ class TestParamMapper:
                 freezer('sequential.3.bias'),
                 unfreezer('sequential.*.weight', at=2),
                 unfreezer('sequential.3.bias', at=2),
-            ])
+            ],
+        )
 
         net.initialize()
 
@@ -926,11 +964,10 @@ class TestParamMapper:
         assert not np.allclose(dense0_bias_pre, dense0_bias_post)
         assert not np.allclose(dense1_bias_pre, dense1_bias_post)
 
-
-    def test_schedule_is_effective(self, net_cls, classifier_module,
-                                   classifier_data, param_mapper):
-        from skorch.utils import to_numpy, noop
-        from skorch.utils import freeze_parameter, unfreeze_parameter
+    def test_schedule_is_effective(
+        self, net_cls, classifier_module, classifier_data, param_mapper
+    ):
+        from skorch.utils import freeze_parameter, noop, to_numpy, unfreeze_parameter
 
         def schedule(net):
             if len(net.history) == 1:
@@ -947,7 +984,8 @@ class TestParamMapper:
                     ['sequential.*.weight', 'sequential.3.bias'],
                     schedule=schedule,
                 ),
-            ])
+            ],
+        )
 
         net.initialize()
 
@@ -994,11 +1032,13 @@ class TestLoadInitState:
     @pytest.fixture
     def checkpoint_cls(self):
         from skorch.callbacks import Checkpoint
+
         return Checkpoint
 
     @pytest.fixture
     def loadinitstate_cls(self):
         from skorch.callbacks import LoadInitState
+
         return LoadInitState
 
     @pytest.fixture
@@ -1013,11 +1053,7 @@ class TestLoadInitState:
             output_units=1,
         )
 
-        return partial(
-            NeuralNetRegressor,
-            module=module_cls,
-            max_epochs=10,
-            batch_size=10)
+        return partial(NeuralNetRegressor, module=module_cls, max_epochs=10, batch_size=10)
 
     @pytest.fixture(scope='module')
     def data(self):
@@ -1027,8 +1063,8 @@ class TestLoadInitState:
         return X, y
 
     def test_load_initial_state(
-            self, checkpoint_cls, net_cls, loadinitstate_cls,
-            data, tmpdir, use_safetensors):
+        self, checkpoint_cls, net_cls, loadinitstate_cls, data, tmpdir, use_safetensors
+    ):
         skorch_dir = tmpdir.mkdir('skorch')
         f_params = skorch_dir.join('params.pt')
         f_optimizer = skorch_dir.join('optimizer.pt')
@@ -1067,24 +1103,20 @@ class TestLoadInitState:
         assert len(new_net.history) == 20
 
     def test_load_initial_state_custom_scoring(
-            self, checkpoint_cls, net_cls, loadinitstate_cls,
-            data, tmpdir, use_safetensors):
+        self, checkpoint_cls, net_cls, loadinitstate_cls, data, tmpdir, use_safetensors
+    ):
         def epoch_3_scorer(net, *_):
             return 1 if net.history[-1, 'epoch'] == 3 else 0
 
         from skorch.callbacks import EpochScoring
-        scoring = EpochScoring(
-            scoring=epoch_3_scorer, on_train=True, lower_is_better=False)
+
+        scoring = EpochScoring(scoring=epoch_3_scorer, on_train=True, lower_is_better=False)
 
         skorch_dir = tmpdir.mkdir('skorch')
-        f_params = skorch_dir.join(
-            'model_epoch_{last_epoch[epoch]}.pt')
-        f_optimizer = skorch_dir.join(
-            'optimizer_epoch_{last_epoch[epoch]}.pt')
-        f_criterion = skorch_dir.join(
-            'criterion_epoch_{last_epoch[epoch]}.pt')
-        f_history = skorch_dir.join(
-            'history.json')
+        f_params = skorch_dir.join('model_epoch_{last_epoch[epoch]}.pt')
+        f_optimizer = skorch_dir.join('optimizer_epoch_{last_epoch[epoch]}.pt')
+        f_criterion = skorch_dir.join('criterion_epoch_{last_epoch[epoch]}.pt')
+        f_history = skorch_dir.join('history.json')
 
         kwargs = dict(
             monitor='epoch_3_scorer_best',
@@ -1121,8 +1153,7 @@ class TestLoadInitState:
         # the second run went through 10 epochs, thus
         # 3 + 10 = 13
         assert len(new_net.history) == 13
-        assert new_net.history[:, 'event_cp'] == [
-            True, False, True] + [False] * 10
+        assert new_net.history[:, 'event_cp'] == [True, False, True] + [False] * 10
 
 
 class TestTrainEndCheckpoint:
@@ -1133,6 +1164,7 @@ class TestTrainEndCheckpoint:
     @pytest.fixture
     def trainendcheckpoint_cls(self):
         from skorch.callbacks import TrainEndCheckpoint
+
         return TrainEndCheckpoint
 
     @pytest.fixture
@@ -1152,11 +1184,7 @@ class TestTrainEndCheckpoint:
             output_units=1,
         )
 
-        return partial(
-            NeuralNetRegressor,
-            module=module_cls,
-            max_epochs=10,
-            batch_size=10)
+        return partial(NeuralNetRegressor, module=module_cls, max_epochs=10, batch_size=10)
 
     @pytest.fixture(scope='module')
     def data(self):
@@ -1167,16 +1195,14 @@ class TestTrainEndCheckpoint:
 
     def test_init_with_wrong_kwarg_name_raises(self, trainendcheckpoint_cls):
         trainendcheckpoint_cls(f_foobar='foobar.pt').initialize()  # works
-        msg = ("TrainEndCheckpoint got an unexpected argument 'foobar', "
-               "did you mean 'f_foobar'?")
+        msg = "TrainEndCheckpoint got an unexpected argument 'foobar', " "did you mean 'f_foobar'?"
         with pytest.raises(TypeError, match=msg):
             trainendcheckpoint_cls(foobar='foobar.pt').initialize()
 
     def test_init_with_f_params_and_f_module_raises(self, trainendcheckpoint_cls):
         msg = "Checkpoint called with both f_params and f_module, please choose one"
         with pytest.raises(TypeError, match=msg):
-            trainendcheckpoint_cls(
-                f_module='weights.pt', f_params='params.pt').initialize()
+            trainendcheckpoint_cls(f_module='weights.pt', f_params='params.pt').initialize()
 
     def test_init_with_f_optimizer_and_safetensors_raises(self, trainendcheckpoint_cls):
         msg = (
@@ -1184,17 +1210,15 @@ class TestTrainEndCheckpoint:
             "please set f_optimizer=None or don't use safetensors."
         )
         with pytest.raises(ValueError, match=msg):
-            trainendcheckpoint_cls(
-                f_optimizer='optimizer.safetensors', use_safetensors=True
-            )
+            trainendcheckpoint_cls(f_optimizer='optimizer.safetensors', use_safetensors=True)
 
     def test_saves_at_end(
-            self,
-            save_params_mock,
-            net_cls,
-            trainendcheckpoint_cls,
-            data,
-            use_safetensors,
+        self,
+        save_params_mock,
+        net_cls,
+        trainendcheckpoint_cls,
+        data,
+        use_safetensors,
     ):
         sink = Mock()
         kwargs = dict(
@@ -1224,21 +1248,19 @@ class TestTrainEndCheckpoint:
             call(f_history='exp1/train_end_history.json', **kwargs),
         ]
         if not use_safetensors:
-            calls_expected.append(
-                call(f_optimizer='exp1/train_end_optimizer.pt', **kwargs)
-            )
+            calls_expected.append(call(f_optimizer='exp1/train_end_optimizer.pt', **kwargs))
         save_params_mock.assert_has_calls(
             calls_expected,
             any_order=True,
         )
 
     def test_saves_at_end_with_custom_formatting(
-            self,
-            save_params_mock,
-            net_cls,
-            trainendcheckpoint_cls,
-            data,
-            use_safetensors,
+        self,
+        save_params_mock,
+        net_cls,
+        trainendcheckpoint_cls,
+        data,
+        use_safetensors,
     ):
         sink = Mock()
         kwargs = dict(
@@ -1265,7 +1287,7 @@ class TestTrainEndCheckpoint:
 
         kwargs = {'use_safetensors': use_safetensors}
         calls_expected = [
-                # params is turned into module
+            # params is turned into module
             call(f_module='exp1/train_end_model_10.pt', **kwargs),
             call(f_criterion='exp1/train_end_criterion_10.pt', **kwargs),
             call(f_history='exp1/train_end_history.json', **kwargs),
@@ -1287,8 +1309,9 @@ class TestTrainEndCheckpoint:
     def test_train_end_with_load_init(self, trainendcheckpoint_cls, net_cls, data):
         # test for https://github.com/skorch-dev/skorch/issues/528
         # Check that the initial state is indeed loaded from the checkpoint.
-        from skorch.callbacks import LoadInitState
         from sklearn.metrics import mean_squared_error
+
+        from skorch.callbacks import LoadInitState
 
         X, y = data
         cp = trainendcheckpoint_cls()
@@ -1309,18 +1332,19 @@ class TestTrainEndCheckpoint:
         assert np.isclose(score_loaded, score_after)
 
     def test_save_custom_module(
-            self,
-            save_params_mock,
-            module_cls,
-            trainendcheckpoint_cls,
-            data,
-            use_safetensors,
+        self,
+        save_params_mock,
+        module_cls,
+        trainendcheckpoint_cls,
+        data,
+        use_safetensors,
     ):
         # checkpointing custom modules works
         from skorch import NeuralNetRegressor
 
         class MyNet(NeuralNetRegressor):
             """Net with custom module"""
+
             def __init__(self, *args, mymodule=module_cls, **kwargs):
                 self.mymodule = mymodule
                 super().__init__(*args, **kwargs)
@@ -1346,9 +1370,7 @@ class TestTrainEndCheckpoint:
 
         kwargs = {'use_safetensors': use_safetensors}
         assert save_params_mock.call_count == 1
-        save_params_mock.assert_has_calls(
-            [call(f_mymodule='train_end_mymodule.pt', **kwargs)]
-        )
+        save_params_mock.assert_has_calls([call(f_mymodule='train_end_mymodule.pt', **kwargs)])
 
     def test_pickle_uninitialized_callback(self, trainendcheckpoint_cls):
         # isuue 773
@@ -1375,6 +1397,7 @@ class TestInputShapeSetter:
             def __init__(self, input_dim=3):
                 super().__init__()
                 self.layer = torch.nn.Linear(input_dim, 2)
+
             def forward(self, X):
                 return self.layer(X)
 
@@ -1383,15 +1406,18 @@ class TestInputShapeSetter:
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
     def input_shape_setter_cls(self):
         from skorch.callbacks import InputShapeSetter
+
         return InputShapeSetter
 
     def generate_data(self, n_input):
         from sklearn.datasets import make_classification
+
         X, y = make_classification(
             1000,
             n_input,
@@ -1410,11 +1436,19 @@ class TestInputShapeSetter:
         return self.generate_data(n_input=request.param)
 
     def test_shape_set(
-        self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
+        self,
+        net_cls,
+        module_cls,
+        input_shape_setter_cls,
+        data_parametrized,
     ):
-        net = net_cls(module_cls, max_epochs=2, callbacks=[
-            input_shape_setter_cls(),
-        ])
+        net = net_cls(
+            module_cls,
+            max_epochs=2,
+            callbacks=[
+                input_shape_setter_cls(),
+            ],
+        )
 
         X, y = data_parametrized
         n_input = X.shape[1]
@@ -1423,11 +1457,18 @@ class TestInputShapeSetter:
         assert net.module_.layer.in_features == n_input
 
     def test_one_dimensional_x_raises(
-        self, net_cls, module_cls, input_shape_setter_cls,
+        self,
+        net_cls,
+        module_cls,
+        input_shape_setter_cls,
     ):
-        net = net_cls(module_cls, max_epochs=2, callbacks=[
-            input_shape_setter_cls(),
-        ])
+        net = net_cls(
+            module_cls,
+            max_epochs=2,
+            callbacks=[
+                input_shape_setter_cls(),
+            ],
+        )
 
         X, y = np.zeros(10), np.zeros(10)
 
@@ -1438,10 +1479,14 @@ class TestInputShapeSetter:
             "Expected at least two-dimensional input data for X. "
             "If your data is one-dimensional, please use the `input_dim_fn` "
             "parameter to infer the correct input shape."
-            ) in str(e)
+        ) in str(e)
 
     def test_shape_set_using_fn(
-        self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
+        self,
+        net_cls,
+        module_cls,
+        input_shape_setter_cls,
+        data_parametrized,
     ):
         fn_calls = 0
 
@@ -1450,9 +1495,13 @@ class TestInputShapeSetter:
             fn_calls += 1
             return X.shape[1]
 
-        net = net_cls(module_cls, max_epochs=2, callbacks=[
-            input_shape_setter_cls(input_dim_fn=input_dim_fn),
-        ])
+        net = net_cls(
+            module_cls,
+            max_epochs=2,
+            callbacks=[
+                input_shape_setter_cls(input_dim_fn=input_dim_fn),
+            ],
+        )
 
         X, y = data_parametrized
         n_input = X.shape[1]
@@ -1462,18 +1511,26 @@ class TestInputShapeSetter:
         assert fn_calls == 1
 
     def test_parameter_name(
-        self, net_cls, input_shape_setter_cls, data_parametrized,
+        self,
+        net_cls,
+        input_shape_setter_cls,
+        data_parametrized,
     ):
         class MyModule(torch.nn.Module):
             def __init__(self, other_input_dim=22):
                 super().__init__()
                 self.layer = torch.nn.Linear(other_input_dim, 2)
+
             def forward(self, X):
                 return self.layer(X)
 
-        net = net_cls(MyModule, max_epochs=2, callbacks=[
-            input_shape_setter_cls(param_name='other_input_dim'),
-        ])
+        net = net_cls(
+            MyModule,
+            max_epochs=2,
+            callbacks=[
+                input_shape_setter_cls(param_name='other_input_dim'),
+            ],
+        )
 
         X, y = data_parametrized
         n_input = X.shape[1]
@@ -1482,7 +1539,11 @@ class TestInputShapeSetter:
         assert net.module_.layer.in_features == n_input
 
     def test_module_name(
-        self, net_cls, module_cls, input_shape_setter_cls, data_parametrized,
+        self,
+        net_cls,
+        module_cls,
+        input_shape_setter_cls,
+        data_parametrized,
     ):
         class MyNet(net_cls):
             def initialize_module(self):
@@ -1509,13 +1570,21 @@ class TestInputShapeSetter:
         assert net.module2_.layer.in_features == n_input
 
     def test_no_module_reinit_when_already_correct(
-        self, net_cls, module_cls, input_shape_setter_cls, data_fixed,
+        self,
+        net_cls,
+        module_cls,
+        input_shape_setter_cls,
+        data_fixed,
     ):
-        with patch('skorch.classifier.NeuralNetClassifier.initialize_module',
-                   side_effect=net_cls.initialize_module, autospec=True):
+        with patch(
+            'skorch.classifier.NeuralNetClassifier.initialize_module',
+            side_effect=net_cls.initialize_module,
+            autospec=True,
+        ):
             net = net_cls(
-                module_cls, max_epochs=2, callbacks=[input_shape_setter_cls()],
-
+                module_cls,
+                max_epochs=2,
+                callbacks=[input_shape_setter_cls()],
                 # set the input dim to the correct shape beforehand
                 module__input_dim=data_fixed[0].shape[-1],
             )
@@ -1527,12 +1596,21 @@ class TestInputShapeSetter:
             assert net.initialize_module.call_count == 1
 
     def test_no_module_reinit_partial_fit(
-        self, net_cls, module_cls, input_shape_setter_cls, data_fixed,
+        self,
+        net_cls,
+        module_cls,
+        input_shape_setter_cls,
+        data_fixed,
     ):
-        with patch('skorch.classifier.NeuralNetClassifier.initialize_module',
-                   side_effect=net_cls.initialize_module, autospec=True):
+        with patch(
+            'skorch.classifier.NeuralNetClassifier.initialize_module',
+            side_effect=net_cls.initialize_module,
+            autospec=True,
+        ):
             net = net_cls(
-                module_cls, max_epochs=2, callbacks=[input_shape_setter_cls()],
+                module_cls,
+                max_epochs=2,
+                callbacks=[input_shape_setter_cls()],
             )
 
             net.fit(*data_fixed)

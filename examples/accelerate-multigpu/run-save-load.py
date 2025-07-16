@@ -18,7 +18,6 @@ from skorch import NeuralNetClassifier
 from skorch.hf import AccelerateMixin
 from skorch.history import DistributedHistory
 
-
 PORT = 8080
 
 
@@ -46,10 +45,8 @@ def get_accelerate_model(accelerator):
     is_master = accelerator.is_main_process
     world_size = accelerator.num_processes
     rank = accelerator.local_process_index
-    store = TCPStore(
-        "127.0.0.1", port=PORT, world_size=world_size, is_master=is_master)
-    dist_history = DistributedHistory(
-        store=store, rank=rank, world_size=world_size)
+    store = TCPStore("127.0.0.1", port=PORT, world_size=world_size, is_master=is_master)
+    dist_history = DistributedHistory(store=store, rank=rank, world_size=world_size)
 
     return AcceleratedNeuralNetClassifier(
         MyModule,

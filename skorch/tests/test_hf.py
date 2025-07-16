@@ -20,12 +20,12 @@ from sklearn.metrics import accuracy_score
 from skorch import NeuralNetClassifier
 from skorch.hf import AccelerateMixin
 
-
 SPECIAL_TOKENS = ["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"]
 
 
 def text_similarity(text1, text2):
     """Very simple text similarity function"""
+
     def process(text):
         text = text.replace(' ', '').replace('##', '').lower().strip()
         return text
@@ -61,6 +61,7 @@ class _HuggingfaceTokenizersBaseTest:
     tokenizers. Instead, implement these tests on the subclass if necessary.
 
     """
+
     @pytest.fixture(scope='module')
     def data(self):
         return [
@@ -205,15 +206,13 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
     passed
 
     """
-    from tokenizers import Tokenizer
-    from tokenizers.models import BPE, WordLevel, WordPiece, Unigram
-    from tokenizers import normalizers
-    from tokenizers import pre_tokenizers
-    from tokenizers.normalizers import Lowercase, NFD, StripAccents
+
+    from tokenizers import Tokenizer, normalizers, pre_tokenizers
+    from tokenizers.models import BPE, Unigram, WordLevel, WordPiece
+    from tokenizers.normalizers import NFD, Lowercase, StripAccents
     from tokenizers.pre_tokenizers import CharDelimiterSplit, Digits, Whitespace
     from tokenizers.processors import ByteLevel, TemplateProcessing
-    from tokenizers.trainers import BpeTrainer, UnigramTrainer
-    from tokenizers.trainers import WordPieceTrainer, WordLevelTrainer
+    from tokenizers.trainers import BpeTrainer, UnigramTrainer, WordLevelTrainer, WordPieceTrainer
 
     # Test one of the main tokenizer types: BPE, WordLevel, WordPiece, Unigram.
     # Individual settings like vocab size or choice of pre_tokenizer may not
@@ -316,15 +315,13 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
 
 class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
     """Test with initialized instances of tokenizer etc. being passed"""
-    from tokenizers import Tokenizer
-    from tokenizers.models import BPE, WordLevel, WordPiece, Unigram
-    from tokenizers import normalizers
-    from tokenizers import pre_tokenizers
-    from tokenizers.normalizers import Lowercase, NFD, StripAccents
+
+    from tokenizers import Tokenizer, normalizers, pre_tokenizers
+    from tokenizers.models import BPE, Unigram, WordLevel, WordPiece
+    from tokenizers.normalizers import NFD, Lowercase, StripAccents
     from tokenizers.pre_tokenizers import Digits, Whitespace
     from tokenizers.processors import ByteLevel, TemplateProcessing
-    from tokenizers.trainers import BpeTrainer, UnigramTrainer
-    from tokenizers.trainers import WordPieceTrainer, WordLevelTrainer
+    from tokenizers.trainers import BpeTrainer, UnigramTrainer, WordLevelTrainer, WordPieceTrainer
 
     # Test one of the main tokenizer types: BPE, WordLevel, WordPiece, Unigram.
     # Individual settings like vocab size or choice of pre_tokenizer may not
@@ -436,6 +433,7 @@ class TestHuggingfacePretrainedTokenizer(_HuggingfaceTokenizersBaseTest):
     @pytest.fixture(scope='module', params=['as string', 'as instance'])
     def tokenizer(self, request, data):
         from transformers import AutoTokenizer
+
         from skorch.hf import HuggingfacePretrainedTokenizer
 
         if request.param == 'as string':
@@ -448,12 +446,11 @@ class TestHuggingfacePretrainedTokenizer(_HuggingfaceTokenizersBaseTest):
         # Raise an error when user sets vocab_size but has train=False, since it
         # doesn't do anything.
         from transformers import AutoTokenizer
+
         from skorch.hf import HuggingfacePretrainedTokenizer
 
         tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
-        hf_tokenizer = HuggingfacePretrainedTokenizer(
-            tokenizer, train=False, vocab_size=123
-        )
+        hf_tokenizer = HuggingfacePretrainedTokenizer(tokenizer, train=False, vocab_size=123)
 
         msg = "Setting vocab_size has no effect if train=False"
         with pytest.raises(ValueError, match=msg):
@@ -470,6 +467,7 @@ class TestHuggingfacePretrainedTokenizerWithFit(_HuggingfaceTokenizersBaseTest):
     def tokenizer(self, request, data):
         # pylint: disable=missing-function-docstring
         from transformers import AutoTokenizer
+
         from skorch.hf import HuggingfacePretrainedTokenizer
 
         kwargs = {'train': True, 'vocab_size': self.vocab_size}
@@ -495,6 +493,7 @@ class TestHuggingfacePretrainedTokenizerWithFit(_HuggingfaceTokenizersBaseTest):
         # vocab size is considerably greater than the one seen when we set
         # vocab_size explictly.
         from transformers import AutoTokenizer
+
         from skorch.hf import HuggingfacePretrainedTokenizer
 
         tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
@@ -564,24 +563,23 @@ class TestAccelerate:
         net.fit(X, y)  # does not raise
         assert np.isfinite(net.history[:, "train_loss"]).all()
 
-    @pytest.mark.parametrize('mixed_precision', [
-        'no',  # no acceleration works because forward is left the same
-        'fp16',
-        pytest.param('bf16', marks=pytest.mark.xfail(raises=pickle.PicklingError)),
-    ])
-    def test_mixed_precision_pickling(
-            self, net_cls, accelerator_cls, data, mixed_precision
-    ):
+    @pytest.mark.parametrize(
+        'mixed_precision',
+        [
+            'no',  # no acceleration works because forward is left the same
+            'fp16',
+            pytest.param('bf16', marks=pytest.mark.xfail(raises=pickle.PicklingError)),
+        ],
+    )
+    def test_mixed_precision_pickling(self, net_cls, accelerator_cls, data, mixed_precision):
         import accelerate
+
         from skorch._version import Version
 
         # https://github.com/huggingface/accelerate/issues/805
         version_accelerate = Version(accelerate.__version__)
         version_torch = Version(torch.__version__)
-        if (
-                (version_accelerate <= Version('0.13.2'))
-                and (version_torch >= Version('1.13.0'))
-        ):
+        if (version_accelerate <= Version('0.13.2')) and (version_torch >= Version('1.13.0')):
             reason = "skip because of a bug with accelerate <= 0.13.2 and torch >= 1.13"
             pytest.skip(msg=reason)
 
@@ -616,6 +614,7 @@ class TestAccelerate:
 
         class MyNet(AcceleratedNet):
             """Net with two different modules"""
+
             def initialize_module(self):
                 super().initialize_module()
                 self.module2_ = module_cls()
@@ -660,14 +659,14 @@ class TestAccelerate:
         ids=["initial wrapped", "initial not wrapped"],
     )
     def test_save_load_params(
-            self,
-            net_cls,
-            module_cls,
-            accelerator_cls,
-            data,
-            wrap_initial_model,
-            wrap_loaded_model,
-            tmpdir,
+        self,
+        net_cls,
+        module_cls,
+        accelerator_cls,
+        data,
+        wrap_initial_model,
+        wrap_loaded_model,
+        tmpdir,
     ):
         # There were a few issue with saving and loading parameters for an
         # accelerated net in a multi-GPU setting.
@@ -725,7 +724,7 @@ class TestAccelerate:
 
     @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
     def test_mixed_precision_save_load_params(
-            self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
+        self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
     ):
         from accelerate.utils import is_bf16_available
 
@@ -744,7 +743,7 @@ class TestAccelerate:
 
     @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
     def test_mixed_precision_inference(
-            self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
+        self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
     ):
         from accelerate.utils import is_bf16_available
 
@@ -794,9 +793,7 @@ class TestAccelerate:
         print_log = dict(net.callbacks_)['print_log']
         assert print_log.sink == 123
 
-    def test_print_log_sink_uses_print_if_accelerator_has_no_print(
-            self, net_cls, accelerator_cls
-    ):
+    def test_print_log_sink_uses_print_if_accelerator_has_no_print(self, net_cls, accelerator_cls):
         # we should not depend on the accelerator having a print function
 
         # we need to use Mock here because Accelerator does not allow attr
@@ -878,8 +875,7 @@ class TestAccelerate:
             def initialize_optimizer(self, *args, **kwargs):
                 super().initialize_optimizer(*args, **kwargs)
                 named_parameters = self.module2_.named_parameters()
-                args, kwargs = self.get_params_for_optimizer(
-                    'optimizer', named_parameters)
+                args, kwargs = self.get_params_for_optimizer('optimizer', named_parameters)
                 # pylint: disable=attribute-defined-outside-init
                 self.optimizer2_ = self.optimizer(*args, **kwargs)
                 return self
@@ -930,9 +926,7 @@ class TestAccelerate:
         net.fit(X, y)
         net.predict(X)
 
-    def test_gradient_accumulation_with_accelerate(
-            self, module_cls, accelerator_cls, data
-    ):
+    def test_gradient_accumulation_with_accelerate(self, module_cls, accelerator_cls, data):
         # Check that using gradient accumulation provided by accelerate actually
         # works. Testing this is not quite trivial. E.g. we cannot check haven
         # often optimizer.step() is called because accelerate still calls it on
@@ -981,7 +975,7 @@ class TestAccelerate:
     @pytest.mark.parametrize('mixed_precision', ['no', 'fp16', 'bf16'])
     @pytest.mark.parametrize('scheduler', ['ReduceLROnPlateau', 'StepLR'])
     def test_lr_scheduler_with_accelerate(
-            self, net_cls, accelerator_cls, data, mixed_precision, scheduler
+        self, net_cls, accelerator_cls, data, mixed_precision, scheduler
     ):
         # This test only checks that lr schedulers work with accelerate mixed
         # precision. The reason why this requires special handling is explained
@@ -991,6 +985,7 @@ class TestAccelerate:
         # or not, as that would require knowledge of accelerate internals, which
         # we don't want to rely on.
         from accelerate.utils import is_bf16_available
+
         from skorch.callbacks import LRScheduler
 
         if (mixed_precision != 'no') and not torch.cuda.is_available():
@@ -1023,6 +1018,7 @@ class TestAccelerate:
 
 class MockHfApi:
     """Mock of huggingface_hub.HfAPI"""
+
     def __init__(self, return_url='some-url'):
         self.return_url = return_url
         self.calls = []
@@ -1114,9 +1110,7 @@ class TestHfHubStorage:
         _, kwargs = mock_hf_api.calls[0]
         assert kwargs == params
 
-    def test_train_end_checkpoint_pickle(
-            self, net, data, mock_hf_api, hf_hub_storer_cls
-    ):
+    def test_train_end_checkpoint_pickle(self, net, data, mock_hf_api, hf_hub_storer_cls):
         from skorch.callbacks import TrainEndCheckpoint
 
         storer = hf_hub_storer_cls(
@@ -1136,9 +1130,7 @@ class TestHfHubStorage:
         obj, _ = mock_hf_api.calls[0]
         assert isinstance(obj, io.IOBase)
 
-    def test_train_end_checkpoint_torch_save(
-            self, net, data, mock_hf_api, hf_hub_storer_cls
-    ):
+    def test_train_end_checkpoint_torch_save(self, net, data, mock_hf_api, hf_hub_storer_cls):
         # f_pickle uses pickle but f_params et al use torch.save, which works a
         # bit differently. Therefore, we need to test both.
         from skorch.callbacks import TrainEndCheckpoint
@@ -1210,9 +1202,7 @@ class TestHfHubStorage:
         assert num_checkpoints_actual == num_checkpoints_expected
 
     @pytest.mark.parametrize('storage', ['memory', 'str', 'path'])
-    def test_saved_net_is_same(
-            self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path
-    ):
+    def test_saved_net_is_same(self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path):
         # Check that the pickled net has the same params after loading, both for
         # in-memory and on disk
         from skorch.callbacks import TrainEndCheckpoint
@@ -1249,7 +1239,7 @@ class TestHfHubStorage:
 
     @pytest.mark.parametrize('storage', ['memory', 'str', 'path'])
     def test_saved_params_is_same(
-            self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path
+        self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path
     ):
         # check that the module parameters are the same after loading, both for
         # in-memory and on disk
@@ -1364,9 +1354,7 @@ class TestHfHubStorage:
             expected = f'my-model-{i}'
             assert path_in_repo == expected
 
-    def test_with_load_init_state_callback(
-            self, net, data, mock_hf_api, hf_hub_storer_cls
-    ):
+    def test_with_load_init_state_callback(self, net, data, mock_hf_api, hf_hub_storer_cls):
         from skorch.callbacks import LoadInitState, TrainEndCheckpoint
 
         params = {

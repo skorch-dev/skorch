@@ -42,9 +42,12 @@ import collections
 import itertools
 import re
 
-
 __all__ = [
-    "parse", "Version", "LegacyVersion", "InvalidVersion", "VERSION_PATTERN",
+    "parse",
+    "Version",
+    "LegacyVersion",
+    "InvalidVersion",
+    "VERSION_PATTERN",
 ]
 
 
@@ -205,11 +208,16 @@ class LegacyVersion(_BaseVersion):
 
 
 _legacy_version_component_re = re.compile(
-    r"(\d+ | [a-z]+ | \.| -)", re.VERBOSE,
+    r"(\d+ | [a-z]+ | \.| -)",
+    re.VERBOSE,
 )
 
 _legacy_version_replacement_map = {
-    "pre": "c", "preview": "c", "-": "final-", "rc": "c", "dev": "@",
+    "pre": "c",
+    "preview": "c",
+    "-": "final-",
+    "rc": "c",
+    "dev": "@",
 }
 
 
@@ -360,9 +368,7 @@ class Version(_BaseVersion):
 
         # Local version segment
         if self._version.local is not None:
-            parts.append(
-                "+{0}".format(".".join(str(x) for x in self._version.local))
-            )
+            parts.append("+{0}".format(".".join(str(x) for x in self._version.local)))
 
         return "".join(parts)
 
@@ -450,12 +456,14 @@ def _cmpkey(epoch, release, pre, post, dev, local):
     # re-reverse it back into the correct order, and make it a tuple and use
     # that for our sorting key.
     release = tuple(
-        reversed(list(
-            itertools.dropwhile(
-                lambda x: x == 0,
-                reversed(release),
+        reversed(
+            list(
+                itertools.dropwhile(
+                    lambda x: x == 0,
+                    reversed(release),
+                )
             )
-        ))
+        )
     )
 
     # We need to "trick" the sorting algorithm to put 1.0.dev0 before 1.0a0.
@@ -488,9 +496,6 @@ def _cmpkey(epoch, release, pre, post, dev, local):
         # - Numeric segments sort numerically
         # - Shorter versions sort before longer versions when the prefixes
         #   match exactly
-        local = tuple(
-            (i, "") if isinstance(i, int) else (-Infinity, i)
-            for i in local
-        )
+        local = tuple((i, "") if isinstance(i, int) else (-Infinity, i) for i in local)
 
     return epoch, release, pre, post, dev, local

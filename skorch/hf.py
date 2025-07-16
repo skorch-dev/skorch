@@ -33,6 +33,7 @@ class _HuggingfaceTokenizerBase(TransformerMixin, BaseEstimator):
     Subclasses should implement the ``fit``  method.
 
     """
+
     @property
     def vocabulary_(self):
         if not hasattr(self, 'fast_tokenizer_'):
@@ -94,9 +95,7 @@ class _HuggingfaceTokenizerBase(TransformerMixin, BaseEstimator):
 
         # from sklearn, triggers a parameter validation
         if isinstance(X, str):
-            raise ValueError(
-                "Iterable over raw text documents expected, string object received."
-            )
+            raise ValueError("Iterable over raw text documents expected, string object received.")
         X = list(X)  # transformers tokenizer does not accept arrays
 
         verbose = bool(self.verbose)
@@ -314,26 +313,25 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
     .. _tokenizers: https://huggingface.co/docs/tokenizers/python/latest/index.html
 
     """
-    prefixes_ = [
-        'model', 'normalizer', 'post_processor', 'pre_tokenizer', 'tokenizer', 'trainer'
-    ]
+
+    prefixes_ = ['model', 'normalizer', 'post_processor', 'pre_tokenizer', 'tokenizer', 'trainer']
 
     def __init__(
-            self,
-            tokenizer,
-            model=None,
-            trainer='auto',
-            normalizer=None,
-            pre_tokenizer=None,
-            post_processor=None,
-            max_length=256,
-            return_tensors='pt',
-            return_attention_mask=True,
-            return_token_type_ids=False,
-            return_length=False,
-            pad_token='[PAD]',
-            verbose=0,
-            **kwargs,
+        self,
+        tokenizer,
+        model=None,
+        trainer='auto',
+        normalizer=None,
+        pre_tokenizer=None,
+        post_processor=None,
+        max_length=256,
+        return_tensors='pt',
+        return_attention_mask=True,
+        return_token_type_ids=False,
+        return_length=False,
+        pad_token='[PAD]',
+        verbose=0,
+        **kwargs,
     ):
         self.tokenizer = tokenizer
         self.model = model
@@ -385,16 +383,18 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
 
         msgs = []
         if unexpected_kwargs:
-            tmpl = ("__init__() got unexpected argument(s) {}. "
-                    "Either you made a typo, or you added new arguments "
-                    "in a subclass; if that is the case, the subclass "
-                    "should deal with the new arguments explicitly.")
+            tmpl = (
+                "__init__() got unexpected argument(s) {}. "
+                "Either you made a typo, or you added new arguments "
+                "in a subclass; if that is the case, the subclass "
+                "should deal with the new arguments explicitly."
+            )
             msg = tmpl.format(', '.join(sorted(unexpected_kwargs)))
             msgs.append(msg)
 
         for prefix, key in sorted(missing_dunder_kwargs, key=lambda tup: tup[1]):
             tmpl = "Got an unexpected argument {}, did you mean {}?"
-            suffix = key[len(prefix):].lstrip('_')
+            suffix = key[len(prefix) :].lstrip('_')
             suggestion = prefix + '__' + suffix
             msgs.append(tmpl.format(key, suggestion))
 
@@ -551,10 +551,8 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
 
         # from sklearn, triggers a parameter validation
         if isinstance(X, str):
-            raise ValueError(
-                "Iterable over raw text documents expected, string object received."
-            )
-        X = list(X)    # transformers tokenizer does not accept arrays
+            raise ValueError("Iterable over raw text documents expected, string object received.")
+        X = list(X)  # transformers tokenizer does not accept arrays
 
         self.initialize()
 
@@ -618,7 +616,8 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
                 raise ValueError(
                     "Something went wrong here. Please open an issue on "
                     "https://github.com/skorch-dev/skorch/issues detailing what "
-                    "caused this error.")
+                    "caused this error."
+                )
             setattr(self, key, val)
 
         # If the transformer is not initialized or there are no special params,
@@ -634,9 +633,7 @@ class HuggingfaceTokenizer(_HuggingfaceTokenizerBase):
         # Re-initializing of tokenizer necessary
         self.initialize()
         if self.verbose:
-            print(
-                f"{self.__class__.__name__} was re-initialized, please fit it (again)"
-            )
+            print(f"{self.__class__.__name__} was re-initialized, please fit it (again)")
         return self
 
 
@@ -745,16 +742,16 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
     """
 
     def __init__(
-            self,
-            tokenizer,
-            train=False,
-            max_length=256,
-            return_tensors='pt',
-            return_attention_mask=True,
-            return_token_type_ids=False,
-            return_length=False,
-            verbose=0,
-            vocab_size=None,
+        self,
+        tokenizer,
+        train=False,
+        max_length=256,
+        return_tensors='pt',
+        return_attention_mask=True,
+        return_token_type_ids=False,
+        return_length=False,
+        verbose=0,
+        vocab_size=None,
     ):
         self.tokenizer = tokenizer
         self.train = train
@@ -791,17 +788,13 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
         # from sklearn, triggers a parameter validation
         # even though X is not used, we leave this check in for consistency
         if isinstance(X, str):
-            raise ValueError(
-                "Iterable over raw text documents expected, string object received."
-            )
+            raise ValueError("Iterable over raw text documents expected, string object received.")
 
         if not self.train and (self.vocab_size is not None):
             raise ValueError("Setting vocab_size has no effect if train=False")
 
         if isinstance(self.tokenizer, (str, os.PathLike)):
-            self.fast_tokenizer_ = AutoTokenizer.from_pretrained(
-                self.tokenizer
-            )
+            self.fast_tokenizer_ = AutoTokenizer.from_pretrained(self.tokenizer)
         else:
             self.fast_tokenizer_ = self.tokenizer
 
@@ -810,8 +803,7 @@ class HuggingfacePretrainedTokenizer(_HuggingfaceTokenizerBase):
         else:
             X = list(X)  # transformers tokenizer does not accept arrays
             vocab_size = (
-                self.fast_tokenizer_.vocab_size if self.vocab_size is None
-                else self.vocab_size
+                self.fast_tokenizer_.vocab_size if self.vocab_size is None else self.vocab_size
             )
             self.fast_tokenizer_ = self.fast_tokenizer_.train_new_from_iterator(
                 X, vocab_size=vocab_size
@@ -908,20 +900,18 @@ class AccelerateMixin:
       ``print`` function, use Python's ``print`` function instead.
 
     """
+
     def __init__(
-            self,
-            *args,
-            accelerator,
-            device=None,
-            unwrap_after_train=True,
-            callbacks__print_log__sink='auto',
-            **kwargs
+        self,
+        *args,
+        accelerator,
+        device=None,
+        unwrap_after_train=True,
+        callbacks__print_log__sink='auto',
+        **kwargs,
     ):
         super().__init__(
-            *args,
-            device=device,
-            callbacks__print_log__sink=callbacks__print_log__sink,
-            **kwargs
+            *args, device=device, callbacks__print_log__sink=callbacks__print_log__sink, **kwargs
         )
         self.accelerator = accelerator
         self.unwrap_after_train = unwrap_after_train
@@ -1219,15 +1209,9 @@ class HfHubStorage:
     >>>     net_loaded = pickle.load(f)
 
     """
+
     def __init__(
-            self,
-            hf_api,
-            path_in_repo,
-            repo_id,
-            local_storage=None,
-            verbose=0,
-            sink=print,
-            **kwargs
+        self, hf_api, path_in_repo, repo_id, local_storage=None, verbose=0, sink=print, **kwargs
     ):
         self.hf_api = hf_api
         self.path_in_repo = path_in_repo
@@ -1275,7 +1259,7 @@ class HfHubStorage:
             path_or_fileobj=path_or_fileobj,
             path_in_repo=path_in_repo,
             repo_id=self.repo_id,
-            **self.kwargs
+            **self.kwargs,
         )
         if hasattr(return_url, 'commit_url'):
             # starting from huggingface_hub, the return type is now a CommitInfo

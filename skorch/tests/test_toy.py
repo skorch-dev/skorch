@@ -10,6 +10,7 @@ class TestMLPModule:
     @pytest.fixture
     def module_cls(self):
         from skorch.toy import MLPModule
+
         return MLPModule
 
     def test_one_hidden(self, module_cls):
@@ -79,16 +80,19 @@ class TestMLPModule:
 
     def test_make_classifier(self):
         from skorch.toy import make_classifier
+
         module = make_classifier()()
         assert isinstance(module.sequential[-1], nn.Softmax)
 
     def test_make_binary_classifier(self):
         from skorch.toy import make_binary_classifier
+
         module = make_binary_classifier()()
         assert isinstance(module.sequential[-1], nn.Linear)
         assert module.squeeze_output is True
 
     def test_make_regressor(self):
         from skorch.toy import make_regressor
+
         module = make_regressor()()
         assert module.sequential[-1].out_features == 1

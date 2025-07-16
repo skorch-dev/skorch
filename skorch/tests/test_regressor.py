@@ -21,17 +21,20 @@ class TestNeuralNetRegressor:
     @pytest.fixture(scope='module')
     def module_cls(self):
         from skorch.toy import make_regressor
+
         return make_regressor(dropout=0.5)
 
     @pytest.fixture(scope='module')
     def module_pred_1d_cls(self):
         from skorch.toy import MLPModule
+
         # Module that returns 1d predictions
         return partial(MLPModule, output_units=1, squeeze_output=True)
 
     @pytest.fixture(scope='module')
     def net_cls(self):
         from skorch import NeuralNetRegressor
+
         return NeuralNetRegressor
 
     @pytest.fixture(scope='module')
@@ -45,6 +48,7 @@ class TestNeuralNetRegressor:
     @pytest.fixture(scope='module')
     def multioutput_module_cls(self):
         from skorch.toy import make_regressor
+
         return make_regressor(output_units=3, dropout=0.5)
 
     @pytest.fixture(scope='module')
@@ -72,15 +76,18 @@ class TestNeuralNetRegressor:
     @pytest.mark.parametrize('method', INFERENCE_METHODS)
     def test_not_fitted_raises(self, net_cls, module_cls, data, method):
         from skorch.exceptions import NotInitializedError
+
         net = net_cls(module_cls)
         X = data[0]
         with pytest.raises(NotInitializedError) as exc:
             # we call `list` because `forward_iter` is lazy
             list(getattr(net, method)(X))
 
-        msg = ("This NeuralNetRegressor instance is not initialized "
-               "yet. Call 'initialize' or 'fit' with appropriate arguments "
-               "before using this method.")
+        msg = (
+            "This NeuralNetRegressor instance is not initialized "
+            "yet. Call 'initialize' or 'fit' with appropriate arguments "
+            "before using this method."
+        )
         assert exc.value.args[0] == msg
 
     def test_net_learns(self, net, net_cls, data, module_cls):
@@ -113,13 +120,13 @@ class TestNeuralNetRegressor:
     def test_score(self, net_fit, data):
         X, y = data
         r2_score = net_fit.score(X, y)
-        assert r2_score <= 1.
+        assert r2_score <= 1.0
 
     def test_multioutput_score(self, multioutput_net, multioutput_regression_data):
         X, y = multioutput_regression_data
         multioutput_net.fit(X, y)
         r2_score = multioutput_net.score(X, y)
-        assert r2_score <= 1.
+        assert r2_score <= 1.0
 
     def test_dimension_mismatch_warning(self, net_cls, module_cls, data, recwarn):
         # When the target and the prediction have different dimensionality, mse
@@ -146,7 +153,7 @@ class TestNeuralNetRegressor:
         assert len(warn_list) == 2
 
     def test_fitting_with_1d_target_and_pred(
-            self, net_cls, module_cls, data, module_pred_1d_cls, recwarn
+        self, net_cls, module_cls, data, module_pred_1d_cls, recwarn
     ):
         # This test relates to the previous one. In general, users should fit
         # with target and prediction being 2d, even if the 2nd dimension is just
@@ -165,9 +172,7 @@ class TestNeuralNetRegressor:
         )
         assert not any(msg_substr in str(w.message) for w in recwarn.list)
 
-    def test_bagging_regressor(
-            self, net_cls, module_cls, data, module_pred_1d_cls, recwarn
-    ):
+    def test_bagging_regressor(self, net_cls, module_cls, data, module_pred_1d_cls, recwarn):
         # https://github.com/skorch-dev/skorch/issues/972
         from sklearn.ensemble import BaggingRegressor
 

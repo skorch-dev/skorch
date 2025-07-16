@@ -39,10 +39,8 @@ def main():
     is_master = accelerator.is_main_process
     world_size = accelerator.num_processes
     rank = accelerator.local_process_index
-    store = TCPStore(
-        "127.0.0.1", port=8080, world_size=world_size, is_master=is_master)
-    dist_history = DistributedHistory(
-        store=store, rank=rank, world_size=world_size)
+    store = TCPStore("127.0.0.1", port=8080, world_size=world_size, is_master=is_master)
+    dist_history = DistributedHistory(store=store, rank=rank, world_size=world_size)
 
     model = AcceleratedNeuralNetClassifier(
         MyModule,

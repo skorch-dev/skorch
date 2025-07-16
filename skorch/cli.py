@@ -3,17 +3,15 @@ fire.
 
 """
 
-from functools import partial
-from importlib import import_module
-from itertools import chain
 import re
 import shlex
 import sys
+from functools import partial
+from importlib import import_module
+from itertools import chain
 
 from sklearn.base import BaseEstimator
-from sklearn.pipeline import FeatureUnion
-from sklearn.pipeline import Pipeline
-
+from sklearn.pipeline import FeatureUnion, Pipeline
 
 __all__ = ['parse_args']
 
@@ -226,8 +224,7 @@ def _yield_printable_params(param, prefix, defaults):
 def _get_help_for_params(params, prefix='--', defaults=None, indent=2):
     defaults = defaults or {}
     for param in params:
-        first, *rest = tuple(_yield_printable_params(
-            param, prefix=prefix, defaults=defaults))
+        first, *rest = tuple(_yield_printable_params(param, prefix=prefix, defaults=defaults))
         yield " " * indent + first
         for line in rest:
             yield " " * 2 * indent + line
@@ -270,8 +267,10 @@ def print_help(model, defaults=None):
     print("python {} -- --help".format(sys.argv[0]))
     print()
 
-    lines = (_get_help_for_estimator(prefix, estimator, defaults=defaults) for
-             prefix, estimator in _yield_estimators(model))
+    lines = (
+        _get_help_for_estimator(prefix, estimator, defaults=defaults)
+        for prefix, estimator in _yield_estimators(model)
+    )
     print('\n'.join(chain(*lines)))
 
 

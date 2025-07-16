@@ -1,37 +1,31 @@
 """Contains custom skorch Dataset and ValidSplit."""
-import warnings
+
 from collections.abc import Mapping
 from functools import partial
 from numbers import Number
 
 import numpy as np
-from scipy import sparse
-from sklearn.model_selection import ShuffleSplit
-from sklearn.model_selection import StratifiedKFold
-from sklearn.model_selection import StratifiedShuffleSplit
-from sklearn.model_selection import check_cv
 import torch
 import torch.utils.data
+from scipy import sparse
+from sklearn.model_selection import ShuffleSplit, StratifiedKFold, StratifiedShuffleSplit, check_cv
 
-from skorch.utils import flatten
-from skorch.utils import is_pandas_ndframe
-from skorch.utils import check_indexing
-from skorch.utils import multi_indexing
-from skorch.utils import to_numpy
-
+from skorch.utils import check_indexing, flatten, is_pandas_ndframe, multi_indexing, to_numpy
 
 ERROR_MSG_1_ITEM = (
     "You are using a non-skorch dataset that returns 1 value. "
     "Remember that for skorch, Dataset.__getitem__ must return exactly "
     "2 values, X and y (more info: "
-    "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
+    "https://skorch.readthedocs.io/en/stable/user/dataset.html)."
+)
 
 
 ERROR_MSG_MORE_THAN_2_ITEMS = (
     "You are using a non-skorch dataset that returns {} values. "
     "Remember that for skorch, Dataset.__getitem__ must return exactly "
     "2 values, X and y (more info: "
-    "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
+    "https://skorch.readthedocs.io/en/stable/user/dataset.html)."
+)
 
 
 def _apply_to_data(data, func, unpack_dict=False):
@@ -138,11 +132,12 @@ class Dataset(torch.utils.data.Dataset):
       determined by the data itself.
 
     """
+
     def __init__(
-            self,
-            X,
-            y=None,
-            length=None,
+        self,
+        X,
+        y=None,
+        length=None,
     ):
         self.X = X
         self.y = y
@@ -242,18 +237,20 @@ class ValidSplit:
       ``(Stratified)ShuffleSplit``.
 
     """
+
     def __init__(
-            self,
-            cv=5,
-            stratified=False,
-            random_state=None,
+        self,
+        cv=5,
+        stratified=False,
+        random_state=None,
     ):
         self.stratified = stratified
         self.random_state = random_state
 
         if isinstance(cv, Number) and (cv <= 0):
-            raise ValueError("Numbers less than 0 are not allowed for cv "
-                             "but ValidSplit got {}".format(cv))
+            raise ValueError(
+                "Numbers less than 0 are not allowed for cv " "but ValidSplit got {}".format(cv)
+            )
 
         if not self._is_float(cv) and random_state is not None:
             raise ValueError(
@@ -302,8 +299,7 @@ class ValidSplit:
         return (x is None) or isinstance(x, np.ndarray) or is_pandas_ndframe(x)
 
     def __call__(self, dataset, y=None, groups=None):
-        bad_y_error = ValueError(
-            "Stratified CV requires explicitly passing a suitable y.")
+        bad_y_error = ValueError("Stratified CV requires explicitly passing a suitable y.")
         if (y is None) and self.stratified:
             raise bad_y_error
 
@@ -316,8 +312,9 @@ class ValidSplit:
         if y is not None:
             len_y = get_len(y)
             if len_dataset != len_y:
-                raise ValueError("Cannot perform a CV split if dataset and y "
-                                 "have different lengths.")
+                raise ValueError(
+                    "Cannot perform a CV split if dataset and y " "have different lengths."
+                )
 
         args = (np.arange(len_dataset),)
         if self._is_stratified(cv):

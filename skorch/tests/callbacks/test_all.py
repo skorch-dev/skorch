@@ -22,6 +22,7 @@ class TestAllCallbacks:
     @pytest.fixture
     def base_cls(self):
         from skorch.callbacks import Callback
+
         return Callback
 
     @pytest.fixture
@@ -38,8 +39,8 @@ class TestAllCallbacks:
 
     def test_on_x_methods_have_kwargs(self, callbacks, on_x_methods):
         import inspect
-        for callback, method_name in itertools.product(
-                callbacks, on_x_methods):
+
+        for callback, method_name in itertools.product(callbacks, on_x_methods):
             method = getattr(callback, method_name)
             assert "kwargs" in inspect.signature(method).parameters
 
@@ -49,11 +50,8 @@ class TestAllCallbacks:
         msg = exc.value.args[0]
 
         # message contains "'" around variable name starting from sklearn 1.1
-        assert (
-            msg.startswith(
-                "Invalid parameter foo for estimator <skorch.callbacks.base.Callback"
-            )
-            or msg.startswith(
-                "Invalid parameter 'foo' for estimator <skorch.callbacks.base.Callback"
-            )
+        assert msg.startswith(
+            "Invalid parameter foo for estimator <skorch.callbacks.base.Callback"
+        ) or msg.startswith(
+            "Invalid parameter 'foo' for estimator <skorch.callbacks.base.Callback"
         )

@@ -1,6 +1,5 @@
 """Tests for skorch.llm.classifier"""
 
-import re
 import timeit
 
 import numpy as np
@@ -12,16 +11,19 @@ class TestZeroShotClassifier:
     @pytest.fixture(scope='class')
     def model(self):
         from transformers import AutoModelForSeq2SeqLM
+
         return AutoModelForSeq2SeqLM.from_pretrained('google/flan-t5-small')
 
     @pytest.fixture(scope='class')
     def tokenizer(self):
         from transformers import AutoTokenizer
+
         return AutoTokenizer.from_pretrained('google/flan-t5-small')
 
     @pytest.fixture(scope='class')
     def classifier_cls(self):
         from skorch.llm import ZeroShotClassifier
+
         return ZeroShotClassifier
 
     @pytest.fixture
@@ -39,9 +41,7 @@ class TestZeroShotClassifier:
         expected = np.array(['foobar', 'negative', 'positive', 'very positive'])
         np.testing.assert_equal(clf.classes_, expected)
 
-    def test_init_encoder_decoder_with_caching_raises(
-            self, classifier_cls, model, tokenizer
-    ):
+    def test_init_encoder_decoder_with_caching_raises(self, classifier_cls, model, tokenizer):
         msg = (
             "Caching is not supported for encoder-decoder models, "
             "initialize the model with use_caching=False."
@@ -51,7 +51,7 @@ class TestZeroShotClassifier:
             clf.fit(None, ['positive', 'negative'])
 
     def test_init_encoder_decoder_with_caching_using_model_name_raises(
-            self, classifier_cls, model, tokenizer
+        self, classifier_cls, model, tokenizer
     ):
         msg = (
             "Caching is not supported for encoder-decoder models, "
@@ -99,16 +99,11 @@ class TestZeroShotClassifier:
 
     def test_init_wrong_error_low_prob_raises(self, classifier_cls, model, tokenizer):
         clf = classifier_cls(model=model, tokenizer=tokenizer, error_low_prob='foo')
-        msg = (
-            "error_low_prob must be one of ignore, raise, warn, return_none; "
-            "got foo instead"
-        )
+        msg = "error_low_prob must be one of ignore, raise, warn, return_none; " "got foo instead"
         with pytest.raises(ValueError, match=msg):
             clf.fit(None, ['positive', 'negative'])
 
-    def test_init_wrong_threshold_low_prob_raises(
-            self, classifier_cls, model, tokenizer
-    ):
+    def test_init_wrong_threshold_low_prob_raises(self, classifier_cls, model, tokenizer):
         clf = classifier_cls(model=model, tokenizer=tokenizer, threshold_low_prob=-0.1)
         msg = "threshold_low_prob must be between 0 and 1, got -0.1 instead"
         with pytest.raises(ValueError, match=msg):
@@ -147,9 +142,7 @@ class TestZeroShotClassifier:
         with pytest.raises(ValueError, match=msg):
             clf.fit(None, None)
 
-    def test_fit_warning_if_y_not_strings(
-            self, classifier_cls, model, tokenizer, recwarn
-    ):
+    def test_fit_warning_if_y_not_strings(self, classifier_cls, model, tokenizer, recwarn):
         # y should be strings but also accepts other types, but will give a
         # warning
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
@@ -195,9 +188,7 @@ class TestZeroShotClassifier:
         assert y_proba.shape == (3, 3)
         assert (y_proba[:, -1] < 2e-3).all()
 
-    def test_predict_proba_labels_differing_num_tokens(
-            self, model, tokenizer, classifier_cls, X
-    ):
+    def test_predict_proba_labels_differing_num_tokens(self, model, tokenizer, classifier_cls, X):
         # positive and negative have 1 token, foobar has 3 tokens
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         clf.fit(None, ['foobar', 'positive', 'negative'])
@@ -230,7 +221,7 @@ class TestZeroShotClassifier:
         # only an uncached call. On subsequent call with the same argument,
         # there are 4 cached calls, 1 from the prompt and 3 for the tokens from
         # the label.
-        #clf = classifier_cls(model=model, tokenizer=tokenizer)
+        # clf = classifier_cls(model=model, tokenizer=tokenizer)
         clf = classifier_cls('gpt2')
         clf.fit(None, ['foobar'])
         X = ["A masterpiece, instant classic, 5 stars out of 5"]
@@ -283,9 +274,7 @@ class TestZeroShotClassifier:
 
     def test_custom_prompt(self, model, tokenizer, classifier_cls, X):
         prompt = "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt)
 
         # just checking that this works, we don't necessarily expect the
         # predictions to be correct
@@ -293,14 +282,10 @@ class TestZeroShotClassifier:
         clf.predict_proba(X)
         clf.predict(X)
 
-    def test_defective_prompt_missing_key_raises(
-            self, model, tokenizer, classifier_cls, recwarn
-    ):
+    def test_defective_prompt_missing_key_raises(self, model, tokenizer, classifier_cls, recwarn):
         # the prompt has no 'labels' placeholders
         prompt = "Please classify my text:\n{text}\n\n"
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt)
 
         msg = (
             "The prompt may not be correct, it expects 2 "
@@ -309,15 +294,11 @@ class TestZeroShotClassifier:
         clf.fit(None, ['positive', 'negative'])
         assert str(recwarn.list[0].message) == msg
 
-    def test_defective_prompt_extra_key_raises(
-            self, model, tokenizer, classifier_cls, recwarn
-    ):
+    def test_defective_prompt_extra_key_raises(self, model, tokenizer, classifier_cls, recwarn):
         # the prompt has excess 'examples' placeholder
         prompt = "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
         prompt += "Examples: {examples}\n\n"
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt)
 
         msg = (
             "The prompt may not be correct, it expects 2 "
@@ -328,9 +309,7 @@ class TestZeroShotClassifier:
 
     def test_get_prompt(self, classifier_cls, model, tokenizer):
         prompt = "Foo {labels} bar {text}"
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt)
         clf.fit(None, ['label-a', 'label-b'])
         x = "My input"
         expected = "Foo ['label-a', 'label-b'] bar My input"
@@ -346,9 +325,7 @@ class TestZeroShotClassifier:
         clf.predict_proba(X[:3])
         clf.predict(X[:3])
 
-    def test_no_low_probability_no_warning(
-            self, classifier_cls, model, tokenizer, X, recwarn
-    ):
+    def test_no_low_probability_no_warning(self, classifier_cls, model, tokenizer, X, recwarn):
         # test to explicitly ensure that there is no false warning, as this
         # would go undetected otherwise
         clf = classifier_cls(
@@ -362,9 +339,7 @@ class TestZeroShotClassifier:
         clf.predict_proba(X)
         assert not recwarn.list
 
-    def test_low_probability_warning(
-            self, classifier_cls, model, tokenizer, X, recwarn
-    ):
+    def test_low_probability_warning(self, classifier_cls, model, tokenizer, X, recwarn):
         # With a threshold of 0.993, empirically, 2 samples will fall below it
         # and 1 is above it.
         clf = classifier_cls(
@@ -453,19 +428,23 @@ class TestFewShotClassifier:
     ZeroShotClassifier and is thus not tested again here
 
     """
+
     @pytest.fixture(scope='class')
     def model(self):
         from transformers import AutoModelForSeq2SeqLM
+
         return AutoModelForSeq2SeqLM.from_pretrained('google/flan-t5-small')
 
     @pytest.fixture(scope='class')
     def tokenizer(self):
         from transformers import AutoTokenizer
+
         return AutoTokenizer.from_pretrained('google/flan-t5-small')
 
     @pytest.fixture(scope='class')
     def classifier_cls(self):
         from skorch.llm import FewShotClassifier
+
         return FewShotClassifier
 
     @pytest.fixture
@@ -504,21 +483,15 @@ class TestFewShotClassifier:
     def test_fit_fewer_samples_than_classes(self, model, tokenizer, classifier_cls):
         # Check that there is no error if we allow fewer samples than there are
         # classes.
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, max_samples=3
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, max_samples=3)
         X = 4 * ["something text, doesn't matter what"]
         y = ['positive', 'negative', 'very positive', 'foobar']
         clf.fit(X, y)
         assert len(clf.examples_) == 3
 
-    def test_fit_fewer_samples_than_max_samples(
-            self, model, tokenizer, classifier_cls, X, y
-    ):
+    def test_fit_fewer_samples_than_max_samples(self, model, tokenizer, classifier_cls, X, y):
         # Check that there is no error if X and y are smaller than max_samples
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, max_samples=5
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, max_samples=5)
         assert len(X) < 5
 
         clf.fit(X, y)
@@ -544,9 +517,7 @@ class TestFewShotClassifier:
         with pytest.raises(ValueError, match=msg):
             clf.fit(X, None)
 
-    def test_fit_warning_if_y_not_strings(
-            self, classifier_cls, model, tokenizer, X, recwarn
-    ):
+    def test_fit_warning_if_y_not_strings(self, classifier_cls, model, tokenizer, X, recwarn):
         # y should be strings but also accepts other types, but will give a
         # warning
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
@@ -559,15 +530,12 @@ class TestFewShotClassifier:
         )
         assert str(recwarn.list[0].message) == expected
 
-    def test_fit_X_and_y_not_matching_raises(
-            self, model, tokenizer, classifier_cls, X, y
-    ):
+    def test_fit_X_and_y_not_matching_raises(self, model, tokenizer, classifier_cls, X, y):
         # in contrast to zero-shot, few-shot requires X and y to have the same
         # number of samples
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         msg = (
-            "X and y don't have the same number of samples, found 2 and 3 samples, "
-            "respectively"
+            "X and y don't have the same number of samples, found 2 and 3 samples, " "respectively"
         )
         with pytest.raises(ValueError, match=msg):
             clf.fit(X[:2], y[:3])
@@ -594,9 +562,7 @@ class TestFewShotClassifier:
         clf.predict_proba(X)
         clf.predict(X)
 
-    def test_proba_for_unlikely_label_low(
-            self, model, tokenizer, classifier_cls, X, y, X_test
-    ):
+    def test_proba_for_unlikely_label_low(self, model, tokenizer, classifier_cls, X, y, X_test):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         X = X[:] + ["This movie is a zip"]
         y = y.tolist() + ['zip']
@@ -628,12 +594,9 @@ class TestFewShotClassifier:
 
     def test_custom_prompt(self, model, tokenizer, classifier_cls, X, y):
         prompt = (
-            "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
-            "Examples: {examples}\n\n"
+            "Please classify my text:\n{text}\n\nLabels: {labels}\n\n" "Examples: {examples}\n\n"
         )
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt)
 
         # just checking that this works, we don't necessarily expect the
         # predictions to be correct
@@ -642,13 +605,11 @@ class TestFewShotClassifier:
         clf.predict(X)
 
     def test_defective_prompt_missing_keys_raises(
-            self, model, tokenizer, classifier_cls, X, y, recwarn
+        self, model, tokenizer, classifier_cls, X, y, recwarn
     ):
         # the prompt has no 'examples' placeholders
         prompt = "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt)
 
         msg = (
             "The prompt may not be correct, it expects 3 "
@@ -659,14 +620,12 @@ class TestFewShotClassifier:
         assert str(recwarn.list[0].message) == msg
 
     def test_defective_prompt_extra_keys_raises(
-            self, model, tokenizer, classifier_cls, X, y, recwarn
+        self, model, tokenizer, classifier_cls, X, y, recwarn
     ):
         # the prompt has extra 'foo' and 'bar' placeholders
         prompt = "Please classify my text:\n{text}\n\nLabels: {labels}\n\n"
         prompt += "foo: {foo}\n\nExamples: {examples}\n\nbar: {bar}\n\n"
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, prompt=prompt)
 
         msg = (
             "The prompt may not be correct, it expects 3 "
@@ -708,9 +667,7 @@ class TestFewShotClassifier:
         assert str(clf) == expected
         assert repr(clf) == expected
 
-    def test_get_examples_more_samples_than_X(
-            self, classifier_cls, model, tokenizer, X, y
-    ):
+    def test_get_examples_more_samples_than_X(self, classifier_cls, model, tokenizer, X, y):
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         clf.fit(X, y)
         examples = clf.get_examples(X, y, n_samples=10)
@@ -719,9 +676,7 @@ class TestFewShotClassifier:
         assert len(examples) == len(X)
         assert sorted(examples) == sorted(zip(X, y))
 
-    def test_get_examples_fewer_samples_than_X(
-            self, classifier_cls, model, tokenizer, X, y
-    ):
+    def test_get_examples_fewer_samples_than_X(self, classifier_cls, model, tokenizer, X, y):
         # there are fewer examples than X or even unique labels
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         clf.fit(X, y)
@@ -733,9 +688,7 @@ class TestFewShotClassifier:
     def test_get_examples_deterministic(self, classifier_cls, model, tokenizer, X, y):
         # as long as we set random_state, the examples should be chosen
         # deterministically
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, random_state=0
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, random_state=0)
         clf.fit(X, y)
         examples = [clf.get_examples(X, y, 3) for _ in range(10)]
 
@@ -745,9 +698,7 @@ class TestFewShotClassifier:
 
     def test_get_works_with_non_str_data(self, classifier_cls, model, tokenizer, y):
         # even if not recommended, X should also be allowed to be non-string
-        clf = classifier_cls(
-            model=model, tokenizer=tokenizer, use_caching=False, random_state=0
-        )
+        clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False, random_state=0)
         X = list(range(len(y)))
         clf.fit(X, y)
         examples = [clf.get_examples(X, y, 3) for _ in range(10)]

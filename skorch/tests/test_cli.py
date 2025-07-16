@@ -1,17 +1,14 @@
 """Test for cli.py"""
 
 from math import cos
-from unittest.mock import Mock
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
-from sklearn.pipeline import FeatureUnion
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from torch import nn
 from torch.nn import RReLU
-
 
 fire_installed = True
 try:
@@ -25,16 +22,20 @@ class TestCli:
     @pytest.fixture
     def resolve_dotted_name(self):
         from skorch.cli import _resolve_dotted_name
+
         return _resolve_dotted_name
 
-    @pytest.mark.parametrize('name, expected', [
-        (0, 0),
-        (1.23, 1.23),
-        ('foo', 'foo'),
-        ('math.cos', cos),
-        ('torch.nn', nn),
-        ('torch.nn.ReLU', nn.ReLU),
-    ])
+    @pytest.mark.parametrize(
+        'name, expected',
+        [
+            (0, 0),
+            (1.23, 1.23),
+            ('foo', 'foo'),
+            ('math.cos', cos),
+            ('torch.nn', nn),
+            ('torch.nn.ReLU', nn.ReLU),
+        ],
+    )
     def test_resolve_dotted_name(self, resolve_dotted_name, name, expected):
         result = resolve_dotted_name(name)
         assert result == expected
@@ -48,6 +49,7 @@ class TestCli:
     @pytest.fixture
     def parse_net_kwargs(self):
         from skorch.cli import parse_net_kwargs
+
         return parse_net_kwargs
 
     def test_parse_net_kwargs(self, parse_net_kwargs):
@@ -70,6 +72,7 @@ class TestCli:
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
@@ -78,16 +81,24 @@ class TestCli:
 
     @pytest.fixture
     def pipe(self, net):
-        return Pipeline([
-            ('features', FeatureUnion([
-                ('scale', MinMaxScaler()),
-            ])),
-            ('net', net),
-        ])
+        return Pipeline(
+            [
+                (
+                    'features',
+                    FeatureUnion(
+                        [
+                            ('scale', MinMaxScaler()),
+                        ]
+                    ),
+                ),
+                ('net', net),
+            ]
+        )
 
     @pytest.fixture
     def yield_estimators(self):
         from skorch.cli import _yield_estimators
+
         return _yield_estimators
 
     def test_yield_estimators_net(self, yield_estimators, net):
@@ -114,68 +125,64 @@ class TestCli:
     @pytest.fixture
     def substitute_default(self):
         from skorch.cli import _substitute_default
+
         return _substitute_default
 
-    @pytest.mark.parametrize('s, new_value, expected', [
-        ('', '', ''),
-        ('', 'foo', ''),
-        ('bar', 'foo', 'bar'),
-        ('int (default=128)', '', 'int (default=)'),
-        ('int (default=128)', None, 'int (default=128)'),
-        ('int (default=128)', '""', 'int (default="")'),
-        ('int (default=128)', '128', 'int (default=128)'),
-        ('int (default=128)', '256', 'int (default=256)'),
-        ('int (default=128)', 256, 'int (default=256)'),
-        ('with_parens (default=(1, 2))', (3, 4), 'with_parens (default=(3, 4))'),
-        ('int (default =128)', '256', 'int (default =256)'),
-        ('int (default= 128)', '256', 'int (default= 256)'),
-        ('int (default = 128)', '256', 'int (default = 256)'),
-        (
-            'nonlin (default = ReLU())',
-            nn.Hardtanh(1, 2),
-            'nonlin (default = {})'.format(nn.Hardtanh(1, 2))
-        ),
-        (
-            # from sklearn MinMaxScaler
-            'tuple (min, max), default=(0, 1)',
-            (-1, 1),
-            'tuple (min, max), default=(-1, 1)'
-        ),
-        (
-            # from sklearn MinMaxScaler
-            'boolean, optional, default True',
-            False,
-            'boolean, optional, default False'
-        ),
-        (
-            # from sklearn Normalizer
-            "'l1', 'l2', or 'max', optional ('l2' by default)",
-            'l1',
-            "'l1', 'l2', or 'max', optional ('l1' by default)"
-        ),
-        (
-            # same but double ticks
-            '"l1", "l2", or "max", optional ("l2" by default)',
-            'l1',
-            '"l1", "l2", or "max", optional ("l1" by default)'
-        ),
-        (
-            # same but no ticks
-            "l1, l2, or max, optional (l2 by default)",
-            'l1',
-            "l1, l2, or max, optional (l1 by default)"
-        ),
-        (
-            "tuple, optional ((1, 1) by default)",
-            (2, 2),
-            "tuple, optional ((2, 2) by default)"
-        ),
-        (
-            "nonlin (ReLU() by default)",
-            nn.Tanh(),
-            "nonlin (Tanh() by default)"
-        ),
-    ])
+    @pytest.mark.parametrize(
+        's, new_value, expected',
+        [
+            ('', '', ''),
+            ('', 'foo', ''),
+            ('bar', 'foo', 'bar'),
+            ('int (default=128)', '', 'int (default=)'),
+            ('int (default=128)', None, 'int (default=128)'),
+            ('int (default=128)', '""', 'int (default="")'),
+            ('int (default=128)', '128', 'int (default=128)'),
+            ('int (default=128)', '256', 'int (default=256)'),
+            ('int (default=128)', 256, 'int (default=256)'),
+            ('with_parens (default=(1, 2))', (3, 4), 'with_parens (default=(3, 4))'),
+            ('int (default =128)', '256', 'int (default =256)'),
+            ('int (default= 128)', '256', 'int (default= 256)'),
+            ('int (default = 128)', '256', 'int (default = 256)'),
+            (
+                'nonlin (default = ReLU())',
+                nn.Hardtanh(1, 2),
+                'nonlin (default = {})'.format(nn.Hardtanh(1, 2)),
+            ),
+            (
+                # from sklearn MinMaxScaler
+                'tuple (min, max), default=(0, 1)',
+                (-1, 1),
+                'tuple (min, max), default=(-1, 1)',
+            ),
+            (
+                # from sklearn MinMaxScaler
+                'boolean, optional, default True',
+                False,
+                'boolean, optional, default False',
+            ),
+            (
+                # from sklearn Normalizer
+                "'l1', 'l2', or 'max', optional ('l2' by default)",
+                'l1',
+                "'l1', 'l2', or 'max', optional ('l1' by default)",
+            ),
+            (
+                # same but double ticks
+                '"l1", "l2", or "max", optional ("l2" by default)',
+                'l1',
+                '"l1", "l2", or "max", optional ("l1" by default)',
+            ),
+            (
+                # same but no ticks
+                "l1, l2, or max, optional (l2 by default)",
+                'l1',
+                "l1, l2, or max, optional (l1 by default)",
+            ),
+            ("tuple, optional ((1, 1) by default)", (2, 2), "tuple, optional ((2, 2) by default)"),
+            ("nonlin (ReLU() by default)", nn.Tanh(), "nonlin (Tanh() by default)"),
+        ],
+    )
     def test_replace_default(self, substitute_default, s, new_value, expected):
         result = substitute_default(s, new_value)
         assert result == expected
@@ -183,6 +190,7 @@ class TestCli:
     @pytest.fixture
     def print_help(self):
         from skorch.cli import print_help
+
         return print_help
 
     def test_print_help_net(self, print_help, net, capsys):
@@ -195,7 +203,7 @@ class TestCli:
             '--module : torch module (class or instance)',
             '--batch_size : int (default=128)',
             '<MLPModule> options',
-            '--module__hidden_units : int (default=10)'
+            '--module__hidden_units : int (default=10)',
         ]
         for snippet in expected_snippets:
             assert snippet in out
@@ -211,7 +219,7 @@ class TestCli:
             '--module : torch module (class or instance)',
             '--batch_size : int (default=256)',
             '<MLPModule> options',
-            '--module__hidden_units : int (default=55)'
+            '--module__hidden_units : int (default=55)',
         ]
         for snippet in expected_snippets:
             assert snippet in out
@@ -228,13 +236,12 @@ class TestCli:
             '--net__module : torch module (class or instance)',
             '--net__batch_size : int (default=128)',
             '<MLPModule> options',
-            '--net__module__hidden_units : int (default=10)'
+            '--net__module__hidden_units : int (default=10)',
         ]
         for snippet in expected_snippets:
             assert snippet in out
 
-    def test_print_help_pipeline_custom_defaults(
-            self, print_help, pipe, capsys):
+    def test_print_help_pipeline_custom_defaults(self, print_help, pipe, capsys):
         defaults = {'net__batch_size': 256, 'net__module__hidden_units': 55}
         print_help(pipe, defaults=defaults)
         out = capsys.readouterr()[0]
@@ -247,7 +254,7 @@ class TestCli:
             '--net__module : torch module (class or instance)',
             '--net__batch_size : int (default=256)',
             '<MLPModule> options',
-            '--net__module__hidden_units : int (default=55)'
+            '--net__module__hidden_units : int (default=55)',
         ]
         for snippet in expected_snippets:
             assert snippet in out
@@ -255,16 +262,24 @@ class TestCli:
     @pytest.fixture
     def clf_sklearn(self):
         from sklearn.linear_model import LinearRegression
+
         return LinearRegression()
 
     @pytest.fixture
     def pipe_sklearn(self, clf_sklearn):
-        return Pipeline([
-            ('features', FeatureUnion([
-                ('scale', MinMaxScaler()),
-            ])),
-            ('clf', clf_sklearn),
-        ])
+        return Pipeline(
+            [
+                (
+                    'features',
+                    FeatureUnion(
+                        [
+                            ('scale', MinMaxScaler()),
+                        ]
+                    ),
+                ),
+                ('clf', clf_sklearn),
+            ]
+        )
 
     def test_print_help_sklearn_estimator(self, print_help, clf_sklearn, capsys):
         # Should also work with non-skorch sklearn estimator;
@@ -304,6 +319,7 @@ class TestCli:
     @pytest.fixture
     def parse_args(self):
         from skorch.cli import parse_args
+
         return parse_args
 
     @pytest.fixture

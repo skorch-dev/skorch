@@ -5,63 +5,71 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+import torch
+import torch.nn.functional as F
+import torch.utils.data
 from scipy import sparse
 from sklearn.datasets import make_classification
-import torch
-import torch.utils.data
 from torch import nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from skorch.utils import data_from_dataset
-from skorch.utils import is_torch_data_type
-from skorch.utils import to_tensor
 from skorch.tests.conftest import pandas_installed
+from skorch.utils import data_from_dataset, is_torch_data_type, to_tensor
 
 
 class TestGetLen:
     @pytest.fixture
     def get_len(self):
         from skorch.dataset import get_len
+
         return get_len
 
-    @pytest.mark.parametrize('data, expected', [
-        (np.zeros(5), 5),
-        (np.zeros((3, 4, 5)), 3),
-        ([np.zeros(5), np.zeros((5, 4))], 5),
-        ((np.zeros((5, 4)), np.zeros(5)), 5),
-        ({'0': np.zeros(3), '1': np.zeros((3, 4))}, 3),
-        (torch.zeros(5), 5),
-        (torch.zeros((3, 4, 5)), 3),
-        ([torch.zeros(5), torch.zeros((5, 4))], 5),
-        ((torch.zeros((5, 4)), torch.zeros(5)), 5),
-        (sparse.csr_matrix(np.zeros((5, 3))), 5),
-        ({'0': torch.zeros(3), '1': torch.zeros((3, 4))}, 3),
-        ([0, 1, 2], 3),
-        ([[0, 1, 2], [3, 4, 5]], 3),
-        ({'0': [0, 1, 2], '1': (3, 4, 5)}, 3),
-        ((
-            [0, 1, 2],
-            np.zeros(3),
-            torch.zeros(3),
-            sparse.csr_matrix(np.zeros((3, 5))),
-            {'0': (1, 2, 3)}),
-         3),
-    ])
+    @pytest.mark.parametrize(
+        'data, expected',
+        [
+            (np.zeros(5), 5),
+            (np.zeros((3, 4, 5)), 3),
+            ([np.zeros(5), np.zeros((5, 4))], 5),
+            ((np.zeros((5, 4)), np.zeros(5)), 5),
+            ({'0': np.zeros(3), '1': np.zeros((3, 4))}, 3),
+            (torch.zeros(5), 5),
+            (torch.zeros((3, 4, 5)), 3),
+            ([torch.zeros(5), torch.zeros((5, 4))], 5),
+            ((torch.zeros((5, 4)), torch.zeros(5)), 5),
+            (sparse.csr_matrix(np.zeros((5, 3))), 5),
+            ({'0': torch.zeros(3), '1': torch.zeros((3, 4))}, 3),
+            ([0, 1, 2], 3),
+            ([[0, 1, 2], [3, 4, 5]], 3),
+            ({'0': [0, 1, 2], '1': (3, 4, 5)}, 3),
+            (
+                (
+                    [0, 1, 2],
+                    np.zeros(3),
+                    torch.zeros(3),
+                    sparse.csr_matrix(np.zeros((3, 5))),
+                    {'0': (1, 2, 3)},
+                ),
+                3,
+            ),
+        ],
+    )
     def test_valid_lengths(self, get_len, data, expected):
         length = get_len(data)
         assert length == expected
 
-    @pytest.mark.parametrize('data', [
-        [np.zeros(5), np.zeros((4, 5))],
-        {'0': np.zeros(3), '1': np.zeros((4, 3))},
-        [torch.zeros(5), torch.zeros((4, 5))],
-        {'0': torch.zeros(3), '1': torch.zeros((4, 3))},
-        [[0, 1, 2], [3, 4]],
-        ([0, 1, 2], [3, 4]),
-        {'0': [0, 1, 2], '1': (3, 4)},
-        ([0, 1, 2], np.zeros(3), torch.zeros(2), {'0': (1, 2, 3)}),
-    ])
+    @pytest.mark.parametrize(
+        'data',
+        [
+            [np.zeros(5), np.zeros((4, 5))],
+            {'0': np.zeros(3), '1': np.zeros((4, 3))},
+            [torch.zeros(5), torch.zeros((4, 5))],
+            {'0': torch.zeros(3), '1': torch.zeros((4, 3))},
+            [[0, 1, 2], [3, 4]],
+            ([0, 1, 2], [3, 4]),
+            {'0': [0, 1, 2], '1': (3, 4)},
+            ([0, 1, 2], np.zeros(3), torch.zeros(2), {'0': (1, 2, 3)}),
+        ],
+    )
     def test_inconsistent_lengths(self, get_len, data):
         with pytest.raises(ValueError):
             get_len(data)
@@ -86,6 +94,7 @@ class TestNetWithoutY:
     @pytest.fixture
     def net_cls_1d(self):
         from skorch.toy import make_regressor
+
         return make_regressor(
             input_units=1,
             num_hidden=0,
@@ -95,6 +104,7 @@ class TestNetWithoutY:
     @pytest.fixture
     def net_cls_2d(self):
         from skorch.toy import make_regressor
+
         return make_regressor(
             input_units=2,
             num_hidden=0,
@@ -107,6 +117,7 @@ class TestNetWithoutY:
             def __iter__(self):
                 z = super().__iter__()
                 return ((x, torch.zeros(x.size(0)).long()) for x, _ in z)
+
         return Loader
 
     @pytest.fixture
@@ -115,48 +126,53 @@ class TestNetWithoutY:
             def __iter__(self):
                 z = super().__iter__()
                 return ((x, torch.zeros(x.size(0), 1).float()) for x, _ in z)
+
         return Loader
 
     @pytest.fixture
     def train_split(self):
         from skorch.dataset import ValidSplit
+
         return ValidSplit(0.2, stratified=False)
 
     @pytest.fixture(params=net_fixture_params)
     def net_1d(self, request, net_cls_1d, train_split):
         if request.param['classification']:
             from skorch import NeuralNetClassifier
+
             wrap_cls = NeuralNetClassifier
         else:
             from skorch import NeuralNetRegressor
+
             wrap_cls = NeuralNetRegressor
 
         return wrap_cls(
             net_cls_1d,
             max_epochs=2,
             train_split=train_split,
-            batch_size=request.param['batch_size']
+            batch_size=request.param['batch_size'],
         )
 
     @pytest.fixture(params=net_fixture_params)
     def net_2d(self, request, net_cls_2d, train_split):
         if request.param['classification']:
             from skorch import NeuralNetClassifier
+
             wrap_cls = NeuralNetClassifier
         else:
             from skorch import NeuralNetRegressor
+
             wrap_cls = NeuralNetRegressor
 
         return wrap_cls(
             net_cls_2d,
             max_epochs=2,
             train_split=train_split,
-            batch_size=request.param['batch_size']
+            batch_size=request.param['batch_size'],
         )
 
     @pytest.fixture(params=net_fixture_params)
-    def net_1d_custom_loader(self, request, net_cls_1d,
-                             loader_clf, loader_reg, train_split):
+    def net_1d_custom_loader(self, request, net_cls_1d, loader_clf, loader_reg, train_split):
         """Parametrized fixture returning a NeuralNet
         classifier/regressor, for different batch sizes, working on 1d
         data.
@@ -164,10 +180,12 @@ class TestNetWithoutY:
         """
         if request.param['classification']:
             from skorch import NeuralNetClassifier
+
             wrap_cls = NeuralNetClassifier
             loader = loader_clf
         else:
             from skorch import NeuralNetRegressor
+
             wrap_cls = NeuralNetRegressor
             loader = loader_reg
 
@@ -177,12 +195,11 @@ class TestNetWithoutY:
             iterator_valid=loader,
             max_epochs=2,
             train_split=train_split,
-            batch_size=request.param['batch_size']
+            batch_size=request.param['batch_size'],
         )
 
     @pytest.fixture(params=net_fixture_params)
-    def net_2d_custom_loader(self, request, net_cls_2d,
-                             loader_clf, loader_reg, train_split):
+    def net_2d_custom_loader(self, request, net_cls_2d, loader_clf, loader_reg, train_split):
         """Parametrized fixture returning a NeuralNet
         classifier/regressor, for different batch sizes, working on 2d
         data.
@@ -190,10 +207,12 @@ class TestNetWithoutY:
         """
         if request.param['classification']:
             from skorch import NeuralNetClassifier
+
             wrap_cls = NeuralNetClassifier
             loader = loader_clf
         else:
             from skorch import NeuralNetRegressor
+
             wrap_cls = NeuralNetRegressor
             loader = loader_reg
 
@@ -203,7 +222,7 @@ class TestNetWithoutY:
             iterator_valid=loader,
             max_epochs=2,
             train_split=train_split,
-            batch_size=request.param['batch_size']
+            batch_size=request.param['batch_size'],
         )
 
     def test_net_1d_tensor_raises_error(self, net_1d):
@@ -244,6 +263,7 @@ class TestNetWithDict:
         forward step.
 
         """
+
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
@@ -266,6 +286,7 @@ class TestNetWithDict:
     @pytest.fixture(scope='module')
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -298,6 +319,7 @@ class TestNetWithList:
     @pytest.fixture(scope='module')
     def module_cls(self):
         """Return a simple module that concatenates the input."""
+
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
@@ -320,6 +342,7 @@ class TestNetWithList:
     @pytest.fixture(scope='module')
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -345,6 +368,7 @@ class TestNetWithPandas:
         in forward step.
 
         """
+
         class MyModule(nn.Module):
             def __init__(self):
                 super(MyModule, self).__init__()
@@ -361,6 +385,7 @@ class TestNetWithPandas:
     @pytest.fixture(scope='module')
     def pd(self):
         import pandas as pd
+
         return pd
 
     @pytest.fixture(scope='module')
@@ -373,6 +398,7 @@ class TestNetWithPandas:
     @pytest.fixture(scope='module')
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -392,6 +418,7 @@ class TestNetWithPandas:
 
 class TestNetWithTokenizers:
     """Huggingface tokenizers should work without special adjustments"""
+
     @pytest.fixture(scope='session')
     def tokenizer(self):
         transformers = pytest.importorskip('transformers')
@@ -422,6 +449,7 @@ class TestNetWithTokenizers:
         a full-fledged BERT module.
 
         """
+
         class MyModule(nn.Module):
             def __init__(self):
                 super().__init__()
@@ -440,6 +468,7 @@ class TestNetWithTokenizers:
     @pytest.fixture(scope='session')
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -468,9 +497,11 @@ class TestDataset:
     already covered.
 
     """
+
     @pytest.fixture
     def dataset_cls(self):
         from skorch.dataset import Dataset
+
         return Dataset
 
     def test_len_correct(self, dataset_cls):
@@ -518,8 +549,10 @@ class TestTrainSplitIsUsed:
     @pytest.fixture
     def iterator(self):
         """Return a simple iterator that yields the input data."""
+
         class Iterator:
             """An iterator that just yield the input data."""
+
             # pylint: disable=unused-argument
             def __init__(self, dataset, *args, **kwargs):
                 self.dataset = dataset
@@ -568,7 +601,7 @@ class TestTrainSplitIsUsed:
             max_epochs=1,
             iterator_train=iterator,
             iterator_valid=iterator,
-            train_split=train_split
+            train_split=train_split,
         )
         net.initialize()
         net.callbacks_ = []
@@ -580,9 +613,11 @@ class TestTrainSplitIsUsed:
                 mock(*args, **kwargs)
                 func.__dict__['mock_'] = mock
                 return func(*args[1:], **kwargs)
+
             return wrapper
 
         import types
+
         net.get_iterator = types.MethodType(decorator(net.get_iterator), net)
         return net.partial_fit(X, y), mock
 
@@ -618,6 +653,7 @@ class TestValidSplit:
     @pytest.fixture
     def dataset_cls(self):
         from skorch.dataset import Dataset
+
         return Dataset
 
     @pytest.fixture
@@ -630,6 +666,7 @@ class TestValidSplit:
     @pytest.fixture
     def valid_split_cls(self):
         from skorch.dataset import ValidSplit
+
         return ValidSplit
 
     def test_reproducible(self, valid_split_cls, data):
@@ -650,12 +687,10 @@ class TestValidSplit:
     @pytest.mark.parametrize('cv', [5, 0.2])
     def test_stratified(self, valid_split_cls, data, cv):
         num_expected = self.num_samples // 4
-        y = np.hstack([np.repeat([0, 0, 0], num_expected),
-                       np.repeat([1], num_expected)])
+        y = np.hstack([np.repeat([0, 0, 0], num_expected), np.repeat([1], num_expected)])
         data.y = y
 
-        dataset_train, dataset_valid = valid_split_cls(
-            cv, stratified=True)(data, y)
+        dataset_train, dataset_valid = valid_split_cls(cv, stratified=True)(data, y)
         y_train = data_from_dataset(dataset_train)[1]
         y_valid = data_from_dataset(dataset_valid)[1]
 
@@ -665,8 +700,9 @@ class TestValidSplit:
     @pytest.mark.parametrize('cv', [0.1, 0.2, 0.5, 0.75])
     def test_different_fractions(self, valid_split_cls, cv, data):
         if not (self.num_samples * cv).is_integer() != 0:
-            raise ValueError("Num samples cannot be evenly distributed for "
-                             "fraction {}".format(cv))
+            raise ValueError(
+                "Num samples cannot be evenly distributed for " "fraction {}".format(cv)
+            )
 
         dataset_train, dataset_valid = valid_split_cls(cv)(data)
         assert len(dataset_train) + len(dataset_valid) == self.num_samples
@@ -675,13 +711,13 @@ class TestValidSplit:
     @pytest.mark.parametrize('cv', [0.1, 0.2, 0.5, 0.75])
     def test_fraction_no_y(self, valid_split_cls, data, cv):
         if not (self.num_samples * cv).is_integer() != 0:
-            raise ValueError("Num samples cannot be evenly distributed for "
-                             "fraction {}".format(cv))
+            raise ValueError(
+                "Num samples cannot be evenly distributed for " "fraction {}".format(cv)
+            )
 
         m = int(cv * self.num_samples)
         n = int((1 - cv) * self.num_samples)
-        dataset_train, dataset_valid = valid_split_cls(
-            cv, stratified=False)(data, None)
+        dataset_train, dataset_valid = valid_split_cls(cv, stratified=False)(data, None)
         assert len(dataset_valid) == m
         assert len(dataset_train) == n
 
@@ -692,8 +728,7 @@ class TestValidSplit:
         cv = 0.2
         m = int(cv * self.num_samples)
         n = int((1 - cv) * self.num_samples)
-        dataset_train, dataset_valid = valid_split_cls(
-            cv, stratified=False)(data, y)
+        dataset_train, dataset_valid = valid_split_cls(cv, stratified=False)(data, y)
 
         assert len(dataset_valid) == m
         assert len(dataset_train) == n
@@ -703,19 +738,16 @@ class TestValidSplit:
         with pytest.raises(ValueError) as exc:
             valid_split_cls(cv)
 
-        expected = ("Numbers less than 0 are not allowed for cv "
-                    "but ValidSplit got {}".format(cv))
+        expected = "Numbers less than 0 are not allowed for cv " "but ValidSplit got {}".format(cv)
         assert exc.value.args[0] == expected
 
     @pytest.mark.parametrize('cv', [5, 0.2])
     def test_not_stratified(self, valid_split_cls, data, cv):
         num_expected = self.num_samples // 4
-        y = np.hstack([np.repeat([0, 0, 0], num_expected),
-                       np.repeat([1], num_expected)])
+        y = np.hstack([np.repeat([0, 0, 0], num_expected), np.repeat([1], num_expected)])
         data.y = y
 
-        dataset_train, dataset_valid = valid_split_cls(
-            cv, stratified=False)(data, y)
+        dataset_train, dataset_valid = valid_split_cls(cv, stratified=False)(data, y)
         y_train = data_from_dataset(dataset_train)[1]
         y_valid = data_from_dataset(dataset_valid)[1]
 
@@ -724,6 +756,7 @@ class TestValidSplit:
 
     def test_predefined_split(self, valid_split_cls, data):
         from sklearn.model_selection import PredefinedSplit
+
         indices = (data.y > 0).astype(int)
         split = PredefinedSplit(indices)
 
@@ -762,8 +795,7 @@ class TestValidSplit:
     def test_with_torch_tensors_and_stratified(self, valid_split_cls, data):
         num_expected = self.num_samples // 4
         data.X = to_tensor(data.X, device='cpu')
-        y = np.hstack([np.repeat([0, 0, 0], num_expected),
-                       np.repeat([1], num_expected)])
+        y = np.hstack([np.repeat([0, 0, 0], num_expected), np.repeat([1], num_expected)])
         data.y = to_tensor(y, device='cpu')
 
         dataset_train, dataset_valid = valid_split_cls(5, stratified=True)(data, y)
@@ -822,8 +854,7 @@ class TestValidSplit:
             raise ValueError
         data.y = y
 
-        dataset_train, dataset_valid = valid_split_cls(
-            5, stratified=True)(data, y)
+        dataset_train, dataset_valid = valid_split_cls(5, stratified=True)(data, y)
         y_train = data_from_dataset(dataset_train)[1]
         y_valid = data_from_dataset(dataset_valid)[1]
 
@@ -868,8 +899,7 @@ class TestValidSplit:
         expected = "Stratified CV requires explicitly passing a suitable y."
         assert exc.value.args[0] == expected
 
-    def test_shuffle_split_reproducible_with_random_state(
-            self, valid_split_cls, dataset_cls):
+    def test_shuffle_split_reproducible_with_random_state(self, valid_split_cls, dataset_cls):
         n = self.num_samples
         X, y = np.random.random((n, 10)), np.random.randint(0, 10, size=n)
         cv = valid_split_cls(0.2, stratified=False)
@@ -892,11 +922,9 @@ class TestValidSplit:
 
         X, y = data.X, data.y
         n = self.num_samples // 2
-        groups = np.asarray(
-            [0 for _ in range(n)] + [1 for _ in range(self.num_samples - n)])
+        groups = np.asarray([0 for _ in range(n)] + [1 for _ in range(self.num_samples - n)])
 
-        dataset_train, dataset_valid = valid_split_cls(
-            GroupKFold(n_splits=2))(data, groups=groups)
+        dataset_train, dataset_valid = valid_split_cls(GroupKFold(n_splits=2))(data, groups=groups)
         X_train, y_train = data_from_dataset(dataset_train)
         X_valid, y_valid = data_from_dataset(dataset_valid)
 

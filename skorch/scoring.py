@@ -54,9 +54,7 @@ def loss_scoring(net, X, y=None, sample_weight=None):
 
     """
     if sample_weight is not None:
-        raise NotImplementedError(
-            "sample_weight for loss_scoring is not yet supported."
-        )
+        raise NotImplementedError("sample_weight for loss_scoring is not yet supported.")
 
     net.check_is_fitted()
 

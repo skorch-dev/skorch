@@ -8,17 +8,16 @@ For the reasons, see #306.
 
 """
 
-from pprint import pprint
 import time
+from pprint import pprint
 
 import numpy as np
-from sklearn.datasets import make_classification
 import torch
+from sklearn.datasets import make_classification
 
 from skorch import NeuralNetClassifier
 from skorch.callbacks import Callback
 from skorch.toy import make_classifier
-
 
 side_effects = []
 
@@ -27,16 +26,15 @@ class TriggerKeyError(Callback):
     def on_batch_end(self, net, **kwargs):
         try:
             net.history[-1, 'batches', -1, 'foobar']
-        except Exception as e:
+        except Exception:
             pass
 
 
 class PrintMemory(Callback):
     def on_batch_end(self, net, **kwargs):
-        side_effects.append((
-            torch.cuda.memory_allocated() / 1e6,
-            torch.cuda.memory_cached() / 1e6
-        ))
+        side_effects.append(
+            (torch.cuda.memory_allocated() / 1e6, torch.cuda.memory_cached() / 1e6)
+        )
 
 
 def train():
@@ -106,24 +104,31 @@ def performance_history(history):
     safe_slice(history, [np.s_[0, 'foo'], np.s_[:, 'foo']])
 
     # level 2
-    safe_slice(history, [
-        np.s_[0, 'batches', 0],
-        np.s_[:, 'batches', 0],
-        np.s_[0, 'batches', :],
-        np.s_[:, 'batches', :],
-    ])
+    safe_slice(
+        history,
+        [
+            np.s_[0, 'batches', 0],
+            np.s_[:, 'batches', 0],
+            np.s_[0, 'batches', :],
+            np.s_[:, 'batches', :],
+        ],
+    )
 
     # level 3
-    safe_slice(history, [
-        np.s_[0, 'batches', 0, 'foo'],
-        np.s_[:, 'batches', 0, 'foo'],
-        np.s_[0, 'batches', :, 'foo'],
-        np.s_[:, 'batches', :, 'foo'],
-        np.s_[0, 'batches', 0, ('foo', 'bar')],
-        np.s_[:, 'batches', 0, ('foo', 'bar')],
-        np.s_[0, 'batches', :, ('foo', 'bar')],
-        np.s_[:, 'batches', :, ('foo', 'bar')],
-    ])
+    safe_slice(
+        history,
+        [
+            np.s_[0, 'batches', 0, 'foo'],
+            np.s_[:, 'batches', 0, 'foo'],
+            np.s_[0, 'batches', :, 'foo'],
+            np.s_[:, 'batches', :, 'foo'],
+            np.s_[0, 'batches', 0, ('foo', 'bar')],
+            np.s_[:, 'batches', 0, ('foo', 'bar')],
+            np.s_[0, 'batches', :, ('foo', 'bar')],
+            np.s_[:, 'batches', :, ('foo', 'bar')],
+        ],
+    )
+
 
 if __name__ == '__main__':
     net = train()
@@ -140,6 +145,5 @@ if __name__ == '__main__':
     mem_start = side_effects[0][0]
     mem_end = side_effects[-1][0]
 
-    print("Memory epoch 1: {:.4f}, last epoch: {:.4f}".format(
-        mem_start, mem_end))
-    assert np.isclose(mem_start, mem_end, rtol=1/3), "memory use should be similar"
+    print("Memory epoch 1: {:.4f}, last epoch: {:.4f}".format(mem_start, mem_end))
+    assert np.isclose(mem_start, mem_end, rtol=1 / 3), "memory use should be similar"

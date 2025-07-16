@@ -2,12 +2,11 @@
 
 import re
 from functools import partial
-from unittest.mock import Mock
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
-from sklearn.metrics import accuracy_score, make_scorer
 import pytest
+from sklearn.metrics import accuracy_score, make_scorer
 
 from skorch.utils import to_numpy
 
@@ -16,11 +15,13 @@ class TestEpochScoring:
     @pytest.fixture(params=[{'use_caching': True}, {'use_caching': False}])
     def scoring_cls(self, request):
         from skorch.callbacks import EpochScoring
+
         return partial(EpochScoring, **request.param)
 
     @pytest.fixture
     def caching_scoring_cls(self):
         from skorch.callbacks import EpochScoring
+
         return partial(EpochScoring, use_caching=True)
 
     @pytest.fixture(params=[{'use_caching': True}, {'use_caching': False}])
@@ -32,7 +33,12 @@ class TestEpochScoring:
         ).initialize()
 
     def test_correct_valid_score(
-            self, net_cls, module_cls, mse_scoring, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        mse_scoring,
+        train_split,
+        data,
     ):
         net = net_cls(
             module=module_cls,
@@ -47,16 +53,23 @@ class TestEpochScoring:
         assert np.allclose(loss, expected)
 
     def test_correct_train_score(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module=module_cls,
-            callbacks=[scoring_cls(
-                'neg_mean_squared_error',
-                on_train=True,
-                name='nmse',
-                lower_is_better=False,
-            )],
+            callbacks=[
+                scoring_cls(
+                    'neg_mean_squared_error',
+                    on_train=True,
+                    name='nmse',
+                    lower_is_better=False,
+                )
+            ],
             train_split=train_split,
             max_epochs=2,
         )
@@ -67,7 +80,12 @@ class TestEpochScoring:
         assert np.allclose(loss, expected)
 
     def test_scoring_uses_score_when_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -82,22 +100,29 @@ class TestEpochScoring:
         expected = [10, 8, 6, 11, 7]
         assert result == expected
 
-    @pytest.mark.parametrize('lower_is_better, expected', [
-        (True, [True, True, True, False, False]),
-        (False, [True, False, False, True, False]),
-    ])
+    @pytest.mark.parametrize(
+        'lower_is_better, expected',
+        [
+            (True, [True, True, True, False, False]),
+            (False, [True, False, False, True, False]),
+        ],
+    )
     @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
     def test_scoring_uses_best_score_when_continuing_training(
-            self, net_cls, module_cls, scoring_cls, data,
-            lower_is_better, expected, tmpdir, initial_epochs,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        data,
+        lower_is_better,
+        expected,
+        tmpdir,
+        initial_epochs,
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(
-                scoring=None,
-                on_train=True,
-                lower_is_better=lower_is_better)],
+            callbacks=[scoring_cls(scoring=None, on_train=True, lower_is_better=lower_is_better)],
             max_epochs=initial_epochs,
             # Set train_split to None so that the default 'valid_loss'
             # callback is effectively disabled and does not write to
@@ -120,21 +145,28 @@ class TestEpochScoring:
         is_best = net.history[:, 'score_best']
         assert is_best == expected
 
-    @pytest.mark.parametrize('lower_is_better, expected', [
-        (True, [True, True, True, False, False]),
-        (False, [True, False, False, True, False]),
-        (None, []),
-    ])
+    @pytest.mark.parametrize(
+        'lower_is_better, expected',
+        [
+            (True, [True, True, True, False, False]),
+            (False, [True, False, False, True, False]),
+            (None, []),
+        ],
+    )
     def test_best_score_when_lower_is_better(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
-            lower_is_better, expected,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        lower_is_better,
+        expected,
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(
-                scoring=None,
-                lower_is_better=lower_is_better)],
+            callbacks=[scoring_cls(scoring=None, lower_is_better=lower_is_better)],
             train_split=train_split,
             max_epochs=5,
         )
@@ -152,7 +184,12 @@ class TestEpochScoring:
                 net.history[:, 'score_best']
 
     def test_no_error_when_no_valid_data(
-            self, net_cls, module_cls, mse_scoring, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        mse_scoring,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -170,7 +207,12 @@ class TestEpochScoring:
         assert len(net.history[:, 'nmse']) == 3
 
     def test_with_accuracy_score(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -184,7 +226,12 @@ class TestEpochScoring:
         assert result == [0, 0]
 
     def test_with_make_scorer_accuracy_score(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -198,7 +245,12 @@ class TestEpochScoring:
         assert result == [0, 0]
 
     def test_with_callable_accuracy_score(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -212,7 +264,12 @@ class TestEpochScoring:
         assert result == [0, 0]
 
     def test_with_score_nonexisting_string(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -227,7 +284,13 @@ class TestEpochScoring:
             net.fit(*data)
 
     def test_with_score_as_custom_func(
-            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        score55,
     ):
         net = net_cls(
             module_cls,
@@ -241,7 +304,12 @@ class TestEpochScoring:
         assert result == [55, 55]
 
     def test_with_name_none_returns_score_as_name(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -253,7 +321,12 @@ class TestEpochScoring:
         assert net.history[:, 'score']
 
     def test_explicit_name_is_used_in_history(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -265,12 +338,16 @@ class TestEpochScoring:
         assert net.history[:, 'myname']
 
     def test_with_scoring_str_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(
-                scoring='neg_mean_squared_error', name=None)],
+            callbacks=[scoring_cls(scoring='neg_mean_squared_error', name=None)],
             max_epochs=1,
             train_split=train_split,
         )
@@ -278,7 +355,13 @@ class TestEpochScoring:
         assert net.history[:, 'neg_mean_squared_error']
 
     def test_with_with_custom_func_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        score55,
     ):
         net = net_cls(
             module_cls,
@@ -290,7 +373,13 @@ class TestEpochScoring:
         assert net.history[:, 'score55']
 
     def test_with_with_partial_custom_func_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        score55,
     ):
         net = net_cls(
             module_cls,
@@ -301,8 +390,7 @@ class TestEpochScoring:
         net.fit(*data)
         assert net.history[:, 'score55']
 
-    def test_target_extractor_is_called(
-            self, net_cls, module_cls, train_split, scoring_cls, data):
+    def test_target_extractor_is_called(self, net_cls, module_cls, train_split, scoring_cls, data):
         X, y = data
         extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(
@@ -311,8 +399,8 @@ class TestEpochScoring:
             target_extractor=extractor,
         )
         net = net_cls(
-            module_cls, batch_size=1, train_split=train_split,
-            callbacks=[scoring], max_epochs=2)
+            module_cls, batch_size=1, train_split=train_split, callbacks=[scoring], max_epochs=2
+        )
         net.fit(X, y)
 
         # With caching in use the extractor should be called for
@@ -325,7 +413,11 @@ class TestEpochScoring:
             assert extractor.call_count == 2
 
     def test_without_target_data_works(
-            self, net_cls, module_cls, scoring_cls, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        data,
     ):
         score_calls = 0
 
@@ -362,10 +454,17 @@ class TestEpochScoring:
         assert np.allclose(loss, expected)
 
     def net_input_is_scoring_input(
-            self, net_cls, module_cls, scoring_cls, input_data,
-            train_split, expected_type, caching,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        input_data,
+        train_split,
+        expected_type,
+        caching,
     ):
         score_calls = 0
+
         def myscore(net, X, y=None):  # pylint: disable=unused-argument
             nonlocal score_calls
             score_calls += 1
@@ -383,21 +482,27 @@ class TestEpochScoring:
         assert score_calls == max_epochs
 
     def test_net_input_is_scoring_input(
-            self, net_cls, module_cls, scoring_cls, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        data,
     ):
         # Make sure that whatever data type is put in the network is
         # received at the scoring side as well. For the caching case
         # we only receive datasets.
-        import skorch
-        from skorch.dataset import ValidSplit
         import torch.utils.data.dataset
         from torch.utils.data.dataset import Subset
+
+        import skorch
+        from skorch.dataset import ValidSplit
 
         class MyTorchDataset(torch.utils.data.dataset.TensorDataset):
             def __init__(self, X, y):
                 super().__init__(
                     skorch.utils.to_tensor(X.reshape(-1, 1), device='cpu'),
-                    skorch.utils.to_tensor(y, device='cpu'))
+                    skorch.utils.to_tensor(y, device='cpu'),
+                )
 
         class MySkorchDataset(skorch.dataset.Dataset):
             pass
@@ -416,7 +521,6 @@ class TestEpochScoring:
             ((MyTorchDataset(*data), None), rawsplit, MyTorchDataset, True),
             ((MySkorchDataset(*data), None), rawsplit, np.ndarray, False),
             ((MySkorchDataset(*data), None), rawsplit, MySkorchDataset, True),
-
             # Test a split that splits datasets using torch Subset
             (data, valid_split, np.ndarray, False),
             (data, valid_split, Subset, True),
@@ -428,16 +532,16 @@ class TestEpochScoring:
 
         for input_data, train_split, expected_type, caching in table:
             self.net_input_is_scoring_input(
-                net_cls,
-                module_cls,
-                scoring_cls,
-                input_data,
-                train_split,
-                expected_type,
-                caching)
+                net_cls, module_cls, scoring_cls, input_data, train_split, expected_type, caching
+            )
 
     def test_multiple_scorings_share_cache(
-            self, net_cls, module_cls, train_split, caching_scoring_cls, data,
+        self,
+        net_cls,
+        module_cls,
+        train_split,
+        caching_scoring_cls,
+        data,
     ):
         net = net_cls(
             module=module_cls,
@@ -450,8 +554,7 @@ class TestEpochScoring:
         )
 
         # on_train_end clears cache, overwrite so we can inspect the contents.
-        with patch('skorch.callbacks.scoring.EpochScoring.on_train_end',
-                   lambda *x, **y: None):
+        with patch('skorch.callbacks.scoring.EpochScoring.on_train_end', lambda *x, **y: None):
             net.fit(*data)
 
         cbs = dict(net.callbacks_)
@@ -466,7 +569,8 @@ class TestEpochScoring:
             assert id(c1) == id(c2)
 
     def test_multiple_scorings_with_dict(
-            self, net_cls, module_cls, train_split, scoring_cls, data):
+        self, net_cls, module_cls, train_split, scoring_cls, data
+    ):
         # This test checks if an exception is raised when a dictionary is passed as scorer.
         net = net_cls(
             module=module_cls,
@@ -479,12 +583,18 @@ class TestEpochScoring:
 
         msg = "Dict not supported as scorer for multi-metric scoring"
         with pytest.raises(ValueError, match=msg):
-                net.fit(*data)
+            net.fit(*data)
 
     @pytest.mark.parametrize('use_caching, count', [(False, 5), (True, 2)])
     def test_with_caching_get_iterator_not_called(
-            self, net_cls, module_cls, train_split, caching_scoring_cls, data,
-            use_caching, count,
+        self,
+        net_cls,
+        module_cls,
+        train_split,
+        caching_scoring_cls,
+        data,
+        use_caching,
+        count,
     ):
         max_epochs = 3
         net = net_cls(
@@ -507,8 +617,7 @@ class TestEpochScoring:
         #   with caching: 1 per epoch = 3
         assert net.get_iterator.call_count == count
 
-    def test_subclassing_epoch_scoring(
-            self, classifier_module, classifier_data):
+    def test_subclassing_epoch_scoring(self, classifier_module, classifier_data):
         # This test's purpose is to check that it is possible to
         # easily subclass EpochScoring by overriding on_epoch_end to
         # record 2 scores.
@@ -516,14 +625,10 @@ class TestEpochScoring:
         from skorch.callbacks import EpochScoring
 
         class MyScoring(EpochScoring):
-            def on_epoch_end(
-                    self,
-                    net,
-                    dataset_train,
-                    dataset_valid,
-                    **kwargs):
+            def on_epoch_end(self, net, dataset_train, dataset_valid, **kwargs):
                 _, y_test, y_proba = self.get_test_data(
-                    dataset_train, dataset_valid, use_caching=self.use_caching)
+                    dataset_train, dataset_valid, use_caching=self.use_caching
+                )
                 y_pred = np.concatenate(y_proba).argmax(1)
 
                 # record 2 valid scores
@@ -552,6 +657,7 @@ class TestBatchScoring:
     @pytest.fixture(params=[{'use_caching': True}, {'use_caching': False}])
     def scoring_cls(self, request):
         from skorch.callbacks import BatchScoring
+
         return partial(BatchScoring, **request.param)
 
     @pytest.fixture
@@ -564,13 +670,18 @@ class TestBatchScoring:
     @pytest.fixture
     def net(self, net_cls, module_cls, train_split, mse_scoring, data):
         net = net_cls(
-            module_cls, batch_size=1, train_split=train_split,
-            callbacks=[mse_scoring], max_epochs=2)
+            module_cls,
+            batch_size=1,
+            train_split=train_split,
+            callbacks=[mse_scoring],
+            max_epochs=2,
+        )
         return net.fit(*data)
 
     @pytest.fixture
     def train_loss(self, scoring_cls):
         from skorch.utils import train_loss_score
+
         return scoring_cls(
             train_loss_score,
             name='train_loss',
@@ -580,6 +691,7 @@ class TestBatchScoring:
     @pytest.fixture
     def valid_loss(self, scoring_cls):
         from skorch.utils import valid_loss_score
+
         return scoring_cls(
             valid_loss_score,
             name='valid_loss',
@@ -601,7 +713,7 @@ class TestBatchScoring:
 
     def test_correct_mse_values_for_batches(self, history):
         nmse = history[:, 'batches', :, 'nmse']
-        expected_per_epoch = [-(3 - 5) ** 2, -(0 - 4) ** 2]
+        expected_per_epoch = [-((3 - 5) ** 2), -((0 - 4) ** 2)]
         # for the 2 epochs, the loss is the same
         expected = [expected_per_epoch, expected_per_epoch]
         assert np.allclose(nmse, expected)
@@ -646,22 +758,29 @@ class TestBatchScoring:
 
         assert history[0, 'train_loss'] == 30
 
-    @pytest.mark.parametrize('lower_is_better, expected', [
-        (True, [True, True, True, False, False]),
-        (False, [True, False, False, True, False]),
-    ])
+    @pytest.mark.parametrize(
+        'lower_is_better, expected',
+        [
+            (True, [True, True, True, False, False]),
+            (False, [True, False, False, True, False]),
+        ],
+    )
     @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
     def test_scoring_uses_best_score_when_continuing_training(
-            self, net_cls, module_cls, scoring_cls, data,
-            lower_is_better, expected, tmpdir, initial_epochs,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        data,
+        lower_is_better,
+        expected,
+        tmpdir,
+        initial_epochs,
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(
-                scoring=None,
-                on_train=True,
-                lower_is_better=lower_is_better)],
+            callbacks=[scoring_cls(scoring=None, on_train=True, lower_is_better=lower_is_better)],
             max_epochs=initial_epochs,
             # Set train_split to None so that the default 'valid_loss'
             # callback is effectively disabled and does not write to
@@ -684,21 +803,28 @@ class TestBatchScoring:
         is_best = net.history[:, 'score_best']
         assert is_best == expected
 
-    @pytest.mark.parametrize('lower_is_better, expected', [
-        (True, [True, True, True, False, False]),
-        (False, [True, False, False, True, False]),
-        (None, []),
-    ])
+    @pytest.mark.parametrize(
+        'lower_is_better, expected',
+        [
+            (True, [True, True, True, False, False]),
+            (False, [True, False, False, True, False]),
+            (None, []),
+        ],
+    )
     def test_best_score_when_lower_is_better(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
-            lower_is_better, expected,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        lower_is_better,
+        expected,
     ):
         # set scoring to None so that mocked net.score is used
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(
-                scoring=None,
-                lower_is_better=lower_is_better)],
+            callbacks=[scoring_cls(scoring=None, lower_is_better=lower_is_better)],
             train_split=train_split,
             max_epochs=5,
         )
@@ -715,7 +841,11 @@ class TestBatchScoring:
                 net.history[:, 'score_best']
 
     def test_no_error_when_no_valid_data(
-            self, net_cls, module_cls, mse_scoring, data,
+        self,
+        net_cls,
+        module_cls,
+        mse_scoring,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -727,7 +857,12 @@ class TestBatchScoring:
         net.fit(*data)
 
     def test_with_accuracy_score(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -745,7 +880,12 @@ class TestBatchScoring:
         assert np.allclose(score_batches, [[0, 0], [0, 0]])
 
     def test_with_make_scorer_accuracy_score(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -763,7 +903,12 @@ class TestBatchScoring:
         assert np.allclose(score_batches, [[0, 0], [0, 0]])
 
     def test_with_callable_accuracy_score(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -781,7 +926,12 @@ class TestBatchScoring:
         assert np.allclose(score_batches, [[0, 0], [0, 0]])
 
     def test_with_score_nonexisting_string(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -796,7 +946,13 @@ class TestBatchScoring:
             net.fit(*data)
 
     def test_with_score_as_custom_func(
-            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        score55,
     ):
         net = net_cls(
             module_cls,
@@ -813,7 +969,12 @@ class TestBatchScoring:
         assert np.allclose(score_batches, [[55, 55], [55, 55]])
 
     def test_with_name_none_returns_score_as_name(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -825,7 +986,12 @@ class TestBatchScoring:
         assert net.history[:, 'score']
 
     def test_explicit_name_is_used_in_history(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
@@ -837,12 +1003,16 @@ class TestBatchScoring:
         assert net.history[:, 'myname']
 
     def test_with_scoring_str_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
     ):
         net = net_cls(
             module_cls,
-            callbacks=[scoring_cls(
-                scoring='neg_mean_squared_error', name=None)],
+            callbacks=[scoring_cls(scoring='neg_mean_squared_error', name=None)],
             max_epochs=1,
             train_split=train_split,
         )
@@ -850,7 +1020,13 @@ class TestBatchScoring:
         assert net.history[:, 'neg_mean_squared_error']
 
     def test_with_with_custom_func_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        score55,
     ):
         net = net_cls(
             module_cls,
@@ -862,7 +1038,13 @@ class TestBatchScoring:
         assert net.history[:, 'score55']
 
     def test_with_with_partial_custom_func_and_name_none(
-            self, net_cls, module_cls, scoring_cls, train_split, data, score55,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        score55,
     ):
         net = net_cls(
             module_cls,
@@ -873,8 +1055,7 @@ class TestBatchScoring:
         net.fit(*data)
         assert net.history[:, 'score55']
 
-    def test_target_extractor_is_called(
-            self, net_cls, module_cls, train_split, scoring_cls, data):
+    def test_target_extractor_is_called(self, net_cls, module_cls, train_split, scoring_cls, data):
         X, y = data
         extractor = Mock(side_effect=to_numpy)
         scoring = scoring_cls(
@@ -883,14 +1064,18 @@ class TestBatchScoring:
             target_extractor=extractor,
         )
         net = net_cls(
-            module_cls, batch_size=1, train_split=train_split,
-            callbacks=[scoring], max_epochs=2)
+            module_cls, batch_size=1, train_split=train_split, callbacks=[scoring], max_epochs=2
+        )
         net.fit(X, y)
 
         assert extractor.call_count == 2 * 2
 
     def test_without_target_data_works(
-            self, net_cls, module_cls, scoring_cls, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        data,
     ):
         score_calls = 0
 
@@ -922,7 +1107,8 @@ class TestBatchScoring:
         assert np.allclose(loss, expected)
 
     def test_scoring_with_cache_and_fit_interrupt_resets_infer(
-            self, net_cls, module_cls, scoring_cls, data, train_split):
+        self, net_cls, module_cls, scoring_cls, data, train_split
+    ):
         # This test addresses a bug that occurred with caching in
         # scoring when training is interrupted irregularly
         # (e.g. through KeyboardInterrupt). In that case, it is
@@ -953,14 +1139,16 @@ class TestScoringCacheGlobalControl:
     https://github.com/skorch-dev/skorch/issues/957
 
     """
+
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.mark.parametrize('net_use_caching', ['auto', True, False])
     def test_net_overrides_caching(
-            self, net_cls, classifier_module, classifier_data, net_use_caching
+        self, net_cls, classifier_module, classifier_data, net_use_caching
     ):
         from skorch.callbacks import BatchScoring, EpochScoring
 
@@ -1046,6 +1234,7 @@ class TestPassthrougScoring:
     @pytest.fixture
     def scoring_cls(self, request):
         from skorch.callbacks import PassthroughScoring
+
         return PassthroughScoring
 
     @pytest.fixture
@@ -1061,13 +1250,15 @@ class TestPassthrougScoring:
     @pytest.fixture
     def net(self, classifier_module, train_loss, valid_loss, classifier_data):
         from skorch import NeuralNetClassifier
+
         net = NeuralNetClassifier(
             classifier_module,
             batch_size=10,
             # use train and valid batch size to stand in for
             # batch-level scores
             callbacks=[train_loss, valid_loss],
-            max_epochs=2)
+            max_epochs=2,
+        )
 
         X, y = classifier_data
         n = 75
@@ -1086,6 +1277,7 @@ class TestPassthrougScoring:
     @pytest.fixture
     def history_empty(self):
         from skorch.history import History
+
         return History()
 
     def test_correct_train_pass_through_scores(self, history):
@@ -1121,14 +1313,24 @@ class TestPassthrougScoring:
         train_score = history_empty[-1, 'score']
         assert np.isclose(train_score, 10.0)
 
-    @pytest.mark.parametrize('lower_is_better, expected', [
-        (True, [True, True, True, False, False]),
-        (False, [True, False, False, True, False]),
-        (None, []),
-    ])
+    @pytest.mark.parametrize(
+        'lower_is_better, expected',
+        [
+            (True, [True, True, True, False, False]),
+            (False, [True, False, False, True, False]),
+            (None, []),
+        ],
+    )
     def test_lower_is_better_is_honored(
-            self, net_cls, module_cls, scoring_cls, train_split, data,
-            history_empty, lower_is_better, expected,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        train_split,
+        data,
+        history_empty,
+        lower_is_better,
+        expected,
     ):
         # results in expected patterns of True and False
         scores = [10, 8, 6, 11, 7]
@@ -1156,7 +1358,11 @@ class TestPassthrougScoring:
                 history_empty[:, 'score_best']
 
     def test_no_error_when_no_valid_data(
-            self, net_cls, module_cls, scoring_cls, data,
+        self,
+        net_cls,
+        module_cls,
+        scoring_cls,
+        data,
     ):
         # we set the name to 'valid_batch_size' but disable
         # train/valid split -- there should be no error

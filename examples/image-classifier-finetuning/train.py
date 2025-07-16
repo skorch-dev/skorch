@@ -8,23 +8,23 @@ https://huggingface.co/google/vit-base-patch32-224-in21k
 
 """
 
-from functools import partial
 import pickle
+from functools import partial
 
 import fire
 import numpy as np
 import torch
 from datasets import load_dataset
-from skorch.helper import parse_args
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.metrics import accuracy_score
 from sklearn.pipeline import Pipeline
-from skorch import NeuralNetClassifier
-from skorch.callbacks import ProgressBar, LRScheduler
 from torch import nn
 from torch.optim.lr_scheduler import LambdaLR
 from transformers import ViTFeatureExtractor, ViTForImageClassification
 
+from skorch import NeuralNetClassifier
+from skorch.callbacks import LRScheduler, ProgressBar
+from skorch.helper import parse_args
 
 DEFAULTS = {
     'feature_extractor__model_name': 'google/vit-base-patch32-224-in21k',
@@ -64,17 +64,19 @@ class FeatureExtractor(BaseEstimator, TransformerMixin):
       Computation device, typically 'cuda' or 'cpu'.
 
     """
+
     def __init__(
-            self,
-            model_name='google/vit-base-patch32-224-in21k',
-            device='cuda',
+        self,
+        model_name='google/vit-base-patch32-224-in21k',
+        device='cuda',
     ):
         self.model_name = model_name
         self.device = device
 
     def fit(self, X, y=None, **fit_params):
         self.extractor_ = ViTFeatureExtractor.from_pretrained(
-            self.model_name, device=self.device,
+            self.model_name,
+            device=self.device,
         )
         return self
 
@@ -94,15 +96,14 @@ class VitModule(nn.Module):
       Number of target classes to classify.
 
     """
+
     def __init__(
-            self,
-            model_name='google/vit-base-patch32-224-in21k',
-            num_classes=3,
+        self,
+        model_name='google/vit-base-patch32-224-in21k',
+        num_classes=3,
     ):
         super().__init__()
-        self.model = ViTForImageClassification.from_pretrained(
-            model_name, num_labels=num_classes
-        )
+        self.model = ViTForImageClassification.from_pretrained(model_name, num_labels=num_classes)
 
     def forward(self, X):
         X = self.model(X)
@@ -113,22 +114,29 @@ def lr_lambda(current_step: int, num_warmup_steps, num_training_steps):
     if current_step < num_warmup_steps:
         return float(current_step) / float(max(1, num_warmup_steps))
     return max(
-        0.0, float(num_training_steps - current_step) / float(max(1, num_training_steps - num_warmup_steps))
+        0.0,
+        float(num_training_steps - current_step)
+        / float(max(1, num_training_steps - num_warmup_steps)),
     )
 
 
 def get_model(num_classes, lr_lambda):
-    pipe = Pipeline([
-        ('feature_extractor', FeatureExtractor()),
-        ('net', NeuralNetClassifier(
-            VitModule,
-            callbacks=[
-                LRScheduler(LambdaLR, lr_lambda=lr_lambda),
-                ProgressBar(),
-            ],
-            module__num_classes=num_classes,
-        )),
-    ])
+    pipe = Pipeline(
+        [
+            ('feature_extractor', FeatureExtractor()),
+            (
+                'net',
+                NeuralNetClassifier(
+                    VitModule,
+                    callbacks=[
+                        LRScheduler(LambdaLR, lr_lambda=lr_lambda),
+                        ProgressBar(),
+                    ],
+                    module__num_classes=num_classes,
+                ),
+            ),
+        ]
+    )
     return pipe
 
 
@@ -143,11 +151,11 @@ def save_model(pipe, output_file, trim=True):
 
 
 def train(
-        seed=1234,
-        device='cuda',
-        output_file=None,
-        # max epochs need to be known beforehand for lr scheduler, so set it explicitly
-        **kwargs
+    seed=1234,
+    device='cuda',
+    output_file=None,
+    # max epochs need to be known beforehand for lr scheduler, so set it explicitly
+    **kwargs,
 ):
     parsed = parse_args(kwargs, defaults=DEFAULTS)
     if kwargs.get('help'):
@@ -162,9 +170,7 @@ def train(
     X_train, X_valid, y_train, y_valid = get_data()
     num_classes = len(set(y_train))
     max_epochs = kwargs.get('net__max_epochs', DEFAULTS['net__max_epochs'])
-    lr_lambda_schedule = partial(
-        lr_lambda, num_warmup_steps=0.0, num_training_steps=max_epochs
-    )
+    lr_lambda_schedule = partial(lr_lambda, num_warmup_steps=0.0, num_training_steps=max_epochs)
     pipe = parsed(get_model(num_classes=num_classes, lr_lambda=lr_lambda_schedule))
 
     pipe.fit(X_train, y_train)

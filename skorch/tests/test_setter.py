@@ -1,4 +1,5 @@
 """Tests for virtual parameter setters"""
+
 from unittest.mock import Mock
 
 import pytest
@@ -9,6 +10,7 @@ class TestOptimizerSetter:
     @pytest.fixture
     def net_dummy(self):
         from skorch import NeuralNet
+
         net = Mock(spec=NeuralNet)
         net.lr = 0.01
         return net
@@ -16,11 +18,9 @@ class TestOptimizerSetter:
     @pytest.fixture
     def optimizer_dummy(self):
         from torch.optim import Optimizer
+
         optim = Mock(spec=Optimizer)
-        optim.param_groups = [
-            {'lr': 0.01, 'momentum': 0.9},
-            {'lr': 0.02, 'momentum': 0.9}
-        ]
+        optim.param_groups = [{'lr': 0.01, 'momentum': 0.9}, {'lr': 0.02, 'momentum': 0.9}]
         return optim
 
     @pytest.fixture(scope='function')
@@ -31,6 +31,7 @@ class TestOptimizerSetter:
     @pytest.fixture
     def setter(self):
         from skorch.setter import optimizer_setter
+
         return optimizer_setter
 
     def test_lr_attribute_is_updated(self, setter, net_optim_dummy):
@@ -47,17 +48,20 @@ class TestOptimizerSetter:
             setter(net_optim_dummy, param, value)
 
         assert e.value.args[0] == (
-            'Invalid parameter "{param}" for optimizer "optimizer"'
-            .format(param=param)
+            'Invalid parameter "{param}" for optimizer "optimizer"'.format(param=param)
         )
 
     @pytest.mark.parametrize('group', [0, 1])
-    @pytest.mark.parametrize('sub_param, value', [
-        ('momentum', 0.1),
-        ('lr', 0.3),
-    ])
-    def test_only_specific_param_group_updated(self, setter, net_optim_dummy,
-                                               group, sub_param, value):
+    @pytest.mark.parametrize(
+        'sub_param, value',
+        [
+            ('momentum', 0.1),
+            ('lr', 0.3),
+        ],
+    )
+    def test_only_specific_param_group_updated(
+        self, setter, net_optim_dummy, group, sub_param, value
+    ):
         pgroups = net_optim_dummy.optimizer_.param_groups
         param = 'optimizer__param_groups__{}__{}'.format(group, sub_param)
 
@@ -71,5 +75,7 @@ class TestOptimizerSetter:
         static_groups_new = [g for i, g, in enumerate(pgroups) if i != group]
 
         assert updated_group_new[0][sub_param] == value
-        assert all(old[sub_param] == new[sub_param] for old, new in zip(
-            static_groups_pre, static_groups_new))
+        assert all(
+            old[sub_param] == new[sub_param]
+            for old, new in zip(static_groups_pre, static_groups_new)
+        )

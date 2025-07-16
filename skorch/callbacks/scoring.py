@@ -1,23 +1,15 @@
-""" Callbacks for calculating scores."""
+"""Callbacks for calculating scores."""
 
-from contextlib import contextmanager
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from functools import partial
-import warnings
 
 import numpy as np
-import sklearn
-from sklearn.metrics import make_scorer, check_scoring
+from sklearn.metrics import check_scoring, make_scorer
+from sklearn.metrics._scorer import _BaseScorer
 
 from skorch.callbacks import Callback
 from skorch.dataset import unpack_data
-from sklearn.metrics._scorer import _BaseScorer
-from skorch.utils import data_from_dataset
-from skorch.utils import is_skorch_dataset
-from skorch.utils import to_numpy
-from skorch.utils import check_indexing
-from skorch.utils import to_device
-
+from skorch.utils import check_indexing, data_from_dataset, is_skorch_dataset, to_device, to_numpy
 
 __all__ = ['BatchScoring', 'EpochScoring', 'PassthroughScoring']
 
@@ -67,11 +59,11 @@ def convert_sklearn_metric_function(scoring):
         # from sklearn 0.22
         scorer_names = ('_PredictScorer', '_ProbaScorer', '_ThresholdScorer', '_Scorer')
         if (
-                hasattr(module, 'startswith') and
-                module.startswith('sklearn.metrics.') and
-                not module.startswith('sklearn.metrics.scorer') and
-                not module.startswith('sklearn.metrics.tests.') and
-                not scoring.__class__.__name__ in scorer_names
+            hasattr(module, 'startswith')
+            and module.startswith('sklearn.metrics.')
+            and not module.startswith('sklearn.metrics.scorer')
+            and not module.startswith('sklearn.metrics.tests.')
+            and not scoring.__class__.__name__ in scorer_names
         ):
             return make_scorer(scoring)
     return scoring
@@ -82,14 +74,15 @@ class ScoringBase(Callback):
 
     Subclass and implement an ``on_*`` method before using.
     """
+
     def __init__(
-            self,
-            scoring,
-            lower_is_better=True,
-            on_train=False,
-            name=None,
-            target_extractor=to_numpy,
-            use_caching=True,
+        self,
+        scoring,
+        lower_is_better=True,
+        on_train=False,
+        name=None,
+        target_extractor=to_numpy,
+        use_caching=True,
     ):
         self.scoring = scoring
         self.lower_is_better = lower_is_better
@@ -116,8 +109,10 @@ class ScoringBase(Callback):
             # sklearn >= 0.22
             return self.scoring_._score_func._score_func.__name__
         if isinstance(self.scoring_, dict):
-            raise ValueError("Dict not supported as scorer for multi-metric scoring."
-                             " Register multiple scoring callbacks instead.")
+            raise ValueError(
+                "Dict not supported as scorer for multi-metric scoring."
+                " Register multiple scoring callbacks instead."
+            )
         return self.scoring_.__name__
 
     def initialize(self):
@@ -204,6 +199,7 @@ class BatchScoring(ScoringBase):
       caching.
 
     """
+
     # pylint: disable=unused-argument,arguments-differ
 
     def on_batch_end(self, net, batch, training, **kwargs):
@@ -228,8 +224,7 @@ class BatchScoring(ScoringBase):
         else:
             bs_key = 'valid_batch_size'
 
-        weights, scores = list(zip(
-            *history[-1, 'batches', :, [bs_key, self.name_]]))
+        weights, scores = list(zip(*history[-1, 'batches', :, [bs_key, self.name_]]))
         score_avg = np.average(scores, weights=weights)
         return score_avg
 
@@ -320,6 +315,7 @@ class EpochScoring(ScoringBase):
       dataset). Note that the net may override the use of caching.
 
     """
+
     def _initialize_cache(self):
         self.y_trues_ = []
         self.y_preds_ = []
@@ -334,10 +330,9 @@ class EpochScoring(ScoringBase):
         self._initialize_cache()
 
     # pylint: disable=arguments-differ
-    def on_batch_end(
-            self, net, batch, y_pred, training, **kwargs):
+    def on_batch_end(self, net, batch, y_pred, training, **kwargs):
         use_caching = self.use_caching
-        if net.use_caching !=  'auto':
+        if net.use_caching != 'auto':
             use_caching = net.use_caching
 
         if (not use_caching) or (training != self.on_train):
@@ -432,14 +427,9 @@ class EpochScoring(ScoringBase):
             self.best_score_ = current_score
 
     # pylint: disable=unused-argument,arguments-differ
-    def on_epoch_end(
-            self,
-            net,
-            dataset_train,
-            dataset_valid,
-            **kwargs):
+    def on_epoch_end(self, net, dataset_train, dataset_valid, **kwargs):
         use_caching = self.use_caching
-        if net.use_caching !=  'auto':
+        if net.use_caching != 'auto':
             use_caching = net.use_caching
 
         X_test, y_test, y_pred = self.get_test_data(
@@ -484,11 +474,12 @@ class PassthroughScoring(Callback):
       Whether this should be called during train or validation.
 
     """
+
     def __init__(
-            self,
-            name,
-            lower_is_better=True,
-            on_train=False,
+        self,
+        name,
+        lower_is_better=True,
+        on_train=False,
     ):
         self.name = name
         self.lower_is_better = lower_is_better
@@ -511,8 +502,7 @@ class PassthroughScoring(Callback):
         else:
             bs_key = 'valid_batch_size'
 
-        weights, scores = list(zip(
-            *history[-1, 'batches', :, [bs_key, self.name]]))
+        weights, scores = list(zip(*history[-1, 'batches', :, [bs_key, self.name]]))
         score_avg = np.average(scores, weights=weights)
         return score_avg
 

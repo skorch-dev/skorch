@@ -4,17 +4,14 @@ import re
 import textwrap
 
 import numpy as np
-from sklearn.base import ClassifierMixin
 import torch
+from sklearn.base import ClassifierMixin
 from torch.utils.data import DataLoader
 
 from skorch import NeuralNet
-from skorch.callbacks import EpochTimer
-from skorch.callbacks import PrintLog
-from skorch.callbacks import EpochScoring
-from skorch.callbacks import PassthroughScoring
+from skorch.callbacks import EpochScoring, EpochTimer, PassthroughScoring, PrintLog
 from skorch.dataset import ValidSplit
-from skorch.utils import data_from_dataset, is_dataset, get_dim, to_numpy
+from skorch.utils import data_from_dataset, get_dim, is_dataset, to_numpy
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks
 
@@ -41,37 +38,39 @@ neural_net_clf_additional_attribute = """    classes_ : array, shape (n_classes,
 
 """
 
+
 def get_neural_net_clf_doc(doc):
     indentation = "    "
     # dedent/indent roundtrip required for consistent indention in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => not automatic dedent, but it is the case in >=3.13
-    doc = neural_net_clf_doc_start + " " + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
+    doc = (
+        neural_net_clf_doc_start
+        + " "
+        + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
+    )
     pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_clf_additional_text + doc[end:]
     doc = doc + neural_net_clf_additional_attribute
     return doc
 
+
 # pylint: disable=missing-docstring
 class NeuralNetClassifier(ClassifierMixin, NeuralNet):
     __doc__ = get_neural_net_clf_doc(NeuralNet.__doc__)
 
     def __init__(
-            self,
-            module,
-            *args,
-            criterion=torch.nn.NLLLoss,
-            train_split=ValidSplit(5, stratified=True),
-            classes=None,
-            **kwargs
+        self,
+        module,
+        *args,
+        criterion=torch.nn.NLLLoss,
+        train_split=ValidSplit(5, stratified=True),
+        classes=None,
+        **kwargs,
     ):
         super(NeuralNetClassifier, self).__init__(
-            module,
-            *args,
-            criterion=criterion,
-            train_split=train_split,
-            **kwargs
+            module, *args, criterion=criterion, train_split=train_split, **kwargs
         )
         self.classes = classes
 
@@ -79,18 +78,27 @@ class NeuralNetClassifier(ClassifierMixin, NeuralNet):
     def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', PassthroughScoring(
-                name='train_loss',
-                on_train=True,
-            )),
-            ('valid_loss', PassthroughScoring(
-                name='valid_loss',
-            )),
-            ('valid_acc', EpochScoring(
-                'accuracy',
-                name='valid_acc',
-                lower_is_better=False,
-            )),
+            (
+                'train_loss',
+                PassthroughScoring(
+                    name='train_loss',
+                    on_train=True,
+                ),
+            ),
+            (
+                'valid_loss',
+                PassthroughScoring(
+                    name='valid_loss',
+                ),
+            ),
+            (
+                'valid_acc',
+                EpochScoring(
+                    'accuracy',
+                    name='valid_acc',
+                    lower_is_better=False,
+                ),
+            ),
             ('print_log', PrintLog()),
         ]
 
@@ -98,8 +106,9 @@ class NeuralNetClassifier(ClassifierMixin, NeuralNet):
     def classes_(self):
         if self.classes is not None:
             if not len(self.classes):
-                raise AttributeError("{} has no attribute 'classes_'".format(
-                    self.__class__.__name__))
+                raise AttributeError(
+                    "{} has no attribute 'classes_'".format(self.__class__.__name__)
+                )
             return np.asarray(self.classes)
 
         try:
@@ -119,16 +128,14 @@ class NeuralNetClassifier(ClassifierMixin, NeuralNet):
 
     # pylint: disable=signature-differs
     def check_data(self, X, y):
-        if (
-                (y is None) and
-                (not is_dataset(X)) and
-                (self.iterator_train is DataLoader)
-        ):
-            msg = ("No y-values are given (y=None). You must either supply a "
-                   "Dataset as X or implement your own DataLoader for "
-                   "training (and your validation) and supply it using the "
-                   "``iterator_train`` and ``iterator_valid`` parameters "
-                   "respectively.")
+        if (y is None) and (not is_dataset(X)) and (self.iterator_train is DataLoader):
+            msg = (
+                "No y-values are given (y=None). You must either supply a "
+                "Dataset as X or implement your own DataLoader for "
+                "training (and your validation) and supply it using the "
+                "``iterator_train`` and ``iterator_valid`` parameters "
+                "respectively."
+            )
             raise ValueError(msg)
 
         if (y is None) and is_dataset(X):
@@ -252,55 +259,64 @@ neural_net_binary_clf_criterion_text = """
       Probabilities above this threshold is classified as 1. ``threshold``
       is used by ``predict`` and ``predict_proba`` for classification."""
 
+
 def get_neural_net_binary_clf_doc(doc):
     indentation = "    "
     # dedent/indent roundtrip required for consistent indention in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => not automatic dedent, but it is the case in >=3.13
-    doc = neural_net_binary_clf_doc_start + " " + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
+    doc = (
+        neural_net_binary_clf_doc_start
+        + " "
+        + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
+    )
     pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_binary_clf_criterion_text + doc[end:]
     return doc
+
 
 class NeuralNetBinaryClassifier(ClassifierMixin, NeuralNet):
     # pylint: disable=missing-docstring
     __doc__ = get_neural_net_binary_clf_doc(NeuralNet.__doc__)
 
     def __init__(
-            self,
-            module,
-            *args,
-            criterion=torch.nn.BCEWithLogitsLoss,
-            train_split=ValidSplit(5, stratified=True),
-            threshold=0.5,
-            **kwargs
+        self,
+        module,
+        *args,
+        criterion=torch.nn.BCEWithLogitsLoss,
+        train_split=ValidSplit(5, stratified=True),
+        threshold=0.5,
+        **kwargs,
     ):
-        super().__init__(
-            module,
-            criterion=criterion,
-            train_split=train_split,
-            *args,
-            **kwargs
-        )
+        super().__init__(module, criterion=criterion, train_split=train_split, *args, **kwargs)
         self.threshold = threshold
 
     @property
     def _default_callbacks(self):
         return [
             ('epoch_timer', EpochTimer()),
-            ('train_loss', PassthroughScoring(
-                name='train_loss',
-                on_train=True,
-            )),
-            ('valid_loss', PassthroughScoring(
-                name='valid_loss',
-            )),
-            ('valid_acc', EpochScoring(
-                'accuracy',
-                name='valid_acc',
-                lower_is_better=False,
-            )),
+            (
+                'train_loss',
+                PassthroughScoring(
+                    name='train_loss',
+                    on_train=True,
+                ),
+            ),
+            (
+                'valid_loss',
+                PassthroughScoring(
+                    name='valid_loss',
+                ),
+            ),
+            (
+                'valid_acc',
+                EpochScoring(
+                    'accuracy',
+                    name='valid_acc',
+                    lower_is_better=False,
+                ),
+            ),
             ('print_log', PrintLog()),
         ]
 
@@ -330,7 +346,8 @@ class NeuralNetBinaryClassifier(ClassifierMixin, NeuralNet):
         if (y_infer.dim() > 2) or ((y_infer.dim() == 2) and (y_infer.shape[1] != 1)):
             raise ValueError(
                 "Expected module output to have shape (n,) or "
-                "(n, 1), got {} instead".format(tuple(y_infer.shape)))
+                "(n, 1), got {} instead".format(tuple(y_infer.shape))
+            )
 
         y_infer = y_infer.reshape(-1)
         if rest is None:

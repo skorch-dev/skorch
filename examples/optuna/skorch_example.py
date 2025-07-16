@@ -1,21 +1,28 @@
 import argparse
+
 import numpy as np
 import optuna
-from optuna.integration import SkorchPruningCallback
-import skorch
 import torch
 import torch.nn as nn
-import pandas as pd
+from optuna.integration import SkorchPruningCallback
 from sklearn.datasets import fetch_openml
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
+import skorch
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+
 def load_mnist_data(subset_ratio=0.4):
-    mnist = fetch_openml("mnist_784", cache=False, parser="auto")  # Explicit parser for compatibility
+    mnist = fetch_openml(
+        "mnist_784", cache=False, parser="auto"
+    )  # Explicit parser for compatibility
     num_samples = int(len(mnist.data) * subset_ratio)
-    return mnist.data.iloc[:num_samples].astype(np.float32), mnist.target.iloc[:num_samples].astype("int64")
+    return mnist.data.iloc[:num_samples].astype(np.float32), mnist.target.iloc[
+        :num_samples
+    ].astype("int64")
+
 
 class ClassifierModule(nn.Module):
     def __init__(self, n_layers: int, dropout: float, hidden_units: list[int]) -> None:
@@ -39,13 +46,15 @@ class ClassifierModule(nn.Module):
             x = x["data"]
         return self.model(x)
 
+
 def convert_to_numpy(X_train, X_test, y_train, y_test):
     return (
         X_train.to_numpy().astype(np.float32),
         X_test.to_numpy().astype(np.float32),
         y_train.to_numpy(),
-        y_test.to_numpy()
+        y_test.to_numpy(),
     )
+
 
 def objective(trial: optuna.Trial, X_train, X_test, y_train, y_test) -> float:
     n_layers = trial.suggest_int("n_layers", 1, 3)
@@ -54,7 +63,9 @@ def objective(trial: optuna.Trial, X_train, X_test, y_train, y_test) -> float:
 
     model = ClassifierModule(n_layers, dropout, hidden_units)
 
-    X_train_np, X_test_np, y_train_np, y_test_np = convert_to_numpy(X_train, X_test, y_train, y_test)
+    X_train_np, X_test_np, y_train_np, y_test_np = convert_to_numpy(
+        X_train, X_test, y_train, y_test
+    )
 
     net = skorch.NeuralNetClassifier(
         model,
@@ -69,6 +80,7 @@ def objective(trial: optuna.Trial, X_train, X_test, y_train, y_test) -> float:
     net.fit(X_train_np, y_train_np)
 
     return accuracy_score(y_test_np, net.predict(X_test_np))
+
 
 def main(args):
     # Load and preprocess data
@@ -86,7 +98,11 @@ def main(args):
     # Run optimization
     pruner = optuna.pruners.MedianPruner() if args.pruning else optuna.pruners.NopPruner()
     study = optuna.create_study(direction="maximize", pruner=pruner)
-    study.optimize(lambda trial: objective(trial, X_train, X_test, y_train, y_test), n_trials=args.n_trials, timeout=args.timeout)
+    study.optimize(
+        lambda trial: objective(trial, X_train, X_test, y_train, y_test),
+        n_trials=args.n_trials,
+        timeout=args.timeout,
+    )
 
     # Print results
     print(f"Number of finished trials: {len(study.trials)}")
@@ -94,6 +110,7 @@ def main(args):
     print("Best trial parameters:")
     for key, value in study.best_trial.params.items():
         print(f"  {key}: {value}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="skorch example.")

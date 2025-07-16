@@ -7,9 +7,9 @@ def make_decoder_block(in_channels, middle_channels, out_channels):
     return nn.Sequential(
         nn.Conv2d(in_channels, middle_channels, 3, padding=1),
         nn.ReLU(inplace=True),
-        nn.ConvTranspose2d(
-            middle_channels, out_channels, kernel_size=4, stride=2, padding=1),
-        nn.ReLU(inplace=True))
+        nn.ConvTranspose2d(middle_channels, out_channels, kernel_size=4, stride=2, padding=1),
+        nn.ReLU(inplace=True),
+    )
 
 
 class UNet(nn.Module):
@@ -27,6 +27,7 @@ class UNet(nn.Module):
         "U-Net: Convolutional Networks for Biomedical Image Segmentation,".
         "MICCAI" `<https://arxiv.org/abs/1505.04597>`_
     """
+
     def __init__(self, pretrained=False):
         super().__init__()
         encoder = models.vgg16_bn(pretrained=pretrained).features
@@ -37,16 +38,13 @@ class UNet(nn.Module):
         self.conv4 = encoder[23:33]
         self.conv5 = encoder[33:43]
 
-        self.center = nn.Sequential(
-            encoder[43],  # MaxPool
-            make_decoder_block(512, 512, 256))
+        self.center = nn.Sequential(encoder[43], make_decoder_block(512, 512, 256))  # MaxPool
 
         self.dec5 = make_decoder_block(256 + 512, 512, 256)
         self.dec4 = make_decoder_block(256 + 512, 512, 256)
         self.dec3 = make_decoder_block(256 + 256, 256, 64)
         self.dec2 = make_decoder_block(64 + 128, 128, 32)
-        self.dec1 = nn.Sequential(
-            nn.Conv2d(32 + 64, 32, 3, padding=1), nn.ReLU(inplace=True))
+        self.dec1 = nn.Sequential(nn.Conv2d(32 + 64, 32, 3, padding=1), nn.ReLU(inplace=True))
         self.final = nn.Conv2d(32, 1, kernel_size=1)
 
     def forward(self, x):
