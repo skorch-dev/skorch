@@ -1,0 +1,26 @@
+# pre-commit package installation is necessary to use pre-commit.
+# $ pip install pre-commit
+# $ pre-commit install
+
+default_language_version:
+  python: python3
+
+repos:
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        args: [
+            "--max-line-length=99",
+            "--ignore=D204,D401",
+            "--statistics",
+        ]
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+
