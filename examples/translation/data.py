@@ -1,7 +1,5 @@
-import unicodedata
-import string
 import re
-
+import unicodedata
 
 SOS_token = 0
 EOS_token = 1
@@ -35,13 +33,12 @@ class Lang:
 # punctuation.
 #
 
+
 # Turn a Unicode string to plain ASCII, thanks to
 # http://stackoverflow.com/a/518232/2809427
 def unicodeToAscii(s):
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', s)
-        if unicodedata.category(c) != 'Mn'
-    )
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
 
 # Lowercase, trim, and remove non-letter characters
 
@@ -60,12 +57,12 @@ def normalizeString(s):
 # flag to reverse the pairs.
 #
 
+
 def readLangs(lang1, lang2, reverse=False):
     print("Reading lines...")
 
     # Read the file and split into lines
-    lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
-        read().strip().split('\n')
+    lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').read().strip().split('\n')
 
     # Split every line into pairs and normalize
     pairs = [[normalizeString(s) for s in l.split('\t')] for l in lines]
@@ -94,19 +91,27 @@ def readLangs(lang1, lang2, reverse=False):
 MAX_LENGTH = 10
 
 eng_prefixes = (
-    "i am ", "i m ",
-    "he is", "he s ",
-    "she is", "she s",
-    "you are", "you re ",
-    "we are", "we re ",
-    "they are", "they re "
+    "i am ",
+    "i m ",
+    "he is",
+    "he s ",
+    "she is",
+    "she s",
+    "you are",
+    "you re ",
+    "we are",
+    "we re ",
+    "they are",
+    "they re ",
 )
 
 
 def filterPair(p):
-    return len(p[0].split(' ')) < MAX_LENGTH and \
-        len(p[1].split(' ')) < MAX_LENGTH and \
-        p[1].startswith(eng_prefixes)
+    return (
+        len(p[0].split(' ')) < MAX_LENGTH
+        and len(p[1].split(' ')) < MAX_LENGTH
+        and p[1].startswith(eng_prefixes)
+    )
 
 
 def filterPairs(pairs):
@@ -121,6 +126,7 @@ def filterPairs(pairs):
 # -  Make word lists from sentences in pairs
 #
 
+
 def prepareData(lang1, lang2, reverse=False):
     input_lang, output_lang, pairs = readLangs(lang1, lang2, reverse)
     print("Read %s sentence pairs" % len(pairs))
@@ -134,4 +140,3 @@ def prepareData(lang1, lang2, reverse=False):
     print(input_lang.name, input_lang.n_words)
     print(output_lang.name, output_lang.n_words)
     return input_lang, output_lang, pairs
-

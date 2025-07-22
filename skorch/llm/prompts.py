@@ -5,7 +5,6 @@ the predictions using the default prompts.
 
 """
 
-
 DELIM = "```"
 
 DEFAULT_PROMPT_ZERO_SHOT = f"""You are a text classification assistant.
