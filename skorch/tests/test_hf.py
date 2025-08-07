@@ -795,15 +795,26 @@ class TestAccelerate:
         assert print_log.sink == 123
 
     def test_print_log_sink_uses_print_if_accelerator_has_no_print(
-            self, net_cls, accelerator_cls
+            self, net_cls, accelerator_cls, monkeypatch
     ):
         # we should not depend on the accelerator having a print function
 
-        # we need to use Mock here because Accelerator does not allow attr
-        # deletion
+        # We need to use Mock here because Accelerator does not allow attr
+        # deletion. But some attrs on Accelerator raise an error when accessed,
+        # which causes issues when trying to Mock the object.
+        forbidden_attrs = [
+            'context_parallel_rank',
+            'data_parallel_rank',
+            'data_parallel_shard_rank',
+            'pipeline_parallel_rank',
+            'tensor_parallel_rank',
+        ]
+        for attr in forbidden_attrs:
+            monkeypatch.setattr(accelerator_cls, attr, None)
         accelerator = Mock(spec=accelerator_cls())
         accelerator.prepare = lambda x: x
         delattr(accelerator, 'print')
+
         net = net_cls(accelerator=accelerator)
         net.initialize()
         print_log = dict(net.callbacks_)['print_log']
