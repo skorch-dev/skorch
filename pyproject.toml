@@ -2,7 +2,7 @@
 requires = ["setuptools>=61.1.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.package-data] 
+[tool.setuptools.package-data]
 "*" = ["VERSION", "LICENSE", "*.rst"]
 
 [tool.setuptools.packages.find]
@@ -13,6 +13,7 @@ exclude = ["notebooks", "assets"]
 name = "skorch"
 dynamic = ["version", "readme"]
 description = "scikit-learn compatible neural network library for pytorch"
+license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 requires-python = ">=3.9"
 dependencies =[
@@ -30,7 +31,6 @@ authors = [
     {name = "skorch Developers"}
 ]
 classifiers = [                                 #note:classifiers are recommended for packages to be visible on PyPI
-  "License ::BSD 3-Clause  License",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -38,7 +38,6 @@ classifiers = [                                 #note:classifiers are recommende
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Scientific/Engineering",
-  "Topic :: Scientific/Engineering :: Machine Learning",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development",
   "Topic :: Software Development :: Libraries",
@@ -84,7 +83,7 @@ extended = [
 ]
 
 
-[tool.coverage.run]  
+[tool.coverage.run]
 source = ["."]
 include = ["skorch/*"]
 omit = [
@@ -112,10 +111,10 @@ testpaths = ["skorch/tests"]
 [tool.pylint.main]
 load-plugins = "pylint.extensions.no_self_use"
 
-[tool.pylint.messages_control]  
+[tool.pylint.messages_control]
 disable = [
     "raw-checker-failed",
-    "bad-inline-option", 
+    "bad-inline-option",
     "locally-disabled",
     "file-ignored",
     "suppressed-message",

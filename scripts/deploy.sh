@@ -4,7 +4,7 @@ set -o pipefail
 
 PYTORCH_VERSION=${PYTORCH_VERSION:-""}
 PYTHON_VERSION="3.9"
-TWINE_VERSION="\>3,\<4.0.0dev" # escaped <,> are necessary for conda run
+TWINE_VERSION=">3,<4.0.0dev"
 CONDA_ENV="skorch-deploy"
 
 if [[ $# -gt 1 ]] || [[ $1 != "live" && $1 != "stage" ]]; then
@@ -49,14 +49,13 @@ run_in_env() {
 trap remove_env EXIT
 
 echo "installing dependencies"
-conda install -c pytorch -y "pytorch==${PYTORCH_VERSION}"
+run_in_env python -m pip install "torch==${PYTORCH_VERSION}" --index-url https://download.pytorch.org/whl/cpu
 run_in_env python -m pip install "twine${TWINE_VERSION}"
 # Workaround for error `AttributeError: module 'lib' has no attribute 'X509_V_FLAG_CB_ISSUER_CHECK'`
 # due to outdated system pyOpenSSL - see also: https://askubuntu.com/q/1428181
 run_in_env python -m pip install pyOpenSSL --upgrade
-run_in_env python -m pip install -r requirements.txt
-run_in_env python -m pip install -r requirements-dev.txt
-run_in_env python -m pip install .
+run_in_env python -m pip install '.[dev,test,docs,extended]'
+run_in_env python -m pip install build
 run_in_env python -m pip list
 
 run_in_env pytest -x
@@ -65,10 +64,10 @@ run_in_env pytest -x
 run_in_env python -m pip install readme-renderer
 run_in_env python -m readme_renderer README.rst > /dev/null
 
-run_in_env python setup.py sdist bdist_wheel
+run_in_env python -m build --sdist --wheel
 
 if [[ $1 == "live" ]]; then
-    run_in_env twine upload dist/*"$(cat VERSION)"*
+    run_in_env twine upload --verbose dist/*"$(cat VERSION)"*
 else
-    run_in_env twine upload --repository-url https://test.pypi.org/legacy/ dist/*"$(cat VERSION)"*
+    run_in_env twine upload --verbose --repository-url https://test.pypi.org/legacy/ dist/*"$(cat VERSION)"*
 fi
