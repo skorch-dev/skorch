@@ -1377,6 +1377,14 @@ class NeuralNet(BaseEstimator):
         )
         check_is_fitted(self, attributes, *args, **kwargs)
 
+    def __sklearn_is_fitted__(self):
+        """This method is called when sklearn's ``check_is_fitted`` is used.
+        
+        Explained here: 
+        https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html
+        """
+        return self.check_is_fitted()
+
     def trim_for_prediction(self):
         """Remove all attributes not required for prediction.
 
