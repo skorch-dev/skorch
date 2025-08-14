@@ -274,9 +274,9 @@ class TestNeuralNetBinaryClassifier:
         with pytest.raises(NotFittedError) as exc:
             check_is_fitted(net)
 
-        msg = ("This NeuralNetBinaryClassifier instance is not initialized yet. "
-               "Call 'initialize' or 'fit' with appropriate arguments "
-               "before using this method.")
+        msg = ("This NeuralNetBinaryClassifier instance is not fitted yet. "
+                "Call 'fit' with appropriate arguments before "
+                "using this estimator.")
         assert exc.value.args[0] == msg
 
     def test_net_learns(self, net_cls, module_cls, data):

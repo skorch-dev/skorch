@@ -315,9 +315,9 @@ class TestNeuralNet:
         with pytest.raises(NotFittedError) as exc:
             check_is_fitted(net)
 
-        msg = ("This NeuralNetClassifier instance is not initialized yet. "
-               "Call 'initialize' or 'fit' with appropriate arguments "
-               "before using this method.")
+        msg = ("This NeuralNetClassifier instance is not fitted yet. "
+                "Call 'fit' with appropriate arguments before "
+                "using this estimator.")
         assert exc.value.args[0] == msg
 
     def test_not_fitted_other_attributes(self, module_cls):

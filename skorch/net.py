@@ -1383,7 +1383,15 @@ class NeuralNet(BaseEstimator):
         Explained here: 
         https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html
         """
-        return self.check_is_fitted()
+        from skorch.exceptions import NotInitializedError
+        try:
+            self.check_is_fitted()
+        except NotInitializedError:
+            from sklearn.exceptions import NotFittedError
+            raise NotFittedError(
+                f"This {self.__class__.__name__} instance is not fitted yet. "
+                "Call 'fit' with appropriate arguments before using this estimator."
+            )
 
     def trim_for_prediction(self):
         """Remove all attributes not required for prediction.
