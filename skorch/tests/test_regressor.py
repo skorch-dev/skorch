@@ -91,9 +91,11 @@ class TestNeuralNetRegressor:
         with pytest.raises(NotFittedError) as exc:
             check_is_fitted(net)
 
-        msg = ("This NeuralNetRegressor instance is not fitted yet. "
-                "Call 'fit' with appropriate arguments before "
-                "using this estimator.")
+        msg = (
+            "This NeuralNetRegressor instance is not fitted yet. "
+            "Call 'fit' with appropriate arguments before "
+            "using this estimator."
+        )
         assert exc.value.args[0] == msg
 
     def test_net_learns(self, net, net_cls, data, module_cls):
