@@ -70,7 +70,7 @@ class TestNeuralNetRegressor:
         assert not recwarn.list
 
     @pytest.mark.parametrize('method', INFERENCE_METHODS)
-    def test_not_fitted_raises(self, net_cls, module_cls, data, method):
+    def test_not_init_raises(self, net_cls, module_cls, data, method):
         from skorch.exceptions import NotInitializedError
         net = net_cls(module_cls)
         X = data[0]
@@ -81,6 +81,21 @@ class TestNeuralNetRegressor:
         msg = ("This NeuralNetRegressor instance is not initialized "
                "yet. Call 'initialize' or 'fit' with appropriate arguments "
                "before using this method.")
+        assert exc.value.args[0] == msg
+
+    def test_not_fitted_raises(self, net_cls, module_cls):
+        from sklearn.utils.validation import check_is_fitted
+        from sklearn.exceptions import NotFittedError
+    
+        net = net_cls(module_cls)
+        with pytest.raises(NotFittedError) as exc:
+            check_is_fitted(net)
+
+        msg = (
+            "This NeuralNetRegressor instance is not fitted yet. "
+            "Call 'fit' with appropriate arguments before "
+            "using this estimator."
+        )
         assert exc.value.args[0] == msg
 
     def test_net_learns(self, net, net_cls, data, module_cls):
