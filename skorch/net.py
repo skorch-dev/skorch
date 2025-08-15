@@ -19,6 +19,7 @@ import warnings
 
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.exceptions import NotFittedError
 import torch
 from torch.utils.data import DataLoader
 
@@ -30,6 +31,7 @@ from skorch.dataset import ValidSplit
 from skorch.dataset import get_len
 from skorch.dataset import unpack_data
 from skorch.exceptions import DeviceWarning
+from skorch.exceptions import NotInitializedError
 from skorch.exceptions import SkorchAttributeError
 from skorch.exceptions import SkorchTrainingImpossibleError
 from skorch.history import History
@@ -1383,11 +1385,9 @@ class NeuralNet(BaseEstimator):
         Explained here: 
         https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html
         """
-        from skorch.exceptions import NotInitializedError
         try:
             self.check_is_fitted()
         except NotInitializedError:
-            from sklearn.exceptions import NotFittedError
             raise NotFittedError(
                 f"This {self.__class__.__name__} instance is not fitted yet. "
                 "Call 'fit' with appropriate arguments before using this estimator."
