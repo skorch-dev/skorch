@@ -1,7 +1,3 @@
-# pre-commit package installation is necessary to use pre-commit.
-# $ pip install pre-commit
-# $ pre-commit install
-
 default_language_version:
   python: python3
 
@@ -10,6 +6,8 @@ repos:
     rev: 25.1.0
     hooks:
       - id: black
+        exclude: ^(docs/|examples/)
+
   - repo: https://github.com/pycqa/flake8
     rev: 7.3.0
     hooks:
@@ -19,8 +17,10 @@ repos:
             "--ignore=D204,D401",
             "--statistics",
         ]
+        exclude: ^(docs/|examples/)
+
   - repo: https://github.com/pycqa/isort
     rev: 6.0.1
     hooks:
       - id: isort
-
+        exclude: ^(docs/|examples/)
