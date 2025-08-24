@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 from accelerate import Accelerator
+from sklearn.base import BaseEstimator
 from sklearn.datasets import make_classification
 from sklearn.model_selection import cross_validate
-from sklearn.base import BaseEstimator
 from torch import nn
 
 
@@ -78,7 +78,13 @@ def main():
     net = Net(module, accelerator)
     # cross_validate creates a deepcopy of the accelerator attribute
     res = cross_validate(
-        net, X, y, cv=2, scoring='accuracy', verbose=3, error_score='raise',
+        net,
+        X,
+        y,
+        cv=2,
+        scoring='accuracy',
+        verbose=3,
+        error_score='raise',
     )
     print(res)
 

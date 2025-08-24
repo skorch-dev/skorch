@@ -4,34 +4,33 @@ Should not have any dependency on other skorch packages.
 
 """
 
+import io
+import pathlib
+import pickle
+import warnings
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from enum import Enum
 from functools import partial
-import io
 from itertools import tee
-import pathlib
-import pickle
-import warnings
 
 import numpy as np
+import torch
 from scipy import sparse
 from sklearn.exceptions import NotFittedError
 from sklearn.utils import _safe_indexing as safe_indexing
 from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
-import torch
-from torch.nn import BCELoss
-from torch.nn import BCEWithLogitsLoss
-from torch.nn import CrossEntropyLoss
+from torch.nn import BCELoss, BCEWithLogitsLoss, CrossEntropyLoss
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
 
-from skorch.exceptions import DeviceWarning
-from skorch.exceptions import NotInitializedError
+from skorch.exceptions import DeviceWarning, NotInitializedError
+
 from ._version import Version
 
 try:
-    import torch_geometric
+    pass
+
     TORCH_GEOMETRIC_INSTALLED = True
 except ImportError:
     TORCH_GEOMETRIC_INSTALLED = False
@@ -57,6 +56,7 @@ def is_dataset(x):
 
 def is_geometric_data_type(x):
     from torch_geometric.data import Data
+
     return isinstance(x, Data)
 
 
@@ -111,10 +111,11 @@ def to_tensor(X, device, accept_sparse=False):
         return torch.as_tensor(X, device=device)
     if sparse.issparse(X):
         if accept_sparse:
-            return torch.sparse_coo_tensor(
-                X.nonzero(), X.data, size=X.shape).to(device)
-        raise TypeError("Sparse matrices are not supported. Set "
-                        "accept_sparse=True to allow sparse matrices.")
+            return torch.sparse_coo_tensor(X.nonzero(), X.data, size=X.shape).to(device)
+        raise TypeError(
+            "Sparse matrices are not supported. Set "
+            "accept_sparse=True to allow sparse matrices."
+        )
 
     raise TypeError("Cannot convert this data type to a torch tensor.")
 
@@ -247,8 +248,7 @@ def _indexing_list_tuple_of_data(data, i, indexings=None):
     """
     if not indexings:
         return [multi_indexing(x, i) for x in data]
-    return [multi_indexing(x, i, indexing)
-            for x, indexing in zip(data, indexings)]
+    return [multi_indexing(x, i, indexing) for x, indexing in zip(data, indexings)]
 
 
 def _indexing_ndframe(data, i):
@@ -412,8 +412,7 @@ def params_for(prefix, kwargs):
     """
     if not prefix.endswith('__'):
         prefix += '__'
-    return {key[len(prefix):]: val for key, val in kwargs.items()
-            if key.startswith(prefix)}
+    return {key[len(prefix) :]: val for key, val in kwargs.items() if key.startswith(prefix)}
 
 
 # pylint: disable=invalid-name
@@ -450,8 +449,7 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
     X, y = _none, _none
 
     if isinstance(dataset, Subset):
-        X, y = data_from_dataset(
-            dataset.dataset, X_indexing=X_indexing, y_indexing=y_indexing)
+        X, y = data_from_dataset(dataset.dataset, X_indexing=X_indexing, y_indexing=y_indexing)
         X = multi_indexing(X, dataset.indices, indexing=X_indexing)
         y = multi_indexing(y, dataset.indices, indexing=y_indexing)
     elif hasattr(dataset, 'X') and hasattr(dataset, 'y'):
@@ -470,6 +468,7 @@ def is_skorch_dataset(ds):
     ``skorch.dataset.Dataset`` even when it is nested inside
     ``torch.util.data.Subset``."""
     from skorch.dataset import Dataset
+
     if isinstance(ds, Subset):
         return is_skorch_dataset(ds.dataset)
     return isinstance(ds, Dataset)
@@ -522,6 +521,7 @@ class FirstStepAccumulator:
     ``NeuralNet.get_train_step_accumulator`` method.
 
     """
+
     def __init__(self):
         self.step = None
 
@@ -570,7 +570,9 @@ def get_map_location(target_device, fallback_device='cpu'):
             'Requested to load data to CUDA but no CUDA devices '
             'are available. Loading on device "{}" instead.'.format(
                 fallback_device,
-            ), DeviceWarning)
+            ),
+            DeviceWarning,
+        )
         map_location = torch.device(fallback_device)
     return map_location
 
@@ -589,9 +591,11 @@ def check_is_fitted(estimator, attributes=None, msg=None, all_or_any=all):
         sk_check_is_fitted(estimator, attributes, msg=msg, all_or_any=all_or_any)
     except NotFittedError as exc:
         if msg is None:
-            msg = ("This %(name)s instance is not initialized yet. Call "
-                   "'initialize' or 'fit' with appropriate arguments "
-                   "before using this method.")
+            msg = (
+                "This %(name)s instance is not initialized yet. Call "
+                "'initialize' or 'fit' with appropriate arguments "
+                "before using this method."
+            )
 
         raise NotInitializedError(msg % {'name': type(estimator).__name__}) from exc
 
@@ -640,7 +644,7 @@ def _sigmoid_then_2d(x):
 
 # TODO only needed if multiclass GP classfication is added
 # def _transpose(x):
-    # return x.T
+# return x.T
 
 
 # pylint: disable=protected-access
@@ -707,6 +711,7 @@ class TeeGenerator:
     generator more than once.
 
     """
+
     def __init__(self, gen):
         self.gen = gen
 
@@ -747,8 +752,9 @@ def _check_f_arguments(caller_name, **kwargs):
 
     """
     if kwargs.get('f_params') and kwargs.get('f_module'):
-        raise TypeError("{} called with both f_params and f_module, please choose one"
-                        .format(caller_name))
+        raise TypeError(
+            "{} called with both f_params and f_module, please choose one".format(caller_name)
+        )
 
     kwargs_module = {}
     kwargs_other = {}
@@ -756,8 +762,10 @@ def _check_f_arguments(caller_name, **kwargs):
     for key, val in kwargs.items():
         if not key.startswith('f_'):
             raise TypeError(
-                "{name} got an unexpected argument '{key}', did you mean 'f_{key}'?"
-                .format(name=caller_name, key=key))
+                "{name} got an unexpected argument '{key}', did you mean 'f_{key}'?".format(
+                    name=caller_name, key=key
+                )
+            )
 
         if val is None:
             continue
@@ -809,10 +817,9 @@ class _TorchLoadUnpickler(pickle.Unpickler):
             # Return a function that uses torch.load with our desired map_location
             def _load_from_bytes(b):
                 return torch.load(
-                    io.BytesIO(b),
-                    map_location=self.map_location,
-                    **self.torch_load_kwargs
+                    io.BytesIO(b), map_location=self.map_location, **self.torch_load_kwargs
                 )
+
             return _load_from_bytes
 
         return super().find_class(module, name)

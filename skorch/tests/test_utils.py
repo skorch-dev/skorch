@@ -4,10 +4,9 @@ from copy import deepcopy
 
 import numpy as np
 import pytest
-from scipy import sparse
 import torch
-from torch.nn.utils.rnn import PackedSequence
-from torch.nn.utils.rnn import pack_padded_sequence
+from scipy import sparse
+from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 
 from skorch.tests.conftest import pandas_installed
 
@@ -16,6 +15,7 @@ class TestToTensor:
     @pytest.fixture
     def to_tensor(self):
         from skorch.utils import to_tensor
+
         return to_tensor
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
@@ -34,15 +34,12 @@ class TestToTensor:
         assert t.device.type == 'cpu'
 
     def tensors_equal(self, x, y):
-        """"Test that tensors in diverse containers are equal."""
+        """ "Test that tensors in diverse containers are equal."""
         if isinstance(x, PackedSequence):
             return self.tensors_equal(x[0], y[0]) and self.tensors_equal(x[1], y[1])
 
         if isinstance(x, dict):
-            return (
-                (x.keys() == y.keys()) and
-                all(self.tensors_equal(x[k], y[k]) for k in x)
-            )
+            return (x.keys() == y.keys()) and all(self.tensors_equal(x[k], y[k]) for k in x)
 
         if isinstance(x, (list, tuple)):
             return all(self.tensors_equal(xi, yi) for xi, yi in zip(x, y))
@@ -68,17 +65,14 @@ class TestToTensor:
         y = torch.as_tensor([2, 2, 1])
         z = np.arange(15).reshape(5, 3)
         for X, expected in [
-                (x, x),
-                (y, y),
-                ([x, y], [x, y]),
-                ((x, y), (x, y)),
-                (z, torch.as_tensor(z)),
-                (
-                    {'a': x, 'b': y, 'c': z},
-                    {'a': x, 'b': y, 'c': torch.as_tensor(z)}
-                ),
-                (torch.as_tensor(55), torch.as_tensor(55)),
-                (pack_padded_sequence(x, y), pack_padded_sequence(x, y)),
+            (x, x),
+            (y, y),
+            ([x, y], [x, y]),
+            ((x, y), (x, y)),
+            (z, torch.as_tensor(z)),
+            ({'a': x, 'b': y, 'c': z}, {'a': x, 'b': y, 'c': torch.as_tensor(z)}),
+            (torch.as_tensor(55), torch.as_tensor(55)),
+            (pack_padded_sequence(x, y), pack_padded_sequence(x, y)),
         ]:
             yield X, expected, device
 
@@ -89,20 +83,17 @@ class TestToTensor:
         x = x.to('cuda')
         y = y.to('cuda')
         for X, expected in [
-                (x, x),
-                (y, y),
-                ([x, y], [x, y]),
-                ((x, y), (x, y)),
-                (z, torch.as_tensor(z).to('cuda')),
-                (
-                    {'a': x, 'b': y, 'c': z},
-                    {'a': x, 'b': y, 'c': torch.as_tensor(z).to('cuda')}
-                ),
-                (torch.as_tensor(55), torch.as_tensor(55).to('cuda')),
-                (
-                    pack_padded_sequence(x, y.to('cpu')),
-                    pack_padded_sequence(x, y.to('cpu')).to('cuda')
-                ),
+            (x, x),
+            (y, y),
+            ([x, y], [x, y]),
+            ((x, y), (x, y)),
+            (z, torch.as_tensor(z).to('cuda')),
+            ({'a': x, 'b': y, 'c': z}, {'a': x, 'b': y, 'c': torch.as_tensor(z).to('cuda')}),
+            (torch.as_tensor(55), torch.as_tensor(55).to('cuda')),
+            (
+                pack_padded_sequence(x, y.to('cpu')),
+                pack_padded_sequence(x, y.to('cpu')).to('cuda'),
+            ),
         ]:
             yield X, expected, device
 
@@ -132,8 +123,10 @@ class TestToTensor:
         with pytest.raises(TypeError) as exc:
             to_tensor(inp, device=device)
 
-        msg = ("Sparse matrices are not supported. Set "
-               "accept_sparse=True to allow sparse matrices.")
+        msg = (
+            "Sparse matrices are not supported. Set "
+            "accept_sparse=True to allow sparse matrices."
+        )
         assert exc.value.args[0] == msg
 
 
@@ -141,6 +134,7 @@ class TestToNumpy:
     @pytest.fixture
     def to_numpy(self):
         from skorch.utils import to_numpy
+
         return to_numpy
 
     @pytest.fixture
@@ -186,12 +180,15 @@ class TestToNumpy:
         self.compare_array_to_tensor(x_numpy['b'][0], x_dict['b'][0])
         self.compare_array_to_tensor(x_numpy['b'][1], x_dict['b'][1])
 
-    @pytest.mark.parametrize('x_invalid', [
-        1,
-        [1, 2, 3],
-        (1, 2, 3),
-        {'a': 1},
-    ])
+    @pytest.mark.parametrize(
+        'x_invalid',
+        [
+            1,
+            [1, 2, 3],
+            (1, 2, 3),
+            {'a': 1},
+        ],
+    )
     def test_invalid_inputs(self, to_numpy, x_invalid):
         # Inputs that are invalid for the scope of to_numpy.
         with pytest.raises(TypeError) as e:
@@ -201,7 +198,7 @@ class TestToNumpy:
 
     @pytest.mark.skipif(
         not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()),
-        reason='Skipped because mps is not available as a torch backend'
+        reason='Skipped because mps is not available as a torch backend',
     )
     def test_mps_support(self, to_numpy, x_tensor):
         device = torch.device('mps')
@@ -214,6 +211,7 @@ class TestToDevice:
     @pytest.fixture
     def to_device(self):
         from skorch.utils import to_device
+
         return to_device
 
     @pytest.fixture
@@ -226,10 +224,7 @@ class TestToDevice:
 
     @pytest.fixture
     def x_dict(self):
-        return {
-            'x': torch.zeros(3),
-            'y': torch.ones((4, 5))
-        }
+        return {'x': torch.zeros(3), 'y': torch.ones((4, 5))}
 
     @pytest.fixture
     def x_pad_seq(self):
@@ -250,13 +245,16 @@ class TestToDevice:
         else:
             assert tensor.device.type == device_input
 
-    @pytest.mark.parametrize('device_from, device_to', [
-        ('cpu', 'cpu'),
-        ('cpu', 'cuda'),
-        ('cuda', 'cpu'),
-        ('cuda', 'cuda'),
-        (None, None),
-    ])
+    @pytest.mark.parametrize(
+        'device_from, device_to',
+        [
+            ('cpu', 'cpu'),
+            ('cpu', 'cuda'),
+            ('cuda', 'cpu'),
+            ('cuda', 'cuda'),
+            (None, None),
+        ],
+    )
     def test_check_device_torch_tensor(self, to_device, x, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
@@ -271,15 +269,17 @@ class TestToDevice:
         x = to_device(x, device=device_to)
         self.check_device_type(x, device_to, prev_device)
 
-    @pytest.mark.parametrize('device_from, device_to', [
-        ('cpu', 'cpu'),
-        ('cpu', 'cuda'),
-        ('cuda', 'cpu'),
-        ('cuda', 'cuda'),
-        (None, None),
-    ])
-    def test_check_device_tuple_torch_tensor(
-            self, to_device, x_tup, device_from, device_to):
+    @pytest.mark.parametrize(
+        'device_from, device_to',
+        [
+            ('cpu', 'cpu'),
+            ('cpu', 'cuda'),
+            ('cuda', 'cpu'),
+            ('cuda', 'cuda'),
+            (None, None),
+        ],
+    )
+    def test_check_device_tuple_torch_tensor(self, to_device, x_tup, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
 
@@ -295,15 +295,17 @@ class TestToDevice:
         for xi, prev_d in zip(x_tup, prev_devices):
             self.check_device_type(xi, device_to, prev_d)
 
-    @pytest.mark.parametrize('device_from, device_to', [
-        ('cpu', 'cpu'),
-        ('cpu', 'cuda'),
-        ('cuda', 'cpu'),
-        ('cuda', 'cuda'),
-        (None, None),
-    ])
-    def test_check_device_dict_torch_tensor(
-            self, to_device, x_dict, device_from, device_to):
+    @pytest.mark.parametrize(
+        'device_from, device_to',
+        [
+            ('cpu', 'cpu'),
+            ('cpu', 'cuda'),
+            ('cuda', 'cpu'),
+            ('cuda', 'cuda'),
+            (None, None),
+        ],
+    )
+    def test_check_device_dict_torch_tensor(self, to_device, x_dict, device_from, device_to):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
 
@@ -325,15 +327,19 @@ class TestToDevice:
         for k in x_dict:
             assert np.allclose(x_dict[k], original_x_dict[k])
 
-    @pytest.mark.parametrize('device_from, device_to', [
-        ('cpu', 'cpu'),
-        ('cpu', 'cuda'),
-        ('cuda', 'cpu'),
-        ('cuda', 'cuda'),
-        (None, None),
-    ])
+    @pytest.mark.parametrize(
+        'device_from, device_to',
+        [
+            ('cpu', 'cpu'),
+            ('cpu', 'cuda'),
+            ('cuda', 'cpu'),
+            ('cuda', 'cuda'),
+            (None, None),
+        ],
+    )
     def test_check_device_packed_padded_sequence(
-            self, to_device, x_pad_seq, device_from, device_to):
+        self, to_device, x_pad_seq, device_from, device_to
+    ):
         if 'cuda' in (device_from, device_to) and not torch.cuda.is_available():
             pytest.skip()
 
@@ -347,13 +353,16 @@ class TestToDevice:
         x_pad_seq = to_device(x_pad_seq, device=device_to)
         self.check_device_type(x_pad_seq.data, device_to, prev_device)
 
-    @pytest.mark.parametrize('device_from, device_to', [
-        ('cpu', 'cpu'),
-        ('cpu', 'cuda'),
-        ('cuda', 'cpu'),
-        ('cuda', 'cuda'),
-        (None, None),
-    ])
+    @pytest.mark.parametrize(
+        'device_from, device_to',
+        [
+            ('cpu', 'cpu'),
+            ('cpu', 'cuda'),
+            ('cuda', 'cpu'),
+            ('cuda', 'cuda'),
+            (None, None),
+        ],
+    )
     def test_nested_data(self, to_device, x_list, device_from, device_to):
         # Sometimes data is nested because it would need to be padded so it's
         # easier to return a list of tensors with different shapes.
@@ -382,32 +391,39 @@ class TestDuplicateItems:
     @pytest.fixture
     def duplicate_items(self):
         from skorch.utils import duplicate_items
+
         return duplicate_items
 
-    @pytest.mark.parametrize('collections', [
-        ([],),
-        ([], []),
-        ([], [], []),
-        ([1, 2]),
-        ([1, 2], [3]),
-        ([1, 2], [3, '1']),
-        ([1], [2], [3], [4]),
-        ({'1': 1}, [2]),
-        ({'1': 1}, {'2': 1}, ('3', '4')),
-    ])
+    @pytest.mark.parametrize(
+        'collections',
+        [
+            ([],),
+            ([], []),
+            ([], [], []),
+            ([1, 2]),
+            ([1, 2], [3]),
+            ([1, 2], [3, '1']),
+            ([1], [2], [3], [4]),
+            ({'1': 1}, [2]),
+            ({'1': 1}, {'2': 1}, ('3', '4')),
+        ],
+    )
     def test_no_duplicates(self, duplicate_items, collections):
         assert duplicate_items(*collections) == set()
 
-    @pytest.mark.parametrize('collections, expected', [
-        ([1, 1], {1}),
-        (['1', '1'], {'1'}),
-        ([[1], [1]], {1}),
-        ([[1, 2, 1], [1]], {1}),
-        ([[1, 1], [2, 2]], {1, 2}),
-        ([[1], {1: '2', 2: '2'}], {1}),
-        ([[1, 2], [3, 4], [2], [3]], {2, 3}),
-        ([{'1': 1}, {'1': 1}, ('3', '4')], {'1'}),
-    ])
+    @pytest.mark.parametrize(
+        'collections, expected',
+        [
+            ([1, 1], {1}),
+            (['1', '1'], {'1'}),
+            ([[1], [1]], {1}),
+            ([[1, 2, 1], [1]], {1}),
+            ([[1, 1], [2, 2]], {1, 2}),
+            ([[1], {1: '2', 2: '2'}], {1}),
+            ([[1, 2], [3, 4], [2], [3]], {2, 3}),
+            ([{'1': 1}, {'1': 1}, ('3', '4')], {'1'}),
+        ],
+    )
     def test_duplicates(self, duplicate_items, collections, expected):
         assert duplicate_items(*collections) == expected
 
@@ -416,14 +432,18 @@ class TestParamsFor:
     @pytest.fixture
     def params_for(self):
         from skorch.utils import params_for
+
         return params_for
 
-    @pytest.mark.parametrize('prefix, kwargs, expected', [
-        ('p1', {'p1__a': 1, 'p1__b': 2}, {'a': 1, 'b': 2}),
-        ('p2', {'p1__a': 1, 'p1__b': 2}, {}),
-        ('p1', {'p1__a': 1, 'p1__b': 2, 'p2__a': 3}, {'a': 1, 'b': 2}),
-        ('p2', {'p1__a': 1, 'p1__b': 2, 'p2__a': 3}, {'a': 3}),
-    ])
+    @pytest.mark.parametrize(
+        'prefix, kwargs, expected',
+        [
+            ('p1', {'p1__a': 1, 'p1__b': 2}, {'a': 1, 'b': 2}),
+            ('p2', {'p1__a': 1, 'p1__b': 2}, {}),
+            ('p1', {'p1__a': 1, 'p1__b': 2, 'p2__a': 3}, {'a': 1, 'b': 2}),
+            ('p2', {'p1__a': 1, 'p1__b': 2, 'p2__a': 3}, {'a': 3}),
+        ],
+    )
     def test_params_for(self, params_for, prefix, kwargs, expected):
         assert params_for(prefix, kwargs) == expected
 
@@ -432,6 +452,7 @@ class TestDataFromDataset:
     @pytest.fixture
     def data_from_dataset(self):
         from skorch.utils import data_from_dataset
+
         return data_from_dataset
 
     @pytest.fixture
@@ -448,16 +469,19 @@ class TestDataFromDataset:
     @pytest.fixture
     def skorch_ds(self, data):
         from skorch.dataset import Dataset
+
         return Dataset(*data)
 
     @pytest.fixture
     def subset(self, skorch_ds):
         from torch.utils.data.dataset import Subset
+
         return Subset(skorch_ds, [1, 3])
 
     @pytest.fixture
     def subset_subset(self, subset):
         from torch.utils.data.dataset import Subset
+
         return Subset(subset, [0])
 
     # pylint: disable=missing-docstring
@@ -465,6 +489,7 @@ class TestDataFromDataset:
     def other_ds(self, data):
         class MyDataset:
             """Non-compliant dataset"""
+
             def __init__(self, data):
                 self.data = data
 
@@ -473,6 +498,7 @@ class TestDataFromDataset:
 
             def __len__(self):
                 return len(self.data[0])
+
         return MyDataset(data)
 
     def test_with_skorch_ds(self, data_from_dataset, data, skorch_ds):
@@ -529,107 +555,118 @@ class TestMultiIndexing:
     @pytest.fixture
     def multi_indexing(self):
         from skorch.dataset import multi_indexing
+
         return multi_indexing
 
-    @pytest.mark.parametrize('data, i, expected', [
-        (
-            np.arange(12).reshape(4, 3),
-            slice(None),
-            np.arange(12).reshape(4, 3),
-        ),
-        (
-            np.arange(12).reshape(4, 3),
-            np.s_[2],
-            np.array([6, 7, 8]),
-        ),
-        (
-            np.arange(12).reshape(4, 3),
-            np.s_[-2:],
-            np.array([[6, 7, 8], [9, 10, 11]]),
-        ),
-    ])
+    @pytest.mark.parametrize(
+        'data, i, expected',
+        [
+            (
+                np.arange(12).reshape(4, 3),
+                slice(None),
+                np.arange(12).reshape(4, 3),
+            ),
+            (
+                np.arange(12).reshape(4, 3),
+                np.s_[2],
+                np.array([6, 7, 8]),
+            ),
+            (
+                np.arange(12).reshape(4, 3),
+                np.s_[-2:],
+                np.array([[6, 7, 8], [9, 10, 11]]),
+            ),
+        ],
+    )
     def test_ndarray(self, multi_indexing, data, i, expected):
         result = multi_indexing(data, i)
         assert np.allclose(result, expected)
 
-    @pytest.mark.parametrize('data, i, expected', [
-        (
-            torch.arange(0, 12).view(4, 3),
-            slice(None),
-            np.arange(12).reshape(4, 3),
-        ),
-        (
-            torch.arange(0, 12).view(4, 3),
-            np.s_[2],
-            np.array([6, 7, 8]),
-        ),
-        (
-            torch.arange(0, 12).view(4, 3),
-            np.int64(2),
-            np.array([6, 7, 8]),
-        ),
-        (
-            torch.arange(0, 12).view(4, 3),
-            np.s_[-2:],
-            np.array([[6, 7, 8], [9, 10, 11]]),
-        ),
-    ])
+    @pytest.mark.parametrize(
+        'data, i, expected',
+        [
+            (
+                torch.arange(0, 12).view(4, 3),
+                slice(None),
+                np.arange(12).reshape(4, 3),
+            ),
+            (
+                torch.arange(0, 12).view(4, 3),
+                np.s_[2],
+                np.array([6, 7, 8]),
+            ),
+            (
+                torch.arange(0, 12).view(4, 3),
+                np.int64(2),
+                np.array([6, 7, 8]),
+            ),
+            (
+                torch.arange(0, 12).view(4, 3),
+                np.s_[-2:],
+                np.array([[6, 7, 8], [9, 10, 11]]),
+            ),
+        ],
+    )
     def test_torch_tensor(self, multi_indexing, data, i, expected):
         result = multi_indexing(data, i).long().numpy()
         assert np.allclose(result, expected)
 
-    @pytest.mark.parametrize('data, i, expected', [
-        ([1, 2, 3, 4], slice(None), [1, 2, 3, 4]),
-        ([1, 2, 3, 4], slice(None, 2), [1, 2]),
-        ([1, 2, 3, 4], 2, 3),
-        ([1, 2, 3, 4], -2, 3),
-    ])
+    @pytest.mark.parametrize(
+        'data, i, expected',
+        [
+            ([1, 2, 3, 4], slice(None), [1, 2, 3, 4]),
+            ([1, 2, 3, 4], slice(None, 2), [1, 2]),
+            ([1, 2, 3, 4], 2, 3),
+            ([1, 2, 3, 4], -2, 3),
+        ],
+    )
     def test_list(self, multi_indexing, data, i, expected):
         result = multi_indexing(data, i)
         assert np.allclose(result, expected)
 
-    @pytest.mark.parametrize('data, i, expected', [
-        ({'a': [0, 1, 2], 'b': [3, 4, 5]}, 0, {'a': 0, 'b': 3}),
-        (
-            {'a': [0, 1, 2], 'b': [3, 4, 5]},
-            np.s_[:2],
-            {'a': [0, 1], 'b': [3, 4]},
-        )
-    ])
+    @pytest.mark.parametrize(
+        'data, i, expected',
+        [
+            ({'a': [0, 1, 2], 'b': [3, 4, 5]}, 0, {'a': 0, 'b': 3}),
+            (
+                {'a': [0, 1, 2], 'b': [3, 4, 5]},
+                np.s_[:2],
+                {'a': [0, 1], 'b': [3, 4]},
+            ),
+        ],
+    )
     def test_dict_of_lists(self, multi_indexing, data, i, expected):
         result = multi_indexing(data, i)
         assert result == expected
 
-    @pytest.mark.parametrize('data, i, expected', [
-        (
-            {'a': np.arange(3), 'b': np.arange(3, 6)},
-            0,
-            {'a': 0, 'b': 3}
-        ),
-        (
-            {'a': np.arange(3), 'b': np.arange(3, 6)},
-            np.s_[:2],
-            {'a': np.arange(2), 'b': np.arange(3, 5)}
-        ),
-    ])
+    @pytest.mark.parametrize(
+        'data, i, expected',
+        [
+            ({'a': np.arange(3), 'b': np.arange(3, 6)}, 0, {'a': 0, 'b': 3}),
+            (
+                {'a': np.arange(3), 'b': np.arange(3, 6)},
+                np.s_[:2],
+                {'a': np.arange(2), 'b': np.arange(3, 5)},
+            ),
+        ],
+    )
     def test_dict_of_arrays(self, multi_indexing, data, i, expected):
         result = multi_indexing(data, i)
         assert result.keys() == expected.keys()
         for k in result:
             assert np.allclose(result[k], expected[k])
 
-    @pytest.mark.parametrize('data, i, expected', [
-        (
-            {'a': torch.arange(0, 3), 'b': torch.arange(3, 6)},
-            0,
-            {'a': 0, 'b': 3}
-        ),
-        (
-            {'a': torch.arange(0, 3), 'b': torch.arange(3, 6)},
-            np.s_[:2],
-            {'a': np.arange(2), 'b': np.arange(3, 5)}
-        ),
-    ])
+    @pytest.mark.parametrize(
+        'data, i, expected',
+        [
+            ({'a': torch.arange(0, 3), 'b': torch.arange(3, 6)}, 0, {'a': 0, 'b': 3}),
+            (
+                {'a': torch.arange(0, 3), 'b': torch.arange(3, 6)},
+                np.s_[:2],
+                {'a': np.arange(2), 'b': np.arange(3, 5)},
+            ),
+        ],
+    )
     def test_dict_of_torch_tensors(self, multi_indexing, data, i, expected):
         result = multi_indexing(data, i)
         assert result.keys() == expected.keys()
@@ -669,6 +706,7 @@ class TestMultiIndexing:
         if not pandas_installed:
             pytest.skip()
         import pandas as pd
+
         return pd
 
     def test_pandas_dataframe(self, multi_indexing, pd):
@@ -680,6 +718,7 @@ class TestMultiIndexing:
 
     def test_pandas_dataframe_slice(self, multi_indexing, pd):
         import pandas as pd
+
         df = pd.DataFrame({'a': [0, 1, 2], 'b': [3, 4, 5]}, index=[2, 1, 0])
         result = multi_indexing(df, np.s_[:2])
         expected = pd.DataFrame({'a': [0, 1], 'b': [3, 4]}, index=[2, 1])
@@ -702,8 +741,7 @@ class TestMultiIndexing:
             pd.Series(data=[0, 1, 2], index=[2, 1, 0]),
         ]
         result = multi_indexing(data, 0)
-        assert result[0].equals(
-            pd.Series(data=[0, 3], index=['a', 'b'], name=2))
+        assert result[0].equals(pd.Series(data=[0, 3], index=['a', 'b'], name=2))
         assert result[1] == 0
 
     def test_list_of_dataframe_and_series_slice(self, multi_indexing, pd):
@@ -712,8 +750,7 @@ class TestMultiIndexing:
             pd.Series(data=[0, 1, 2], index=[2, 1, 0]),
         ]
         result = multi_indexing(data, np.s_[:2])
-        assert result[0].equals(
-            pd.DataFrame({'a': [0, 1], 'b': [3, 4]}, index=[2, 1]))
+        assert result[0].equals(pd.DataFrame({'a': [0, 1], 'b': [3, 4]}, index=[2, 1]))
         assert result[1].equals(pd.Series(data=[0, 1], index=[2, 1]))
 
     def test_index_torch_tensor_with_numpy_int_array(self, multi_indexing):
@@ -738,8 +775,10 @@ class TestMultiIndexing:
             multi_indexing(X, i)
 
         msg0 = "arrays used as indices must be of integer (or boolean) type"
-        msg1 = ("No valid specification of the columns. Only a scalar, list or "
-                "slice of all integers or all strings, or boolean mask is allowed")
+        msg1 = (
+            "No valid specification of the columns. Only a scalar, list or "
+            "slice of all integers or all strings, or boolean mask is allowed"
+        )
 
         result = exc.value.args[0]
         assert result in (msg0, msg1)
@@ -759,23 +798,26 @@ class TestMultiIndexing:
         expected = torch.LongTensor([0, 4, 8])
         assert all(res == expected)
 
-    @pytest.mark.parametrize('data, i, expected', [
-        (
-            np.arange(12).reshape(4, 3),
-            slice(None),
-            np.arange(12).reshape(4, 3),
-        ),
-        (
-            np.arange(12).reshape(4, 3),
-            np.s_[2],
-            np.array([6, 7, 8]),
-        ),
-        (
-            np.arange(12).reshape(4, 3),
-            np.s_[-2:],
-            np.array([[6, 7, 8], [9, 10, 11]]),
-        ),
-    ])
+    @pytest.mark.parametrize(
+        'data, i, expected',
+        [
+            (
+                np.arange(12).reshape(4, 3),
+                slice(None),
+                np.arange(12).reshape(4, 3),
+            ),
+            (
+                np.arange(12).reshape(4, 3),
+                np.s_[2],
+                np.array([6, 7, 8]),
+            ),
+            (
+                np.arange(12).reshape(4, 3),
+                np.s_[-2:],
+                np.array([[6, 7, 8], [9, 10, 11]]),
+            ),
+        ],
+    )
     def test_sparse_csr_matrix(self, multi_indexing, data, i, expected):
         data = sparse.csr_matrix(data)
         result = multi_indexing(data, i).toarray()
@@ -787,6 +829,7 @@ class TestIsSkorchDataset:
     @pytest.fixture
     def is_skorch_dataset(self):
         from skorch.utils import is_skorch_dataset
+
         return is_skorch_dataset
 
     # pylint: disable=no-method-argument
@@ -794,13 +837,13 @@ class TestIsSkorchDataset:
         """Return a table of (type, bool) tuples that describe what
         is_skorch_dataset should return when called with that type.
         """
-        from skorch.dataset import Dataset
         from torch.utils.data.dataset import Subset
+
+        from skorch.dataset import Dataset
 
         numpy_data = np.array([1, 2, 3])
         tensor_data = torch.from_numpy(numpy_data)
-        torch_dataset = torch.utils.data.TensorDataset(
-            tensor_data, tensor_data)
+        torch_dataset = torch.utils.data.TensorDataset(tensor_data, tensor_data)
         torch_subset = Subset(torch_dataset, [1, 2])
         skorch_dataset = Dataset(numpy_data)
         skorch_subset = Subset(skorch_dataset, [1, 2])
@@ -813,9 +856,7 @@ class TestIsSkorchDataset:
             (skorch_subset, True),
         ]
 
-    @pytest.mark.parametrize(
-        'input_data,expected',
-        type_truth_table())
+    @pytest.mark.parametrize('input_data,expected', type_truth_table())
     def test_data_types(self, is_skorch_dataset, input_data, expected):
         assert is_skorch_dataset(input_data) == expected
 
@@ -825,6 +866,7 @@ class TestTeeGenerator:
     @pytest.fixture
     def lazy_generator_cls(self):
         from skorch.utils import TeeGenerator
+
         return TeeGenerator
 
     def test_returns_copies_of_generator(self, lazy_generator_cls):
@@ -832,6 +874,7 @@ class TestTeeGenerator:
 
         def list_gen():
             yield from expected_list
+
         lazy_gen = lazy_generator_cls(list_gen())
 
         first_return = list(lazy_gen)
@@ -845,25 +888,30 @@ class TestInferPredictNonlinearity:
     @pytest.fixture
     def infer_predict_nonlinearity(self):
         from skorch.utils import _infer_predict_nonlinearity
+
         return _infer_predict_nonlinearity
 
     @pytest.fixture
     def net_clf_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture
     def net_bin_clf_cls(self):
         from skorch import NeuralNetBinaryClassifier
+
         return NeuralNetBinaryClassifier
 
     @pytest.fixture
     def net_regr_cls(self):
         from skorch import NeuralNetRegressor
+
         return NeuralNetRegressor
 
     def test_infer_neural_net_classifier_default(
-            self, infer_predict_nonlinearity, net_clf_cls, module_cls):
+        self, infer_predict_nonlinearity, net_clf_cls, module_cls
+    ):
         # default NeuralNetClassifier: no output nonlinearity
         net = net_clf_cls(module_cls).initialize()
         fn = infer_predict_nonlinearity(net)
@@ -873,7 +921,8 @@ class TestInferPredictNonlinearity:
         assert out is X
 
     def test_infer_neural_net_classifier_crossentropy_loss(
-            self, infer_predict_nonlinearity, net_clf_cls, module_cls):
+        self, infer_predict_nonlinearity, net_clf_cls, module_cls
+    ):
         # CrossEntropyLoss criteron: nonlinearity should return valid probabilities
         net = net_clf_cls(module_cls, criterion=torch.nn.CrossEntropyLoss).initialize()
         fn = infer_predict_nonlinearity(net)
@@ -885,7 +934,8 @@ class TestInferPredictNonlinearity:
         assert ((0 <= out) & (out <= 1.0)).all()
 
     def test_infer_neural_binary_net_classifier_default(
-            self, infer_predict_nonlinearity, net_bin_clf_cls, module_cls):
+        self, infer_predict_nonlinearity, net_bin_clf_cls, module_cls
+    ):
         # BCEWithLogitsLoss should return valid probabilities
         net = net_bin_clf_cls(module_cls).initialize()
         fn = infer_predict_nonlinearity(net)
@@ -899,7 +949,8 @@ class TestInferPredictNonlinearity:
         assert ((0 <= out) & (out <= 1.0)).all()
 
     def test_infer_neural_net_regressor_default(
-            self, infer_predict_nonlinearity, net_regr_cls, module_cls):
+        self, infer_predict_nonlinearity, net_regr_cls, module_cls
+    ):
         # default NeuralNetRegressor: no output nonlinearity
         net = net_regr_cls(module_cls).initialize()
         fn = infer_predict_nonlinearity(net)

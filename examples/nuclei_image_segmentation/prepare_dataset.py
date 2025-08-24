@@ -2,12 +2,12 @@
 """Each sample contains multiple masks. This script combines theese masks into
 one image, thus creating one mask for each sample.
 """
+from contextlib import ExitStack
 from multiprocessing import Pool
 from pathlib import Path
-from contextlib import ExitStack
 
-from tqdm import tqdm
 from PIL import Image
+from tqdm import tqdm
 
 
 def combine_masks(mask_root_dir):

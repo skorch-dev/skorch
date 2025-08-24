@@ -52,10 +52,8 @@ from torch import nn
 from transformers import AutoModelForSequenceClassification
 
 from skorch import NeuralNetClassifier
-from skorch.hf import HuggingfacePretrainedTokenizer
 from skorch.callbacks import TrainEndCheckpoint
-from skorch.hf import HfHubStorage
-
+from skorch.hf import HfHubStorage, HuggingfacePretrainedTokenizer
 
 # Choose a tokenizer and BERT model that work together
 TOKENIZER = "distilbert-base-uncased"
@@ -83,6 +81,7 @@ WEIGHTS_NAME = 'weights.pt'
 # TESTING TRANSFORMERS AND TOKENIZERS #
 #######################################
 
+
 class BertModule(nn.Module):
     def __init__(self, name, num_labels):
         super().__init__()
@@ -107,28 +106,31 @@ def load_20newsgroup_small():
     mask_0_or_1 = (y == 0) | (y == 1)
     X = np.asarray(dataset.data)[mask_0_or_1][:N_SAMPLES]
     y = dataset.target[mask_0_or_1][:N_SAMPLES]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, stratify=y, random_state=0
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_state=0)
     return X_train, X_test, y_train, y_test
 
 
 def get_transformer_model():
-    return Pipeline([
-        ('tokenizer', HuggingfacePretrainedTokenizer(TOKENIZER)),
-        ('net', NeuralNetClassifier(
-            BertModule,
-            module__name=PRETRAINED_MODEL,
-            module__num_labels=2,
-            optimizer=OPTMIZER,
-            lr=LR,
-            max_epochs=MAX_EPOCHS,
-            criterion=CRITERION,
-            batch_size=BATCH_SIZE,
-            iterator_train__shuffle=True,
-            device=DEVICE,
-        )),
-    ])
+    return Pipeline(
+        [
+            ('tokenizer', HuggingfacePretrainedTokenizer(TOKENIZER)),
+            (
+                'net',
+                NeuralNetClassifier(
+                    BertModule,
+                    module__name=PRETRAINED_MODEL,
+                    module__num_labels=2,
+                    optimizer=OPTMIZER,
+                    lr=LR,
+                    max_epochs=MAX_EPOCHS,
+                    criterion=CRITERION,
+                    batch_size=BATCH_SIZE,
+                    iterator_train__shuffle=True,
+                    device=DEVICE,
+                ),
+            ),
+        ]
+    )
 
 
 def test_tokenizers_transfomers():
@@ -151,12 +153,13 @@ def test_tokenizers_transfomers():
 # TESTING HF MODEL HUB #
 ########################
 
+
 class ClassifierModule(nn.Module):
     def __init__(
-            self,
-            num_units=30,
-            nonlin=nn.ReLU(),
-            dropout=0.5,
+        self,
+        num_units=30,
+        nonlin=nn.ReLU(),
+        dropout=0.5,
     ):
         super().__init__()
         self.num_units = num_units

@@ -1,27 +1,37 @@
-""" Callbacks related to training progress. """
+"""Callbacks related to training progress."""
 
 import os
 import pickle
 import warnings
 from contextlib import suppress
+from copy import deepcopy
 from fnmatch import fnmatch
 from functools import partial
 from itertools import product
-from copy import deepcopy
 
 import numpy as np
+
 from skorch.callbacks import Callback
 from skorch.exceptions import SkorchException
-from skorch.utils import _check_f_arguments
-from skorch.utils import noop
-from skorch.utils import open_file_like
-from skorch.utils import freeze_parameter
-from skorch.utils import unfreeze_parameter
+from skorch.utils import (
+    _check_f_arguments,
+    freeze_parameter,
+    noop,
+    open_file_like,
+    unfreeze_parameter,
+)
 
-
-__all__ = ['Checkpoint', 'EarlyStopping', 'ParamMapper', 'Freezer',
-           'Unfreezer', 'Initializer', 'InputShapeSetter', 'LoadInitState',
-           'TrainEndCheckpoint']
+__all__ = [
+    'Checkpoint',
+    'EarlyStopping',
+    'ParamMapper',
+    'Freezer',
+    'Unfreezer',
+    'Initializer',
+    'InputShapeSetter',
+    'LoadInitState',
+    'TrainEndCheckpoint',
+]
 
 
 class Checkpoint(Callback):
@@ -154,21 +164,22 @@ class Checkpoint(Callback):
       optimizer cannot be saved.
 
     """
+
     def __init__(
-            self,
-            monitor='valid_loss_best',
-            f_params='params.pt',
-            f_optimizer='optimizer.pt',
-            f_criterion='criterion.pt',
-            f_history='history.json',
-            f_pickle=None,
-            fn_prefix='',
-            dirname='',
-            event_name='event_cp',
-            sink=noop,
-            load_best=False,
-            use_safetensors=False,
-            **kwargs
+        self,
+        monitor='valid_loss_best',
+        f_params='params.pt',
+        f_optimizer='optimizer.pt',
+        f_criterion='criterion.pt',
+        f_history='history.json',
+        f_pickle=None,
+        fn_prefix='',
+        dirname='',
+        event_name='event_cp',
+        sink=noop,
+        load_best=False,
+        use_safetensors=False,
+        **kwargs,
     ):
         self.monitor = monitor
         self.f_params = f_params
@@ -191,11 +202,13 @@ class Checkpoint(Callback):
             if not key.startswith('f_'):
                 raise TypeError(
                     "{cls_name} got an unexpected argument '{key}', did you mean "
-                    "'f_{key}'?".format(cls_name=self.__class__.__name__, key=key))
+                    "'f_{key}'?".format(cls_name=self.__class__.__name__, key=key)
+                )
         if self.use_safetensors and self.f_optimizer is not None:
             raise ValueError(
                 "Cannot save optimizer state when using safetensors, "
-                "please set f_optimizer=None or don't use safetensors.")
+                "please set f_optimizer=None or don't use safetensors."
+            )
 
     def initialize(self):
         self._validate_filenames()
@@ -214,7 +227,9 @@ class Checkpoint(Callback):
             warnings.warn(
                 "Checkpoint monitor parameter is set to '{0}' and the history "
                 "contains '{0}_best'. Perhaps you meant to set the parameter "
-                "to '{0}_best'".format(self.monitor), UserWarning)
+                "to '{0}_best'".format(self.monitor),
+                UserWarning,
+            )
 
         if self.monitor is None:
             do_checkpoint = True
@@ -226,7 +241,8 @@ class Checkpoint(Callback):
             except KeyError as e:
                 msg = (
                     f"{e.args[0]} Make sure you have validation data if you use "
-                    "validation scores for checkpointing.")
+                    "validation scores for checkpointing."
+                )
                 raise SkorchException(msg)
 
         if self.event_name is not None:
@@ -234,13 +250,16 @@ class Checkpoint(Callback):
 
         if do_checkpoint:
             self.save_model(net)
-            self._sink("A checkpoint was triggered in epoch {}.".format(
-                len(net.history) + 1
-            ), net.verbose)
+            self._sink(
+                "A checkpoint was triggered in epoch {}.".format(len(net.history) + 1), net.verbose
+            )
 
     def _f_kwargs(self):
-        return {key: getattr(self, key) for key in dir(self)
-                if key.startswith('f_') and (key != 'f_history_')}
+        return {
+            key: getattr(self, key)
+            for key in dir(self)
+            if key.startswith('f_') and (key != 'f_history_')
+        }
 
     def save_model(self, net):
         """Save the model.
@@ -256,7 +275,8 @@ class Checkpoint(Callback):
 
         """
         kwargs_module, kwargs_other = _check_f_arguments(
-            self.__class__.__name__, **self._f_kwargs())
+            self.__class__.__name__, **self._f_kwargs()
+        )
 
         for key, val in kwargs_module.items():
             if val is None:
@@ -284,30 +304,26 @@ class Checkpoint(Callback):
         # by initialized.
         if self.f_history is None:
             return None
-        return os.path.join(
-            self.dirname, self.fn_prefix + self.f_history)
+        return os.path.join(self.dirname, self.fn_prefix + self.f_history)
 
     def get_formatted_files(self, net):
         """Returns a dictionary of formatted filenames"""
         idx = -1
-        if (
-                self.event_name is not None and
-                net.history
-        ):
+        if self.event_name is not None and net.history:
             for i, v in enumerate(net.history[:, self.event_name]):
                 if v:
                     idx = i
 
-        return {key: self._format_target(net, val, idx) for key, val
-                in self._f_kwargs().items()}
+        return {key: self._format_target(net, val, idx) for key, val in self._f_kwargs().items()}
 
     def _save_params(self, f, net, f_name, log_name):
         try:
             net.save_params(**{f_name: f, 'use_safetensors': self.use_safetensors})
         except Exception as e:  # pylint: disable=broad-except
             self._sink(
-                "Unable to save {} to {}, {}: {}".format(
-                    log_name, f, type(e).__name__, e), net.verbose)
+                "Unable to save {} to {}, {}: {}".format(log_name, f, type(e).__name__, e),
+                net.verbose,
+            )
 
     def _format_target(self, net, f, idx):
         """Apply formatting to the target filename template."""
@@ -338,8 +354,7 @@ class Checkpoint(Callback):
             return f and not isinstance(f, str)
 
         if any(_is_truthy_and_not_str(val) for val in self._f_kwargs().values()):
-            raise SkorchException(
-                'dirname can only be used when f_* are strings')
+            raise SkorchException('dirname can only be used when f_* are strings')
 
     def _sink(self, text, verbose):
         #  We do not want to be affected by verbosity if sink is not print
@@ -389,15 +404,16 @@ class EarlyStopping(Callback):
       argument set to ``True`` if you need to restore the whole object.
 
     """
+
     def __init__(
-            self,
-            monitor='valid_loss',
-            patience=5,
-            threshold=1e-4,
-            threshold_mode='rel',
-            lower_is_better=True,
-            sink=print,
-            load_best=False,
+        self,
+        monitor='valid_loss',
+        patience=5,
+        threshold=1e-4,
+        threshold_mode='rel',
+        lower_is_better=True,
+        sink=print,
+        load_best=False,
     ):
         self.monitor = monitor
         self.lower_is_better = lower_is_better
@@ -418,8 +434,7 @@ class EarlyStopping(Callback):
     # pylint: disable=arguments-differ
     def on_train_begin(self, net, **kwargs):
         if self.threshold_mode not in ['rel', 'abs']:
-            raise ValueError("Invalid threshold mode: '{}'"
-                             .format(self.threshold_mode))
+            raise ValueError("Invalid threshold mode: '{}'".format(self.threshold_mode))
         self.misses_ = 0
         self.dynamic_threshold_ = np.inf if self.lower_is_better else -np.inf
         self.best_model_weights_ = None
@@ -437,20 +452,23 @@ class EarlyStopping(Callback):
                 self.best_model_weights_ = deepcopy(net.module_.state_dict())
         if self.misses_ == self.patience:
             if net.verbose:
-                self._sink("Stopping since {} has not improved in the last "
-                           "{} epochs.".format(self.monitor, self.patience),
-                           verbose=net.verbose)
+                self._sink(
+                    "Stopping since {} has not improved in the last "
+                    "{} epochs.".format(self.monitor, self.patience),
+                    verbose=net.verbose,
+                )
             raise KeyboardInterrupt
 
     def on_train_end(self, net, **kwargs):
         if (
-            self.load_best and (self.best_epoch_ != net.history[-1, "epoch"])
+            self.load_best
+            and (self.best_epoch_ != net.history[-1, "epoch"])
             and (self.best_model_weights_ is not None)
         ):
             net.module_.load_state_dict(self.best_model_weights_)
-            self._sink("Restoring best model from epoch {}.".format(
-                self.best_epoch_
-            ), verbose=net.verbose)
+            self._sink(
+                "Restoring best model from epoch {}.".format(self.best_epoch_), verbose=net.verbose
+            )
 
     def _is_score_improved(self, score):
         if self.lower_is_better:
@@ -554,6 +572,7 @@ class ParamMapper(Callback):
       The callable's signature is ``schedule(net: NeuralNet) -> callable``.
 
     """
+
     def __init__(self, patterns, fn=noop, at=1, schedule=None):
         self.at = at
         self.fn = fn
@@ -571,7 +590,8 @@ class ParamMapper(Callback):
             if self.at <= 0:
                 raise ValueError(
                     'Invalid value for `at` (at={}). The first possible '
-                    'epoch number is 1.'.format(self.at))
+                    'epoch number is 1.'.format(self.at)
+                )
             self.at = partial(self._epoch_at, epoch=self.at)
 
         return self
@@ -581,8 +601,7 @@ class ParamMapper(Callback):
 
     def filter_parameters(self, patterns, params):
         pattern_fns = (
-            pattern if callable(pattern) else partial(fnmatch, pat=pattern)
-            for pattern in patterns
+            pattern if callable(pattern) else partial(fnmatch, pat=pattern) for pattern in patterns
         )
         for pattern_fn, (name, param) in product(pattern_fns, params):
             if pattern_fn(name):
@@ -605,7 +624,6 @@ class ParamMapper(Callback):
             map_fn(p)
 
 
-
 class Freezer(ParamMapper):
     """Freeze matching parameters at the start of the first epoch. You may
     specify a specific point in time (either by epoch number or using a
@@ -613,6 +631,7 @@ class Freezer(ParamMapper):
 
     See :class:`.ParamMapper` for details.
     """
+
     def __init__(self, *args, **kwargs):
         kwargs['at'] = kwargs.get('at', 1)
         kwargs['fn'] = kwargs.get('fn', freeze_parameter)
@@ -621,6 +640,7 @@ class Freezer(ParamMapper):
 
 class Unfreezer(ParamMapper):
     """Inverse operation of :class:`.Freezer`."""
+
     def __init__(self, *args, **kwargs):
         kwargs['at'] = kwargs.get('at', 1)
         kwargs['fn'] = kwargs.get('fn', unfreeze_parameter)
@@ -641,6 +661,7 @@ class Initializer(ParamMapper):
     >>> cb = Initializer('dense*.weight', fn=init_fn)
     >>> net = Net(myModule, callbacks=[cb])
     """
+
     def __init__(self, *args, **kwargs):
         kwargs['at'] = kwargs.get('at', 1)
         super().__init__(*args, **kwargs)
@@ -679,6 +700,7 @@ class LoadInitState(Callback):
       :class:`.Checkpoint`), you should set this to ``True``.
 
     """
+
     def __init__(self, checkpoint, use_safetensors=False):
         self.checkpoint = checkpoint
         self.use_safetensors = use_safetensors
@@ -687,20 +709,18 @@ class LoadInitState(Callback):
         self.did_load_ = False
         return self
 
-    def on_train_begin(self, net,
-                       X=None, y=None, **kwargs):
+    def on_train_begin(self, net, X=None, y=None, **kwargs):
         if not self.did_load_:
             self.did_load_ = True
             with suppress(FileNotFoundError):
                 if isinstance(self.checkpoint, TrainEndCheckpoint):
                     net.load_params(
                         checkpoint=self.checkpoint.checkpoint_,
-                        use_safetensors=self.use_safetensors
+                        use_safetensors=self.use_safetensors,
                     )
                 else:
                     net.load_params(
-                        checkpoint=self.checkpoint,
-                        use_safetensors=self.use_safetensors
+                        checkpoint=self.checkpoint, use_safetensors=self.use_safetensors
                     )
 
 
@@ -782,18 +802,19 @@ class TrainEndCheckpoint(Callback):
       stdout). By default the output is discarded.
 
     """
+
     def __init__(
-            self,
-            f_params='params.pt',
-            f_optimizer='optimizer.pt',
-            f_criterion='criterion.pt',
-            f_history='history.json',
-            f_pickle=None,
-            fn_prefix='train_end_',
-            dirname='',
-            use_safetensors=False,
-            sink=noop,
-            **kwargs
+        self,
+        f_params='params.pt',
+        f_optimizer='optimizer.pt',
+        f_criterion='criterion.pt',
+        f_history='history.json',
+        f_pickle=None,
+        fn_prefix='train_end_',
+        dirname='',
+        use_safetensors=False,
+        sink=noop,
+        **kwargs,
     ):
         self.f_params = f_params
         self.f_optimizer = f_optimizer
@@ -808,8 +829,7 @@ class TrainEndCheckpoint(Callback):
         vars(self).update(**kwargs)
 
     def _f_kwargs(self):
-        return {name: getattr(self, name) for name in dir(self)
-                if name.startswith('f_')}
+        return {name: getattr(self, name) for name in dir(self) if name.startswith('f_')}
 
     def initialize(self):
         self.checkpoint_ = Checkpoint(
@@ -819,7 +839,7 @@ class TrainEndCheckpoint(Callback):
             event_name=None,
             sink=self.sink,
             use_safetensors=self.use_safetensors,
-            **self._f_kwargs()
+            **self._f_kwargs(),
         )
         self.checkpoint_.initialize()
         return self
@@ -869,6 +889,7 @@ class InputShapeSetter(Callback):
       Only needs change when you are using more than one module in your
       skorch model (e.g., in case of GANs).
     """
+
     def __init__(
         self,
         param_name='input_dim',

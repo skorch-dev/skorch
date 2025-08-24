@@ -114,7 +114,8 @@ def _unpack_index(i):
     if len(i) > 4:
         raise KeyError(
             "Tried to index history with {} indices but only "
-            "4 indices are possible.".format(len(i)))
+            "4 indices are possible.".format(len(i))
+        )
 
     # fill trailing indices with None
     i_e, k_e, i_b, k_b = i + tuple([None] * (4 - len(i)))
@@ -255,9 +256,11 @@ class History(list):
         keyerror_msg = "Key {!r} was not found in history."
 
         if i_b is not None and k_e != 'batches':
-            raise KeyError("History indexing beyond the 2nd level is "
-                           "only possible if key 'batches' is used, "
-                           "found key {!r}.".format(k_e))
+            raise KeyError(
+                "History indexing beyond the 2nd level is "
+                "only possible if key 'batches' is used, "
+                "found key {!r}.".format(k_e)
+            )
 
         items = self.to_list()
 
@@ -291,15 +294,15 @@ class History(list):
                 raise KeyError(keyerror_msg.format(key))
 
             if (
-                    isinstance(i_b, slice)
-                    and k_b is not None
-                    and not any(batches for batches in items)
+                isinstance(i_b, slice)
+                and k_b is not None
+                and not any(batches for batches in items)
             ):
                 # none of the batches matched
                 raise KeyError(keyerror_msg.format(key))
 
         if isinstance(i_e, int):
-            items, = items
+            (items,) = items
 
         return items
 
@@ -403,6 +406,7 @@ class DistributedHistory:
       ensure that all data is synced into the history before reading from it.
 
     """
+
     def __init__(self, *args, store, rank, world_size):
         self.store = store
         self.rank = rank

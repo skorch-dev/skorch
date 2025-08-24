@@ -3,22 +3,18 @@
         '__factory__': 'model.DatasetLoader',
         'path': 'aclImdb/train/',
     },
-
     'dataset_loader_test': {
         '__factory__': 'model.DatasetLoader',
         'path': 'aclImdb/test/',
     },
-
     'model': {
         '__factory__': 'model.create_pipeline',
         'use_cuda': True,
     },
-
     'model_persister': {
         '__factory__': 'palladium.persistence.File',
         'path': 'rnn-model-{version}',
     },
-
     'grid_search': {
         'param_grid': {
             'to_idx__stop_words': ['english', None],
@@ -33,9 +29,7 @@
             'net__max_epochs': [5, 10],
         },
     },
-
     'scoring': 'accuracy',
-
     'predict_service': {
         '__factory__': 'palladium.server.PredictService',
         'mapping': [
@@ -44,5 +38,4 @@
         'predict_proba': True,
         'unwrap_sample': True,
     },
-
 }

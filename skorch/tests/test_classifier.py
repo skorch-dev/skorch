@@ -24,6 +24,7 @@ class TestNeuralNet:
     @pytest.fixture(scope='module')
     def dummy_callback(self):
         from skorch.callbacks import Callback
+
         cb = Mock(spec=Callback)
         # make dummy behave like an estimator
         cb.get_params.return_value = {}
@@ -33,6 +34,7 @@ class TestNeuralNet:
     @pytest.fixture(scope='module')
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
     @pytest.fixture(scope='module')
@@ -70,7 +72,7 @@ class TestNeuralNet:
     def test_score(self, net_fit, data):
         X, y = data
         accuracy = net_fit.score(X, y)
-        assert 0. <= accuracy <= 1.
+        assert 0.0 <= accuracy <= 1.0
 
     # classifier-specific test
     def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
@@ -136,9 +138,7 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=0, classes=['foo', 'bar']).fit(*data)
         assert (net.classes_ == np.array(['foo', 'bar'])).all()
 
-    def test_classes_are_set_with_tensordataset_explicit_y(
-            self, net_cls, module_cls, data
-    ):
+    def test_classes_are_set_with_tensordataset_explicit_y(self, net_cls, module_cls, data):
         # see 990
         X = torch.from_numpy(data[0])
         y = torch.arange(len(X)) % 10
@@ -146,25 +146,21 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=0).fit(dataset, y)
         assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
 
-    def test_classes_are_set_with_tensordataset_implicit_y(
-            self, net_cls, module_cls, data
-    ):
+    def test_classes_are_set_with_tensordataset_implicit_y(self, net_cls, module_cls, data):
         # see 990
         from skorch.dataset import ValidSplit
 
         X = torch.from_numpy(data[0])
         y = torch.arange(len(X)) % 10
         dataset = torch.utils.data.TensorDataset(X, y)
-        net = net_cls(
-            module_cls, max_epochs=0, train_split=ValidSplit(3, stratified=False)
-        ).fit(dataset, None)
+        net = net_cls(module_cls, max_epochs=0, train_split=ValidSplit(3, stratified=False)).fit(
+            dataset, None
+        )
         assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
 
     @pytest.mark.parametrize('classes', [[], np.array([])])
-    def test_pass_empty_classes_raises(
-            self, net_cls, module_cls, data, classes):
-        net = net_cls(
-            module_cls, max_epochs=0, classes=classes).fit(*data).fit(*data)
+    def test_pass_empty_classes_raises(self, net_cls, module_cls, data, classes):
+        net = net_cls(module_cls, max_epochs=0, classes=classes).fit(*data).fit(*data)
         with pytest.raises(AttributeError) as exc:
             net.classes_  # pylint: disable=pointless-statement
 
@@ -174,6 +170,7 @@ class TestNeuralNet:
 
     def test_with_calibrated_classifier_cv(self, net_fit, data):
         from sklearn.calibration import CalibratedClassifierCV
+
         cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
 
@@ -184,6 +181,7 @@ class TestNeuralNet:
         # See https://github.com/skorch-dev/skorch/discussions/1003
         class MyDataset(torch.utils.data.Dataset):
             """Dataset class that makes it impossible to access y"""
+
             def __len__(self):
                 return len(data[0])
 
@@ -214,6 +212,7 @@ class TestNeuralNetBinaryClassifier:
     @pytest.fixture(scope='module')
     def module_cls(self):
         from skorch.toy import make_binary_classifier
+
         return make_binary_classifier(
             input_units=20,
             hidden_units=10,
@@ -225,6 +224,7 @@ class TestNeuralNetBinaryClassifier:
     @pytest.fixture(scope='module')
     def net_cls(self):
         from skorch.classifier import NeuralNetBinaryClassifier
+
         return NeuralNetBinaryClassifier
 
     @pytest.fixture(scope='module')
@@ -255,15 +255,18 @@ class TestNeuralNetBinaryClassifier:
     @pytest.mark.parametrize('method', INFERENCE_METHODS)
     def test_not_init_raises(self, net_cls, module_cls, data, method):
         from skorch.exceptions import NotInitializedError
+
         net = net_cls(module_cls)
         X = data[0]
         with pytest.raises(NotInitializedError) as exc:
             # we call `list` because `forward_iter` is lazy
             list(getattr(net, method)(X))
 
-        msg = ("This NeuralNetBinaryClassifier instance is not initialized "
-               "yet. Call 'initialize' or 'fit' with appropriate arguments "
-               "before using this method.")
+        msg = (
+            "This NeuralNetBinaryClassifier instance is not initialized "
+            "yet. Call 'initialize' or 'fit' with appropriate arguments "
+            "before using this method."
+        )
         assert exc.value.args[0] == msg
 
     def test_not_fitted_raises(self, net_cls, module_cls):
@@ -307,9 +310,7 @@ class TestNeuralNetBinaryClassifier:
         net.fit(X, y)
 
     def test_history_default_keys(self, net_fit):
-        expected_keys = {
-            'train_loss', 'valid_loss', 'epoch', 'dur', 'batches', 'valid_acc'
-        }
+        expected_keys = {'train_loss', 'valid_loss', 'epoch', 'dur', 'batches', 'valid_acc'}
         for row in net_fit.history:
             assert expected_keys.issubset(row)
 
@@ -341,7 +342,7 @@ class TestNeuralNetBinaryClassifier:
     def test_score(self, net_fit, data):
         X, y = data
         accuracy = net_fit.score(X, y)
-        assert 0. <= accuracy <= 1.
+        assert 0.0 <= accuracy <= 1.0
 
     def test_fit_with_dataset_and_y_none(self, net_cls, module_cls, data):
         from skorch.dataset import Dataset
@@ -357,11 +358,9 @@ class TestNeuralNetBinaryClassifier:
         with pytest.raises(ValueError) as exc:
             net.fit(X, y[:, None])
 
-        assert exc.value.args[0] == (
-            "The target data should be 1-dimensional.")
+        assert exc.value.args[0] == ("The target data should be 1-dimensional.")
 
-    def test_custom_loss_does_not_call_sigmoid(
-            self, net_cls, data, module_cls, monkeypatch):
+    def test_custom_loss_does_not_call_sigmoid(self, net_cls, data, module_cls, monkeypatch):
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch, "sigmoid", mock)
 
@@ -371,16 +370,16 @@ class TestNeuralNetBinaryClassifier:
         def nonlin(x):
             return torch.stack((1 - x, x), 1)
 
-        net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss,
-                      predict_nonlinearity=nonlin)
+        net = net_cls(
+            module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss, predict_nonlinearity=nonlin
+        )
         X, y = data
         net.fit(X, y)
 
         net.predict_proba(X)
         assert mock.call_count == 0
 
-    def test_default_loss_does_call_sigmoid(
-            self, net_cls, data, module_cls, monkeypatch):
+    def test_default_loss_does_call_sigmoid(self, net_cls, data, module_cls, monkeypatch):
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch, "sigmoid", mock)
 
@@ -393,11 +392,13 @@ class TestNeuralNetBinaryClassifier:
 
     def test_with_calibrated_classifier_cv(self, net_fit, data):
         from sklearn.calibration import CalibratedClassifierCV
+
         cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
 
     def test_grid_search_with_roc_auc(self, net_fit, data):
         from sklearn.model_selection import GridSearchCV
+
         search = GridSearchCV(
             net_fit,
             {'max_epochs': [1, 2]},
@@ -409,6 +410,7 @@ class TestNeuralNetBinaryClassifier:
 
     def test_module_output_not_1d(self, net_cls, data):
         from skorch.toy import make_classifier
+
         module = make_classifier(
             input_units=20,
             output_units=1,
@@ -418,6 +420,7 @@ class TestNeuralNetBinaryClassifier:
 
     def test_module_output_2d_raises(self, net_cls, data):
         from skorch.toy import make_classifier
+
         module = make_classifier(
             input_units=20,
             output_units=2,
@@ -427,8 +430,7 @@ class TestNeuralNetBinaryClassifier:
             net.fit(*data)
 
         msg = exc.value.args[0]
-        expected = ("Expected module output to have shape (n,) or "
-                    "(n, 1), got (128, 2) instead")
+        expected = "Expected module output to have shape (n,) or " "(n, 1), got (128, 2) instead"
         assert msg == expected
 
     @pytest.fixture(scope='module')
