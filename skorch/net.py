@@ -18,10 +18,23 @@ from functools import partial
 from itertools import chain
 
 import numpy as np
+from sklearn.base import BaseEstimator
+from sklearn.exceptions import NotFittedError
 import torch
 from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
 
+from skorch.callbacks import EpochTimer
+from skorch.callbacks import PrintLog
+from skorch.callbacks import PassthroughScoring
+from skorch.dataset import Dataset
+from skorch.dataset import ValidSplit
+from skorch.dataset import get_len
+from skorch.dataset import unpack_data
+from skorch.exceptions import DeviceWarning
+from skorch.exceptions import NotInitializedError
+from skorch.exceptions import SkorchAttributeError
+from skorch.exceptions import SkorchTrainingImpossibleError
 from skorch.callbacks import EpochTimer, PassthroughScoring, PrintLog
 from skorch.dataset import Dataset, ValidSplit, get_len, unpack_data
 from skorch.exceptions import DeviceWarning, SkorchAttributeError, SkorchTrainingImpossibleError
@@ -1391,6 +1404,20 @@ class NeuralNet(BaseEstimator):
         # the standard 'module_' attribute should exist
         attributes = attributes or [module + '_' for module in self._modules] or ['module_']
         check_is_fitted(self, attributes, *args, **kwargs)
+
+    def __sklearn_is_fitted__(self):
+        """This method is called when sklearn's ``check_is_fitted`` is used.
+        
+        Explained here: 
+        https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html
+        """
+        try:
+            self.check_is_fitted()
+        except NotInitializedError:
+            raise NotFittedError(
+                f"This {self.__class__.__name__} instance is not fitted yet. "
+                "Call 'fit' with appropriate arguments before using this estimator."
+            )
 
     def trim_for_prediction(self):
         """Remove all attributes not required for prediction.
