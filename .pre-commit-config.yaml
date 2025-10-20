@@ -3,24 +3,28 @@ default_language_version:
 
 repos:
   - repo: https://github.com/psf/black
-    rev: 25.1.0
+    rev: 25.9.0
     hooks:
       - id: black
-        exclude: ^(docs/|examples/)
+        files: \.py$
+        exclude: ^(\./)?(docs/|examples/)
 
   - repo: https://github.com/pycqa/flake8
     rev: 7.3.0
     hooks:
       - id: flake8
-        args: [
-            "--max-line-length=99",
-            "--ignore=D204,D401",
-            "--statistics",
-        ]
-        exclude: ^(docs/|examples/)
+        stages: [manual] 
+        additional_dependencies: [flake8-pyproject]
+        args:
+          - "--max-line-length=99"
+          - "--ignore=D204,D401"
+          - "--statistics"
+        files: \.py$
+        exclude: ^(\./)?(docs/|examples/)
 
   - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+    rev: 7.0.0
     hooks:
       - id: isort
-        exclude: ^(docs/|examples/)
+        files: \.py$
+        exclude: ^(\./)?(docs/|examples/)
