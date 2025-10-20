@@ -20,18 +20,18 @@ from sklearn.metrics import accuracy_score
 from skorch import NeuralNetClassifier
 from skorch.hf import AccelerateMixin
 
-
 SPECIAL_TOKENS = ["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"]
 
 
 def text_similarity(text1, text2):
     """Very simple text similarity function"""
+
     def process(text):
-        text = text.replace(' ', '').replace('##', '').lower().strip()
+        text = text.replace(" ", "").replace("##", "").lower().strip()
         return text
 
     diffs = list(difflib.Differ().compare(process(text1), process(text2)))
-    same = sum(diff.startswith(' ') for diff in diffs)
+    same = sum(diff.startswith(" ") for diff in diffs)
     total = len(diffs)
     return same / total
 
@@ -61,7 +61,8 @@ class _HuggingfaceTokenizersBaseTest:
     tokenizers. Instead, implement these tests on the subclass if necessary.
 
     """
-    @pytest.fixture(scope='module')
+
+    @pytest.fixture(scope="module")
     def data(self):
         return [
             "The Zen of Python, by Tim Peters",
@@ -88,8 +89,8 @@ class _HuggingfaceTokenizersBaseTest:
 
     def test_transform(self, tokenizer, data):
         Xt = tokenizer.transform(data)
-        assert 'input_ids' in Xt
-        assert 'attention_mask' in Xt
+        assert "input_ids" in Xt
+        assert "attention_mask" in Xt
 
         for val in Xt.values():
             assert val.shape[0] == len(data)
@@ -119,7 +120,7 @@ class _HuggingfaceTokenizersBaseTest:
     def test_tokenize_skip_special_tokens(self, tokenizer, data):
         # Check that the tokens don't contain pad tokens. Only works if we
         # actually know the pad token.
-        if not hasattr(tokenizer, 'pad_token'):
+        if not hasattr(tokenizer, "pad_token"):
             return
 
         tokens = tokenizer.tokenize(data, skip_special_tokens=True)
@@ -142,46 +143,46 @@ class _HuggingfaceTokenizersBaseTest:
         Xt = tokenizer.transform(data)
 
         assert len(Xt) == 2
-        assert 'input_ids' in Xt
-        assert 'attention_mask' in Xt
+        assert "input_ids" in Xt
+        assert "attention_mask" in Xt
 
     def test_return_token_type_ids(self, tokenizer, data):
-        with temporary_set_param(tokenizer, 'return_token_type_ids', True):
+        with temporary_set_param(tokenizer, "return_token_type_ids", True):
             Xt = tokenizer.transform(data)
 
-        assert 'token_type_ids' in Xt
+        assert "token_type_ids" in Xt
 
     def test_return_length(self, tokenizer, data):
-        with temporary_set_param(tokenizer, 'return_length', True):
+        with temporary_set_param(tokenizer, "return_length", True):
             Xt = tokenizer.transform(data)
 
-        assert 'length' in Xt
+        assert "length" in Xt
 
     def test_return_attention_mask(self, tokenizer, data):
-        with temporary_set_param(tokenizer, 'return_attention_mask', False):
+        with temporary_set_param(tokenizer, "return_attention_mask", False):
             Xt = tokenizer.transform(data)
 
-        assert 'attention_mask' not in Xt
+        assert "attention_mask" not in Xt
 
     def test_return_lists(self, tokenizer, data):
-        with temporary_set_param(tokenizer, 'return_tensors', None):
+        with temporary_set_param(tokenizer, "return_tensors", None):
             Xt = tokenizer.transform(data)
 
-        assert set(Xt) == {'input_ids', 'attention_mask'}
+        assert set(Xt) == {"input_ids", "attention_mask"}
         for val in Xt.values():
             assert isinstance(val, list)
             assert isinstance(val[0], list)
 
         # input type ids can have different lengths because they're not padded
         # or truncated
-        assert len(set(len(row) for row in Xt['input_ids'])) != 1
+        assert len(set(len(row) for row in Xt["input_ids"])) != 1
 
     def test_numpy_arrays(self, tokenizer, data):
-        with temporary_set_param(tokenizer, 'return_tensors', 'np'):
+        with temporary_set_param(tokenizer, "return_tensors", "np"):
             Xt = tokenizer.transform(data)
 
-        assert 'input_ids' in Xt
-        assert 'attention_mask' in Xt
+        assert "input_ids" in Xt
+        assert "attention_mask" in Xt
 
         for val in Xt.values():
             assert val.shape[0] == len(data)
@@ -205,67 +206,88 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
     passed
 
     """
-    from tokenizers import Tokenizer
-    from tokenizers.models import BPE, WordLevel, WordPiece, Unigram
-    from tokenizers import normalizers
-    from tokenizers import pre_tokenizers
-    from tokenizers.normalizers import Lowercase, NFD, StripAccents
-    from tokenizers.pre_tokenizers import CharDelimiterSplit, Digits, Whitespace
-    from tokenizers.processors import ByteLevel, TemplateProcessing
-    from tokenizers.trainers import BpeTrainer, UnigramTrainer
-    from tokenizers.trainers import WordPieceTrainer, WordLevelTrainer
+
+    from tokenizers import (
+        Tokenizer,
+        normalizers,
+        pre_tokenizers,
+    )
+    from tokenizers.models import (
+        BPE,
+        Unigram,
+        WordLevel,
+        WordPiece,
+    )
+    from tokenizers.normalizers import (
+        NFD,
+        Lowercase,
+        StripAccents,
+    )
+    from tokenizers.pre_tokenizers import (
+        CharDelimiterSplit,
+        Digits,
+        Whitespace,
+    )
+    from tokenizers.processors import (
+        ByteLevel,
+        TemplateProcessing,
+    )
+    from tokenizers.trainers import (
+        BpeTrainer,
+        UnigramTrainer,
+        WordLevelTrainer,
+        WordPieceTrainer,
+    )
 
     # Test one of the main tokenizer types: BPE, WordLevel, WordPiece, Unigram.
     # Individual settings like vocab size or choice of pre_tokenizer may not
     # necessarily make sense.
     settings = {
-        'setting0': {
-            'tokenizer': Tokenizer,
-            'model': BPE,
-            'model__unk_token': "[UNK]",
-            'trainer': BpeTrainer,
-            'trainer__vocab_size': 50,
-            'trainer__special_tokens': SPECIAL_TOKENS,
-            'trainer__show_progress': False,
-            'normalizer': None,
-            'pre_tokenizer': CharDelimiterSplit,
-            'pre_tokenizer__delimiter': ' ',  # has to be whitespace
-            'post_processor': ByteLevel,
-            'max_length': 100,
+        "setting0": {
+            "tokenizer": Tokenizer,
+            "model": BPE,
+            "model__unk_token": "[UNK]",
+            "trainer": BpeTrainer,
+            "trainer__vocab_size": 50,
+            "trainer__special_tokens": SPECIAL_TOKENS,
+            "trainer__show_progress": False,
+            "normalizer": None,
+            "pre_tokenizer": CharDelimiterSplit,
+            "pre_tokenizer__delimiter": " ",  # has to be whitespace
+            "post_processor": ByteLevel,
+            "max_length": 100,
         },
-        'setting1': {
-            'tokenizer': Tokenizer,
-            'tokenizer__model': WordLevel,  # model set via tokenizer__model
-            'model__unk_token': "[UNK]",
-            'trainer': 'auto',  # infer trainer
-            'trainer__vocab_size': 100,
-            'trainer__special_tokens': SPECIAL_TOKENS,
-            'trainer__show_progress': False,
-            'normalizer': Lowercase,
-            'pre_tokenizer': Whitespace,
-            'post_processor': None,
-            'max_length': 100,
+        "setting1": {
+            "tokenizer": Tokenizer,
+            "tokenizer__model": WordLevel,  # model set via tokenizer__model
+            "model__unk_token": "[UNK]",
+            "trainer": "auto",  # infer trainer
+            "trainer__vocab_size": 100,
+            "trainer__special_tokens": SPECIAL_TOKENS,
+            "trainer__show_progress": False,
+            "normalizer": Lowercase,
+            "pre_tokenizer": Whitespace,
+            "post_processor": None,
+            "max_length": 100,
         },
-        'setting2': {
-            'tokenizer': Tokenizer,
-            'model': WordPiece(unk_token="[UNK]"),  # initialized model passed
-            'trainer__vocab_size': 150,
-            'trainer__special_tokens': SPECIAL_TOKENS,
-            'trainer__show_progress': False,
+        "setting2": {
+            "tokenizer": Tokenizer,
+            "model": WordPiece(unk_token="[UNK]"),  # initialized model passed
+            "trainer__vocab_size": 150,
+            "trainer__special_tokens": SPECIAL_TOKENS,
+            "trainer__show_progress": False,
             # sequences: no kwargs
-            'normalizer': normalizers.Sequence([NFD(), Lowercase(), StripAccents()]),
-            'pre_tokenizer': pre_tokenizers.Sequence(
-                [Whitespace(), Digits(individual_digits=True)]
-            ),
-            'post_processor': TemplateProcessing(
+            "normalizer": normalizers.Sequence([NFD(), Lowercase(), StripAccents()]),
+            "pre_tokenizer": pre_tokenizers.Sequence([Whitespace(), Digits(individual_digits=True)]),
+            "post_processor": TemplateProcessing(
                 single="[CLS] $A [SEP]",
                 pair="[CLS] $A [SEP] $B:1 [SEP]:1",
                 special_tokens=[("[CLS]", 1), ("[SEP]", 2)],
             ),
-            'max_length': 200,
+            "max_length": 200,
         },
-        'setting4': {
-            'tokenizer': Tokenizer(model=Unigram()),
+        "setting4": {
+            "tokenizer": Tokenizer(model=Unigram()),
         },
     }
 
@@ -282,18 +304,18 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
     def test_get_params(self):
         from skorch.hf import HuggingfaceTokenizer
 
-        tokenizer = HuggingfaceTokenizer(**self.settings['setting0'])
+        tokenizer = HuggingfaceTokenizer(**self.settings["setting0"])
         params = tokenizer.get_params(deep=True)
-        assert 'model__dropout' not in params
+        assert "model__dropout" not in params
 
         tokenizer.set_params(model__dropout=0.123)
         params = tokenizer.get_params(deep=True)
-        assert 'model__dropout' in params
+        assert "model__dropout" in params
 
     def test_set_params(self, data):
         from skorch.hf import HuggingfaceTokenizer
 
-        tokenizer = HuggingfaceTokenizer(**self.settings['setting0'])
+        tokenizer = HuggingfaceTokenizer(**self.settings["setting0"])
         tokenizer.set_params(
             model__dropout=0.123,
             trainer__vocab_size=123,
@@ -304,77 +326,89 @@ class TestHuggingfaceTokenizerUninitialized(_HuggingfaceTokenizersBaseTest):
             # enum ModelWrapper at line 1 column 2586. So we cannot change its
             # value in this test but we should still ensure that set_params
             # doesn't fail, so we keep it.
-            pre_tokenizer__delimiter=' ',
+            pre_tokenizer__delimiter=" ",
         )
         tokenizer.fit(data)
 
         assert tokenizer.tokenizer_.model.dropout == pytest.approx(0.123)
         assert len(tokenizer.vocabulary_) == pytest.approx(123, abs=5)
-        assert tokenizer.tokenizer_.pre_tokenizer.delimiter == ' '
+        assert tokenizer.tokenizer_.pre_tokenizer.delimiter == " "
         assert tokenizer.max_length == 456
 
 
 class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
     """Test with initialized instances of tokenizer etc. being passed"""
-    from tokenizers import Tokenizer
-    from tokenizers.models import BPE, WordLevel, WordPiece, Unigram
-    from tokenizers import normalizers
-    from tokenizers import pre_tokenizers
-    from tokenizers.normalizers import Lowercase, NFD, StripAccents
-    from tokenizers.pre_tokenizers import Digits, Whitespace
-    from tokenizers.processors import ByteLevel, TemplateProcessing
-    from tokenizers.trainers import BpeTrainer, UnigramTrainer
-    from tokenizers.trainers import WordPieceTrainer, WordLevelTrainer
+
+    from tokenizers import (
+        Tokenizer,
+        normalizers,
+        pre_tokenizers,
+    )
+    from tokenizers.models import (
+        BPE,
+        Unigram,
+        WordLevel,
+        WordPiece,
+    )
+    from tokenizers.normalizers import (
+        NFD,
+        Lowercase,
+        StripAccents,
+    )
+    from tokenizers.pre_tokenizers import (
+        Digits,
+        Whitespace,
+    )
+    from tokenizers.processors import (
+        ByteLevel,
+        TemplateProcessing,
+    )
+    from tokenizers.trainers import (
+        BpeTrainer,
+        UnigramTrainer,
+        WordLevelTrainer,
+        WordPieceTrainer,
+    )
 
     # Test one of the main tokenizer types: BPE, WordLevel, WordPiece, Unigram.
     # Individual settings like vocab size or choice of pre_tokenizer may not
     # necessarily make sense.
     settings = {
-        'setting0': {
-            'tokenizer': Tokenizer(BPE(unk_token="[UNK]")),
-            'trainer': BpeTrainer(
-                vocab_size=50, special_tokens=SPECIAL_TOKENS, show_progress=False
-            ),
-            'normalizer': None,
-            'pre_tokenizer': Whitespace(),
-            'post_processor': ByteLevel(),
-            'max_length': 100,
+        "setting0": {
+            "tokenizer": Tokenizer(BPE(unk_token="[UNK]")),
+            "trainer": BpeTrainer(vocab_size=50, special_tokens=SPECIAL_TOKENS, show_progress=False),
+            "normalizer": None,
+            "pre_tokenizer": Whitespace(),
+            "post_processor": ByteLevel(),
+            "max_length": 100,
         },
-        'setting1': {
-            'tokenizer': Tokenizer(WordLevel(unk_token="[UNK]")),
-            'trainer': WordLevelTrainer(
-                vocab_size=100, special_tokens=SPECIAL_TOKENS, show_progress=False
-            ),
-            'normalizer': Lowercase(),
-            'pre_tokenizer': Whitespace(),
-            'post_processor': None,
-            'max_length': 100,
+        "setting1": {
+            "tokenizer": Tokenizer(WordLevel(unk_token="[UNK]")),
+            "trainer": WordLevelTrainer(vocab_size=100, special_tokens=SPECIAL_TOKENS, show_progress=False),
+            "normalizer": Lowercase(),
+            "pre_tokenizer": Whitespace(),
+            "post_processor": None,
+            "max_length": 100,
         },
-        'setting2': {
-            'tokenizer': Tokenizer(WordPiece(unk_token="[UNK]")),
-            'trainer': WordPieceTrainer(
-                vocab_size=150, special_tokens=SPECIAL_TOKENS, show_progress=False
-            ),
-            'normalizer': normalizers.Sequence([NFD(), Lowercase(), StripAccents()]),
-            'pre_tokenizer': pre_tokenizers.Sequence(
-                [Whitespace(), Digits(individual_digits=True)]
-            ),
-            'post_processor': TemplateProcessing(
+        "setting2": {
+            "tokenizer": Tokenizer(WordPiece(unk_token="[UNK]")),
+            "trainer": WordPieceTrainer(vocab_size=150, special_tokens=SPECIAL_TOKENS, show_progress=False),
+            "normalizer": normalizers.Sequence([NFD(), Lowercase(), StripAccents()]),
+            "pre_tokenizer": pre_tokenizers.Sequence([Whitespace(), Digits(individual_digits=True)]),
+            "post_processor": TemplateProcessing(
                 single="[CLS] $A [SEP]",
                 pair="[CLS] $A [SEP] $B:1 [SEP]:1",
                 special_tokens=[("[CLS]", 1), ("[SEP]", 2)],
             ),
-            'max_length': 200,
+            "max_length": 200,
         },
-        'setting4': {
-            'tokenizer': Tokenizer(Unigram()),
-            'trainer': UnigramTrainer(
-                vocab_size=120, special_tokens=SPECIAL_TOKENS, show_progress=False
-            ),
-            'normalizer': None,
-            'pre_tokenizer': None,
-            'post_processor': None,
-            'max_length': 250,
+        "setting4": {
+            "tokenizer": Tokenizer(Unigram()),
+            "trainer": UnigramTrainer(vocab_size=120, special_tokens=SPECIAL_TOKENS, show_progress=False),
+            "normalizer": None,
+            "pre_tokenizer": None,
+            "post_processor": None,
+            "max_length": 250,
         },
     }
 
@@ -410,8 +444,8 @@ class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
         pad_token = "=FOO="
         tokenizer.set_params(pad_token=pad_token)
         tokenizer.fit(data)
-        Xt = tokenizer.transform(['hello there'])
-        pad_token_id = Xt['input_ids'][0, -1].item()
+        Xt = tokenizer.transform(["hello there"])
+        pad_token_id = Xt["input_ids"][0, -1].item()
         assert tokenizer.vocabulary_[pad_token] == pad_token_id
 
     def test_not_fitted(self, tokenizer_not_fitted, data):
@@ -433,27 +467,27 @@ class TestHuggingfaceTokenizerInitialized(_HuggingfaceTokenizersBaseTest):
 
 
 class TestHuggingfacePretrainedTokenizer(_HuggingfaceTokenizersBaseTest):
-    @pytest.fixture(scope='module', params=['as string', 'as instance'])
+    @pytest.fixture(scope="module", params=["as string", "as instance"])
     def tokenizer(self, request, data):
         from transformers import AutoTokenizer
+
         from skorch.hf import HuggingfacePretrainedTokenizer
 
-        if request.param == 'as string':
-            return HuggingfacePretrainedTokenizer('bert-base-cased').fit(data)
+        if request.param == "as string":
+            return HuggingfacePretrainedTokenizer("bert-base-cased").fit(data)
 
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
         return HuggingfacePretrainedTokenizer(tokenizer).fit(data)
 
     def test_no_training_but_vocab_size_set_raises(self, data):
         # Raise an error when user sets vocab_size but has train=False, since it
         # doesn't do anything.
         from transformers import AutoTokenizer
+
         from skorch.hf import HuggingfacePretrainedTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
-        hf_tokenizer = HuggingfacePretrainedTokenizer(
-            tokenizer, train=False, vocab_size=123
-        )
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        hf_tokenizer = HuggingfacePretrainedTokenizer(tokenizer, train=False, vocab_size=123)
 
         msg = "Setting vocab_size has no effect if train=False"
         with pytest.raises(ValueError, match=msg):
@@ -466,18 +500,19 @@ class TestHuggingfacePretrainedTokenizer(_HuggingfaceTokenizersBaseTest):
 class TestHuggingfacePretrainedTokenizerWithFit(_HuggingfaceTokenizersBaseTest):
     vocab_size = 123
 
-    @pytest.fixture(scope='module', params=['as string', 'as instance'])
+    @pytest.fixture(scope="module", params=["as string", "as instance"])
     def tokenizer(self, request, data):
         # pylint: disable=missing-function-docstring
         from transformers import AutoTokenizer
+
         from skorch.hf import HuggingfacePretrainedTokenizer
 
-        kwargs = {'train': True, 'vocab_size': self.vocab_size}
+        kwargs = {"train": True, "vocab_size": self.vocab_size}
 
-        if request.param == 'as string':
-            return HuggingfacePretrainedTokenizer('bert-base-cased', **kwargs).fit(data)
+        if request.param == "as string":
+            return HuggingfacePretrainedTokenizer("bert-base-cased", **kwargs).fit(data)
 
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
         return HuggingfacePretrainedTokenizer(tokenizer, **kwargs).fit(data)
 
     def test_fit_with_generator(self, tokenizer, data):
@@ -495,9 +530,10 @@ class TestHuggingfacePretrainedTokenizerWithFit(_HuggingfaceTokenizersBaseTest):
         # vocab size is considerably greater than the one seen when we set
         # vocab_size explictly.
         from transformers import AutoTokenizer
+
         from skorch.hf import HuggingfacePretrainedTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
         hf_tokenizer = HuggingfacePretrainedTokenizer(tokenizer, train=True).fit(data)
 
         # The vocab_size is much bigger than in the previous test
@@ -514,18 +550,18 @@ class AcceleratedNet(AccelerateMixin, NeuralNetClassifier):
 
 
 class TestAccelerate:
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def data(self, classifier_data):
         return classifier_data
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def module_cls(self, classifier_module):
         return classifier_module
 
     @pytest.fixture
     def accelerator_cls(self):
         # pylint: disable=missing-function-docstring
-        pytest.importorskip('accelerate')
+        pytest.importorskip("accelerate")
 
         from accelerate import Accelerator
         from accelerate.state import AcceleratorState
@@ -546,17 +582,17 @@ class TestAccelerate:
             lr=0.1,
         )
 
-    @pytest.mark.parametrize('mixed_precision', ['no', 'fp16', 'bf16'])
+    @pytest.mark.parametrize("mixed_precision", ["no", "fp16", "bf16"])
     def test_mixed_precision(self, net_cls, accelerator_cls, data, mixed_precision):
         # Only test if training works at all, no specific test of whether the
         # indicated precision is actually used, since that depends on the
         # underlying hardware.
         from accelerate.utils import is_bf16_available
 
-        if (mixed_precision != 'no') and not torch.cuda.is_available():
-            pytest.skip('skipping AMP test because device does not support it')
-        if (mixed_precision == 'bf16') and not is_bf16_available():
-            pytest.skip('skipping bf16 test because device does not support it')
+        if (mixed_precision != "no") and not torch.cuda.is_available():
+            pytest.skip("skipping AMP test because device does not support it")
+        if (mixed_precision == "bf16") and not is_bf16_available():
+            pytest.skip("skipping bf16 test because device does not support it")
 
         accelerator = accelerator_cls(mixed_precision=mixed_precision)
         net = net_cls(accelerator=accelerator)
@@ -564,24 +600,23 @@ class TestAccelerate:
         net.fit(X, y)  # does not raise
         assert np.isfinite(net.history[:, "train_loss"]).all()
 
-    @pytest.mark.parametrize('mixed_precision', [
-        'no',  # no acceleration works because forward is left the same
-        'fp16',
-        pytest.param('bf16', marks=pytest.mark.xfail(raises=pickle.PicklingError)),
-    ])
-    def test_mixed_precision_pickling(
-            self, net_cls, accelerator_cls, data, mixed_precision
-    ):
+    @pytest.mark.parametrize(
+        "mixed_precision",
+        [
+            "no",  # no acceleration works because forward is left the same
+            "fp16",
+            pytest.param("bf16", marks=pytest.mark.xfail(raises=pickle.PicklingError)),
+        ],
+    )
+    def test_mixed_precision_pickling(self, net_cls, accelerator_cls, data, mixed_precision):
         import accelerate
+
         from skorch._version import Version
 
         # https://github.com/huggingface/accelerate/issues/805
         version_accelerate = Version(accelerate.__version__)
         version_torch = Version(torch.__version__)
-        if (
-                (version_accelerate <= Version('0.13.2'))
-                and (version_torch >= Version('1.13.0'))
-        ):
+        if (version_accelerate <= Version("0.13.2")) and (version_torch >= Version("1.13.0")):
             reason = "skip because of a bug with accelerate <= 0.13.2 and torch >= 1.13"
             pytest.skip(msg=reason)
 
@@ -597,10 +632,10 @@ class TestAccelerate:
         # be sure, still start out with 'fp16' before 'no'.
         from accelerate.utils import is_bf16_available
 
-        if (mixed_precision != 'no') and not torch.cuda.is_available():
-            pytest.skip('skipping AMP test because device does not support it')
-        if (mixed_precision == 'bf16') and not is_bf16_available():
-            pytest.skip('skipping bf16 test because device does not support it')
+        if (mixed_precision != "no") and not torch.cuda.is_available():
+            pytest.skip("skipping AMP test because device does not support it")
+        if (mixed_precision == "bf16") and not is_bf16_available():
+            pytest.skip("skipping bf16 test because device does not support it")
 
         accelerator = accelerator_cls(mixed_precision=mixed_precision)
         net = net_cls(accelerator=accelerator)
@@ -612,62 +647,63 @@ class TestAccelerate:
         # This test is for a bug we had previously where only 'module_' was
         # unwrapped, not all possible modules and criteria.
         if not torch.cuda.is_available():
-            pytest.skip('skipping test because device does not support it')
+            pytest.skip("skipping test because device does not support it")
 
         class MyNet(AcceleratedNet):
             """Net with two different modules"""
+
             def initialize_module(self):
                 super().initialize_module()
                 self.module2_ = module_cls()
                 return self
 
-        accelerator = accelerator_cls(mixed_precision='fp16')
+        accelerator = accelerator_cls(mixed_precision="fp16")
         net = MyNet(module_cls, accelerator=accelerator, unwrap_after_train=True)
         X, y = data
         net.fit(X[:100], y[:100])
 
         # there isn't really an elegant way to check if the modules have been
         # correctly unwrapped
-        assert not hasattr(net.criterion_.forward, '__wrapped__')
-        assert not hasattr(net.module_.forward, '__wrapped__')
-        assert not hasattr(net.module2_.forward, '__wrapped__')
+        assert not hasattr(net.criterion_.forward, "__wrapped__")
+        assert not hasattr(net.module_.forward, "__wrapped__")
+        assert not hasattr(net.module2_.forward, "__wrapped__")
 
     def test_not_unwrapping_modules(self, net_cls, accelerator_cls, data):
         # Make it possible not to unwrap the modules after training. This is
         # useful, e.g., to allow further training with warm start or to do
         # inference with AMP, but it prevents the model from being pickled.
         if not torch.cuda.is_available():
-            pytest.skip('skipping test because device does not support it')
+            pytest.skip("skipping test because device does not support it")
 
-        accelerator = accelerator_cls(mixed_precision='fp16')
+        accelerator = accelerator_cls(mixed_precision="fp16")
         net = net_cls(accelerator=accelerator, unwrap_after_train=False)
         X, y = data
         net.fit(X[:100], y[:100])
 
         # there isn't really an elegant way to check if the modules have been
         # correctly unwrapped
-        assert hasattr(net.criterion_.forward, '__wrapped__')
-        assert hasattr(net.module_.forward, '__wrapped__')
+        assert hasattr(net.criterion_.forward, "__wrapped__")
+        assert hasattr(net.module_.forward, "__wrapped__")
 
     @pytest.mark.parametrize(
-        'wrap_loaded_model',
+        "wrap_loaded_model",
         [True, False],
         ids=["loaded wrapped", "loaded not wrapped"],
     )
     @pytest.mark.parametrize(
-        'wrap_initial_model',
+        "wrap_initial_model",
         [True, False],
         ids=["initial wrapped", "initial not wrapped"],
     )
     def test_save_load_params(
-            self,
-            net_cls,
-            module_cls,
-            accelerator_cls,
-            data,
-            wrap_initial_model,
-            wrap_loaded_model,
-            tmpdir,
+        self,
+        net_cls,
+        module_cls,
+        accelerator_cls,
+        data,
+        wrap_initial_model,
+        wrap_loaded_model,
+        tmpdir,
     ):
         # There were a few issue with saving and loading parameters for an
         # accelerated net in a multi-GPU setting.
@@ -704,7 +740,7 @@ class TestAccelerate:
         net.unwrap_after_train = True if wrap_initial_model else False
         net.fit(X, y)
         accuracy_before = accuracy_score(y, net.predict(X))
-        f_name = os.path.join(tmpdir, 'params.pt')
+        f_name = os.path.join(tmpdir, "params.pt")
         net.save_params(f_params=f_name)
 
         if wrap_loaded_model:
@@ -723,35 +759,31 @@ class TestAccelerate:
         if wrap_loaded_model:
             assert net_loaded.device is None
 
-    @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
-    def test_mixed_precision_save_load_params(
-            self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
-    ):
+    @pytest.mark.parametrize("mixed_precision", ["fp16", "bf16", "no"])
+    def test_mixed_precision_save_load_params(self, net_cls, accelerator_cls, data, mixed_precision, tmp_path):
         from accelerate.utils import is_bf16_available
 
-        if (mixed_precision != 'no') and not torch.cuda.is_available():
-            pytest.skip('skipping AMP test because device does not support it')
-        if (mixed_precision == 'bf16') and not is_bf16_available():
-            pytest.skip('skipping bf16 test because device does not support it')
+        if (mixed_precision != "no") and not torch.cuda.is_available():
+            pytest.skip("skipping AMP test because device does not support it")
+        if (mixed_precision == "bf16") and not is_bf16_available():
+            pytest.skip("skipping bf16 test because device does not support it")
 
         accelerator = accelerator_cls(mixed_precision=mixed_precision)
         net = net_cls(accelerator=accelerator)
         net.initialize()
 
-        filename = tmp_path / 'accel-net-params.pth'
+        filename = tmp_path / "accel-net-params.pth"
         net.save_params(f_params=filename)
         net.load_params(f_params=filename)
 
-    @pytest.mark.parametrize('mixed_precision', ['fp16', 'bf16', 'no'])
-    def test_mixed_precision_inference(
-            self, net_cls, accelerator_cls, data, mixed_precision, tmp_path
-    ):
+    @pytest.mark.parametrize("mixed_precision", ["fp16", "bf16", "no"])
+    def test_mixed_precision_inference(self, net_cls, accelerator_cls, data, mixed_precision, tmp_path):
         from accelerate.utils import is_bf16_available
 
-        if (mixed_precision != 'no') and not torch.cuda.is_available():
-            pytest.skip('skipping AMP test because device does not support it')
-        if (mixed_precision == 'bf16') and not is_bf16_available():
-            pytest.skip('skipping bf16 test because device does not support it')
+        if (mixed_precision != "no") and not torch.cuda.is_available():
+            pytest.skip("skipping AMP test because device does not support it")
+        if (mixed_precision == "bf16") and not is_bf16_available():
+            pytest.skip("skipping bf16 test because device does not support it")
 
         X, y = data
         accelerator = accelerator_cls(mixed_precision=mixed_precision)
@@ -766,14 +798,14 @@ class TestAccelerate:
     def test_force_cpu(self, net_cls, accelerator_cls, data):
         accelerator = accelerator_cls(device_placement=False, cpu=True)
         net = net_cls(accelerator=accelerator)
-        net.set_params(device='cpu')
+        net.set_params(device="cpu")
         net.fit(*data)  # does not raise
         assert np.isfinite(net.history[:, "train_loss"]).all()
 
     def test_device_placement(self, net_cls, accelerator_cls, data):
         accelerator = accelerator_cls(device_placement=True)
         net = net_cls(accelerator=accelerator)
-        net.set_params(device='cpu')
+        net.set_params(device="cpu")
         msg = "When device placement is performed by the accelerator, set device=None"
         with pytest.raises(ValueError, match=msg):
             net.fit(*data)
@@ -783,7 +815,7 @@ class TestAccelerate:
         accelerator = accelerator_cls()
         net = net_cls(accelerator=accelerator)
         net.initialize()
-        print_log = dict(net.callbacks_)['print_log']
+        print_log = dict(net.callbacks_)["print_log"]
         assert print_log.sink == accelerator.print
 
     def test_print_log_sink_can_be_overwritten(self, net_cls, accelerator_cls):
@@ -791,22 +823,31 @@ class TestAccelerate:
         accelerator = accelerator_cls()
         net = net_cls(accelerator=accelerator, callbacks__print_log__sink=123)
         net.initialize()
-        print_log = dict(net.callbacks_)['print_log']
+        print_log = dict(net.callbacks_)["print_log"]
         assert print_log.sink == 123
 
-    def test_print_log_sink_uses_print_if_accelerator_has_no_print(
-            self, net_cls, accelerator_cls
-    ):
+    def test_print_log_sink_uses_print_if_accelerator_has_no_print(self, net_cls, accelerator_cls, monkeypatch):
         # we should not depend on the accelerator having a print function
 
-        # we need to use Mock here because Accelerator does not allow attr
-        # deletion
+        # We need to use Mock here because Accelerator does not allow attr
+        # deletion. But some attrs on Accelerator raise an error when accessed,
+        # which causes issues when trying to Mock the object.
+        forbidden_attrs = [
+            "context_parallel_rank",
+            "data_parallel_rank",
+            "data_parallel_shard_rank",
+            "pipeline_parallel_rank",
+            "tensor_parallel_rank",
+        ]
+        for attr in forbidden_attrs:
+            monkeypatch.setattr(accelerator_cls, attr, None)
         accelerator = Mock(spec=accelerator_cls())
         accelerator.prepare = lambda x: x
-        delattr(accelerator, 'print')
+        delattr(accelerator, "print")
+
         net = net_cls(accelerator=accelerator)
         net.initialize()
-        print_log = dict(net.callbacks_)['print_log']
+        print_log = dict(net.callbacks_)["print_log"]
         assert print_log.sink is print
 
     def test_all_components_prepared(self, module_cls, data):
@@ -863,14 +904,14 @@ class TestAccelerate:
 
             def initialize_criterion(self):
                 super().initialize_criterion()
-                kwargs = self.get_params_for('criterion')
+                kwargs = self.get_params_for("criterion")
                 # pylint: disable=attribute-defined-outside-init
                 self.criterion2_ = self.criterion(**kwargs)
                 return self
 
             def initialize_module(self):
                 super().initialize_module()
-                kwargs = self.get_params_for('module')
+                kwargs = self.get_params_for("module")
                 # pylint: disable=attribute-defined-outside-init
                 self.module2_ = self.module(**kwargs)
                 return self
@@ -878,8 +919,7 @@ class TestAccelerate:
             def initialize_optimizer(self, *args, **kwargs):
                 super().initialize_optimizer(*args, **kwargs)
                 named_parameters = self.module2_.named_parameters()
-                args, kwargs = self.get_params_for_optimizer(
-                    'optimizer', named_parameters)
+                args, kwargs = self.get_params_for_optimizer("optimizer", named_parameters)
                 # pylint: disable=attribute-defined-outside-init
                 self.optimizer2_ = self.optimizer(*args, **kwargs)
                 return self
@@ -898,11 +938,11 @@ class TestAccelerate:
                 assert self.optimizer_.is_prepared
                 assert self.optimizer2_.is_prepared
 
-                lr_scheduler = dict(self.callbacks_)['lr_scheduler'].policy_
+                lr_scheduler = dict(self.callbacks_)["lr_scheduler"].policy_
                 assert lr_scheduler.is_prepared
 
                 output = super().train_step_single(*args, **kwargs)
-                assert output['loss'].backward_was_called
+                assert output["loss"].backward_was_called
                 return output
 
         accelerator = MockAccelerator()
@@ -911,7 +951,7 @@ class TestAccelerate:
             device=None,
             accelerator=accelerator,
             max_epochs=2,
-            callbacks=[('lr_scheduler', LRScheduler)],
+            callbacks=[("lr_scheduler", LRScheduler)],
         )
         X, y = data
         # does not raise
@@ -923,16 +963,14 @@ class TestAccelerate:
             module__hidden_units=7,
             lr=0.05,
             batch_size=33,
-            criterion__reduction='sum',
+            criterion__reduction="sum",
             callbacks__lr_scheduler__policy=torch.optim.lr_scheduler.ReduceLROnPlateau,
         )
         # does not raise
         net.fit(X, y)
         net.predict(X)
 
-    def test_gradient_accumulation_with_accelerate(
-            self, module_cls, accelerator_cls, data
-    ):
+    def test_gradient_accumulation_with_accelerate(self, module_cls, accelerator_cls, data):
         # Check that using gradient accumulation provided by accelerate actually
         # works. Testing this is not quite trivial. E.g. we cannot check haven
         # often optimizer.step() is called because accelerate still calls it on
@@ -978,11 +1016,9 @@ class TestAccelerate:
         updated_expected = [False, False, True, False, False, True, True] * max_epochs
         assert updated == updated_expected
 
-    @pytest.mark.parametrize('mixed_precision', ['no', 'fp16', 'bf16'])
-    @pytest.mark.parametrize('scheduler', ['ReduceLROnPlateau', 'StepLR'])
-    def test_lr_scheduler_with_accelerate(
-            self, net_cls, accelerator_cls, data, mixed_precision, scheduler
-    ):
+    @pytest.mark.parametrize("mixed_precision", ["no", "fp16", "bf16"])
+    @pytest.mark.parametrize("scheduler", ["ReduceLROnPlateau", "StepLR"])
+    def test_lr_scheduler_with_accelerate(self, net_cls, accelerator_cls, data, mixed_precision, scheduler):
         # This test only checks that lr schedulers work with accelerate mixed
         # precision. The reason why this requires special handling is explained
         # here:
@@ -991,17 +1027,18 @@ class TestAccelerate:
         # or not, as that would require knowledge of accelerate internals, which
         # we don't want to rely on.
         from accelerate.utils import is_bf16_available
+
         from skorch.callbacks import LRScheduler
 
-        if (mixed_precision != 'no') and not torch.cuda.is_available():
-            pytest.skip('skipping AMP test because device does not support it')
-        if (mixed_precision == 'bf16') and not is_bf16_available():
-            pytest.skip('skipping bf16 test because device does not support it')
+        if (mixed_precision != "no") and not torch.cuda.is_available():
+            pytest.skip("skipping AMP test because device does not support it")
+        if (mixed_precision == "bf16") and not is_bf16_available():
+            pytest.skip("skipping bf16 test because device does not support it")
 
         X, y = data[0][:100], data[1][:100]
         max_epochs = 10
 
-        if scheduler == 'ReduceLROnPlateau':
+        if scheduler == "ReduceLROnPlateau":
             lr_scheduler = LRScheduler(
                 policy=torch.optim.lr_scheduler.ReduceLROnPlateau,
             )
@@ -1009,7 +1046,7 @@ class TestAccelerate:
             lr_scheduler = LRScheduler(
                 policy=torch.optim.lr_scheduler.StepLR,
                 step_size=2,
-                step_every='batch',
+                step_every="batch",
             )
 
         accelerator = accelerator_cls()
@@ -1023,7 +1060,8 @@ class TestAccelerate:
 
 class MockHfApi:
     """Mock of huggingface_hub.HfAPI"""
-    def __init__(self, return_url='some-url'):
+
+    def __init__(self, return_url="some-url"):
         self.return_url = return_url
         self.calls = []
         self.saved = None
@@ -1040,7 +1078,7 @@ class MockHfApi:
         if isinstance(path_or_fileobj, io.BytesIO):
             self.saved = path_or_fileobj
         elif isinstance(path_or_fileobj, str):
-            self.saved = open(path_or_fileobj, 'rb')
+            self.saved = open(path_or_fileobj, "rb")
 
         return_url = self.return_url.format(self._call_count)
         self._call_count += 1
@@ -1094,10 +1132,10 @@ class TestHfHubStorage:
         from skorch.callbacks import TrainEndCheckpoint
 
         params = {
-            'path_in_repo': 'my-model',
-            'repo_id': 'my-user/my-repo',
-            'token': 'my-token',
-            'some_argument': 'foobar',
+            "path_in_repo": "my-model",
+            "repo_id": "my-user/my-repo",
+            "token": "my-token",
+            "some_argument": "foobar",
         }
         storer = hf_hub_storer_cls(mock_hf_api, **params)
         checkpoint = TrainEndCheckpoint(
@@ -1114,14 +1152,10 @@ class TestHfHubStorage:
         _, kwargs = mock_hf_api.calls[0]
         assert kwargs == params
 
-    def test_train_end_checkpoint_pickle(
-            self, net, data, mock_hf_api, hf_hub_storer_cls
-    ):
+    def test_train_end_checkpoint_pickle(self, net, data, mock_hf_api, hf_hub_storer_cls):
         from skorch.callbacks import TrainEndCheckpoint
 
-        storer = hf_hub_storer_cls(
-            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
-        )
+        storer = hf_hub_storer_cls(mock_hf_api, path_in_repo="my-model", repo_id="my-user/my-repo", token="123")
         checkpoint = TrainEndCheckpoint(
             f_pickle=storer,
             f_params=None,
@@ -1136,17 +1170,15 @@ class TestHfHubStorage:
         obj, _ = mock_hf_api.calls[0]
         assert isinstance(obj, io.IOBase)
 
-    def test_train_end_checkpoint_torch_save(
-            self, net, data, mock_hf_api, hf_hub_storer_cls
-    ):
+    def test_train_end_checkpoint_torch_save(self, net, data, mock_hf_api, hf_hub_storer_cls):
         # f_pickle uses pickle but f_params et al use torch.save, which works a
         # bit differently. Therefore, we need to test both.
         from skorch.callbacks import TrainEndCheckpoint
 
         storer = hf_hub_storer_cls(
             mock_hf_api,
-            path_in_repo='weights.pt',
-            repo_id='my-user/my-repo',
+            path_in_repo="weights.pt",
+            repo_id="my-user/my-repo",
             buffered=True,
         )
         checkpoint = TrainEndCheckpoint(
@@ -1166,9 +1198,7 @@ class TestHfHubStorage:
         # Checkpoint saves the model multiple times
         from skorch.callbacks import Checkpoint
 
-        storer = hf_hub_storer_cls(
-            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
-        )
+        storer = hf_hub_storer_cls(mock_hf_api, path_in_repo="my-model", repo_id="my-user/my-repo", token="123")
 
         checkpoint = Checkpoint(
             f_pickle=storer,
@@ -1182,16 +1212,14 @@ class TestHfHubStorage:
         net.fit(*data)
 
         # each time the valid loss improves, there should be a checkpoint
-        num_checkpoints_expected = sum(net.history[:, 'valid_loss_best'])
+        num_checkpoints_expected = sum(net.history[:, "valid_loss_best"])
         num_checkpoints_actual = len(mock_hf_api.calls)
         assert num_checkpoints_actual == num_checkpoints_expected
 
     def test_checkpoint_torch_save(self, net, data, mock_hf_api, hf_hub_storer_cls):
         from skorch.callbacks import Checkpoint
 
-        storer = hf_hub_storer_cls(
-            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
-        )
+        storer = hf_hub_storer_cls(mock_hf_api, path_in_repo="my-model", repo_id="my-user/my-repo", token="123")
 
         checkpoint = Checkpoint(
             f_params=None,
@@ -1204,30 +1232,28 @@ class TestHfHubStorage:
         net.fit(*data)
 
         # each time the valid loss improves, there should be a checkpoint
-        num_checkpoints_expected = sum(net.history[:, 'valid_loss_best'])
+        num_checkpoints_expected = sum(net.history[:, "valid_loss_best"])
         num_checkpoints_actual = len(mock_hf_api.calls)
         assert num_checkpoints_actual > 0  # sanity check
         assert num_checkpoints_actual == num_checkpoints_expected
 
-    @pytest.mark.parametrize('storage', ['memory', 'str', 'path'])
-    def test_saved_net_is_same(
-            self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path
-    ):
+    @pytest.mark.parametrize("storage", ["memory", "str", "path"])
+    def test_saved_net_is_same(self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path):
         # Check that the pickled net has the same params after loading, both for
         # in-memory and on disk
         from skorch.callbacks import TrainEndCheckpoint
 
-        if storage == 'memory':
+        if storage == "memory":
             local_storage = None
-        elif storage == 'str':
-            local_storage = str(tmp_path / 'my-net.pkl')
+        elif storage == "str":
+            local_storage = str(tmp_path / "my-net.pkl")
         else:
-            local_storage = tmp_path / 'my-net.pkl'
+            local_storage = tmp_path / "my-net.pkl"
 
         storer = hf_hub_storer_cls(
             mock_hf_api,
-            path_in_repo='my-model',
-            repo_id='my-user/my-repo',
+            path_in_repo="my-model",
+            repo_id="my-user/my-repo",
             local_storage=local_storage,
         )
         checkpoint = TrainEndCheckpoint(
@@ -1247,25 +1273,23 @@ class TestHfHubStorage:
             loaded = net_loaded.module_.state_dict()[key]
             torch.testing.assert_close(loaded, original)
 
-    @pytest.mark.parametrize('storage', ['memory', 'str', 'path'])
-    def test_saved_params_is_same(
-            self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path
-    ):
+    @pytest.mark.parametrize("storage", ["memory", "str", "path"])
+    def test_saved_params_is_same(self, net, data, mock_hf_api, hf_hub_storer_cls, storage, tmp_path):
         # check that the module parameters are the same after loading, both for
         # in-memory and on disk
         from skorch.callbacks import TrainEndCheckpoint
 
-        if storage == 'memory':
+        if storage == "memory":
             local_storage = None
-        elif storage == 'str':
-            local_storage = str(tmp_path / 'my-weights.pt')
+        elif storage == "str":
+            local_storage = str(tmp_path / "my-weights.pt")
         else:
-            local_storage = tmp_path / 'my-weights.pt'
+            local_storage = tmp_path / "my-weights.pt"
 
         storer = hf_hub_storer_cls(
             mock_hf_api,
-            path_in_repo='my-model',
-            repo_id='my-user/my-repo',
+            path_in_repo="my-model",
+            repo_id="my-user/my-repo",
             local_storage=local_storage,
         )
         checkpoint = TrainEndCheckpoint(
@@ -1290,11 +1314,9 @@ class TestHfHubStorage:
         # it's not always just returning the same URL
         from skorch.callbacks import TrainEndCheckpoint
 
-        url = 'my-return-url-{}'
+        url = "my-return-url-{}"
         mock_hf_api = MockHfApi(return_url=url)
-        storer = hf_hub_storer_cls(
-            mock_hf_api, path_in_repo='my-model', repo_id='my-user/my-repo', token='123'
-        )
+        storer = hf_hub_storer_cls(mock_hf_api, path_in_repo="my-model", repo_id="my-user/my-repo", token="123")
         checkpoint = TrainEndCheckpoint(
             f_params=storer,
             f_optimizer=None,
@@ -1304,10 +1326,10 @@ class TestHfHubStorage:
         net.set_params(callbacks=[checkpoint])
 
         net.fit(*data)
-        assert storer.latest_url_ == 'my-return-url-0'
+        assert storer.latest_url_ == "my-return-url-0"
 
         net.partial_fit(*data)
-        assert storer.latest_url_ == 'my-return-url-1'
+        assert storer.latest_url_ == "my-return-url-1"
 
     def test_verbose_print_output(self, net, data, hf_hub_storer_cls):
         from skorch.callbacks import TrainEndCheckpoint
@@ -1317,12 +1339,12 @@ class TestHfHubStorage:
         def _print(s):
             printed.append(s)
 
-        url = 'my-return-url'
+        url = "my-return-url"
         mock_hf_api = MockHfApi(return_url=url)
         storer = hf_hub_storer_cls(
             mock_hf_api,
-            path_in_repo='my-model',
-            repo_id='my-user/my-repo',
+            path_in_repo="my-model",
+            repo_id="my-user/my-repo",
             verbose=1,
             sink=_print,
         )
@@ -1345,8 +1367,8 @@ class TestHfHubStorage:
 
         storer = hf_hub_storer_cls(
             mock_hf_api,
-            path_in_repo='my-model-{}',
-            repo_id='my-user/my-repo',
+            path_in_repo="my-model-{}",
+            repo_id="my-user/my-repo",
         )
 
         checkpoint = Checkpoint(
@@ -1360,18 +1382,19 @@ class TestHfHubStorage:
         net.fit(*data)
 
         for i, (_, kwargs) in enumerate(mock_hf_api.calls):
-            path_in_repo = kwargs['path_in_repo']
-            expected = f'my-model-{i}'
+            path_in_repo = kwargs["path_in_repo"]
+            expected = f"my-model-{i}"
             assert path_in_repo == expected
 
-    def test_with_load_init_state_callback(
-            self, net, data, mock_hf_api, hf_hub_storer_cls
-    ):
-        from skorch.callbacks import LoadInitState, TrainEndCheckpoint
+    def test_with_load_init_state_callback(self, net, data, mock_hf_api, hf_hub_storer_cls):
+        from skorch.callbacks import (
+            LoadInitState,
+            TrainEndCheckpoint,
+        )
 
         params = {
-            'path_in_repo': 'my-model',
-            'repo_id': 'my-user/my-repo',
+            "path_in_repo": "my-model",
+            "repo_id": "my-user/my-repo",
         }
         storer = hf_hub_storer_cls(mock_hf_api, **params)
         checkpoint = TrainEndCheckpoint(

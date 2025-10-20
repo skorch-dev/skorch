@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+- Implement `__sklearn_is_fitted__` for skorch models, following [sklearn custom model protocol](https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html#sphx-glr-auto-examples-developing-estimators-sklearn-is-fitted-py) (#1119)
+
+## [1.2.0]
+
+### Added
+
 - Add Contributing Guidelines for skorch. (#1097)
 - Add an example of hyper-parameter optimization using [Optuna](https://optuna.org/) [here](https://github.com/skorch-dev/skorch/tree/master/examples/optuna) (#1098)
 - Add Example for Streaming Dataset(#1105)

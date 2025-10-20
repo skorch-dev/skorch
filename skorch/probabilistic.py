@@ -12,23 +12,31 @@ import re
 import gpytorch
 import numpy as np
 import torch
-from sklearn.base import ClassifierMixin, RegressorMixin
+from sklearn.base import (
+    ClassifierMixin,
+    RegressorMixin,
+)
 
+from skorch.callbacks import (
+    EpochScoring,
+    EpochTimer,
+    PassthroughScoring,
+    PrintLog,
+)
+from skorch.dataset import (
+    ValidSplit,
+    unpack_data,
+)
 from skorch.net import NeuralNet
-from skorch.dataset import ValidSplit
-from skorch.dataset import unpack_data
-from skorch.callbacks import EpochScoring
-from skorch.callbacks import EpochTimer
-from skorch.callbacks import PassthroughScoring
-from skorch.callbacks import PrintLog
-from skorch.utils import check_is_fitted
-from skorch.utils import get_dim
-from skorch.utils import is_dataset
-from skorch.utils import to_numpy
-from skorch.utils import to_tensor
+from skorch.utils import (
+    check_is_fitted,
+    get_dim,
+    is_dataset,
+    to_numpy,
+    to_tensor,
+)
 
-
-__all__ = ['ExactGPRegressor', 'GPRegressor', 'GPBinaryClassifier']
+__all__ = ["ExactGPRegressor", "GPRegressor", "GPBinaryClassifier"]
 
 
 class GPBase(NeuralNet):
@@ -38,28 +46,15 @@ class GPBase(NeuralNet):
     provided.
 
     """
-    def __init__(
-            self,
-            module,
-            *args,
-            likelihood,
-            criterion,
-            train_split=None,
-            **kwargs
-    ):
+
+    def __init__(self, module, *args, likelihood, criterion, train_split=None, **kwargs):
         self.likelihood = likelihood
-        super().__init__(
-            module,
-            *args,
-            criterion=criterion,
-            train_split=train_split,
-            **kwargs
-        )
+        super().__init__(module, *args, criterion=criterion, train_split=train_split, **kwargs)
 
     def initialize_module(self):
         """Initializes likelihood and module."""
         # pylint: disable=attribute-defined-outside-init
-        ll_kwargs = self.get_params_for('likelihood')
+        ll_kwargs = self.get_params_for("likelihood")
         self.likelihood_ = self.initialized_instance(self.likelihood, ll_kwargs)
 
         super().initialize_module()
@@ -71,13 +66,9 @@ class GPBase(NeuralNet):
 
         # The criterion is always re-initialized here, since it depends on the
         # likelihood and the module.
-        criterion_params = self.get_params_for('criterion')
+        criterion_params = self.get_params_for("criterion")
         # criterion takes likelihood as first argument
-        self.criterion_ = self.criterion(
-            likelihood=self.likelihood_,
-            model=self.module_,
-            **criterion_params
-        )
+        self.criterion_ = self.criterion(likelihood=self.likelihood_, model=self.module_, **criterion_params)
         return self
 
     def check_is_fitted(self, attributes=None, *args, **kwargs):
@@ -99,7 +90,7 @@ class GPBase(NeuralNet):
 
         """
         if attributes is None:
-            attributes = ['module_', 'likelihood_']
+            attributes = ["module_", "likelihood_"]
         check_is_fitted(self, attributes, *args, **kwargs)
 
     def train_step_single(self, batch, **fit_params):
@@ -130,7 +121,7 @@ class GPBase(NeuralNet):
         # of the module. This cannot be performed inside the module, because the
         # GPyTorch criteria apply the likelihood on the module output
         # themselves.
-        step['y_pred'] = self.likelihood_(step['y_pred'])
+        step["y_pred"] = self.likelihood_(step["y_pred"])
         return step
 
     # pylint: disable=unused-argument
@@ -249,7 +240,7 @@ class GPBase(NeuralNet):
         with gpytorch.settings.fast_pred_var():
             return super().forward_iter(X, *args, **kwargs)
 
-    def forward(self, X, training=False, device='cpu'):
+    def forward(self, X, training=False, device="cpu"):
         """Gather and concatenate the output from forward call with
         input data.
 
@@ -305,9 +296,7 @@ class GPBase(NeuralNet):
         return y_infer
 
     def predict_proba(self, X):
-        raise AttributeError("'predict_proba' is not implemented for {}".format(
-            self.__class__.__name__
-        ))
+        raise AttributeError("'predict_proba' is not implemented for {}".format(self.__class__.__name__))
 
     def sample(self, X, n_samples, axis=-1):
         """Return samples conditioned on input data.
@@ -386,14 +375,17 @@ class GPBase(NeuralNet):
         try:
             return super().__getstate__()
         except pickle.PicklingError as exc:
-            msg = ("This GPyTorch model cannot be pickled. The reason is probably this:"
-                   " https://github.com/pytorch/pytorch/issues/38137. "
-                   "Try using 'dill' instead of 'pickle'.")
+            msg = (
+                "This GPyTorch model cannot be pickled. The reason is probably this:"
+                " https://github.com/pytorch/pytorch/issues/38137. "
+                "Try using 'dill' instead of 'pickle'."
+            )
             raise pickle.PicklingError(msg) from exc
 
 
 class _GPRegressorPredictMixin(RegressorMixin):
     """Mixin class that provides a predict method for GP regressors."""
+
     def predict(self, X, return_std=False, return_cov=False):
         """Returns the predicted mean and optionally standard deviation.
 
@@ -421,9 +413,11 @@ class _GPRegressorPredictMixin(RegressorMixin):
 
         """
         if return_cov:
-            msg = ("The 'return_cov' argument is not supported. Please try: "
-                   "'posterior = next(gpr.forward_iter(X)); "
-                   "posterior.covariance_matrix'.")
+            msg = (
+                "The 'return_cov' argument is not supported. Please try: "
+                "'posterior = next(gpr.forward_iter(X)); "
+                "posterior.covariance_matrix'."
+            )
             raise NotImplementedError(msg)
 
         if return_std:
@@ -519,23 +513,23 @@ gp_likelihood_attribute_text = """
 
 def get_exact_gp_regr_doc(doc):
     """Customizes the net docs to avoid duplication."""
-    params_start_idx = doc.find('    Parameters\n    ----------')
+    params_start_idx = doc.find("    Parameters\n    ----------")
     doc = doc[params_start_idx:]
     doc = exact_gp_regr_doc_start + " " + doc
 
-    pattern = re.compile(r'(\n\s+)(module .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(module .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + exact_gp_regr_module_text + doc[end:]
 
-    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(criterion .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + exact_gp_regr_criterion_text + doc[end:]
 
-    pattern = re.compile(r'(\n\s+)(batch_size .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(batch_size .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + exact_gp_regr_batch_size_text + doc[end:]
 
-    pattern = re.compile(r'(\n\s+)(train_split .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(train_split .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + gp_regr_train_split_text + doc[end:]
 
@@ -549,22 +543,15 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
     __doc__ = get_exact_gp_regr_doc(NeuralNet.__doc__)
 
     def __init__(
-            self,
-            module,
-            *args,
-            likelihood=gpytorch.likelihoods.GaussianLikelihood,
-            criterion=gpytorch.mlls.ExactMarginalLogLikelihood,
-            batch_size=-1,
-            **kwargs
+        self,
+        module,
+        *args,
+        likelihood=gpytorch.likelihoods.GaussianLikelihood,
+        criterion=gpytorch.mlls.ExactMarginalLogLikelihood,
+        batch_size=-1,
+        **kwargs,
     ):
-        super().__init__(
-            module,
-            *args,
-            criterion=criterion,
-            likelihood=likelihood,
-            batch_size=batch_size,
-            **kwargs
-        )
+        super().__init__(module, *args, criterion=criterion, likelihood=likelihood, batch_size=batch_size, **kwargs)
 
     def initialize_module(self):
         """Initializes likelihood and module."""
@@ -575,10 +562,10 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
         # We cannot use self.initialized_instance, since we need to know if
         # likelihood was actually (re-)initialized or not.
         likelihood = self.likelihood
-        ll_kwargs = self.get_params_for('likelihood')
+        ll_kwargs = self.get_params_for("likelihood")
 
         module = self.module
-        module_kwargs = self.get_params_for('module')
+        module_kwargs = self.get_params_for("module")
 
         initialized_ll = isinstance(likelihood, torch.nn.Module)
         initialized_module = isinstance(module, torch.nn.Module)
@@ -595,8 +582,8 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
             self.likelihood_ = likelihood(**ll_kwargs)
 
         # ExactGP requires likelihood to be passed
-        if 'likelihood' not in module_kwargs:
-            module_kwargs['likelihood'] = self.likelihood_
+        if "likelihood" not in module_kwargs:
+            module_kwargs["likelihood"] = self.likelihood_
 
         if initialized_both and not module_kwargs:
             # module and likelihood were already initialized no no params changed
@@ -609,8 +596,7 @@ class ExactGPRegressor(_GPRegressorPredictMixin, GPBase):
             self.module_ = module(**module_kwargs)
 
         if not isinstance(self.module_, gpytorch.models.ExactGP):
-            raise TypeError("{} requires 'module' to be a gpytorch.models.ExactGP."
-                            .format(self.__class__.__name__))
+            raise TypeError("{} requires 'module' to be a gpytorch.models.ExactGP.".format(self.__class__.__name__))
         return self
 
     def fit(self, X, y=None, **fit_params):
@@ -690,19 +676,19 @@ gp_regr_criterion_text = """
 
 def get_gp_regr_doc(doc):
     """Customizes the net docs to avoid duplication."""
-    params_start_idx = doc.find('    Parameters\n    ----------')
+    params_start_idx = doc.find("    Parameters\n    ----------")
     doc = doc[params_start_idx:]
     doc = gp_regr_doc_start + " " + doc
 
-    pattern = re.compile(r'(\n\s+)(module .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(module .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + gp_regr_module_text + doc[end:]
 
-    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(criterion .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + gp_regr_criterion_text + doc[end:]
 
-    pattern = re.compile(r'(\n\s+)(train_split .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(train_split .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + gp_regr_train_split_text + doc[end:]
 
@@ -715,20 +701,14 @@ class GPRegressor(_GPRegressorPredictMixin, GPBase):
     __doc__ = get_gp_regr_doc(NeuralNet.__doc__)
 
     def __init__(
-            self,
-            module,
-            *args,
-            likelihood=gpytorch.likelihoods.GaussianLikelihood,
-            criterion=gpytorch.mlls.VariationalELBO,
-            **kwargs
+        self,
+        module,
+        *args,
+        likelihood=gpytorch.likelihoods.GaussianLikelihood,
+        criterion=gpytorch.mlls.VariationalELBO,
+        **kwargs,
     ):
-        super().__init__(
-            module,
-            *args,
-            criterion=criterion,
-            likelihood=likelihood,
-            **kwargs
-        )
+        super().__init__(module, *args, criterion=criterion, likelihood=likelihood, **kwargs)
 
 
 gp_binary_clf_doc_start = """Gaussian Process binary classifier
@@ -762,15 +742,15 @@ gp_binary_clf_criterion_text = """
 
 def get_gp_binary_clf_doc(doc):
     """Customizes the net docs to avoid duplication."""
-    params_start_idx = doc.find('    Parameters\n    ----------')
+    params_start_idx = doc.find("    Parameters\n    ----------")
     doc = doc[params_start_idx:]
     doc = gp_binary_clf_doc_start + " " + doc
 
-    pattern = re.compile(r'(\n\s+)(module .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(module .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + gp_binary_clf_module_text + doc[end:]
 
-    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+){1,99}')
+    pattern = re.compile(r"(\n\s+)(criterion .*\n)(\s.+){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + gp_binary_clf_criterion_text + doc[end:]
 
@@ -783,49 +763,54 @@ class GPBinaryClassifier(ClassifierMixin, GPBase):
     __doc__ = get_gp_binary_clf_doc(NeuralNet.__doc__)
 
     def __init__(
-            self,
-            module,
-            *args,
-            likelihood=gpytorch.likelihoods.BernoulliLikelihood,
-            criterion=gpytorch.mlls.VariationalELBO,
-            train_split=ValidSplit(5, stratified=True),
-            threshold=0.5,
-            **kwargs
+        self,
+        module,
+        *args,
+        likelihood=gpytorch.likelihoods.BernoulliLikelihood,
+        criterion=gpytorch.mlls.VariationalELBO,
+        train_split=ValidSplit(5, stratified=True),
+        threshold=0.5,
+        **kwargs,
     ):
-        super().__init__(
-            module,
-            *args,
-            criterion=criterion,
-            likelihood=likelihood,
-            train_split=train_split,
-            **kwargs
-        )
+        super().__init__(module, *args, criterion=criterion, likelihood=likelihood, train_split=train_split, **kwargs)
         self.threshold = threshold
 
     @property
     def _default_callbacks(self):
         return [
-            ('epoch_timer', EpochTimer()),
-            ('train_loss', PassthroughScoring(
-                name='train_loss',
-                on_train=True,
-            )),
-            ('valid_loss', PassthroughScoring(
-                name='valid_loss',
-            )),
+            ("epoch_timer", EpochTimer()),
+            (
+                "train_loss",
+                PassthroughScoring(
+                    name="train_loss",
+                    on_train=True,
+                ),
+            ),
+            (
+                "valid_loss",
+                PassthroughScoring(
+                    name="valid_loss",
+                ),
+            ),
             # add train accuracy because by default, there is no valid split
-            ('train_acc', EpochScoring(
-                'accuracy',
-                name='train_acc',
-                lower_is_better=False,
-                on_train=True,
-            )),
-            ('valid_acc', EpochScoring(
-                'accuracy',
-                name='valid_acc',
-                lower_is_better=False,
-            )),
-            ('print_log', PrintLog()),
+            (
+                "train_acc",
+                EpochScoring(
+                    "accuracy",
+                    name="train_acc",
+                    lower_is_better=False,
+                    on_train=True,
+                ),
+            ),
+            (
+                "valid_acc",
+                EpochScoring(
+                    "accuracy",
+                    name="valid_acc",
+                    lower_is_better=False,
+                ),
+            ),
+            ("print_log", PrintLog()),
         ]
 
     @property
@@ -911,7 +896,7 @@ class GPBinaryClassifier(ClassifierMixin, GPBase):
 
         """
         y_proba = self.predict_proba(X)
-        return (y_proba[:, 1] > self.threshold).astype('uint8')
+        return (y_proba[:, 1] > self.threshold).astype("uint8")
 
 
 # BB: I could never get any reasonable results using ``SoftmaxLikelihood``. In

@@ -1,25 +1,31 @@
-""" Callbacks for calculating scores."""
+"""Callbacks for calculating scores."""
 
-from contextlib import contextmanager
-from contextlib import suppress
-from functools import partial
 import warnings
+from contextlib import (
+    contextmanager,
+    suppress,
+)
+from functools import partial
 
 import numpy as np
 import sklearn
-from sklearn.metrics import make_scorer, check_scoring
+from sklearn.metrics import (
+    check_scoring,
+    make_scorer,
+)
+from sklearn.metrics._scorer import _BaseScorer
 
 from skorch.callbacks import Callback
 from skorch.dataset import unpack_data
-from sklearn.metrics._scorer import _BaseScorer
-from skorch.utils import data_from_dataset
-from skorch.utils import is_skorch_dataset
-from skorch.utils import to_numpy
-from skorch.utils import check_indexing
-from skorch.utils import to_device
+from skorch.utils import (
+    check_indexing,
+    data_from_dataset,
+    is_skorch_dataset,
+    to_device,
+    to_numpy,
+)
 
-
-__all__ = ['BatchScoring', 'EpochScoring', 'PassthroughScoring']
+__all__ = ["BatchScoring", "EpochScoring", "PassthroughScoring"]
 
 
 @contextmanager
@@ -33,7 +39,7 @@ def _cache_net_forward_iter(net, use_caching, y_preds):
     Note that the net may override the use of caching.
 
     """
-    if net.use_caching != 'auto':
+    if net.use_caching != "auto":
         use_caching = net.use_caching
 
     if not use_caching:
@@ -54,24 +60,24 @@ def _cache_net_forward_iter(net, use_caching, y_preds):
         # `forward_iter` that precedes the bound method
         # `forward_iter`. By deleting the entry from the attribute
         # dict we undo this.
-        del net.__dict__['forward_iter']
+        del net.__dict__["forward_iter"]
 
 
 def convert_sklearn_metric_function(scoring):
     """If ``scoring`` is a sklearn metric function, convert it to a
     sklearn scorer and return it. Otherwise, return ``scoring`` unchanged."""
     if callable(scoring):
-        module = getattr(scoring, '__module__', None)
+        module = getattr(scoring, "__module__", None)
 
         # those are scoring objects returned by make_scorer starting
         # from sklearn 0.22
-        scorer_names = ('_PredictScorer', '_ProbaScorer', '_ThresholdScorer', '_Scorer')
+        scorer_names = ("_PredictScorer", "_ProbaScorer", "_ThresholdScorer", "_Scorer")
         if (
-                hasattr(module, 'startswith') and
-                module.startswith('sklearn.metrics.') and
-                not module.startswith('sklearn.metrics.scorer') and
-                not module.startswith('sklearn.metrics.tests.') and
-                not scoring.__class__.__name__ in scorer_names
+            hasattr(module, "startswith")
+            and module.startswith("sklearn.metrics.")
+            and not module.startswith("sklearn.metrics.scorer")
+            and not module.startswith("sklearn.metrics.tests.")
+            and not scoring.__class__.__name__ in scorer_names
         ):
             return make_scorer(scoring)
     return scoring
@@ -82,14 +88,15 @@ class ScoringBase(Callback):
 
     Subclass and implement an ``on_*`` method before using.
     """
+
     def __init__(
-            self,
-            scoring,
-            lower_is_better=True,
-            on_train=False,
-            name=None,
-            target_extractor=to_numpy,
-            use_caching=True,
+        self,
+        scoring,
+        lower_is_better=True,
+        on_train=False,
+        name=None,
+        target_extractor=to_numpy,
+        use_caching=True,
     ):
         self.scoring = scoring
         self.lower_is_better = lower_is_better
@@ -104,20 +111,22 @@ class ScoringBase(Callback):
         if self.name is not None:
             return self.name
         if self.scoring_ is None:
-            return 'score'
+            return "score"
         if isinstance(self.scoring_, str):
             return self.scoring_
         if isinstance(self.scoring_, partial):
             return self.scoring_.func.__name__
         if isinstance(self.scoring_, _BaseScorer):
-            if hasattr(self.scoring_._score_func, '__name__'):
+            if hasattr(self.scoring_._score_func, "__name__"):
                 # sklearn < 0.22
                 return self.scoring_._score_func.__name__
             # sklearn >= 0.22
             return self.scoring_._score_func._score_func.__name__
         if isinstance(self.scoring_, dict):
-            raise ValueError("Dict not supported as scorer for multi-metric scoring."
-                             " Register multiple scoring callbacks instead.")
+            raise ValueError(
+                "Dict not supported as scorer for multi-metric scoring."
+                " Register multiple scoring callbacks instead."
+            )
         return self.scoring_.__name__
 
     def initialize(self):
@@ -134,7 +143,7 @@ class ScoringBase(Callback):
         # Looks for the right most index where `*_best` is True
         # That index is used to get the best score in `net.history`
         with suppress(ValueError, IndexError, KeyError):
-            best_name_history = net.history[:, '{}_best'.format(self.name_)]
+            best_name_history = net.history[:, "{}_best".format(self.name_)]
             idx_best_reverse = best_name_history[::-1].index(True)
             idx_best = len(best_name_history) - idx_best_reverse - 1
             self.best_score_ = net.history[idx_best, self.name_]
@@ -204,6 +213,7 @@ class BatchScoring(ScoringBase):
       caching.
 
     """
+
     # pylint: disable=unused-argument,arguments-differ
 
     def on_batch_end(self, net, batch, training, **kwargs):
@@ -211,7 +221,7 @@ class BatchScoring(ScoringBase):
             return
 
         X, y = unpack_data(batch)
-        y_preds = [kwargs['y_pred']]
+        y_preds = [kwargs["y_pred"]]
         with _cache_net_forward_iter(net, self.use_caching, y_preds) as cached_net:
             # In case of y=None we will not have gathered any samples.
             # We expect the scoring function to deal with y=None.
@@ -224,12 +234,11 @@ class BatchScoring(ScoringBase):
 
     def get_avg_score(self, history):
         if self.on_train:
-            bs_key = 'train_batch_size'
+            bs_key = "train_batch_size"
         else:
-            bs_key = 'valid_batch_size'
+            bs_key = "valid_batch_size"
 
-        weights, scores = list(zip(
-            *history[-1, 'batches', :, [bs_key, self.name_]]))
+        weights, scores = list(zip(*history[-1, "batches", :, [bs_key, self.name_]]))
         score_avg = np.average(scores, weights=weights)
         return score_avg
 
@@ -237,7 +246,7 @@ class BatchScoring(ScoringBase):
     def on_epoch_end(self, net, **kwargs):
         history = net.history
         try:  # don't raise if there is no valid data
-            history[-1, 'batches', :, self.name_]
+            history[-1, "batches", :, self.name_]
         except KeyError:
             return
 
@@ -248,7 +257,7 @@ class BatchScoring(ScoringBase):
 
         history.record(self.name_, score_avg)
         if is_best is not None:
-            history.record(self.name_ + '_best', bool(is_best))
+            history.record(self.name_ + "_best", bool(is_best))
 
 
 class EpochScoring(ScoringBase):
@@ -320,6 +329,7 @@ class EpochScoring(ScoringBase):
       dataset). Note that the net may override the use of caching.
 
     """
+
     def _initialize_cache(self):
         self.y_trues_ = []
         self.y_preds_ = []
@@ -334,10 +344,9 @@ class EpochScoring(ScoringBase):
         self._initialize_cache()
 
     # pylint: disable=arguments-differ
-    def on_batch_end(
-            self, net, batch, y_pred, training, **kwargs):
+    def on_batch_end(self, net, batch, y_pred, training, **kwargs):
         use_caching = self.use_caching
-        if net.use_caching !=  'auto':
+        if net.use_caching != "auto":
             use_caching = net.use_caching
 
         if (not use_caching) or (training != self.on_train):
@@ -427,19 +436,14 @@ class EpochScoring(ScoringBase):
         if is_best is None:
             return
 
-        history.record(self.name_ + '_best', bool(is_best))
+        history.record(self.name_ + "_best", bool(is_best))
         if is_best:
             self.best_score_ = current_score
 
     # pylint: disable=unused-argument,arguments-differ
-    def on_epoch_end(
-            self,
-            net,
-            dataset_train,
-            dataset_valid,
-            **kwargs):
+    def on_epoch_end(self, net, dataset_train, dataset_valid, **kwargs):
         use_caching = self.use_caching
-        if net.use_caching !=  'auto':
+        if net.use_caching != "auto":
             use_caching = net.use_caching
 
         X_test, y_test, y_pred = self.get_test_data(
@@ -484,11 +488,12 @@ class PassthroughScoring(Callback):
       Whether this should be called during train or validation.
 
     """
+
     def __init__(
-            self,
-            name,
-            lower_is_better=True,
-            on_train=False,
+        self,
+        name,
+        lower_is_better=True,
+        on_train=False,
     ):
         self.name = name
         self.lower_is_better = lower_is_better
@@ -507,12 +512,11 @@ class PassthroughScoring(Callback):
 
     def get_avg_score(self, history):
         if self.on_train:
-            bs_key = 'train_batch_size'
+            bs_key = "train_batch_size"
         else:
-            bs_key = 'valid_batch_size'
+            bs_key = "valid_batch_size"
 
-        weights, scores = list(zip(
-            *history[-1, 'batches', :, [bs_key, self.name]]))
+        weights, scores = list(zip(*history[-1, "batches", :, [bs_key, self.name]]))
         score_avg = np.average(scores, weights=weights)
         return score_avg
 
@@ -520,7 +524,7 @@ class PassthroughScoring(Callback):
     def on_epoch_end(self, net, **kwargs):
         history = net.history
         try:  # don't raise if there is no valid data
-            history[-1, 'batches', :, self.name]
+            history[-1, "batches", :, self.name]
         except KeyError:
             return
 
@@ -531,4 +535,4 @@ class PassthroughScoring(Callback):
 
         history.record(self.name, score_avg)
         if is_best is not None:
-            history.record(self.name + '_best', bool(is_best))
+            history.record(self.name + "_best", bool(is_best))

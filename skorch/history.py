@@ -112,9 +112,7 @@ def _unpack_index(i):
 
     """
     if len(i) > 4:
-        raise KeyError(
-            "Tried to index history with {} indices but only "
-            "4 indices are possible.".format(len(i)))
+        raise KeyError("Tried to index history with {} indices but only " "4 indices are possible.".format(len(i)))
 
     # fill trailing indices with None
     i_e, k_e, i_b, k_b = i + tuple([None] * (4 - len(i)))
@@ -187,12 +185,12 @@ class History(list):
 
     def new_epoch(self):
         """Register a new epoch row."""
-        self.append({'batches': []})
+        self.append({"batches": []})
 
     def new_batch(self):
         """Register a new batch row for the current epoch."""
         # pylint: disable=invalid-sequence-index
-        self[-1]['batches'].append({})
+        self[-1]["batches"].append({})
 
     def record(self, attr, value):
         """Add a new value to the given column for the current
@@ -210,7 +208,7 @@ class History(list):
 
         """
         # pylint: disable=invalid-sequence-index
-        self[-1]['batches'][-1][attr] = value
+        self[-1]["batches"][-1][attr] = value
 
     def to_list(self):
         """Return history object as a list."""
@@ -226,7 +224,7 @@ class History(list):
 
         """
 
-        with open_file_like(f, 'r') as fp:
+        with open_file_like(f, "r") as fp:
             return cls(json.load(fp))
 
     def to_file(self, f):
@@ -239,7 +237,7 @@ class History(list):
         f : file-like object or str
 
         """
-        with open_file_like(f, 'w') as fp:
+        with open_file_like(f, "w") as fp:
             json.dump(self.to_list(), fp)
 
     def __getitem__(self, i):
@@ -254,10 +252,12 @@ class History(list):
         i_e, k_e, i_b, k_b = _unpack_index(i)
         keyerror_msg = "Key {!r} was not found in history."
 
-        if i_b is not None and k_e != 'batches':
-            raise KeyError("History indexing beyond the 2nd level is "
-                           "only possible if key 'batches' is used, "
-                           "found key {!r}.".format(k_e))
+        if i_b is not None and k_e != "batches":
+            raise KeyError(
+                "History indexing beyond the 2nd level is "
+                "only possible if key 'batches' is used, "
+                "found key {!r}.".format(k_e)
+            )
 
         items = self.to_list()
 
@@ -286,20 +286,16 @@ class History(list):
                 # filter out epochs with missing keys
                 items = list(filter(_not_none, items))
 
-            if not items and not (k_e == 'batches' and i_b is None):
+            if not items and not (k_e == "batches" and i_b is None):
                 # none of the epochs matched
                 raise KeyError(keyerror_msg.format(key))
 
-            if (
-                    isinstance(i_b, slice)
-                    and k_b is not None
-                    and not any(batches for batches in items)
-            ):
+            if isinstance(i_b, slice) and k_b is not None and not any(batches for batches in items):
                 # none of the batches matched
                 raise KeyError(keyerror_msg.format(key))
 
         if isinstance(i_e, int):
-            items, = items
+            (items,) = items
 
         return items
 
@@ -403,6 +399,7 @@ class DistributedHistory:
       ensure that all data is synced into the history before reading from it.
 
     """
+
     def __init__(self, *args, store, rank, world_size):
         self.store = store
         self.rank = rank
@@ -528,9 +525,9 @@ class DistributedHistory:
         try:
             # Unfortunately, TCPStore and FileStore are not pickleable. We still
             # try, in case the user provides another type that can be pickled.
-            pickle.dumps(state['store'])
+            pickle.dumps(state["store"])
         except (TypeError, pickle.PicklingError):
             # TCPStore and FileStore raise TypeError, others could be
             # PicklingError
-            state['store'] = None
+            state["store"] = None
         return state

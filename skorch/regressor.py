@@ -3,14 +3,15 @@
 import re
 import textwrap
 
-from sklearn.base import RegressorMixin
 import torch
+from sklearn.base import RegressorMixin
 from torch.utils.data import DataLoader
 
 from skorch import NeuralNet
-from skorch.utils import get_dim
-from skorch.utils import is_dataset
-
+from skorch.utils import (
+    get_dim,
+    is_dataset,
+)
 
 neural_net_reg_doc_start = """NeuralNet for regression tasks
 
@@ -24,47 +25,36 @@ neural_net_reg_criterion_text = """
     criterion : torch criterion (class, default=torch.nn.MSELoss)
       Mean squared error loss."""
 
+
 def get_neural_net_reg_doc(doc):
     indentation = "    "
     # dedent/indent roundtrip required for consistent indention in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => not automatic dedent, but it is the case in >=3.13
     doc = neural_net_reg_doc_start + " " + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)
-    pattern = re.compile(r'(\n\s+)(criterion .*\n)(\s.+|.){1,99}')
+    pattern = re.compile(r"(\n\s+)(criterion .*\n)(\s.+|.){1,99}")
     start, end = pattern.search(doc).span()
     doc = doc[:start] + neural_net_reg_criterion_text + doc[end:]
     return doc
+
 
 # pylint: disable=missing-docstring
 class NeuralNetRegressor(RegressorMixin, NeuralNet):
     __doc__ = get_neural_net_reg_doc(NeuralNet.__doc__)
 
-    def __init__(
-            self,
-            module,
-            *args,
-            criterion=torch.nn.MSELoss,
-            **kwargs
-    ):
-        super(NeuralNetRegressor, self).__init__(
-            module,
-            *args,
-            criterion=criterion,
-            **kwargs
-        )
+    def __init__(self, module, *args, criterion=torch.nn.MSELoss, **kwargs):
+        super(NeuralNetRegressor, self).__init__(module, *args, criterion=criterion, **kwargs)
 
     # pylint: disable=signature-differs
     def check_data(self, X, y):
-        if (
-                (y is None) and
-                (not is_dataset(X)) and
-                (self.iterator_train is DataLoader)
-        ):
-            raise ValueError("No y-values are given (y=None). You must "
-                             "implement your own DataLoader for training "
-                             "(and your validation) and supply it using the "
-                             "``iterator_train`` and ``iterator_valid`` "
-                             "parameters respectively.")
+        if (y is None) and (not is_dataset(X)) and (self.iterator_train is DataLoader):
+            raise ValueError(
+                "No y-values are given (y=None). You must "
+                "implement your own DataLoader for training "
+                "(and your validation) and supply it using the "
+                "``iterator_train`` and ``iterator_valid`` "
+                "parameters respectively."
+            )
         if y is None:
             # The user implements its own mechanism for generating y.
             return

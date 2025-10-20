@@ -54,9 +54,7 @@ def loss_scoring(net, X, y=None, sample_weight=None):
 
     """
     if sample_weight is not None:
-        raise NotImplementedError(
-            "sample_weight for loss_scoring is not yet supported."
-        )
+        raise NotImplementedError("sample_weight for loss_scoring is not yet supported.")
 
     net.check_is_fitted()
 
@@ -66,8 +64,7 @@ def loss_scoring(net, X, y=None, sample_weight=None):
     reduction = net.criterion_.reduction
     if reduction not in ["mean", "sum", "none"]:
         raise ValueError(
-            "Expected one of 'mean', 'sum' or 'none' "
-            "for reduction but got {reduction}.".format(reduction=reduction)
+            "Expected one of 'mean', 'sum' or 'none' " "for reduction but got {reduction}.".format(reduction=reduction)
         )
 
     for batch in iterator:

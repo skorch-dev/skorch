@@ -1,23 +1,31 @@
-""" Callbacks for printing, logging and log information."""
+"""Callbacks for printing, logging and log information."""
 
 import sys
-import time
 import tempfile
+import time
 from contextlib import suppress
-from numbers import Number
 from itertools import cycle
+from numbers import Number
 from pathlib import Path
 
 import numpy as np
 import tqdm
 from tabulate import tabulate
 
-from skorch.utils import Ansi
-from skorch.dataset import get_len
 from skorch.callbacks import Callback
+from skorch.dataset import get_len
+from skorch.utils import Ansi
 
-__all__ = ['EpochTimer', 'NeptuneLogger', 'WandbLogger', 'PrintLog', 'ProgressBar',
-           'TensorBoard', 'SacredLogger', 'MlflowLogger']
+__all__ = [
+    "EpochTimer",
+    "NeptuneLogger",
+    "WandbLogger",
+    "PrintLog",
+    "ProgressBar",
+    "TensorBoard",
+    "SacredLogger",
+    "MlflowLogger",
+]
 
 
 def filter_log_keys(keys, keys_ignored=None):
@@ -38,11 +46,11 @@ def filter_log_keys(keys, keys_ignored=None):
     keys_ignored = keys_ignored or ()
     for key in keys:
         if not (
-                key == 'epoch' or
-                (key in keys_ignored) or
-                key.endswith('_best') or
-                key.endswith('_batch_count') or
-                key.startswith('event_')
+            key == "epoch"
+            or (key in keys_ignored)
+            or key.endswith("_best")
+            or key.endswith("_batch_count")
+            or key.startswith("event_")
         ):
             yield key
 
@@ -52,6 +60,7 @@ class EpochTimer(Callback):
     history with the name ``dur``.
 
     """
+
     def __init__(self, **kwargs):
         super(EpochTimer, self).__init__(**kwargs)
 
@@ -61,7 +70,7 @@ class EpochTimer(Callback):
         self.epoch_start_time_ = time.time()
 
     def on_epoch_end(self, net, **kwargs):
-        net.history.record('dur', time.time() - self.epoch_start_time_)
+        net.history.record("dur", time.time() - self.epoch_start_time_)
 
 
 class NeptuneLogger(Callback):
@@ -162,13 +171,13 @@ class NeptuneLogger(Callback):
     """
 
     def __init__(
-            self,
-            run,
-            *,
-            log_on_batch_end=False,
-            close_after_train=True,
-            keys_ignored=None,
-            base_namespace='training',
+        self,
+        run,
+        *,
+        log_on_batch_end=False,
+        close_after_train=True,
+        keys_ignored=None,
+        base_namespace="training",
     ):
         self.run = run
         self.log_on_batch_end = log_on_batch_end
@@ -179,7 +188,7 @@ class NeptuneLogger(Callback):
     def _log_integration_version(self) -> None:
         from skorch import __version__
 
-        self.run['source_code/integrations/skorch'] = __version__
+        self.run["source_code/integrations/skorch"] = __version__
 
     @property
     def _metric_logger(self):
@@ -194,7 +203,7 @@ class NeptuneLogger(Callback):
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
-        self.keys_ignored_.add('batches')
+        self.keys_ignored_.add("batches")
 
         if self.base_namespace.endswith("/"):
             self._base_namespace = self.base_namespace[:-1]
@@ -209,19 +218,19 @@ class NeptuneLogger(Callback):
         # TODO: we might want to improve logging of the multi-module net objects, see:
         #       https://github.com/skorch-dev/skorch/pull/906#discussion_r993514643
 
-        self._metric_logger['model/model_type'] = self._get_obj_name(net.module_)
-        self._metric_logger['model/summary'] = self._model_summary_file(net.module_)
+        self._metric_logger["model/model_type"] = self._get_obj_name(net.module_)
+        self._metric_logger["model/summary"] = self._model_summary_file(net.module_)
 
-        self._metric_logger['config/optimizer'] = self._get_obj_name(net.optimizer_)
-        self._metric_logger['config/criterion'] = self._get_obj_name(net.criterion_)
-        self._metric_logger['config/lr'] = net.lr
-        self._metric_logger['config/epochs'] = net.max_epochs
-        self._metric_logger['config/batch_size'] = net.batch_size
-        self._metric_logger['config/device'] = net.device
+        self._metric_logger["config/optimizer"] = self._get_obj_name(net.optimizer_)
+        self._metric_logger["config/criterion"] = self._get_obj_name(net.criterion_)
+        self._metric_logger["config/lr"] = net.lr
+        self._metric_logger["config/epochs"] = net.max_epochs
+        self._metric_logger["config/batch_size"] = net.batch_size
+        self._metric_logger["config/device"] = net.device
 
     def on_batch_end(self, net, **kwargs):
         if self.log_on_batch_end:
-            batch_logs = net.history[-1]['batches'][-1]
+            batch_logs = net.history[-1]["batches"][-1]
 
             for key in filter_log_keys(batch_logs.keys(), self.keys_ignored_):
                 self._log_metric(key, batch_logs, batch=True)
@@ -235,7 +244,7 @@ class NeptuneLogger(Callback):
 
     def on_train_end(self, net, **kwargs):
         try:
-            self._metric_logger['train/epoch/event_lr'].append(net.history[:, 'event_lr'])
+            self._metric_logger["train/epoch/event_lr"].append(net.history[:, "event_lr"])
         except KeyError:
             pass
         if self.close_after_train:
@@ -260,19 +269,19 @@ class NeptuneLogger(Callback):
             root_obj.stop()
 
     def _log_metric(self, name, logs, batch):
-        kind, _, key = name.partition('_')
+        kind, _, key = name.partition("_")
 
         if not key:
-            key = 'epoch_duration' if kind == 'dur' else kind
+            key = "epoch_duration" if kind == "dur" else kind
             self._metric_logger[key].append(logs[name])
         else:
-            if kind == 'valid':
-                kind = 'validation'
+            if kind == "valid":
+                kind = "validation"
 
             if batch:
-                granularity = 'batch'
+                granularity = "batch"
             else:
-                granularity = 'epoch'
+                granularity = "epoch"
 
             # for example:     train /   epoch   / loss
             self._metric_logger[kind][granularity][key].append(logs[name])
@@ -286,7 +295,7 @@ class NeptuneLogger(Callback):
             # neptune-client=0.9.0+ package structure
             from neptune.new.types import File
 
-        return File.from_content(str(model), extension='txt')
+        return File.from_content(str(model), extension="txt")
 
 
 class WandbLogger(Callback):
@@ -337,10 +346,10 @@ class WandbLogger(Callback):
     """
 
     def __init__(
-            self,
-            wandb_run,
-            save_model=True,
-            keys_ignored=None,
+        self,
+        wandb_run,
+        save_model=True,
+        keys_ignored=None,
     ):
         self.wandb_run = wandb_run
         self.save_model = save_model
@@ -351,7 +360,7 @@ class WandbLogger(Callback):
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
-        self.keys_ignored_.add('batches')
+        self.keys_ignored_.add("batches")
         return self
 
     def on_train_begin(self, net, **kwargs):
@@ -366,9 +375,9 @@ class WandbLogger(Callback):
         self.wandb_run.log(logged_vals)
 
         # save best model
-        if self.save_model and hist['valid_loss_best']:
-            model_path = Path(self.wandb_run.dir) / 'best_model.pth'
-            with model_path.open('wb') as model_file:
+        if self.save_model and hist["valid_loss_best"]:
+            model_path = Path(self.wandb_run.dir) / "best_model.pth"
+            with model_path.open("wb") as model_file:
                 net.save_params(f_params=model_file)
 
 
@@ -425,13 +434,14 @@ class PrintLog(Callback):
       be consistent with numerical columns).
 
     """
+
     def __init__(
-            self,
-            keys_ignored=None,
-            sink=print,
-            tablefmt='simple',
-            floatfmt='.4f',
-            stralign='right',
+        self,
+        keys_ignored=None,
+        sink=print,
+        tablefmt="simple",
+        floatfmt=".4f",
+        stralign="right",
     ):
         self.keys_ignored = keys_ignored
         self.sink = sink
@@ -446,7 +456,7 @@ class PrintLog(Callback):
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
-        self.keys_ignored_.add('batches')
+        self.keys_ignored_.add("batches")
         return self
 
     def format_row(self, row, key, color):
@@ -457,17 +467,17 @@ class PrintLog(Callback):
         value = row[key]
 
         if isinstance(value, bool) or value is None:
-            return '+' if value else ''
+            return "+" if value else ""
 
         if not isinstance(value, Number):
             return value
 
         # determine if integer value
         is_integer = float(value).is_integer()
-        template = '{}' if is_integer else '{:' + self.floatfmt + '}'
+        template = "{}" if is_integer else "{:" + self.floatfmt + "}"
 
         # if numeric, there could be a 'best' key
-        key_best = key + '_best'
+        key_best = key + "_best"
         if (key_best in row) and row[key_best]:
             template = color + template + Ansi.ENDC.value
         return template.format(value)
@@ -485,22 +495,22 @@ class PrintLog(Callback):
         sorted_keys = []
 
         # make sure 'epoch' comes first
-        if ('epoch' in keys) and ('epoch' not in self.keys_ignored_):
-            sorted_keys.append('epoch')
+        if ("epoch" in keys) and ("epoch" not in self.keys_ignored_):
+            sorted_keys.append("epoch")
 
         # ignore keys like *_best or event_*
         for key in filter_log_keys(sorted(keys), keys_ignored=self.keys_ignored_):
-            if key != 'dur':
+            if key != "dur":
                 sorted_keys.append(key)
 
         # add event_* keys
         for key in sorted(keys):
-            if key.startswith('event_') and (key not in self.keys_ignored_):
+            if key.startswith("event_") and (key not in self.keys_ignored_):
                 sorted_keys.append(key)
 
         # make sure 'dur' comes last
-        if ('dur' in keys) and ('dur' not in self.keys_ignored_):
-            sorted_keys.append('dur')
+        if ("dur" in keys) and ("dur" not in self.keys_ignored_):
+            sorted_keys.append("dur")
 
         return sorted_keys
 
@@ -508,7 +518,7 @@ class PrintLog(Callback):
         colors = cycle([color.value for color in Ansi if color != color.ENDC])
         for key, color in zip(self._sorted_keys(row.keys()), colors):
             formatted = self.format_row(row, key, color=color)
-            if key.startswith('event_'):
+            if key.startswith("event_"):
                 key = key[6:]
             yield key, formatted
 
@@ -538,12 +548,12 @@ class PrintLog(Callback):
         tabulated = self.table(data)
 
         if self.first_iteration_:
-            header, lines = tabulated.split('\n', 2)[:2]
+            header, lines = tabulated.split("\n", 2)[:2]
             self._sink(header, verbose)
             self._sink(lines, verbose)
             self.first_iteration_ = False
 
-        self._sink(tabulated.rsplit('\n', 1)[-1], verbose)
+        self._sink(tabulated.rsplit("\n", 1)[-1], verbose)
         if self.sink is print:
             sys.stdout.flush()
 
@@ -593,19 +603,15 @@ class ProgressBar(Callback):
 
       >>> net.history[-1, 'batches', -1, key]
     """
-    def __init__(
-            self,
-            batches_per_epoch='auto',
-            detect_notebook=True,
-            postfix_keys=None
-    ):
+
+    def __init__(self, batches_per_epoch="auto", detect_notebook=True, postfix_keys=None):
         self.batches_per_epoch = batches_per_epoch
         self.detect_notebook = detect_notebook
-        self.postfix_keys = postfix_keys or ['train_loss', 'valid_loss']
+        self.postfix_keys = postfix_keys or ["train_loss", "valid_loss"]
 
     def in_ipynb(self):
         try:
-            return get_ipython().__class__.__name__ == 'ZMQInteractiveShell'
+            return get_ipython().__class__.__name__ == "ZMQInteractiveShell"
         except NameError:
             return False
 
@@ -613,9 +619,9 @@ class ProgressBar(Callback):
         return self.in_ipynb() if self.detect_notebook else False
 
     def _get_batch_size(self, net, training):
-        name = 'iterator_train' if training else 'iterator_valid'
+        name = "iterator_train" if training else "iterator_valid"
         net_params = net.get_params()
-        return net_params.get(name + '__batch_size', net_params['batch_size'])
+        return net_params.get(name + "__batch_size", net_params["batch_size"])
 
     def _get_batches_per_epoch_phase(self, net, dataset, training):
         if dataset is None:
@@ -624,14 +630,15 @@ class ProgressBar(Callback):
         return int(np.ceil(get_len(dataset) / batch_size))
 
     def _get_batches_per_epoch(self, net, dataset_train, dataset_valid):
-        return (self._get_batches_per_epoch_phase(net, dataset_train, True) +
-                self._get_batches_per_epoch_phase(net, dataset_valid, False))
+        return self._get_batches_per_epoch_phase(net, dataset_train, True) + self._get_batches_per_epoch_phase(
+            net, dataset_valid, False
+        )
 
     def _get_postfix_dict(self, net):
         postfix = {}
         for key in self.postfix_keys:
             try:
-                postfix[key] = net.history[-1, 'batches', -1, key]
+                postfix[key] = net.history[-1, "batches", -1, key]
             except KeyError:
                 pass
         return postfix
@@ -646,16 +653,14 @@ class ProgressBar(Callback):
         # Assume it is a number until proven otherwise.
         batches_per_epoch = self.batches_per_epoch
 
-        if self.batches_per_epoch == 'auto':
-            batches_per_epoch = self._get_batches_per_epoch(
-                net, dataset_train, dataset_valid
-            )
-        elif self.batches_per_epoch == 'count':
+        if self.batches_per_epoch == "auto":
+            batches_per_epoch = self._get_batches_per_epoch(net, dataset_train, dataset_valid)
+        elif self.batches_per_epoch == "count":
             if len(net.history) <= 1:
                 # No limit is known until the end of the first epoch.
                 batches_per_epoch = None
             else:
-                batches_per_epoch = len(net.history[-2, 'batches'])
+                batches_per_epoch = len(net.history[-2, "batches"])
 
         if self._use_notebook():
             self.pbar_ = tqdm.tqdm_notebook(total=batches_per_epoch, leave=False)
@@ -669,7 +674,7 @@ class ProgressBar(Callback):
         # don't save away the temporary pbar_ object which gets created on
         # epoch begin anew anyway. This avoids pickling errors with tqdm.
         state = self.__dict__.copy()
-        state.pop('pbar_', None)
+        state.pop("pbar_", None)
         return state
 
 
@@ -680,8 +685,8 @@ def rename_tensorboard_key(key):
     losses.
 
     """
-    if key.startswith('train') or key.startswith('valid'):
-        key = 'Loss/' + key
+    if key.startswith("train") or key.startswith("valid"):
+        key = "Loss/" + key
     return key
 
 
@@ -747,12 +752,13 @@ class TensorBoard(Callback):
       with the "Loss/" prefix.
 
     """
+
     def __init__(
-            self,
-            writer,
-            close_after_train=True,
-            keys_ignored=None,
-            key_mapper=rename_tensorboard_key,
+        self,
+        writer,
+        close_after_train=True,
+        keys_ignored=None,
+        key_mapper=rename_tensorboard_key,
     ):
         self.writer = writer
         self.close_after_train = close_after_train
@@ -766,7 +772,7 @@ class TensorBoard(Callback):
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
-        self.keys_ignored_.add('batches')
+        self.keys_ignored_.add("batches")
         return self
 
     def on_batch_end(self, net, **kwargs):
@@ -797,7 +803,7 @@ class TensorBoard(Callback):
         if val is None:
             return
 
-        global_step = global_step if global_step is not None else hist['epoch']
+        global_step = global_step if global_step is not None else hist["epoch"]
         with suppress(NotImplementedError):
             # pytorch raises NotImplementedError on wrong types
             self.writer.add_scalar(
@@ -810,7 +816,7 @@ class TensorBoard(Callback):
         """Automatically log values from the last history step."""
         history = net.history
         hist = history[-1]
-        epoch = hist['epoch']
+        epoch = hist["epoch"]
 
         for key in filter_log_keys(hist, keys_ignored=self.keys_ignored_):
             tag = self.key_mapper(key)
@@ -938,13 +944,9 @@ class SacredLogger(Callback):
         self.batch_suffix_ = self.batch_suffix
         self.epoch_suffix_ = self.epoch_suffix
         if self.batch_suffix_ is None:
-            self.batch_suffix_ = (
-                "_batch" if self.log_on_batch_end and self.log_on_epoch_end else ""
-            )
+            self.batch_suffix_ = "_batch" if self.log_on_batch_end and self.log_on_epoch_end else ""
         if self.epoch_suffix_ is None:
-            self.epoch_suffix_ = (
-                "_epoch" if self.log_on_batch_end and self.log_on_epoch_end else ""
-            )
+            self.epoch_suffix_ = "_epoch" if self.log_on_batch_end and self.log_on_epoch_end else ""
         return self
 
     def on_batch_end(self, net, **kwargs):
@@ -1051,6 +1053,7 @@ class MlflowLogger(Callback):
       addition to the keys provided by the user, keys such as those starting
       with ``'event_'`` or ending on ``'_best'`` are ignored by default.
     """
+
     def __init__(
         self,
         run=None,
@@ -1077,24 +1080,26 @@ class MlflowLogger(Callback):
         self.run_ = self.run
         if self.run_ is None:
             import mlflow
+
             self.run_ = mlflow.active_run()
         self.client_ = self.client
         if self.client_ is None:
             from mlflow.tracking import MlflowClient
+
             self.client_ = MlflowClient()
         keys_ignored = self.keys_ignored
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
         self.keys_ignored_ = set(keys_ignored or [])
-        self.keys_ignored_.add('batches')
-        self.batch_suffix_ = self._init_suffix(self.batch_suffix, '_batch')
-        self.epoch_suffix_ = self._init_suffix(self.epoch_suffix, '_epoch')
+        self.keys_ignored_.add("batches")
+        self.batch_suffix_ = self._init_suffix(self.batch_suffix, "_batch")
+        self.epoch_suffix_ = self._init_suffix(self.epoch_suffix, "_epoch")
         return self
 
     def _init_suffix(self, suffix, default):
         if suffix is not None:
             return suffix
-        return default if self.log_on_batch_end and self.log_on_epoch_end else ''
+        return default if self.log_on_batch_end and self.log_on_epoch_end else ""
 
     def on_train_begin(self, net, **kwargs):
         self._batch_count = 0
@@ -1103,7 +1108,7 @@ class MlflowLogger(Callback):
         if not self.log_on_batch_end:
             return
         self._batch_count += 1
-        batch_logs = net.history[-1]['batches'][-1]
+        batch_logs = net.history[-1]["batches"][-1]
         self._iteration_log(batch_logs, self.batch_suffix_, self._batch_count)
 
     def on_epoch_end(self, net, **kwargs):
@@ -1131,12 +1136,12 @@ class MlflowLogger(Callback):
     def _log_artifacts(self, net):
         if not self.create_artifact:
             return
-        with tempfile.TemporaryDirectory(prefix='skorch_mlflow_logger_') as dirpath:
+        with tempfile.TemporaryDirectory(prefix="skorch_mlflow_logger_") as dirpath:
             dirpath = Path(dirpath)
-            params_filepath = dirpath / 'params.pth'
-            optimizer_filepath = dirpath / 'optimizer.pth'
-            criterion_filepath = dirpath / 'criterion.pth'
-            history_filepath = dirpath / 'history.json'
+            params_filepath = dirpath / "params.pth"
+            optimizer_filepath = dirpath / "optimizer.pth"
+            criterion_filepath = dirpath / "criterion.pth"
+            history_filepath = dirpath / "history.json"
             net.save_params(
                 f_params=params_filepath,
                 f_optimizer=optimizer_filepath,

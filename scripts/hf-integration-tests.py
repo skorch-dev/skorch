@@ -43,8 +43,15 @@ from contextlib import contextmanager
 
 import numpy as np
 import torch
-from huggingface_hub import HfApi, create_repo, hf_hub_download
-from sklearn.datasets import fetch_20newsgroups, make_classification
+from huggingface_hub import (
+    HfApi,
+    create_repo,
+    hf_hub_download,
+)
+from sklearn.datasets import (
+    fetch_20newsgroups,
+    make_classification,
+)
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -52,10 +59,11 @@ from torch import nn
 from transformers import AutoModelForSequenceClassification
 
 from skorch import NeuralNetClassifier
-from skorch.hf import HuggingfacePretrainedTokenizer
 from skorch.callbacks import TrainEndCheckpoint
-from skorch.hf import HfHubStorage
-
+from skorch.hf import (
+    HfHubStorage,
+    HuggingfacePretrainedTokenizer,
+)
 
 # Choose a tokenizer and BERT model that work together
 TOKENIZER = "distilbert-base-uncased"
@@ -70,18 +78,19 @@ BATCH_SIZE = 8
 N_SAMPLES = 100
 
 # device
-DEVICE = 'cpu'
+DEVICE = "cpu"
 
 # token with permissions to write to the orga on HF Hub
-TOKEN = os.environ['HF_TOKEN']
-REPO_NAME = 'skorch-tests/test-skorch-hf-ci'
-MODEL_NAME = 'skorch-model.pkl'
-WEIGHTS_NAME = 'weights.pt'
+TOKEN = os.environ["HF_TOKEN"]
+REPO_NAME = "skorch-tests/test-skorch-hf-ci"
+MODEL_NAME = "skorch-model.pkl"
+WEIGHTS_NAME = "weights.pt"
 
 
 #######################################
 # TESTING TRANSFORMERS AND TOKENIZERS #
 #######################################
+
 
 class BertModule(nn.Module):
     def __init__(self, name, num_labels):
@@ -92,9 +101,7 @@ class BertModule(nn.Module):
         self.reset_weights()
 
     def reset_weights(self):
-        self.bert = AutoModelForSequenceClassification.from_pretrained(
-            self.name, num_labels=self.num_labels
-        )
+        self.bert = AutoModelForSequenceClassification.from_pretrained(self.name, num_labels=self.num_labels)
 
     def forward(self, **kwargs):
         pred = self.bert(**kwargs)
@@ -107,28 +114,31 @@ def load_20newsgroup_small():
     mask_0_or_1 = (y == 0) | (y == 1)
     X = np.asarray(dataset.data)[mask_0_or_1][:N_SAMPLES]
     y = dataset.target[mask_0_or_1][:N_SAMPLES]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, stratify=y, random_state=0
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_state=0)
     return X_train, X_test, y_train, y_test
 
 
 def get_transformer_model():
-    return Pipeline([
-        ('tokenizer', HuggingfacePretrainedTokenizer(TOKENIZER)),
-        ('net', NeuralNetClassifier(
-            BertModule,
-            module__name=PRETRAINED_MODEL,
-            module__num_labels=2,
-            optimizer=OPTMIZER,
-            lr=LR,
-            max_epochs=MAX_EPOCHS,
-            criterion=CRITERION,
-            batch_size=BATCH_SIZE,
-            iterator_train__shuffle=True,
-            device=DEVICE,
-        )),
-    ])
+    return Pipeline(
+        [
+            ("tokenizer", HuggingfacePretrainedTokenizer(TOKENIZER)),
+            (
+                "net",
+                NeuralNetClassifier(
+                    BertModule,
+                    module__name=PRETRAINED_MODEL,
+                    module__num_labels=2,
+                    optimizer=OPTMIZER,
+                    lr=LR,
+                    max_epochs=MAX_EPOCHS,
+                    criterion=CRITERION,
+                    batch_size=BATCH_SIZE,
+                    iterator_train__shuffle=True,
+                    device=DEVICE,
+                ),
+            ),
+        ]
+    )
 
 
 def test_tokenizers_transfomers():
@@ -151,12 +161,13 @@ def test_tokenizers_transfomers():
 # TESTING HF MODEL HUB #
 ########################
 
+
 class ClassifierModule(nn.Module):
     def __init__(
-            self,
-            num_units=30,
-            nonlin=nn.ReLU(),
-            dropout=0.5,
+        self,
+        num_units=30,
+        nonlin=nn.ReLU(),
+        dropout=0.5,
     ):
         super().__init__()
         self.num_units = num_units
@@ -221,7 +232,7 @@ def test_hf_model_hub():
         repo_id=REPO_NAME,
         token=TOKEN,
         verbose=1,
-        local_storage='my-model-weights.pt',
+        local_storage="my-model-weights.pt",
     )
     checkpoint = TrainEndCheckpoint(
         f_pickle=hub_pickle_storer,
@@ -244,14 +255,14 @@ def test_hf_model_hub():
     print(hub_pickle_storer.latest_url_)
 
     path = hf_hub_download(REPO_NAME, MODEL_NAME, use_auth_token=TOKEN)
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         net_loaded = pickle.load(f)
 
     with torch.inference_mode():
         assert np.allclose(net.predict_proba(X_test), net_loaded.predict_proba(X_test))
 
     path = hf_hub_download(REPO_NAME, WEIGHTS_NAME, use_auth_token=TOKEN)
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         weights_loaded = torch.load(f)
 
     weights = dict(net.module_.named_parameters())
@@ -284,5 +295,5 @@ def main():
     print("All tests succeeded")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

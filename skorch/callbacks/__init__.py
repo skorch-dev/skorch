@@ -8,35 +8,34 @@ submodule.
 
 from .base import *
 from .logging import *
+from .lr_scheduler import *
 from .regularization import *
 from .scoring import *
 from .training import *
-from .lr_scheduler import *
-
 
 __all__ = [
-    'BatchScoring',
-    'Callback',
-    'Checkpoint',
-    'EarlyStopping',
-    'EpochScoring',
-    'EpochTimer',
-    'Freezer',
-    'GradientNormClipping',
-    'Initializer',
-    'InputShapeSetter',
-    'LRScheduler',
-    'LoadInitState',
-    'MlflowLogger',
-    'NeptuneLogger',
-    'ParamMapper',
-    'PassthroughScoring',
-    'PrintLog',
-    'ProgressBar',
-    'TrainEndCheckpoint',
-    'TensorBoard',
-    'SacredLogger',
-    'Unfreezer',
-    'WandbLogger',
-    'WarmRestartLR',
+    "BatchScoring",
+    "Callback",
+    "Checkpoint",
+    "EarlyStopping",
+    "EpochScoring",
+    "EpochTimer",
+    "Freezer",
+    "GradientNormClipping",
+    "Initializer",
+    "InputShapeSetter",
+    "LRScheduler",
+    "LoadInitState",
+    "MlflowLogger",
+    "NeptuneLogger",
+    "ParamMapper",
+    "PassthroughScoring",
+    "PrintLog",
+    "ProgressBar",
+    "TrainEndCheckpoint",
+    "TensorBoard",
+    "SacredLogger",
+    "Unfreezer",
+    "WandbLogger",
+    "WarmRestartLR",
 ]

@@ -43,16 +43,17 @@ class MLPModule(nn.Module):
       NeuralNetBinaryClassifier).
 
     """
+
     def __init__(
-            self,
-            input_units=20,
-            output_units=2,
-            hidden_units=10,
-            num_hidden=1,
-            nonlin=nn.ReLU(),
-            output_nonlin=None,
-            dropout=0,
-            squeeze_output=False,
+        self,
+        input_units=20,
+        output_units=2,
+        hidden_units=10,
+        num_hidden=1,
+        nonlin=nn.ReLU(),
+        output_nonlin=None,
+        dropout=0,
+        squeeze_output=False,
     ):
         super().__init__()
         self.input_units = input_units

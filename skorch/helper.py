@@ -4,21 +4,25 @@ They are intended to be used by end users but should not be depended upon for
 skorch-internal usage.
 
 """
+
 from collections.abc import Sequence
 from functools import partial
 
 import numpy as np
-from sklearn.base import BaseEstimator
-from sklearn.base import TransformerMixin
 import torch
+from sklearn.base import (
+    BaseEstimator,
+    TransformerMixin,
+)
 
 from skorch._doctor import SkorchDoctor
 from skorch.cli import parse_args
-from skorch.utils import _make_split
-from skorch.utils import to_numpy
-from skorch.utils import is_torch_data_type
-from skorch.utils import to_tensor
-
+from skorch.utils import (
+    _make_split,
+    is_torch_data_type,
+    to_numpy,
+    to_tensor,
+)
 
 __all__ = [
     "DataFrameTransformer",
@@ -52,13 +56,14 @@ class SliceDict(dict):
     >>> search.fit(Xs, y)  # works
 
     """
+
     def __init__(self, **kwargs):
         lengths = [value.shape[0] for value in kwargs.values()]
         lengths_set = set(lengths)
         if lengths_set and (len(lengths_set) != 1):
             raise ValueError(
-                "Initialized with items of different lengths: {}"
-                "".format(', '.join(map(str, sorted(lengths_set)))))
+                "Initialized with items of different lengths: {}" "".format(", ".join(map(str, sorted(lengths_set))))
+            )
 
         if not lengths:
             self._len = 0
@@ -89,9 +94,7 @@ class SliceDict(dict):
             self._len = length
 
         if self._len != length:
-            raise ValueError(
-                "Cannot set array with shape[0] != {}"
-                "".format(self._len))
+            raise ValueError("Cannot set array with shape[0] != {}" "".format(self._len))
 
         super().__setitem__(key, value)
 
@@ -200,13 +203,13 @@ class SliceDataset(Sequence):
       :class:`~torch.utils.data.Subset`.
 
     """
+
     def __init__(self, dataset, idx=0, indices=None):
         self.dataset = dataset
         self.idx = idx
         self.indices = indices
 
-        self.indices_ = (self.indices if self.indices is not None
-                         else np.arange(len(self.dataset)))
+        self.indices_ = self.indices if self.indices is not None else np.arange(len(self.dataset))
         self.ndim = 1
 
     def __len__(self):
@@ -235,8 +238,9 @@ class SliceDataset(Sequence):
             return Xn[self.idx]
         except IndexError:
             name = self.__class__.__name__
-            msg = ("{} is trying to access element {} but there are only "
-                   "{} elements.".format(name, self.idx, len(Xn)))
+            msg = "{} is trying to access element {} but there are only " "{} elements.".format(
+                name, self.idx, len(Xn)
+            )
             raise IndexError(msg)
 
     def __getitem__(self, i):
@@ -251,9 +255,11 @@ class SliceDataset(Sequence):
 
         if isinstance(i, np.ndarray):
             if i.ndim != 1:
-                raise IndexError("SliceDataset only supports slicing with 1 "
-                                 "dimensional arrays, got {} dimensions instead."
-                                 "".format(i.ndim))
+                raise IndexError(
+                    "SliceDataset only supports slicing with 1 "
+                    "dimensional arrays, got {} dimensions instead."
+                    "".format(i.ndim)
+                )
             if i.dtype == bool:
                 i = np.flatnonzero(i)
 
@@ -370,11 +376,12 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
     contains 1 column.
 
     """
+
     def __init__(
-            self,
-            treat_int_as_categorical=False,
-            float_dtype=np.float32,
-            int_dtype=np.int64,
+        self,
+        treat_int_as_categorical=False,
+        float_dtype=np.float32,
+        int_dtype=np.int64,
     ):
         self.treat_int_as_categorical = treat_int_as_categorical
         self.float_dtype = float_dtype
@@ -399,11 +406,12 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         """
         import pandas as pd
 
-        if 'X' in df:
+        if "X" in df:
             raise ValueError(
                 "DataFrame contains a column named 'X', which clashes "
                 "with the name chosen for cardinal features; consider "
-                "renaming that column.")
+                "renaming that column."
+            )
 
         wrong_dtypes = []
 
@@ -420,10 +428,10 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
             return
 
         wrong_dtypes = sorted(wrong_dtypes, key=lambda tup: tup[0])
-        msg_dtypes = ", ".join(
-            "{} ({})".format(col, dtype) for col, dtype in wrong_dtypes)
-        msg = ("The following columns have dtypes that cannot be "
-               "interpreted as numerical dtypes: {}".format(msg_dtypes))
+        msg_dtypes = ", ".join("{} ({})".format(col, dtype) for col, dtype in wrong_dtypes)
+        msg = "The following columns have dtypes that cannot be " "interpreted as numerical dtypes: {}".format(
+            msg_dtypes
+        )
         raise TypeError(msg)
 
     # pylint: disable=unused-argument
@@ -464,11 +472,8 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
                 X_dict[col] = x
                 continue
 
-            if (
-                    np.issubdtype(dtype, np.integer)
-                    and self.treat_int_as_categorical
-            ):
-                x = X_col.astype('category').cat.codes.values
+            if np.issubdtype(dtype, np.integer) and self.treat_int_as_categorical:
+                x = X_col.astype("category").cat.codes.values
                 if self.int_dtype is not None:
                     x = x.astype(self.int_dtype)
                 X_dict[col] = x
@@ -482,7 +487,7 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         X = np.stack(Xf, axis=1)
         if self.float_dtype is not None:
             X = X.astype(self.float_dtype)
-        X_dict['X'] = X
+        X_dict["X"] = X
         return X_dict
 
     def describe_signature(self, df):
@@ -513,18 +518,18 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         X_dict = self.fit_transform(df)
         signature = {}
 
-        X = X_dict.get('X')
+        X = X_dict.get("X")
         if X is not None:
-            signature['X'] = dict(
-                dtype=to_tensor(X, device='cpu').dtype,
+            signature["X"] = dict(
+                dtype=to_tensor(X, device="cpu").dtype,
                 input_units=X.shape[1],
             )
 
         for key, val in X_dict.items():
-            if key == 'X':
+            if key == "X":
                 continue
 
-            tensor = to_tensor(val, device='cpu')
+            tensor = to_tensor(val, device="cpu")
             nunique = len(torch.unique(tensor))
             signature[key] = dict(
                 dtype=tensor.dtype,

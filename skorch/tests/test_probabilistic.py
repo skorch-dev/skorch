@@ -6,18 +6,19 @@ import re
 
 import numpy as np
 import pytest
+import torch
 from sklearn.base import clone
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
-import torch
 
 from skorch._version import Version
-from skorch.utils import is_torch_data_type
-from skorch.utils import to_numpy
-
+from skorch.utils import (
+    is_torch_data_type,
+    to_numpy,
+)
 
 try:
-    gpytorch = pytest.importorskip('gpytorch')
+    gpytorch = pytest.importorskip("gpytorch")
 except AttributeError:
     pytest.skip("Incompatible gpytorch + torch version", allow_module_level=True)
 
@@ -26,9 +27,9 @@ version_gpytorch = Version(gpytorch.__version__)
 version_torch = Version(torch.__version__)
 # TODO: remove if newer GPyTorch versions are released that no longer require
 # the check.
-if (version_gpytorch >= Version('1.9')) and (version_torch < Version('1.11')):
+if (version_gpytorch >= Version("1.9")) and (version_torch < Version("1.11")):
     pytest.skip("Incompatible gpytorch + torch version", allow_module_level=True)
-elif (version_gpytorch >= Version('1.7')) and (version_torch < Version('1.10')):
+elif (version_gpytorch >= Version("1.7")) and (version_torch < Version("1.10")):
     pytest.skip("Incompatible gpytorch + torch version", allow_module_level=True)
 
 
@@ -39,15 +40,15 @@ def get_batch_size(dist):
     distrubtion.
 
     """
-    shape = getattr(dist, 'shape', None)
+    shape = getattr(dist, "shape", None)
     if shape:
         return shape[0]
 
-    get_base_samples = getattr(dist, 'get_base_samples', None)
+    get_base_samples = getattr(dist, "get_base_samples", None)
     if get_base_samples:
         return get_base_samples().shape[0]
 
-    shape = getattr(dist, 'batch_shape', None)
+    shape = getattr(dist, "batch_shape", None)
     if shape:
         return shape[0]
 
@@ -56,8 +57,10 @@ def get_batch_size(dist):
 
 # PyTorch Modules are defined on the module root to make them pickleable.
 
+
 class RbfModule(gpytorch.models.ExactGP):
     """Simple exact GP regression module"""
+
     def __init__(self, likelihood):
         super().__init__(None, None, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
@@ -71,9 +74,9 @@ class RbfModule(gpytorch.models.ExactGP):
 
 class VariationalRegressionModule(gpytorch.models.ApproximateGP):
     """GP regression for variational inference"""
+
     def __init__(self, inducing_points, eps=1e-6):
-        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
-            inducing_points.size(0))
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(inducing_points.size(0))
         variational_strategy = gpytorch.variational.VariationalStrategy(
             self,
             inducing_points,
@@ -82,8 +85,7 @@ class VariationalRegressionModule(gpytorch.models.ApproximateGP):
         )
         super().__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
-        self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(eps=eps))
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(eps=eps))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -93,9 +95,9 @@ class VariationalRegressionModule(gpytorch.models.ApproximateGP):
 
 class VariationalBinaryClassificationModule(gpytorch.models.ApproximateGP):
     """GP classification for variational inference"""
+
     def __init__(self, inducing_points, eps=1e-6):
-        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
-            inducing_points.size(0))
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(inducing_points.size(0))
         variational_strategy = gpytorch.variational.UnwhitenedVariationalStrategy(
             self,
             inducing_points,
@@ -104,8 +106,7 @@ class VariationalBinaryClassificationModule(gpytorch.models.ApproximateGP):
         )
         super().__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
-        self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(eps=eps))
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(eps=eps))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -124,6 +125,7 @@ class MyBernoulliLikelihood(gpytorch.likelihoods.BernoulliLikelihood):
     a custom class with a (pointless) parameter.
 
     """
+
     def __init__(self, *args, some_parameter=1, **kwargs):
         self.some_parameter = some_parameter
         super().__init__(*args, **kwargs)
@@ -138,6 +140,7 @@ class BaseProbabilisticTests:
     using parameters shared by all likelihoods).
 
     """
+
     #####################
     # testing functions #
     #####################
@@ -226,10 +229,12 @@ class BaseProbabilisticTests:
 
     @pytest.fixture
     def pipe(self, gp):
-        return Pipeline([
-            ('noop', None),
-            ('gp', gp),
-        ])
+        return Pipeline(
+            [
+                ("noop", None),
+                ("gp", gp),
+            ]
+        )
 
     ######################
     # saving and loading #
@@ -259,21 +264,23 @@ class BaseProbabilisticTests:
 
         # check first that parameters are not equal
         for (_, p0), (_, p1) in zip(
-                gp_fit.get_all_learnable_params(), gp2.get_all_learnable_params(),
+            gp_fit.get_all_learnable_params(),
+            gp2.get_all_learnable_params(),
         ):
             assert not (p0 == p1).all()
 
         # save and load params to gp2
-        p_module = tmpdir.join('module.pt')
-        p_likelihood = tmpdir.join('likelihood.pt')
-        with open(str(p_module), 'wb') as fm, open(str(p_likelihood), 'wb') as fll:
+        p_module = tmpdir.join("module.pt")
+        p_likelihood = tmpdir.join("likelihood.pt")
+        with open(str(p_module), "wb") as fm, open(str(p_likelihood), "wb") as fll:
             gp_fit.save_params(f_params=fm, f_likelihood=fll)
-        with open(str(p_module), 'rb') as fm, open(str(p_likelihood), 'rb') as fll:
+        with open(str(p_module), "rb") as fm, open(str(p_likelihood), "rb") as fll:
             gp2.load_params(f_params=fm, f_likelihood=fll)
 
         # now parameters should be equal
         for (n0, p0), (n1, p1) in zip(
-                gp_fit.get_all_learnable_params(), gp2.get_all_learnable_params(),
+            gp_fit.get_all_learnable_params(),
+            gp2.get_all_learnable_params(),
         ):
             assert n0 == n1
             torch.testing.assert_close(p0, p1)
@@ -288,7 +295,7 @@ class BaseProbabilisticTests:
 
     def test_gp_learns(self, gp_fit):
         history = gp_fit.history
-        assert history[0, 'train_loss'] > 0.5 * history[-1, 'train_loss']
+        assert history[0, "train_loss"] > 0.5 * history[-1, "train_loss"]
 
     def test_forward(self, gp_fit, data):
         X = data[0]
@@ -322,7 +329,7 @@ class BaseProbabilisticTests:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     def test_fit_and_predict_with_cuda(self, gp, data):
 
-        gp.set_params(device='cuda')
+        gp.set_params(device="cuda")
         X, y = data
         gp.fit(X, y)
         y_pred = gp.predict(X)
@@ -338,10 +345,10 @@ class BaseProbabilisticTests:
     def test_grid_search_works(self, gp, data, recwarn):
         X, y = data
         params = {
-            'lr': [0.01, 0.02],
-            'max_epochs': [10, 20],
+            "lr": [0.01, 0.02],
+            "max_epochs": [10, 20],
             # this parameter does not exist but that's okay
-            'likelihood__some_parameter': [1, 2],
+            "likelihood__some_parameter": [1, 2],
         }
         gp.set_params(verbose=0)
         gs = GridSearchCV(gp, params, refit=True, cv=3, scoring=self.scoring)
@@ -412,48 +419,62 @@ class BaseProbabilisticTests:
     # initialization #
     ##################
 
-    @pytest.mark.parametrize('kwargs,expected', [
-        ({}, ""),
-        ({
-            'likelihood__noise_prior': gpytorch.priors.NormalPrior(0, 1),
-            'likelihood__batch_shape': (345,),
-        }, ""),
-        ({
-            'likelihood__noise_prior': gpytorch.priors.NormalPrior(0, 1),
-            'optimizer__momentum': 0.567,
-        }, ""),
-    ])
-    def test_set_params_uninitialized_net_correct_message(
-            self, gp, kwargs, expected, capsys):
+    @pytest.mark.parametrize(
+        "kwargs,expected",
+        [
+            ({}, ""),
+            (
+                {
+                    "likelihood__noise_prior": gpytorch.priors.NormalPrior(0, 1),
+                    "likelihood__batch_shape": (345,),
+                },
+                "",
+            ),
+            (
+                {
+                    "likelihood__noise_prior": gpytorch.priors.NormalPrior(0, 1),
+                    "optimizer__momentum": 0.567,
+                },
+                "",
+            ),
+        ],
+    )
+    def test_set_params_uninitialized_net_correct_message(self, gp, kwargs, expected, capsys):
         # When gp is uninitialized, there is nothing to alert the user to
         gp.set_params(**kwargs)
         msg = capsys.readouterr()[0].strip()
         assert msg == expected
 
-    @pytest.mark.parametrize('kwargs,expected', [
-        ({}, ""),
-        (
-            # this parameter does not exist but that's okay
-            {'likelihood__some_parameter': 2},
-            ("Re-initializing module because the following "
-             "parameters were re-set: likelihood__some_parameter.\n"
-             "Re-initializing criterion.\n"
-             "Re-initializing optimizer.")
-        ),
-        (
-            {
+    @pytest.mark.parametrize(
+        "kwargs,expected",
+        [
+            ({}, ""),
+            (
                 # this parameter does not exist but that's okay
-                'likelihood__some_parameter': 2,
-                'optimizer__momentum': 0.567,
-            },
-            ("Re-initializing module because the following "
-             "parameters were re-set: likelihood__some_parameter.\n"
-             "Re-initializing criterion.\n"
-             "Re-initializing optimizer.")
-        ),
-    ])
-    def test_set_params_initialized_net_correct_message(
-            self, gp, kwargs, expected, capsys):
+                {"likelihood__some_parameter": 2},
+                (
+                    "Re-initializing module because the following "
+                    "parameters were re-set: likelihood__some_parameter.\n"
+                    "Re-initializing criterion.\n"
+                    "Re-initializing optimizer."
+                ),
+            ),
+            (
+                {
+                    # this parameter does not exist but that's okay
+                    "likelihood__some_parameter": 2,
+                    "optimizer__momentum": 0.567,
+                },
+                (
+                    "Re-initializing module because the following "
+                    "parameters were re-set: likelihood__some_parameter.\n"
+                    "Re-initializing criterion.\n"
+                    "Re-initializing optimizer."
+                ),
+            ),
+        ],
+    )
+    def test_set_params_initialized_net_correct_message(self, gp, kwargs, expected, capsys):
         # When gp is initialized, if module or optimizer need to be
         # re-initialized, alert the user to the fact what parameters
         # were responsible for re-initialization. Note that when the
@@ -476,7 +497,7 @@ class BaseProbabilisticTests:
         # scratch
         params = gp_init.get_params()
         # set likelihood and likelihood to be initialized already
-        params['likelihood'] = gp_init.likelihood_
+        params["likelihood"] = gp_init.likelihood_
         gp = gp_cls(**params).initialize()
 
         assert gp.likelihood_ is gp_init.likelihood_
@@ -527,8 +548,10 @@ class BaseProbabilisticTests:
             return
 
         X, _ = data
-        msg = ("The 'return_cov' argument is not supported. Please try: "
-               "'posterior = next(gpr.forward_iter(X)); posterior.covariance_matrix'.")
+        msg = (
+            "The 'return_cov' argument is not supported. Please try: "
+            "'posterior = next(gpr.forward_iter(X)); posterior.covariance_matrix'."
+        )
         with pytest.raises(NotImplementedError, match=re.escape(msg)):
             gp_fit.predict(X, return_cov=True)
 
@@ -545,8 +568,8 @@ class TestExactGPRegressor(BaseProbabilisticTests):
     supports_predict_proba = False
     supports_return_std = True
     supports_return_cov = True
-    settable_params = {'gp__likelihood__noise_prior': None}
-    scoring = 'neg_mean_squared_error'
+    settable_params = {"gp__likelihood__noise_prior": None}
+    scoring = "neg_mean_squared_error"
 
     @pytest.fixture
     def data(self):
@@ -557,6 +580,7 @@ class TestExactGPRegressor(BaseProbabilisticTests):
     @pytest.fixture
     def gp_cls(self):
         from skorch.probabilistic import ExactGPRegressor
+
         return ExactGPRegressor
 
     @pytest.fixture
@@ -578,6 +602,7 @@ class TestExactGPRegressor(BaseProbabilisticTests):
         # raise an appropriate error message to the user.
         class VariationalModule(gpytorch.models.ApproximateGP):
             """Defined on root to make it pickleable"""
+
             def __init__(self, likelihood):
                 pass
 
@@ -602,8 +627,8 @@ class TestGPRegressorVariational(BaseProbabilisticTests):
     supports_predict_proba = False
     supports_return_std = True
     supports_return_cov = True
-    settable_params = {'gp__module__eps': 1e-5}
-    scoring = 'neg_mean_squared_error'
+    settable_params = {"gp__module__eps": 1e-5}
+    scoring = "neg_mean_squared_error"
 
     @pytest.fixture
     def data(self):
@@ -614,6 +639,7 @@ class TestGPRegressorVariational(BaseProbabilisticTests):
     @pytest.fixture
     def gp_cls(self):
         from skorch.probabilistic import GPRegressor
+
         return GPRegressor
 
     @pytest.fixture
@@ -626,7 +652,6 @@ class TestGPRegressorVariational(BaseProbabilisticTests):
         gpr = gp_cls(
             module_cls,
             module__inducing_points=torch.from_numpy(X[:10]),
-
             criterion=gpytorch.mlls.VariationalELBO,
             criterion__num_data=int(0.8 * len(y)),
             batch_size=24,
@@ -666,8 +691,8 @@ class TestGPBinaryClassifier(BaseProbabilisticTests):
     supports_predict_proba = True
     supports_return_std = False
     supports_return_cov = False
-    settable_params = {'gp__module__eps': 1e-5}
-    scoring = 'neg_mean_squared_error'
+    settable_params = {"gp__module__eps": 1e-5}
+    scoring = "neg_mean_squared_error"
 
     @pytest.fixture
     def data(self):
@@ -678,6 +703,7 @@ class TestGPBinaryClassifier(BaseProbabilisticTests):
     @pytest.fixture
     def gp_cls(self):
         from skorch.probabilistic import GPBinaryClassifier
+
         return GPBinaryClassifier
 
     @pytest.fixture
@@ -713,17 +739,21 @@ class TestGPBinaryClassifier(BaseProbabilisticTests):
     def test_pickle_error_msg(self, gp_fit, data):
         # Should eventually be replaced by a test that saves and loads the model
         # using pickle and checks that the predictions are identical
-        msg = ("This GPyTorch model cannot be pickled. The reason is probably this:"
-               " https://github.com/pytorch/pytorch/issues/38137. "
-               "Try using 'dill' instead of 'pickle'.")
+        msg = (
+            "This GPyTorch model cannot be pickled. The reason is probably this:"
+            " https://github.com/pytorch/pytorch/issues/38137. "
+            "Try using 'dill' instead of 'pickle'."
+        )
         with pytest.raises(pickle.PicklingError, match=msg):
             pickle.dumps(gp_fit)
 
     def test_deepcopy(self, gp_fit, data):
         # Should eventually be replaced by a test that saves and loads the model
         # using deepcopy and checks that the predictions are identical
-        msg = ("This GPyTorch model cannot be pickled. The reason is probably this:"
-               " https://github.com/pytorch/pytorch/issues/38137. "
-               "Try using 'dill' instead of 'pickle'.")
+        msg = (
+            "This GPyTorch model cannot be pickled. The reason is probably this:"
+            " https://github.com/pytorch/pytorch/issues/38137. "
+            "Try using 'dill' instead of 'pickle'."
+        )
         with pytest.raises(pickle.PicklingError, match=msg):
             copy.deepcopy(gp_fit)  # doesn't raise

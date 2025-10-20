@@ -1,9 +1,8 @@
-""" Basic callback definition. """
+"""Basic callback definition."""
 
 from sklearn.base import BaseEstimator
 
-
-__all__ = ['Callback']
+__all__ = ["Callback"]
 
 
 class Callback:
@@ -18,6 +17,7 @@ class Callback:
     ``set_params`` method.
 
     """
+
     def initialize(self):
         """(Re-)Set the initial state of the callback. Use this
         e.g. if the callback tracks some state that should be reset
@@ -46,14 +46,13 @@ class Callback:
     def on_batch_end(self, net, batch=None, training=None, **kwargs):
         """Called at the end of each batch."""
 
-    def on_grad_computed(
-            self, net, named_parameters, X=None, y=None, training=None, **kwargs):
+    def on_grad_computed(self, net, named_parameters, X=None, y=None, training=None, **kwargs):
         """Called once per batch after gradients have been computed but before
         an update step was performed.
         """
 
     def _get_param_names(self):
-        return [key for key in self.__dict__ if not key.endswith('_')]
+        return [key for key in self.__dict__ if not key.endswith("_")]
 
     def get_params(self, deep=True):
         return BaseEstimator.get_params(self, deep=deep)

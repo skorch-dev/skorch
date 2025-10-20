@@ -17,38 +17,40 @@ from skorch.tests.conftest import INFERENCE_METHODS
 
 
 class TestNeuralNet:
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def data(self, classifier_data):
         return classifier_data
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def dummy_callback(self):
         from skorch.callbacks import Callback
+
         cb = Mock(spec=Callback)
         # make dummy behave like an estimator
         cb.get_params.return_value = {}
         cb.set_params = lambda **kwargs: cb
         return cb
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def net_cls(self):
         from skorch import NeuralNetClassifier
+
         return NeuralNetClassifier
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def module_cls(self, classifier_module):
         return classifier_module
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def net(self, net_cls, module_cls, dummy_callback):
         return net_cls(
             module_cls,
-            callbacks=[('dummy', dummy_callback)],
+            callbacks=[("dummy", dummy_callback)],
             max_epochs=10,
             lr=0.1,
         )
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def net_fit(self, net, data):
         # Careful, don't call additional fits on this, since that would have
         # side effects on other tests.
@@ -70,7 +72,7 @@ class TestNeuralNet:
     def test_score(self, net_fit, data):
         X, y = data
         accuracy = net_fit.score(X, y)
-        assert 0. <= accuracy <= 1.
+        assert 0.0 <= accuracy <= 1.0
 
     # classifier-specific test
     def test_takes_log_with_nllloss(self, net_cls, module_cls, data):
@@ -106,7 +108,7 @@ class TestNeuralNet:
         # regression test for nan loss with high learning rates issue #481
         net = net_cls(module_cls, max_epochs=2, lr=2, optimizer=torch.optim.Adam)
         net.fit(*data)
-        assert np.any(~np.isnan(net.history[:, 'train_loss']))
+        assert np.any(~np.isnan(net.history[:, "train_loss"]))
 
     def test_binary_classes_set_by_default(self, net_cls, module_cls, data):
         net = net_cls(module_cls).fit(*data)
@@ -133,12 +135,10 @@ class TestNeuralNet:
         assert (net.classes_ == [1, 2, 3, 4, 6, 7, 8, 9]).all()
 
     def test_pass_classes_explicitly_overrides(self, net_cls, module_cls, data):
-        net = net_cls(module_cls, max_epochs=0, classes=['foo', 'bar']).fit(*data)
-        assert (net.classes_ == np.array(['foo', 'bar'])).all()
+        net = net_cls(module_cls, max_epochs=0, classes=["foo", "bar"]).fit(*data)
+        assert (net.classes_ == np.array(["foo", "bar"])).all()
 
-    def test_classes_are_set_with_tensordataset_explicit_y(
-            self, net_cls, module_cls, data
-    ):
+    def test_classes_are_set_with_tensordataset_explicit_y(self, net_cls, module_cls, data):
         # see 990
         X = torch.from_numpy(data[0])
         y = torch.arange(len(X)) % 10
@@ -146,25 +146,19 @@ class TestNeuralNet:
         net = net_cls(module_cls, max_epochs=0).fit(dataset, y)
         assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
 
-    def test_classes_are_set_with_tensordataset_implicit_y(
-            self, net_cls, module_cls, data
-    ):
+    def test_classes_are_set_with_tensordataset_implicit_y(self, net_cls, module_cls, data):
         # see 990
         from skorch.dataset import ValidSplit
 
         X = torch.from_numpy(data[0])
         y = torch.arange(len(X)) % 10
         dataset = torch.utils.data.TensorDataset(X, y)
-        net = net_cls(
-            module_cls, max_epochs=0, train_split=ValidSplit(3, stratified=False)
-        ).fit(dataset, None)
+        net = net_cls(module_cls, max_epochs=0, train_split=ValidSplit(3, stratified=False)).fit(dataset, None)
         assert (net.classes_ == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
 
-    @pytest.mark.parametrize('classes', [[], np.array([])])
-    def test_pass_empty_classes_raises(
-            self, net_cls, module_cls, data, classes):
-        net = net_cls(
-            module_cls, max_epochs=0, classes=classes).fit(*data).fit(*data)
+    @pytest.mark.parametrize("classes", [[], np.array([])])
+    def test_pass_empty_classes_raises(self, net_cls, module_cls, data, classes):
+        net = net_cls(module_cls, max_epochs=0, classes=classes).fit(*data).fit(*data)
         with pytest.raises(AttributeError) as exc:
             net.classes_  # pylint: disable=pointless-statement
 
@@ -172,13 +166,9 @@ class TestNeuralNet:
         expected = "NeuralNetClassifier has no attribute 'classes_'"
         assert msg == expected
 
-    @pytest.mark.xfail
     def test_with_calibrated_classifier_cv(self, net_fit, data):
-        # TODO: This fails with sklearn 1.4.0 because CCCV does not work when
-        # y_proba is float32. This will be fixed in
-        # https://github.com/scikit-learn/scikit-learn/pull/28247, at which
-        # point the test should pass again and the xfail can be removed.
         from sklearn.calibration import CalibratedClassifierCV
+
         cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
 
@@ -189,6 +179,7 @@ class TestNeuralNet:
         # See https://github.com/skorch-dev/skorch/discussions/1003
         class MyDataset(torch.utils.data.Dataset):
             """Dataset class that makes it impossible to access y"""
+
             def __len__(self):
                 return len(data[0])
 
@@ -211,14 +202,15 @@ class TestNeuralNet:
 
 
 class TestNeuralNetBinaryClassifier:
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def data(self, classifier_data):
         X, y = classifier_data
-        return X, y.astype('float32')
+        return X, y.astype("float32")
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def module_cls(self):
         from skorch.toy import make_binary_classifier
+
         return make_binary_classifier(
             input_units=20,
             hidden_units=10,
@@ -227,12 +219,13 @@ class TestNeuralNetBinaryClassifier:
             dropout=0,
         )
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def net_cls(self):
         from skorch.classifier import NeuralNetBinaryClassifier
+
         return NeuralNetBinaryClassifier
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def net(self, net_cls, module_cls):
         return net_cls(
             module_cls,
@@ -240,7 +233,7 @@ class TestNeuralNetBinaryClassifier:
             lr=1,
         )
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def net_fit(self, net, data):
         # Careful, don't call additional fits on this, since that would have
         # side effects on other tests.
@@ -257,18 +250,36 @@ class TestNeuralNetBinaryClassifier:
     def test_clone(self, net_fit):
         clone(net_fit)
 
-    @pytest.mark.parametrize('method', INFERENCE_METHODS)
-    def test_not_fitted_raises(self, net_cls, module_cls, data, method):
+    @pytest.mark.parametrize("method", INFERENCE_METHODS)
+    def test_not_init_raises(self, net_cls, module_cls, data, method):
         from skorch.exceptions import NotInitializedError
+
         net = net_cls(module_cls)
         X = data[0]
         with pytest.raises(NotInitializedError) as exc:
             # we call `list` because `forward_iter` is lazy
             list(getattr(net, method)(X))
 
-        msg = ("This NeuralNetBinaryClassifier instance is not initialized "
-               "yet. Call 'initialize' or 'fit' with appropriate arguments "
-               "before using this method.")
+        msg = (
+            "This NeuralNetBinaryClassifier instance is not initialized "
+            "yet. Call 'initialize' or 'fit' with appropriate arguments "
+            "before using this method."
+        )
+        assert exc.value.args[0] == msg
+
+    def test_not_fitted_raises(self, net_cls, module_cls):
+        from sklearn.exceptions import NotFittedError
+        from sklearn.utils.validation import check_is_fitted
+
+        net = net_cls(module_cls)
+        with pytest.raises(NotFittedError) as exc:
+            check_is_fitted(net)
+
+        msg = (
+            "This NeuralNetBinaryClassifier instance is not fitted yet. "
+            "Call 'fit' with appropriate arguments before "
+            "using this estimator."
+        )
         assert exc.value.args[0] == msg
 
     def test_net_learns(self, net_cls, module_cls, data):
@@ -281,10 +292,10 @@ class TestNeuralNetBinaryClassifier:
         )
         net.fit(X, y)
 
-        train_losses = net.history[:, 'train_loss']
+        train_losses = net.history[:, "train_loss"]
         assert train_losses[0] > 1.3 * train_losses[-1]
 
-        valid_acc = net.history[-1, 'valid_acc']
+        valid_acc = net.history[-1, "valid_acc"]
         assert valid_acc > 0.65
 
     def test_batch_size_one(self, net_cls, module_cls, data):
@@ -297,13 +308,11 @@ class TestNeuralNetBinaryClassifier:
         net.fit(X, y)
 
     def test_history_default_keys(self, net_fit):
-        expected_keys = {
-            'train_loss', 'valid_loss', 'epoch', 'dur', 'batches', 'valid_acc'
-        }
+        expected_keys = {"train_loss", "valid_loss", "epoch", "dur", "batches", "valid_acc"}
         for row in net_fit.history:
             assert expected_keys.issubset(row)
 
-    @pytest.mark.parametrize('threshold', [0, 0.25, 0.5, 0.75, 1])
+    @pytest.mark.parametrize("threshold", [0, 0.25, 0.5, 0.75, 1])
     def test_predict_predict_proba(self, net, data, threshold):
         X, y = data
         net.threshold = threshold
@@ -323,7 +332,7 @@ class TestNeuralNetBinaryClassifier:
         assert (y_pred_proba < prob_min).any()
         assert (y_pred_proba > prob_max).any()
 
-        y_pred_exp = (y_pred_proba[:, 1] > threshold).astype('uint8')
+        y_pred_exp = (y_pred_proba[:, 1] > threshold).astype("uint8")
 
         y_pred_actual = net.predict(X)
         assert np.allclose(y_pred_exp, y_pred_actual)
@@ -331,7 +340,7 @@ class TestNeuralNetBinaryClassifier:
     def test_score(self, net_fit, data):
         X, y = data
         accuracy = net_fit.score(X, y)
-        assert 0. <= accuracy <= 1.
+        assert 0.0 <= accuracy <= 1.0
 
     def test_fit_with_dataset_and_y_none(self, net_cls, module_cls, data):
         from skorch.dataset import Dataset
@@ -347,11 +356,9 @@ class TestNeuralNetBinaryClassifier:
         with pytest.raises(ValueError) as exc:
             net.fit(X, y[:, None])
 
-        assert exc.value.args[0] == (
-            "The target data should be 1-dimensional.")
+        assert exc.value.args[0] == ("The target data should be 1-dimensional.")
 
-    def test_custom_loss_does_not_call_sigmoid(
-            self, net_cls, data, module_cls, monkeypatch):
+    def test_custom_loss_does_not_call_sigmoid(self, net_cls, data, module_cls, monkeypatch):
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch, "sigmoid", mock)
 
@@ -361,16 +368,14 @@ class TestNeuralNetBinaryClassifier:
         def nonlin(x):
             return torch.stack((1 - x, x), 1)
 
-        net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss,
-                      predict_nonlinearity=nonlin)
+        net = net_cls(module_cls, max_epochs=1, lr=0.1, criterion=nn.MSELoss, predict_nonlinearity=nonlin)
         X, y = data
         net.fit(X, y)
 
         net.predict_proba(X)
         assert mock.call_count == 0
 
-    def test_default_loss_does_call_sigmoid(
-            self, net_cls, data, module_cls, monkeypatch):
+    def test_default_loss_does_call_sigmoid(self, net_cls, data, module_cls, monkeypatch):
         mock = Mock(side_effect=lambda x: x)
         monkeypatch.setattr(torch, "sigmoid", mock)
 
@@ -381,29 +386,27 @@ class TestNeuralNetBinaryClassifier:
         net.predict_proba(X)
         assert mock.call_count > 0
 
-    @pytest.mark.xfail
     def test_with_calibrated_classifier_cv(self, net_fit, data):
-        # TODO: This fails with sklearn 1.4.0 because CCCV does not work when
-        # y_proba is float32. This will be fixed in
-        # https://github.com/scikit-learn/scikit-learn/pull/28247, at which
-        # point the test should pass again and the xfail can be removed.
         from sklearn.calibration import CalibratedClassifierCV
+
         cccv = CalibratedClassifierCV(net_fit, cv=2)
         cccv.fit(*data)
 
     def test_grid_search_with_roc_auc(self, net_fit, data):
         from sklearn.model_selection import GridSearchCV
+
         search = GridSearchCV(
             net_fit,
-            {'max_epochs': [1, 2]},
+            {"max_epochs": [1, 2]},
             refit=False,
             cv=3,
-            scoring='roc_auc',
+            scoring="roc_auc",
         )
         search.fit(*data)
 
     def test_module_output_not_1d(self, net_cls, data):
         from skorch.toy import make_classifier
+
         module = make_classifier(
             input_units=20,
             output_units=1,
@@ -413,6 +416,7 @@ class TestNeuralNetBinaryClassifier:
 
     def test_module_output_2d_raises(self, net_cls, data):
         from skorch.toy import make_classifier
+
         module = make_classifier(
             input_units=20,
             output_units=2,
@@ -422,11 +426,10 @@ class TestNeuralNetBinaryClassifier:
             net.fit(*data)
 
         msg = exc.value.args[0]
-        expected = ("Expected module output to have shape (n,) or "
-                    "(n, 1), got (128, 2) instead")
+        expected = "Expected module output to have shape (n,) or " "(n, 1), got (128, 2) instead"
         assert msg == expected
 
-    @pytest.fixture(scope='module')
+    @pytest.fixture(scope="module")
     def net_with_bceloss(self, net_cls, module_cls, data):
         # binary classification should also work with BCELoss
         net = net_cls(
@@ -440,7 +443,7 @@ class TestNeuralNetBinaryClassifier:
         return net
 
     def test_net_with_bceloss_learns(self, net_with_bceloss):
-        train_losses = net_with_bceloss.history[:, 'train_loss']
+        train_losses = net_with_bceloss.history[:, "train_loss"]
         assert train_losses[0] > 1.3 * train_losses[-1]
 
     def test_predict_proba_with_bceloss(self, net_with_bceloss, data):
@@ -466,6 +469,6 @@ class TestNeuralNetBinaryClassifier:
         X, _ = data
 
         y_pred_proba = net_with_bceloss.predict_proba(X)
-        y_pred_exp = (y_pred_proba[:, 1] > net_with_bceloss.threshold).astype('uint8')
+        y_pred_exp = (y_pred_proba[:, 1] > net_with_bceloss.threshold).astype("uint8")
         y_pred_actual = net_with_bceloss.predict(X)
         assert np.allclose(y_pred_exp, y_pred_actual)

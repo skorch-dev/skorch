@@ -30,13 +30,24 @@ from string import Formatter
 
 import numpy as np
 import torch
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import (
+    BaseEstimator,
+    ClassifierMixin,
+)
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_is_fitted
-from transformers import AutoConfig, AutoTokenizer, LogitsProcessor
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    LogitsProcessor,
+)
 
 from skorch.exceptions import LowProbabilityError
-from skorch.llm.prompts import DEFAULT_PROMPT_FEW_SHOT, DEFAULT_PROMPT_ZERO_SHOT, DELIM
+from skorch.llm.prompts import (
+    DEFAULT_PROMPT_FEW_SHOT,
+    DEFAULT_PROMPT_ZERO_SHOT,
+    DELIM,
+)
 
 
 def _check_format_string(text, kwargs):
@@ -68,9 +79,8 @@ def _check_format_string(text, kwargs):
 
     keys_missing = keys_expected - keys
     keys_extra = keys - keys_expected
-    msg = (
-        f"The prompt may not be correct, it expects {num_keys} "
-        "placeholders: " + ", ".join(f"'{key}'" for key in sorted(keys_expected))
+    msg = f"The prompt may not be correct, it expects {num_keys} " "placeholders: " + ", ".join(
+        f"'{key}'" for key in sorted(keys_expected)
     )
     if keys_missing:
         msg += ", missing keys: "
@@ -81,9 +91,7 @@ def _check_format_string(text, kwargs):
     warnings.warn(msg)
 
 
-def _load_model_and_tokenizer(
-        name, device, architectures=('Generation', 'LMHead', 'CausalLM')
-):
+def _load_model_and_tokenizer(name, device, architectures=("Generation", "LMHead", "CausalLM")):
     """Load a transformers model based only on its name
 
     This is a bit tricky, because we usually require the task as well to load
@@ -153,22 +161,19 @@ def _load_model_and_tokenizer(
 
 def _extend_inputs(inputs, extra):
     """Extend input arguments with an extra column"""
-    input_ids = inputs['input_ids']
-    attention_mask = inputs['attention_mask']
-    extra = torch.atleast_2d(
-        torch.tensor(extra, dtype=torch.long, device=input_ids.device)
-    )
+    input_ids = inputs["input_ids"]
+    attention_mask = inputs["attention_mask"]
+    extra = torch.atleast_2d(torch.tensor(extra, dtype=torch.long, device=input_ids.device))
     inputs_extended = inputs.copy()
 
-    inputs_extended['input_ids'] = torch.cat((input_ids, extra), dim=-1)
-    inputs_extended['attention_mask'] = torch.cat(
-        (attention_mask, torch.ones_like(extra)), dim=-1
-    )
+    inputs_extended["input_ids"] = torch.cat((input_ids, extra), dim=-1)
+    inputs_extended["attention_mask"] = torch.cat((attention_mask, torch.ones_like(extra)), dim=-1)
     return inputs_extended
 
 
 class _LogitsRecorder(LogitsProcessor):
     """Helper class to record logits and force the given label token ids"""
+
     def __init__(self, label_ids, tokenizer):
         self.recorded_scores = []
         self.label_ids = label_ids
@@ -181,7 +186,7 @@ class _LogitsRecorder(LogitsProcessor):
         self.recorded_scores.append(scores[0].clone().cpu())
         mask = torch.ones(scores.size(), dtype=torch.bool)
         mask[0, self.label_ids[idx]] = False
-        scores[mask] = -float('inf')
+        scores[mask] = -float("inf")
         return scores
 
 
@@ -195,6 +200,7 @@ class _CacheModelWrapper:
     Set use_caching=False to disable it, e.g. for debugging.
 
     """
+
     def __init__(self, model, tokenizer, use_caching=True):
         self.model = model
         self.tokenizer = tokenizer
@@ -207,7 +213,7 @@ class _CacheModelWrapper:
         self.cache.clear()
 
     def _make_key(self, kwargs):
-        input_ids = kwargs['input_ids']
+        input_ids = kwargs["input_ids"]
         input_id = input_ids[0].tolist()
         key = str(input_id)
         return key
@@ -231,7 +237,7 @@ class _CacheModelWrapper:
         # note that label_id i corresponds to score i+1
         # this is because the first score is for the input w/o label_id (only
         # the prompt); for this reason, the two sequences are offset by +1
-        input_id = kwargs['input_ids'][0].tolist()
+        input_id = kwargs["input_ids"][0].tolist()
         for lid, score in zip(label_id, scores[1:]):
             input_id.append(lid)
             key = str(input_id)
@@ -270,7 +276,7 @@ class _CacheModelWrapper:
             logits_processor=[recorder],
             # TODO: should this be the max len of all labels?
             max_new_tokens=len(label_id),
-            **kwargs
+            **kwargs,
         )
         self.set_cache(kwargs, label_id, recorder.recorded_scores)
         return recorded_logits + recorder.recorded_scores[:]
@@ -295,6 +301,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
     - use_caching
 
     """
+
     def check_X_y(self, X, y, **fit_params):
         raise NotImplementedError
 
@@ -312,7 +319,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
         return np.unique(y)
 
     def check_is_fitted(self):
-        required_attrs = ['model_', 'tokenizer_', 'prompt_', 'classes_', 'label_ids_']
+        required_attrs = ["model_", "tokenizer_", "prompt_", "classes_", "label_ids_"]
         check_is_fitted(self, required_attrs)
 
     @property
@@ -326,10 +333,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
         # users should either pass the model name, or the model and tokenizer,
         # but not both
         cls_name = self.__class__.__name__
-        msg = (
-            f"{cls_name} needs to be initialized with either a model name, "
-            "or a model & tokenizer, but not both."
-        )
+        msg = f"{cls_name} needs to be initialized with either a model name, " "or a model & tokenizer, but not both."
         if self.model_name is not None:
             if (self.model is not None) or (self.tokenizer is not None):
                 raise ValueError(msg)
@@ -337,7 +341,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
             if (self.model is None) or (self.tokenizer is None):
                 raise ValueError(msg)
 
-        possible_values_error_low_prob = ['ignore', 'raise', 'warn', 'return_none']
+        possible_values_error_low_prob = ["ignore", "raise", "warn", "return_none"]
         if self.error_low_prob not in possible_values_error_low_prob:
             raise ValueError(
                 "error_low_prob must be one of "
@@ -346,22 +350,17 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
             )
 
         if (self.threshold_low_prob < 0) or (self.threshold_low_prob > 1):
-            raise ValueError(
-                "threshold_low_prob must be between 0 and 1, "
-                f"got {self.threshold_low_prob} instead"
-            )
+            raise ValueError("threshold_low_prob must be between 0 and 1, " f"got {self.threshold_low_prob} instead")
 
     def _is_encoder_decoder(self, model):
-        return hasattr(model, 'get_encoder')
+        return hasattr(model, "get_encoder")
 
     def _fit(self, X, y, **fit_params):
         """Prepare everything to enable predictions."""
         self.check_args()
         self.check_X_y(X, y)
         if self.model_name is not None:
-            self.model_, self.tokenizer_ = _load_model_and_tokenizer(
-                self.model_name, device=self.device
-            )
+            self.model_, self.tokenizer_ = _load_model_and_tokenizer(self.model_name, device=self.device)
         else:
             self.model_, self.tokenizer_ = self.model, self.tokenizer
 
@@ -376,17 +375,14 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
             # and it will depend on the model. Therefore, for the time being, we
             # don't allow caching for encoder-decoder models.
             raise ValueError(
-                "Caching is not supported for encoder-decoder models, "
-                "initialize the model with use_caching=False."
+                "Caching is not supported for encoder-decoder models, " "initialize the model with use_caching=False."
             )
 
         self.classes_ = self.check_classes(y)
         self.prompt_ = self.check_prompt(self.prompt)
         classes = [str(c) for c in self.classes_]
-        self.label_ids_ = self.tokenizer_(classes)['input_ids']
-        self.cached_model_ = _CacheModelWrapper(
-            self.model_, self.tokenizer_, use_caching=self.use_caching
-        )
+        self.label_ids_ = self.tokenizer_(classes)["input_ids"]
+        self.cached_model_ = _CacheModelWrapper(self.model_, self.tokenizer_, use_caching=self.use_caching)
         return self
 
     def _predict_one(self, text):
@@ -400,7 +396,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
         eagerly instead of going through all samples and then raise.
 
         """
-        inputs = self.tokenizer_(text, return_tensors='pt').to(self.device_)
+        inputs = self.tokenizer_(text, return_tensors="pt").to(self.device_)
 
         probas_all_labels = []
         for label_id in self.label_ids_:
@@ -428,7 +424,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
             raise LowProbabilityError("The sum of all probabilities is zero.")
 
         probs_are_low = prob_sum < self.threshold_low_prob
-        if probs_are_low and (self.error_low_prob == 'raise'):
+        if probs_are_low and (self.error_low_prob == "raise"):
             raise LowProbabilityError(
                 f"The sum of all probabilities is {prob_sum:.3f}, "
                 f"which is below the minimum threshold of {self.threshold_low_prob:.3f}"
@@ -452,7 +448,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
             y_proba.append(proba)
         y_proba = np.vstack(y_proba)
 
-        if self.error_low_prob == 'warn':
+        if self.error_low_prob == "warn":
             total_low_probas = (y_proba.sum(1) < self.threshold_low_prob).sum()
             if total_low_probas:
                 warnings.warn(
@@ -538,7 +534,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
         pred_ids = y_proba.argmax(1)
         y_pred = self.classes_[pred_ids]
 
-        if self.error_low_prob == 'return_none':
+        if self.error_low_prob == "return_none":
             y_pred = y_pred.astype(object)  # prevents None from being cast to str
             mask_low_probas = y_proba.sum(1) < self.threshold_low_prob
             y_pred[mask_low_probas] = None
@@ -550,7 +546,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
         Call this to free some memory.
 
         """
-        if self.use_caching and hasattr(self, 'cached_model_'):
+        if self.use_caching and hasattr(self, "cached_model_"):
             # caching is used and model cache has been initialized
             self.cached_model_.clear()
 
@@ -707,18 +703,19 @@ class ZeroShotClassifier(_LlmBase):
       corresponds to which class.
 
     """
+
     def __init__(
-            self,
-            model_name=None,
-            *,
-            model=None,
-            tokenizer=None,
-            prompt=None,
-            probas_sum_to_1=True,
-            device='cpu',
-            error_low_prob='ignore',
-            threshold_low_prob=0.0,
-            use_caching=True,
+        self,
+        model_name=None,
+        *,
+        model=None,
+        tokenizer=None,
+        prompt=None,
+        probas_sum_to_1=True,
+        device="cpu",
+        error_low_prob="ignore",
+        threshold_low_prob=0.0,
+        use_caching=True,
     ):
         self.model_name = model_name
         self.model = model
@@ -744,10 +741,9 @@ class ZeroShotClassifier(_LlmBase):
         if prompt is None:
             prompt = DEFAULT_PROMPT_ZERO_SHOT
 
-
         kwargs = {
-            'text': "some text",
-            'labels': ["foo", "bar"],
+            "text": "some text",
+            "labels": ["foo", "bar"],
         }
         _check_format_string(prompt, kwargs)
         return prompt
@@ -761,9 +757,7 @@ class ZeroShotClassifier(_LlmBase):
         """Check that input data is well-behaved."""
         # X can be None but not y
         if y is None:
-            raise ValueError(
-                "y cannot be None, as it is used to infer the existing classes"
-            )
+            raise ValueError("y cannot be None, as it is used to infer the existing classes")
 
         if not isinstance(y[0], str):
             # don't raise an error, as, hypothetically, the LLM could also
@@ -935,20 +929,21 @@ class FewShotClassifier(_LlmBase):
       corresponds to which class.
 
     """
+
     def __init__(
-            self,
-            model_name=None,
-            *,
-            model=None,
-            tokenizer=None,
-            prompt=None,
-            probas_sum_to_1=True,
-            max_samples=5,
-            device='cpu',
-            error_low_prob='ignore',
-            threshold_low_prob=0.0,
-            use_caching=True,
-            random_state=None,
+        self,
+        model_name=None,
+        *,
+        model=None,
+        tokenizer=None,
+        prompt=None,
+        probas_sum_to_1=True,
+        max_samples=5,
+        device="cpu",
+        error_low_prob="ignore",
+        threshold_low_prob=0.0,
+        use_caching=True,
+        random_state=None,
     ):
         self.model_name = model_name
         self.model = model
@@ -978,9 +973,9 @@ class FewShotClassifier(_LlmBase):
             prompt = DEFAULT_PROMPT_FEW_SHOT
 
         kwargs = {
-            'text': "some text",
-            'labels': ["foo", "bar"],
-            'examples': ["some examples"],
+            "text": "some text",
+            "labels": ["foo", "bar"],
+            "examples": ["some examples"],
         }
         _check_format_string(prompt, kwargs)
         return prompt
@@ -1027,7 +1022,6 @@ class FewShotClassifier(_LlmBase):
         # comes last
         return examples[::-1]
 
-
     def fit(self, X, y, **fit_params):
         """Prepare everything to enable predictions.
 
@@ -1070,13 +1064,9 @@ class FewShotClassifier(_LlmBase):
         self.check_is_fitted()
         few_shot_examples = []
         for xi, yi in self.examples_:
-            few_shot_examples.append(
-                f"{DELIM}\n{xi}\n{DELIM}\n\nYour response:\n{yi}\n"
-            )
+            few_shot_examples.append(f"{DELIM}\n{xi}\n{DELIM}\n\nYour response:\n{yi}\n")
         examples = "\n".join(few_shot_examples)
-        return self.prompt_.format(
-            text=text, labels=self.classes_.tolist(), examples=examples
-        )
+        return self.prompt_.format(text=text, labels=self.classes_.tolist(), examples=examples)
 
     def check_X_y(self, X, y, **fit_params):
         """Check that input data is well-behaved."""
@@ -1084,9 +1074,7 @@ class FewShotClassifier(_LlmBase):
             raise ValueError("For few-shot learning, pass at least one example")
 
         if y is None:
-            raise ValueError(
-                "y cannot be None, as it is used to infer the existing classes"
-            )
+            raise ValueError("y cannot be None, as it is used to infer the existing classes")
 
         if not isinstance(y[0], str):
             # don't raise an error, as, hypothetically, the LLM could also
@@ -1099,6 +1087,5 @@ class FewShotClassifier(_LlmBase):
         len_X, len_y = len(X), len(y)
         if len_X != len_y:
             raise ValueError(
-                "X and y don't have the same number of samples, found "
-                f"{len_X} and {len_y} samples, respectively"
-        )
+                "X and y don't have the same number of samples, found " f"{len_X} and {len_y} samples, respectively"
+            )

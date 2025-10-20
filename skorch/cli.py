@@ -3,19 +3,20 @@ fire.
 
 """
 
-from functools import partial
-from importlib import import_module
-from itertools import chain
 import re
 import shlex
 import sys
+from functools import partial
+from importlib import import_module
+from itertools import chain
 
 from sklearn.base import BaseEstimator
-from sklearn.pipeline import FeatureUnion
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import (
+    FeatureUnion,
+    Pipeline,
+)
 
-
-__all__ = ['parse_args']
+__all__ = ["parse_args"]
 
 
 # matches: bar(), foo.bar(), foo.bar(baz)
@@ -38,7 +39,7 @@ P_DEFAULTS = re.compile(
 
 
 def _param_split(params):
-    return (p.strip(' ,') for p in shlex.split(params))
+    return (p.strip(" ,") for p in shlex.split(params))
 
 
 def _get_span(s, pattern):
@@ -82,7 +83,7 @@ def _substitute_default(s, new_value):
     i, j = _get_span(s, pattern=P_DEFAULTS)
     if (i, j) == (-1, -1):
         return s
-    return '{}{}{}'.format(s[:i], new_value, s[j:])
+    return "{}{}{}".format(s[:i], new_value, s[j:])
 
 
 def _parse_args_kwargs(params):
@@ -91,10 +92,10 @@ def _parse_args_kwargs(params):
     args = ()
     kwargs = {}
     for param in _param_split(params):
-        if '=' not in param:
+        if "=" not in param:
             args += (DefaultParseValue(param),)
         else:
-            k, v = param.split('=')
+            k, v = param.split("=")
             kwargs[k.strip()] = DefaultParseValue(v)
     return args, kwargs
 
@@ -114,17 +115,17 @@ def _resolve_dotted_name(dotted_name):
     if not isinstance(dotted_name, str):
         return dotted_name
 
-    if '.' not in dotted_name:
+    if "." not in dotted_name:
         return dotted_name
 
     args = None
     params = None
     match = P_PARAMS.match(dotted_name)
     if match:
-        dotted_name = match.group('name')
-        params = match.group('params')
+        dotted_name = match.group("name")
+        params = match.group("params")
 
-    module, name = dotted_name.rsplit('.', 1)
+    module, name = dotted_name.rsplit(".", 1)
     attr = import_module(module)
     attr = getattr(attr, name)
 
@@ -189,16 +190,16 @@ def _yield_estimators(model):
     else:
         net = model
 
-    yield '__'.join(net_prefixes), net
+    yield "__".join(net_prefixes), net
 
-    module = getattr(net, 'module', None)
+    module = getattr(net, "module", None)
     if not module:
         # There is no module attribute, we're dealing with a normal
         # scikit-learn estimator, so no need to show further help.
         return
 
-    module_prefixes.append('module')
-    yield '__'.join(module_prefixes), module
+    module_prefixes.append("module")
+    yield "__".join(module_prefixes), module
 
 
 def _extract_estimator_cls(estimator):
@@ -213,21 +214,20 @@ def _extract_estimator_cls(estimator):
 
 def _yield_printable_params(param, prefix, defaults):
     name, default, descr = param
-    name = name if not prefix else '__'.join((prefix, name))
+    name = name if not prefix else "__".join((prefix, name))
     default = _substitute_default(default, defaults.get(name))
 
-    printable = '--{} : {}'.format(name, default)
+    printable = "--{} : {}".format(name, default)
     yield printable
 
     for line in descr:
         yield line
 
 
-def _get_help_for_params(params, prefix='--', defaults=None, indent=2):
+def _get_help_for_params(params, prefix="--", defaults=None, indent=2):
     defaults = defaults or {}
     for param in params:
-        first, *rest = tuple(_yield_printable_params(
-            param, prefix=prefix, defaults=defaults))
+        first, *rest = tuple(_yield_printable_params(param, prefix=prefix, defaults=defaults))
         yield " " * indent + first
         for line in rest:
             yield " " * 2 * indent + line
@@ -243,11 +243,11 @@ def _get_help_for_estimator(prefix, estimator, defaults=None):
 
     doc = ClassDoc(estimator)
     yield from _get_help_for_params(
-        doc['Parameters'],
+        doc["Parameters"],
         prefix=prefix,
         defaults=defaults,
     )
-    yield ''  # add a newline line between estimators
+    yield ""  # add a newline line between estimators
 
 
 def print_help(model, defaults=None):
@@ -270,9 +270,10 @@ def print_help(model, defaults=None):
     print("python {} -- --help".format(sys.argv[0]))
     print()
 
-    lines = (_get_help_for_estimator(prefix, estimator, defaults=defaults) for
-             prefix, estimator in _yield_estimators(model))
-    print('\n'.join(chain(*lines)))
+    lines = (
+        _get_help_for_estimator(prefix, estimator, defaults=defaults) for prefix, estimator in _yield_estimators(model)
+    )
+    print("\n".join(chain(*lines)))
 
 
 def parse_args(kwargs, defaults=None):
@@ -351,6 +352,6 @@ def parse_args(kwargs, defaults=None):
         estimator.set_params(**defaults)
         return estimator.set_params(**parse_net_kwargs(kwargs))
 
-    if kwargs.get('help'):
+    if kwargs.get("help"):
         return print_help_and_exit
     return set_params

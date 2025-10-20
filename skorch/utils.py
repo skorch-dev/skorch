@@ -4,46 +4,55 @@ Should not have any dependency on other skorch packages.
 
 """
 
-from collections.abc import Mapping, Sequence
-from contextlib import contextmanager
-from enum import Enum
-from functools import partial
 import io
-from itertools import tee
 import pathlib
 import pickle
 import warnings
+from collections.abc import (
+    Mapping,
+    Sequence,
+)
+from contextlib import contextmanager
+from enum import Enum
+from functools import partial
+from itertools import tee
 
 import numpy as np
+import torch
 from scipy import sparse
 from sklearn.exceptions import NotFittedError
 from sklearn.utils import _safe_indexing as safe_indexing
 from sklearn.utils.validation import check_is_fitted as sk_check_is_fitted
-import torch
-from torch.nn import BCELoss
-from torch.nn import BCEWithLogitsLoss
-from torch.nn import CrossEntropyLoss
+from torch.nn import (
+    BCELoss,
+    BCEWithLogitsLoss,
+    CrossEntropyLoss,
+)
 from torch.nn.utils.rnn import PackedSequence
 from torch.utils.data.dataset import Subset
 
-from skorch.exceptions import DeviceWarning
-from skorch.exceptions import NotInitializedError
+from skorch.exceptions import (
+    DeviceWarning,
+    NotInitializedError,
+)
+
 from ._version import Version
 
 try:
     import torch_geometric
+
     TORCH_GEOMETRIC_INSTALLED = True
 except ImportError:
     TORCH_GEOMETRIC_INSTALLED = False
 
 
 class Ansi(Enum):
-    BLUE = '\033[94m'
-    CYAN = '\033[36m'
-    GREEN = '\033[32m'
-    MAGENTA = '\033[35m'
-    RED = '\033[31m'
-    ENDC = '\033[0m'
+    BLUE = "\033[94m"
+    CYAN = "\033[36m"
+    GREEN = "\033[32m"
+    MAGENTA = "\033[35m"
+    RED = "\033[31m"
+    ENDC = "\033[0m"
 
 
 def is_torch_data_type(x):
@@ -57,6 +66,7 @@ def is_dataset(x):
 
 def is_geometric_data_type(x):
     from torch_geometric.data import Data
+
     return isinstance(x, Data)
 
 
@@ -96,9 +106,9 @@ def to_tensor(X, device, accept_sparse=False):
         return to_device(X, device)
     if TORCH_GEOMETRIC_INSTALLED and is_geometric_data_type(X):
         return to_device(X, device)
-    if hasattr(X, 'convert_to_tensors'):
+    if hasattr(X, "convert_to_tensors"):
         # huggingface transformers BatchEncoding
-        return X.convert_to_tensors('pt')
+        return X.convert_to_tensors("pt")
     if isinstance(X, Mapping):
         return {key: to_tensor_(val) for key, val in X.items()}
     if isinstance(X, (list, tuple)):
@@ -111,17 +121,15 @@ def to_tensor(X, device, accept_sparse=False):
         return torch.as_tensor(X, device=device)
     if sparse.issparse(X):
         if accept_sparse:
-            return torch.sparse_coo_tensor(
-                X.nonzero(), X.data, size=X.shape).to(device)
-        raise TypeError("Sparse matrices are not supported. Set "
-                        "accept_sparse=True to allow sparse matrices.")
+            return torch.sparse_coo_tensor(X.nonzero(), X.data, size=X.shape).to(device)
+        raise TypeError("Sparse matrices are not supported. Set " "accept_sparse=True to allow sparse matrices.")
 
     raise TypeError("Cannot convert this data type to a torch tensor.")
 
 
 def _is_slicedataset(X):
     # Cannot use isinstance because we don't want to depend on helper.py.
-    return hasattr(X, 'dataset') and hasattr(X, 'idx') and hasattr(X, 'indices')
+    return hasattr(X, "dataset") and hasattr(X, "idx") and hasattr(X, "indices")
 
 
 def to_numpy(X):
@@ -155,7 +163,7 @@ def to_numpy(X):
     if X.is_cuda:
         X = X.cpu()
 
-    if hasattr(X, 'is_mps') and X.is_mps:
+    if hasattr(X, "is_mps") and X.is_mps:
         X = X.cpu()
 
     if X.requires_grad:
@@ -216,7 +224,7 @@ def get_dim(y):
 
 def is_pandas_ndframe(x):
     # the sklearn way of determining this
-    return hasattr(x, 'iloc')
+    return hasattr(x, "iloc")
 
 
 def flatten(arr):
@@ -247,14 +255,13 @@ def _indexing_list_tuple_of_data(data, i, indexings=None):
     """
     if not indexings:
         return [multi_indexing(x, i) for x in data]
-    return [multi_indexing(x, i, indexing)
-            for x, indexing in zip(data, indexings)]
+    return [multi_indexing(x, i, indexing) for x, indexing in zip(data, indexings)]
 
 
 def _indexing_ndframe(data, i):
     # During fit, DataFrames are converted to dict, which is why we
     # might need _indexing_dict.
-    if hasattr(data, 'iloc'):
+    if hasattr(data, "iloc"):
         return data.iloc[i]
     return _indexing_dict(data, i)
 
@@ -410,10 +417,9 @@ def params_for(prefix, kwargs):
     {'a': 3, 'b': 4}
 
     """
-    if not prefix.endswith('__'):
-        prefix += '__'
-    return {key[len(prefix):]: val for key, val in kwargs.items()
-            if key.startswith(prefix)}
+    if not prefix.endswith("__"):
+        prefix += "__"
+    return {key[len(prefix) :]: val for key, val in kwargs.items() if key.startswith(prefix)}
 
 
 # pylint: disable=invalid-name
@@ -450,11 +456,10 @@ def data_from_dataset(dataset, X_indexing=None, y_indexing=None):
     X, y = _none, _none
 
     if isinstance(dataset, Subset):
-        X, y = data_from_dataset(
-            dataset.dataset, X_indexing=X_indexing, y_indexing=y_indexing)
+        X, y = data_from_dataset(dataset.dataset, X_indexing=X_indexing, y_indexing=y_indexing)
         X = multi_indexing(X, dataset.indices, indexing=X_indexing)
         y = multi_indexing(y, dataset.indices, indexing=y_indexing)
-    elif hasattr(dataset, 'X') and hasattr(dataset, 'y'):
+    elif hasattr(dataset, "X") and hasattr(dataset, "y"):
         X, y = dataset.X, dataset.y
     elif isinstance(dataset, torch.utils.data.dataset.TensorDataset):
         if len(items := dataset.tensors) == 2:
@@ -470,6 +475,7 @@ def is_skorch_dataset(ds):
     ``skorch.dataset.Dataset`` even when it is nested inside
     ``torch.util.data.Subset``."""
     from skorch.dataset import Dataset
+
     if isinstance(ds, Subset):
         return is_skorch_dataset(ds.dataset)
     return isinstance(ds, Dataset)
@@ -500,12 +506,12 @@ def open_file_like(f, mode):
 
 # pylint: disable=unused-argument
 def train_loss_score(net, X=None, y=None):
-    return net.history[-1, 'batches', -1, 'train_loss']
+    return net.history[-1, "batches", -1, "train_loss"]
 
 
 # pylint: disable=unused-argument
 def valid_loss_score(net, X=None, y=None):
-    return net.history[-1, 'batches', -1, 'valid_loss']
+    return net.history[-1, "batches", -1, "valid_loss"]
 
 
 class FirstStepAccumulator:
@@ -522,6 +528,7 @@ class FirstStepAccumulator:
     ``NeuralNet.get_train_step_accumulator`` method.
 
     """
+
     def __init__(self):
         self.step = None
 
@@ -554,7 +561,7 @@ def unfreeze_parameter(param):
     param.requires_grad = True
 
 
-def get_map_location(target_device, fallback_device='cpu'):
+def get_map_location(target_device, fallback_device="cpu"):
     """Determine the location to map loaded data (e.g., weights)
     for a given target device (e.g. 'cuda').
     """
@@ -565,12 +572,14 @@ def get_map_location(target_device, fallback_device='cpu'):
 
     # The user wants to use CUDA but there is no CUDA device
     # available, thus fall back to CPU.
-    if map_location.type == 'cuda' and not torch.cuda.is_available():
+    if map_location.type == "cuda" and not torch.cuda.is_available():
         warnings.warn(
-            'Requested to load data to CUDA but no CUDA devices '
+            "Requested to load data to CUDA but no CUDA devices "
             'are available. Loading on device "{}" instead.'.format(
                 fallback_device,
-            ), DeviceWarning)
+            ),
+            DeviceWarning,
+        )
         map_location = torch.device(fallback_device)
     return map_location
 
@@ -589,11 +598,13 @@ def check_is_fitted(estimator, attributes=None, msg=None, all_or_any=all):
         sk_check_is_fitted(estimator, attributes, msg=msg, all_or_any=all_or_any)
     except NotFittedError as exc:
         if msg is None:
-            msg = ("This %(name)s instance is not initialized yet. Call "
-                   "'initialize' or 'fit' with appropriate arguments "
-                   "before using this method.")
+            msg = (
+                "This %(name)s instance is not initialized yet. Call "
+                "'initialize' or 'fit' with appropriate arguments "
+                "before using this method."
+            )
 
-        raise NotInitializedError(msg % {'name': type(estimator).__name__}) from exc
+        raise NotInitializedError(msg % {"name": type(estimator).__name__}) from exc
 
 
 def _identity(x):
@@ -640,7 +651,7 @@ def _sigmoid_then_2d(x):
 
 # TODO only needed if multiclass GP classfication is added
 # def _transpose(x):
-    # return x.T
+# return x.T
 
 
 # pylint: disable=protected-access
@@ -660,9 +671,9 @@ def _infer_predict_nonlinearity(net):
         # don't know which criterion to consider, don't try to guess
         return _identity
 
-    criterion = getattr(net, net._criteria[0] + '_')
+    criterion = getattr(net, net._criteria[0] + "_")
     # unwrap optimizer in case of torch.compile being used
-    criterion = getattr(criterion, '_orig_mod', criterion)
+    criterion = getattr(criterion, "_orig_mod", criterion)
 
     if isinstance(criterion, CrossEntropyLoss):
         return partial(torch.softmax, dim=-1)
@@ -707,6 +718,7 @@ class TeeGenerator:
     generator more than once.
 
     """
+
     def __init__(self, gen):
         self.gen = gen
 
@@ -746,18 +758,17 @@ def _check_f_arguments(caller_name, **kwargs):
       same thing.
 
     """
-    if kwargs.get('f_params') and kwargs.get('f_module'):
-        raise TypeError("{} called with both f_params and f_module, please choose one"
-                        .format(caller_name))
+    if kwargs.get("f_params") and kwargs.get("f_module"):
+        raise TypeError("{} called with both f_params and f_module, please choose one".format(caller_name))
 
     kwargs_module = {}
     kwargs_other = {}
-    keys_other = {'f_history', 'f_pickle'}
+    keys_other = {"f_history", "f_pickle"}
     for key, val in kwargs.items():
-        if not key.startswith('f_'):
+        if not key.startswith("f_"):
             raise TypeError(
-                "{name} got an unexpected argument '{key}', did you mean 'f_{key}'?"
-                .format(name=caller_name, key=key))
+                "{name} got an unexpected argument '{key}', did you mean 'f_{key}'?".format(name=caller_name, key=key)
+            )
 
         if val is None:
             continue
@@ -766,7 +777,7 @@ def _check_f_arguments(caller_name, **kwargs):
         else:
             # strip 'f_' prefix and attach '_', and normalize 'params' to 'module'
             # e.g. 'f_optimizer' becomes 'optimizer_', 'f_params' becomes 'module_'
-            key = 'module_' if key == 'f_params' else key[2:] + '_'
+            key = "module_" if key == "f_params" else key[2:] + "_"
             kwargs_module[key] = val
     return kwargs_module, kwargs_other
 
@@ -780,7 +791,7 @@ def get_default_torch_load_kwargs():
     """
     # TODO: Remove once PyTorch 2.5 is no longer supported
     version_torch = Version(torch.__version__)
-    version_default_switch = Version('2.6.0')
+    version_default_switch = Version("2.6.0")
     if version_torch >= version_default_switch:
         return {"weights_only": True}
     return {"weights_only": False}
@@ -805,14 +816,11 @@ class _TorchLoadUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         # The actual serialized data for PyTorch tensors references
         # torch.storage._load_from_bytes internally. We intercept that call:
-        if (module == 'torch.storage') and (name == '_load_from_bytes'):
+        if (module == "torch.storage") and (name == "_load_from_bytes"):
             # Return a function that uses torch.load with our desired map_location
             def _load_from_bytes(b):
-                return torch.load(
-                    io.BytesIO(b),
-                    map_location=self.map_location,
-                    **self.torch_load_kwargs
-                )
+                return torch.load(io.BytesIO(b), map_location=self.map_location, **self.torch_load_kwargs)
+
             return _load_from_bytes
 
         return super().find_class(module, name)

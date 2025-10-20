@@ -1,7 +1,7 @@
 """Tests for scoring.py"""
 
-import pytest
 import numpy as np
+import pytest
 import torch
 
 
@@ -49,9 +49,7 @@ class TestLossScoring:
 
     @pytest.fixture(scope="module")
     def scored_net(self, scored_net_cls, module_cls, reduction):
-        return scored_net_cls(
-            module_cls, lr=0.01, criterion__reduction=reduction
-        )
+        return scored_net_cls(module_cls, lr=0.01, criterion__reduction=reduction)
 
     @pytest.fixture(scope="module")
     def scored_net_fit(self, scored_net, data):
@@ -75,9 +73,7 @@ class TestLossScoring:
     def test_nonnull_sample_weight_raises(self, loss_scoring_fn, net_fit, data):
         X, y = data
         with pytest.raises(NotImplementedError):
-            loss_scoring_fn(
-                net_fit, X, y, sample_weight=np.random.rand(X.shape[0])
-            )
+            loss_scoring_fn(net_fit, X, y, sample_weight=np.random.rand(X.shape[0]))
 
     def test_scored_net_output_type(self, scored_net_fit, data):
         X, y = data
@@ -96,13 +92,9 @@ class TestLossScoring:
         score_value = scored_net_fit.score(X, y)
         assert np.allclose(score_value, loss_value.item())
 
-    def test_scored_net_with_reduction_none(
-            self, scored_net_cls, module_cls, reduction, data
-    ):
+    def test_scored_net_with_reduction_none(self, scored_net_cls, module_cls, reduction, data):
         X, y = data
-        net = scored_net_cls(
-            module_cls, lr=0.01, criterion__reduction=reduction
-        ).fit(X, y)
+        net = scored_net_cls(module_cls, lr=0.01, criterion__reduction=reduction).fit(X, y)
         net.set_params(criterion__reduction="sum")
         loss_value = net.score(X, y)
         net.set_params(criterion__reduction="none")
@@ -110,9 +102,7 @@ class TestLossScoring:
         assert output.shape[0] == X.shape[0]
         assert np.allclose(output.sum(), loss_value)
 
-    def test_score_unknown_reduction_raises(
-            self, loss_scoring_fn, net_fit, data
-    ):
+    def test_score_unknown_reduction_raises(self, loss_scoring_fn, net_fit, data):
         X, y = data
         net_fit.set_params(criterion__reduction="unk")
         with pytest.raises(ValueError, match="for reduction but got"):

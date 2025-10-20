@@ -2,15 +2,17 @@
 
 import numpy as np
 import pytest
-from sklearn.datasets import make_classification
-from sklearn.datasets import make_regression
-from sklearn.preprocessing import StandardScaler
 import torch
+from sklearn.datasets import (
+    make_classification,
+    make_regression,
+)
+from sklearn.preprocessing import StandardScaler
 from torch import nn
 
 F = nn.functional
 
-INFERENCE_METHODS = ['predict', 'predict_proba', 'forward', 'forward_iter']
+INFERENCE_METHODS = ["predict", "predict_proba", "forward", "forward_iter"]
 
 
 ###################
@@ -46,10 +48,11 @@ def module_cls():
     return MyModule
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def classifier_module():
     """Return a simple classifier module class."""
     from skorch.toy import make_classifier
+
     return make_classifier(
         input_units=20,
         hidden_units=10,
@@ -58,7 +61,7 @@ def classifier_module():
     )
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def multiouput_module():
     """Return a simple classifier module class."""
 
@@ -77,26 +80,24 @@ def multiouput_module():
     return MultiOutput
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def classifier_data():
     X, y = make_classification(1000, 20, n_informative=10, random_state=0)
     return X.astype(np.float32), y
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def regression_data():
-    X, y = make_regression(
-        1000, 20, n_informative=10, bias=0, random_state=0)
+    X, y = make_regression(1000, 20, n_informative=10, bias=0, random_state=0)
     X, y = X.astype(np.float32), y.astype(np.float32).reshape(-1, 1)
     Xt = StandardScaler().fit_transform(X)
     yt = StandardScaler().fit_transform(y)
     return Xt, yt
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def multioutput_regression_data():
-    X, y = make_regression(
-        1000, 20, n_targets=3, n_informative=10, bias=0, random_state=0)
+    X, y = make_regression(1000, 20, n_targets=3, n_informative=10, bias=0, random_state=0)
     X, y = X.astype(np.float32), y.astype(np.float32)
     Xt = StandardScaler().fit_transform(X)
     yt = StandardScaler().fit_transform(y)
@@ -111,7 +112,7 @@ def score55():
     def func(est, X, y, foo=123):
         return 55
 
-    func.__name__ = 'score55'
+    func.__name__ = "score55"
     return func
 
 
@@ -129,6 +130,7 @@ def train_split():
 @pytest.fixture
 def net_cls():
     from skorch import NeuralNetRegressor
+
     return NeuralNetRegressor
 
 
@@ -192,4 +194,3 @@ try:
     mlflow_installed = True
 except ImportError:
     pass
-
