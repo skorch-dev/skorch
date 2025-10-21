@@ -511,11 +511,11 @@ class TestNeuralNet:
             # 1. one for the failed load
             # 2. for switching devices on the net instance
             # remove possible future warning about weights_only=False
-            assert len(w_list) == 2
-            assert w_list[0].message.args[0] == (
+            assert len(w.list) == 2
+            assert w.list[0].message.args[0] == (
                 'Requested to load data to CUDA but no CUDA devices '
                 'are available. Loading on device "cpu" instead.')
-            assert w_list[1].message.args[0] == (
+            assert w.list[1].message.args[0] == (
                 'Setting self.device = {} since the requested device ({}) '
                 'is not available.'.format(load_dev, save_dev))
 
