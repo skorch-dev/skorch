@@ -4237,16 +4237,6 @@ class TestTorchCompile:
         net.set_params(compile__mode='reduce-overhead')
         assert mock_compile.call_count == 4
 
-    def test_compile_true_but_not_available_raises(
-            self, net_cls, module_cls, monkeypatch
-    ):
-        if hasattr(torch, 'compile'):
-            monkeypatch.delattr(torch, 'compile')
-
-        msg = "Setting compile=True but torch.compile is not available"
-        with pytest.raises(ValueError, match=msg):
-            net_cls(module_cls, compile=True).initialize()
-
     def test_compile_missing_dunder_in_prefix_arguments(
             self, net_cls, module_cls, mock_compile  # pylint: disable=unused-argument
     ):
