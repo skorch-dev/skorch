@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [1.3.0]
+
+### Fixed
+
 - Implement `__sklearn_is_fitted__` for skorch models, following [sklearn custom model protocol](https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html#sphx-glr-auto-examples-developing-estimators-sklearn-is-fitted-py) (#1119)
 
 ## [1.2.0]
