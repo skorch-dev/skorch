@@ -817,24 +817,9 @@ class NeuralNet(BaseEstimator):
         module : torch.nn.Module or torch._dynamo.OptimizedModule
           The compiled module if ``compile=True``, otherwise the uncompiled module.
 
-        Raises
-        ------
-        ValueError
-          If ``compile=True`` but ``torch.compile`` is not available, raise an
-          error.
-
         """
-        # TODO: adjust docstring once we no longer support PyTorch versions without compile
         if not self.compile:
             return module
-
-        # Whether torch.compile is available (PyTorch 2.0 and up)
-        torch_compile_available = hasattr(torch, 'compile')
-        if not torch_compile_available:
-            raise ValueError(
-                "Setting compile=True but torch.compile is not available. Please "
-                f"check that your installed PyTorch version ({torch.__version__}) "
-                "supports torch.compile (requires v1.14, v2.0 or higher)")
 
         params = self.get_params_for('compile')
         module_compiled = torch.compile(module, **params)
