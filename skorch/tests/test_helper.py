@@ -554,13 +554,13 @@ class TestPredefinedSplit():
         pickle.dumps(train_split)
 
 
+@pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
 class TestDataFrameTransformer:
     @pytest.fixture
     def transformer_cls(self):
         from skorch.helper import DataFrameTransformer
         return DataFrameTransformer
 
-    @pytest.mark.skipif(not pandas_installed, reason='pandas is not installed')
     @pytest.fixture
     def df(self):
         """DataFrame containing float, int, category types"""

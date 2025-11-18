@@ -148,15 +148,6 @@ try:
 except ImportError:
     pass
 
-sacred_installed = False
-try:
-    # pylint: disable=unused-import
-    import sacred
-
-    sacred_installed = True
-except ImportError:
-    pass
-
 wandb_installed = False
 try:
     # pylint: disable=unused-import
@@ -174,6 +165,16 @@ try:
     pandas_installed = True
 except ImportError:
     pass
+
+sacred_installed = False
+if pandas_installed:  # sacred import fails without pandas
+    try:
+        # pylint: disable=unused-import
+        import sacred
+
+        sacred_installed = True
+    except ImportError:
+        pass
 
 tensorboard_installed = False
 try:
