@@ -3012,30 +3012,6 @@ class TestNeuralNet:
         weights_loaded = net_new.custom_.state_dict()['sequential.3.weight']
         assert (weights_before == weights_loaded).all()
 
-    def test_torch_load_kwargs_auto_weights_only_false_when_load_params(
-            self, net_cls, module_cls, monkeypatch, tmp_path
-    ):
-        # Here we assume that the torch version is low enough that weights_only
-        # defaults to False. Check that when no argument is set in skorch, the
-        # right default is used.
-        # See discussion in 1063
-        net = net_cls(module_cls).initialize()
-        net.save_params(f_params=tmp_path / 'params.pkl')
-        state_dict = net.module_.state_dict()
-        expected_kwargs = {"weights_only": False}
-
-        mock_torch_load = Mock(return_value=state_dict)
-        monkeypatch.setattr(torch, "load", mock_torch_load)
-        monkeypatch.setattr(
-            skorch.net, "get_default_torch_load_kwargs", lambda: expected_kwargs
-        )
-
-        net.load_params(f_params=tmp_path / 'params.pkl')
-
-        call_kwargs = mock_torch_load.call_args_list[0].kwargs
-        del call_kwargs['map_location']  # we're not interested in that
-        assert call_kwargs == expected_kwargs
-
     def test_torch_load_kwargs_auto_weights_only_true_when_load_params(
             self, net_cls, module_cls, monkeypatch, tmp_path
     ):
@@ -3050,9 +3026,6 @@ class TestNeuralNet:
 
         mock_torch_load = Mock(return_value=state_dict)
         monkeypatch.setattr(torch, "load", mock_torch_load)
-        monkeypatch.setattr(
-            skorch.net, "get_default_torch_load_kwargs", lambda: expected_kwargs
-        )
 
         net.load_params(f_params=tmp_path / 'params.pkl')
 
@@ -4263,16 +4236,6 @@ class TestTorchCompile:
 
         net.set_params(compile__mode='reduce-overhead')
         assert mock_compile.call_count == 4
-
-    def test_compile_true_but_not_available_raises(
-            self, net_cls, module_cls, monkeypatch
-    ):
-        if hasattr(torch, 'compile'):
-            monkeypatch.delattr(torch, 'compile')
-
-        msg = "Setting compile=True but torch.compile is not available"
-        with pytest.raises(ValueError, match=msg):
-            net_cls(module_cls, compile=True).initialize()
 
     def test_compile_missing_dunder_in_prefix_arguments(
             self, net_cls, module_cls, mock_compile  # pylint: disable=unused-argument
