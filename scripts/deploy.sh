@@ -3,7 +3,7 @@ set -eu
 set -o pipefail
 
 PYTORCH_VERSION=${PYTORCH_VERSION:-""}
-PYTHON_VERSION="3.9"
+PYTHON_VERSION="3.13"
 TWINE_VERSION=">3,<4.0.0dev"
 CONDA_ENV="skorch-deploy"
 
