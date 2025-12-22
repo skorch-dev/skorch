@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [1.3.1]
+
+### Fixed
+
 - Compatibility with sklearn v1.8: `__sklearn_is_fitted__` returns a boolean (#1128)
 - Compatibility with sklearn v1.8: `SkorchDoctor` is now an sklearn `BaseEstimator` instance (#1128)
 
