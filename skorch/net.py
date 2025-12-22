@@ -19,7 +19,6 @@ import warnings
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from sklearn.exceptions import NotFittedError
 import torch
 from torch.utils.data import DataLoader
 
@@ -1365,17 +1364,17 @@ class NeuralNet(BaseEstimator):
 
     def __sklearn_is_fitted__(self):
         """This method is called when sklearn's ``check_is_fitted`` is used.
-        
-        Explained here: 
+
+        Explained here:
         https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html
         """
+        is_fitted = False
         try:
             self.check_is_fitted()
+            is_fitted = True
         except NotInitializedError:
-            raise NotFittedError(
-                f"This {self.__class__.__name__} instance is not fitted yet. "
-                "Call 'fit' with appropriate arguments before using this estimator."
-            )
+            pass
+        return is_fitted
 
     def trim_for_prediction(self):
         """Remove all attributes not required for prediction.

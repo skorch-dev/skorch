@@ -28,7 +28,6 @@ from torch.utils.data.dataset import Subset
 
 from skorch.exceptions import DeviceWarning
 from skorch.exceptions import NotInitializedError
-from ._version import Version
 
 try:
     import torch_geometric
