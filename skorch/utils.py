@@ -151,10 +151,7 @@ def to_numpy(X):
     if not is_torch_data_type(X):
         raise TypeError("Cannot convert this data type to a numpy array.")
 
-    if X.is_cuda:
-        X = X.cpu()
-
-    if hasattr(X, 'is_mps') and X.is_mps:
+    if X.device.type!="cpu":
         X = X.cpu()
 
     if X.requires_grad:
