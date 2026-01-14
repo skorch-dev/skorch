@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Generalize device check for tensor conversion
+- Generalize device check for tensor conversion (#1132)
 
 ### Changed
 
