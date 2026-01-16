@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Generalize device check for tensor conversion (#1132)
+- Extend tensor conversion to numpy arrays to work with more device types (#1132)
 
 ### Changed
 
