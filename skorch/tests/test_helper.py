@@ -575,6 +575,13 @@ class TestDataFrameTransformer:
         df['col_cats'] = df['col_cats'].astype('category')
         return df
 
+    @pytest.fixture
+    def pandas_ge3(self):
+        import pandas as pd
+
+        major_version = int(pd.__version__.split(".", 1)[0])
+        return major_version >= 3
+
     def test_fit_transform_defaults(self, transformer_cls, df):
         expected = {
             'X': np.asarray([
@@ -642,29 +649,43 @@ class TestDataFrameTransformer:
         with pytest.raises(TypeError, match=msg):
             transformer_cls().fit_transform(df)
 
-    def test_str_dtype_raises(self, transformer_cls, df):
+    def test_str_dtype_raises(self, transformer_cls, df, pandas_ge3):
         data = np.array(['foo', 'bar', 'baz'])
         df = df.assign(invalid=data)
-        msg = (
-            r"Cannot interpret '<StringDtype\("
-            # note: message is different depending in whether pyarrow is installed
-            r"(?:storage='python',\s*)?"
-            r"na_value=nan\)>' as a data type"
-        )
+        if pandas_ge3:
+            msg = (
+                r"Cannot interpret '<StringDtype\("
+                # note: message is different depending in whether pyarrow is installed
+                r"(?:storage='python',\s*)?"
+                r"na_value=nan\)>' as a data type"
+            )
+        else:
+            # TODO: Once Python 3.10 is dropped, pandas should always be >= 3.0
+            msg = (
+                "The following columns have dtypes that cannot be interpreted as "
+                "numerical dtypes"
+            )
         with pytest.raises(TypeError, match=msg):
             transformer_cls().fit_transform(df)
 
-    def test_two_invalid_dtypes_raises(self, transformer_cls, df):
+    def test_two_invalid_dtypes_raises(self, transformer_cls, df, pandas_ge3):
         df = df.assign(
             invalid0=np.array([object, object, object]),
             invalid1=np.array(['foo', 'bar', 'baz']),
         )
-        msg = (
-            r"Cannot interpret '<StringDtype\("
-            # note: message is different depending in whether pyarrow is installed
-            r"(?:storage='python',\s*)?"
-            r"na_value=nan\)>' as a data type"
-        )
+        if pandas_ge3:
+            msg = (
+                r"Cannot interpret '<StringDtype\("
+                # note: message is different depending in whether pyarrow is installed
+                r"(?:storage='python',\s*)?"
+                r"na_value=nan\)>' as a data type"
+            )
+        else:
+            # TODO: Once Python 3.10 is dropped, pandas should always be >= 3.0
+            msg = (
+                "The following columns have dtypes that cannot be interpreted as "
+                "numerical dtypes"
+            )
         with pytest.raises(TypeError, match=msg):
             transformer_cls().fit_transform(df)
 
