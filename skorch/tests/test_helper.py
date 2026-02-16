@@ -632,13 +632,22 @@ class TestDataFrameTransformer:
         Xt = transformer_cls(treat_int_as_categorical=True).fit_transform(df)
         assert_dicts_equal(Xt, expected)
 
-    @pytest.mark.parametrize('data', [
-        np.array([object, object, object]),
-        np.array(['foo', 'bar', 'baz']),
-    ])
-    def test_invalid_dtype_raises(self, transformer_cls, df, data):
+    def test_object_dtype_raises(self, transformer_cls, df):
+        data = np.array([object, object, object])
         df = df.assign(invalid=data)
-        msg = re.escape(r"Cannot interpret '<StringDtype(na_value=nan)>' as a data type")
+        msg = re.escape(
+            r"The following columns have dtypes that cannot be interpreted as "
+            "numerical dtypes: invalid (object)"
+        )
+        with pytest.raises(TypeError, match=msg):
+            transformer_cls().fit_transform(df)
+
+    def test_str_dtype_raises(self, transformer_cls, df):
+        data = np.array(['foo', 'bar', 'baz'])
+        df = df.assign(invalid=data)
+        msg = re.escape(
+            r"Cannot interpret '<StringDtype(na_value=nan)>' as a data type"
+        )
         with pytest.raises(TypeError, match=msg):
             transformer_cls().fit_transform(df)
 
@@ -647,7 +656,9 @@ class TestDataFrameTransformer:
             invalid0=np.array([object, object, object]),
             invalid1=np.array(['foo', 'bar', 'baz']),
         )
-        msg = re.escape(r"Cannot interpret '<StringDtype(na_value=nan)>' as a data type")
+        msg = re.escape(
+            r"Cannot interpret '<StringDtype(na_value=nan)>' as a data type"
+        )
         with pytest.raises(TypeError, match=msg):
             transformer_cls().fit_transform(df)
 
