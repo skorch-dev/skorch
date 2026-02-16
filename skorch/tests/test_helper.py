@@ -645,8 +645,11 @@ class TestDataFrameTransformer:
     def test_str_dtype_raises(self, transformer_cls, df):
         data = np.array(['foo', 'bar', 'baz'])
         df = df.assign(invalid=data)
-        msg = re.escape(
-            r"Cannot interpret '<StringDtype(na_value=nan)>' as a data type"
+        msg = (
+            r"Cannot interpret '<StringDtype\("
+            # note: message is different depending in whether pyarrow is installed
+            r"(?:storage='python',\s*)?"
+            r"na_value=nan\)>' as a data type"
         )
         with pytest.raises(TypeError, match=msg):
             transformer_cls().fit_transform(df)
@@ -656,8 +659,11 @@ class TestDataFrameTransformer:
             invalid0=np.array([object, object, object]),
             invalid1=np.array(['foo', 'bar', 'baz']),
         )
-        msg = re.escape(
-            r"Cannot interpret '<StringDtype(na_value=nan)>' as a data type"
+        msg = (
+            r"Cannot interpret '<StringDtype\("
+            # note: message is different depending in whether pyarrow is installed
+            r"(?:storage='python',\s*)?"
+            r"na_value=nan\)>' as a data type"
         )
         with pytest.raises(TypeError, match=msg):
             transformer_cls().fit_transform(df)
