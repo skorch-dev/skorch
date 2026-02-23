@@ -243,14 +243,14 @@ def test_hf_model_hub():
     assert accuracy_score(y_test, net.predict(X_test)) > 0.7
     print(hub_pickle_storer.latest_url_)
 
-    path = hf_hub_download(REPO_NAME, MODEL_NAME, use_auth_token=TOKEN)
+    path = hf_hub_download(REPO_NAME, MODEL_NAME, token=TOKEN)
     with open(path, 'rb') as f:
         net_loaded = pickle.load(f)
 
     with torch.inference_mode():
         assert np.allclose(net.predict_proba(X_test), net_loaded.predict_proba(X_test))
 
-    path = hf_hub_download(REPO_NAME, WEIGHTS_NAME, use_auth_token=TOKEN)
+    path = hf_hub_download(REPO_NAME, WEIGHTS_NAME, token=TOKEN)
     with open(path, 'rb') as f:
         weights_loaded = torch.load(f)
 

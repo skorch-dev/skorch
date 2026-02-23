@@ -1214,7 +1214,7 @@ class HfHubStorage:
     >>> # later...
     >>> import pickle
     >>> from huggingface_hub import hf_hub_download
-    >>> path = hf_hub_download(repo_name, model_name, use_auth_token=token)
+    >>> path = hf_hub_download(repo_name, model_name, token=token)
     >>> with open(path, 'rb') as f:
     >>>     net_loaded = pickle.load(f)
 
