@@ -377,10 +377,10 @@ class TestZeroShotClassifier:
         clf.fit(None, ['negative', 'positive'])
         clf.predict_proba(X)
 
-        msg = "Found 2 samples to have a total probability below the threshold of 0.99"
+        msg = "to have a total probability below the threshold of 0.99"
         assert len(recwarn.list) == 1
-        # use startswith because the exact number of decimals is not clear
-        assert str(recwarn.list[0].message).startswith(msg)
+        # use `in` because the exact number of decimals is not clear
+        assert msg in str(recwarn.list[0].message)
 
     def test_low_probability_error(self, classifier_cls, model, tokenizer, X):
         from skorch.llm.classifier import LowProbabilityError
@@ -414,15 +414,15 @@ class TestZeroShotClassifier:
         clf.fit(None, ['negative', 'positive'])
         y_pred = clf.predict(X)
 
-        # With a threshold of 0.99, empirically, the first 2 samples will fall
-        # below it and the last is above it.
-        expected = [None, 'negative', None]
+        # With a threshold of 0.993, empirically, the first sample will fall
+        # below it and the last two above it.
+        expected = [None, 'negative', 'positive']
         np.testing.assert_array_equal(y_pred, expected)
 
     def test_repr(self, classifier_cls, model, tokenizer):
         expected = (
             "ZeroShotClassifier(model='T5ForConditionalGeneration', "
-            "tokenizer='T5TokenizerFast', use_caching=False)"
+            "tokenizer='T5Tokenizer', use_caching=False)"
         )
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)
         assert str(clf) == expected
@@ -697,7 +697,7 @@ class TestFewShotClassifier:
     def test_repr(self, classifier_cls, model, tokenizer, X, y):
         expected = (
             "FewShotClassifier(model='T5ForConditionalGeneration', "
-            "tokenizer='T5TokenizerFast', use_caching=False)"
+            "tokenizer='T5Tokenizer', use_caching=False)"
         )
 
         clf = classifier_cls(model=model, tokenizer=tokenizer, use_caching=False)

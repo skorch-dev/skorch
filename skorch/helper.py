@@ -408,11 +408,9 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         wrong_dtypes = []
 
         for col, dtype in zip(df, df.dtypes):
+            if pd.api.types.is_numeric_dtype(dtype):
+                continue
             if isinstance(dtype, pd.api.types.CategoricalDtype):
-                continue
-            if np.issubdtype(dtype, np.integer):
-                continue
-            if np.issubdtype(dtype, np.floating):
                 continue
             wrong_dtypes.append((col, dtype))
 
