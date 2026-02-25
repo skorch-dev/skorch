@@ -157,6 +157,9 @@ def to_numpy(X):
     if hasattr(X, 'is_mps') and X.is_mps:
         X = X.cpu()
 
+    if X.device.type != "cpu":
+        X = X.cpu()
+
     if X.requires_grad:
         X = X.detach()
 
