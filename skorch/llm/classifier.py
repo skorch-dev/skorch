@@ -352,7 +352,8 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
             )
 
     def _is_encoder_decoder(self, model):
-        return hasattr(model, 'get_encoder')
+        # this attribute exists at least since transformers 4.37.2
+        return self.model_.config.is_encoder_decoder
 
     def _fit(self, X, y, **fit_params):
         """Prepare everything to enable predictions."""
@@ -456,7 +457,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
             total_low_probas = (y_proba.sum(1) < self.threshold_low_prob).sum()
             if total_low_probas:
                 warnings.warn(
-                    f"Found {total_low_probas} samples to have a total probability "
+                    f"Found {total_low_probas} sample(s) to have a total probability "
                     f"below the threshold of {self.threshold_low_prob:.3f}."
                 )
 

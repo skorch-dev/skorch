@@ -637,27 +637,27 @@ class TestDataFrameTransformer:
     ])
     def test_invalid_dtype_raises(self, transformer_cls, df, data):
         df = df.assign(invalid=data)
-        with pytest.raises(TypeError) as exc:
+        expected = (
+            r"The following columns have dtypes that cannot be "
+            r"interpreted as numerical dtypes: invalid \(object|str\)"
+        )
+        with pytest.raises(TypeError, match=expected):
             transformer_cls().fit_transform(df)
-
-        msg = exc.value.args[0]
-        expected = ("The following columns have dtypes that cannot be "
-                    "interpreted as numerical dtypes: invalid (object)")
-        assert msg == expected
 
     def test_two_invalid_dtypes_raises(self, transformer_cls, df):
         df = df.assign(
             invalid0=np.array([object, object, object]),
             invalid1=np.array(['foo', 'bar', 'baz']),
         )
-        with pytest.raises(TypeError) as exc:
+        expected = (
+            r"The following columns have dtypes that cannot be "
+            r"interpreted as numerical dtypes: invalid0 \(object\), "
+            # TODO: With pandas 2, the dtype is object, with pandas 3, it's str.
+            # Once Python 3.10 and hence pandas 2.0 is dropped, only match str.
+            r"invalid1 \(object|str\)"
+        )
+        with pytest.raises(TypeError, match=expected):
             transformer_cls().fit_transform(df)
-
-        msg = exc.value.args[0]
-        expected = ("The following columns have dtypes that cannot be "
-                    "interpreted as numerical dtypes: invalid0 (object), "
-                    "invalid1 (object)")
-        assert msg == expected
 
     @pytest.mark.parametrize('dtype', [np.float16, np.float32, np.float64])
     def test_set_float_dtype(self, transformer_cls, df, dtype):

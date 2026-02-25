@@ -76,7 +76,9 @@ extended = [
     "tokenizers",
     "safetensors>=0.3.1",
     "protobuf",
-    "gpytorch>=1.5",
+    # See https://github.com/cornellius-gp/gpytorch/issues/2717
+    # TODO: remove upper limit if/once this is fixed in gpytorch
+    "gpytorch>=1.5,<1.15.0",
     "pillow",
     "fire",
 ]
