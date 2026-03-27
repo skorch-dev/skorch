@@ -8,6 +8,8 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  schedule:
+    - cron:  '0 9 * * 0'  # every sunday at 9:00 UTC
 
 # print more columns
 env:
