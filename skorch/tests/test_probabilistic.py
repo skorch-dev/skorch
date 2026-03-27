@@ -699,31 +699,21 @@ class TestGPBinaryClassifier(BaseProbabilisticTests):
         assert gpc.batch_size < self.n_samples
         return gpc
 
-    # Since GPyTorch v1.10, GPBinaryClassifier is the only estimator left that
-    # still has issues with pickling/deepcopying.
-
-    @pytest.mark.xfail(strict=True)
     def test_pickling(self, gp_fit, data):
-        # Currently fails because of issues outside of our control, this test
-        # should alert us to when the issue has been fixed. Some issues have
-        # been fixed in https://github.com/cornellius-gp/gpytorch/pull/1336 but
-        # not all.
         pickle.dumps(gp_fit)
 
     def test_pickle_error_msg(self, gp_fit, data):
-        # Should eventually be replaced by a test that saves and loads the model
-        # using pickle and checks that the predictions are identical
-        msg = ("This GPyTorch model cannot be pickled. The reason is probably this:"
-               " https://github.com/pytorch/pytorch/issues/38137. "
-               "Try using 'dill' instead of 'pickle'.")
-        with pytest.raises(pickle.PicklingError, match=msg):
-            pickle.dumps(gp_fit)
+        loaded = pickle.loads(pickle.dumps(gp_fit))
+        X, _ = data
+
+        y_proba_before = gp_fit.predict_proba(X)
+        y_proba_after = loaded.predict_proba(X)
+        assert np.allclose(y_proba_before, y_proba_after)
 
     def test_deepcopy(self, gp_fit, data):
-        # Should eventually be replaced by a test that saves and loads the model
-        # using deepcopy and checks that the predictions are identical
-        msg = ("This GPyTorch model cannot be pickled. The reason is probably this:"
-               " https://github.com/pytorch/pytorch/issues/38137. "
-               "Try using 'dill' instead of 'pickle'.")
-        with pytest.raises(pickle.PicklingError, match=msg):
-            copy.deepcopy(gp_fit)  # doesn't raise
+        copied = copy.deepcopy(gp_fit)
+        X, _ = data
+
+        y_proba_before = gp_fit.predict_proba(X)
+        y_proba_after = copied.predict_proba(X)
+        assert np.allclose(y_proba_before, y_proba_after)
