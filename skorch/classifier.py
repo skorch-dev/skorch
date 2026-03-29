@@ -15,6 +15,7 @@ from skorch.callbacks import EpochScoring
 from skorch.callbacks import PassthroughScoring
 from skorch.dataset import ValidSplit
 from skorch.utils import data_from_dataset, is_dataset, get_dim, to_numpy
+from typing import Union
 
 neural_net_clf_doc_start = """NeuralNet for classification tasks
 
@@ -63,7 +64,7 @@ class NeuralNetClassifier(ClassifierMixin, NeuralNet):
             self,
             module,
             *args,
-            criterion=torch.nn.NLLLoss,
+            criterion:Union[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss]=torch.nn.NLLLoss,
             train_split=ValidSplit(5, stratified=True),
             classes=None,
             **kwargs
@@ -152,7 +153,14 @@ class NeuralNetClassifier(ClassifierMixin, NeuralNet):
         if isinstance(self.criterion_, torch.nn.NLLLoss):
             eps = torch.finfo(y_pred.dtype).eps
             y_pred = torch.log(y_pred + eps)
-        return super().get_loss(y_pred, y_true, *args, **kwargs)
+            return super().get_loss(y_pred, y_true, *args, **kwargs)
+        
+        elif isinstance(self.criterion_, torch.nn.CrossEntropyLoss):
+            # CrossEntropyLoss expects class indices as target, so we need to convert
+            # y_true to class indices if it's one-hot encoded
+            if y_true.ndim > 1 and y_true.shape[1] > 1:
+                y_true = torch.argmax(y_true, dim=1)
+            return super().get_loss(y_pred, y_true, *args, **kwargs)
 
     # pylint: disable=signature-differs
     def fit(self, X, y, **fit_params):
