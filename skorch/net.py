@@ -1365,33 +1365,6 @@ class NeuralNet(BaseEstimator):
         self.partial_fit(X, y, **fit_params)
         return self
 
-    def _get_metadata_request(self):
-        """Get metadata request, using class name as owner.
-
-        sklearn's routing infrastructure calls ``deepcopy`` on
-        ``MetadataRequest`` objects (via ``get_routing_for_object``
-        and ``add_self_request``). The default implementation stores
-        ``owner=self`` (the instance), so ``deepcopy`` follows that
-        reference and tries to deep-copy the entire NeuralNet.
-        This fails because ``NeuralNet.__getstate__`` uses
-        ``pickle.dump`` for CUDA-dependent attributes, and pickle
-        cannot handle non-picklable modules (e.g. locally-defined
-        classes).
-
-        Since ``owner`` is only used for error messages, replacing it
-        with the class name string is safe and avoids the issue. An
-        alternative would be implementing ``__deepcopy__`` on
-        NeuralNet.
-        """
-        request = super()._get_metadata_request()
-        owner = self.__class__.__name__
-        request.owner = owner
-        for attr_name in list(vars(request)):
-            attr = getattr(request, attr_name)
-            if hasattr(attr, 'owner'):
-                attr.owner = owner
-        return request
-
     def set_fit_request(self, **kwargs):
         """Set requested parameters by the ``fit`` method.
 
