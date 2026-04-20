@@ -1460,22 +1460,6 @@ class NeuralNet(BaseEstimator):
         self._metadata_request = requests
         return self
 
-    def _get_splitter_for_routing(self):
-        """Extract the CV splitter from train_split for routing.
-
-        Returns the underlying CV splitter if ``train_split`` is a
-        :class:`.ValidSplit` whose ``cv`` attribute is a sklearn
-        splitter with metadata routing support. Returns ``None``
-        otherwise (e.g. when ``train_split`` is ``None``, a custom
-        callable, or wraps an integer/float cv).
-        """
-        ts = self.train_split
-        if ts is None:
-            return None
-        if hasattr(ts, 'cv') and hasattr(ts.cv, 'get_metadata_routing'):
-            return ts.cv
-        return None
-
     def get_metadata_routing(self):
         """Get metadata routing of this object.
 
@@ -1492,10 +1476,10 @@ class NeuralNet(BaseEstimator):
         router = MetadataRouter(owner=self.__class__.__name__)
         router.add_self_request(self)
 
-        splitter = self._get_splitter_for_routing()
-        if splitter is not None:
+        ts = self.train_split
+        if ts is not None and hasattr(ts, 'cv'):
             router.add(
-                splitter=splitter,
+                splitter=ts.cv,
                 method_mapping=(
                     MethodMapping()
                     .add(caller="fit", callee="split")
