@@ -1206,12 +1206,9 @@ class NeuralNet(BaseEstimator):
 
         if _routing_enabled():
             routed_params = process_routing(self, "fit", **fit_params)
-            if fit_params:
-                split_params = routed_params.get(
-                    "splitter", {"split": {}}
-                )["split"]
-            else:
-                split_params = {}
+            split_params = routed_params.get(
+                "splitter", {"split": {}}
+            )["split"]
             # Following sklearn's router+consumer pattern: the router
             # uses its own params directly (they're already in
             # fit_params), while children get theirs from
