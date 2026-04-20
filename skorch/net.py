@@ -19,6 +19,13 @@ import warnings
 
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.utils._metadata_requests import UNUSED
+from sklearn.utils.metadata_routing import (
+    MetadataRouter,
+    MethodMapping,
+    _routing_enabled,
+    process_routing,
+)
 import torch
 from torch.utils.data import DataLoader
 
@@ -309,6 +316,13 @@ class NeuralNet(BaseEstimator):
       this list.
 
     """
+    # Suppress auto-generation of set_partial_fit_request that only
+    # allows 'classes'. We provide our own that accepts arbitrary
+    # metadata names, since partial_fit takes **fit_params.
+    # TODO: remove once scikit-learn/scikit-learn#32111 is merged and
+    # provides a public API for this.
+    __metadata_request__partial_fit = {"classes": UNUSED}
+
     prefixes_ = ['iterator_train', 'iterator_valid', 'callbacks', 'dataset', 'compile']
 
     cuda_dependent_attributes_ = []
@@ -1190,8 +1204,26 @@ class NeuralNet(BaseEstimator):
         self.check_training_readiness()
         epochs = epochs if epochs is not None else self.max_epochs
 
+        if _routing_enabled():
+            routed_params = process_routing(self, "fit", **fit_params)
+            if fit_params:
+                split_params = routed_params.get(
+                    "splitter", {"split": {}}
+                )["split"]
+            else:
+                split_params = {}
+            # Following sklearn's router+consumer pattern: the router
+            # uses its own params directly (they're already in
+            # fit_params), while children get theirs from
+            # routed_params. The module's forward method should accept
+            # **kwargs to handle any extra params.
+            forward_params = fit_params
+        else:
+            split_params = fit_params
+            forward_params = fit_params
+
         dataset_train, dataset_valid = self.get_split_datasets(
-            X, y, **fit_params)
+            X, y, **split_params)
         on_epoch_kwargs = {
             'dataset_train': dataset_train,
             'dataset_valid': dataset_valid,
@@ -1205,10 +1237,10 @@ class NeuralNet(BaseEstimator):
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             self.run_single_epoch(iterator_train, training=True, prefix="train",
-                                  step_fn=self.train_step, **fit_params)
+                                  step_fn=self.train_step, **forward_params)
 
             self.run_single_epoch(iterator_valid, training=False, prefix="valid",
-                                  step_fn=self.validation_step, **fit_params)
+                                  step_fn=self.validation_step, **forward_params)
 
             self.notify("on_epoch_end", **on_epoch_kwargs)
         return self
@@ -1335,6 +1367,145 @@ class NeuralNet(BaseEstimator):
 
         self.partial_fit(X, y, **fit_params)
         return self
+
+    def _get_metadata_request(self):
+        """Get metadata request, using class name as owner.
+
+        sklearn's routing infrastructure calls ``deepcopy`` on
+        ``MetadataRequest`` objects (via ``get_routing_for_object``
+        and ``add_self_request``). The default implementation stores
+        ``owner=self`` (the instance), so ``deepcopy`` follows that
+        reference and tries to deep-copy the entire NeuralNet.
+        This fails because ``NeuralNet.__getstate__`` uses
+        ``pickle.dump`` for CUDA-dependent attributes, and pickle
+        cannot handle non-picklable modules (e.g. locally-defined
+        classes).
+
+        Since ``owner`` is only used for error messages, replacing it
+        with the class name string is safe and avoids the issue. An
+        alternative would be implementing ``__deepcopy__`` on
+        NeuralNet.
+        """
+        request = super()._get_metadata_request()
+        owner = self.__class__.__name__
+        request.owner = owner
+        for attr_name in list(vars(request)):
+            attr = getattr(request, attr_name)
+            if hasattr(attr, 'owner'):
+                attr.owner = owner
+        return request
+
+    def set_fit_request(self, **kwargs):
+        """Set requested parameters by the ``fit`` method.
+
+        Please see :ref:`sklearn:metadata_routing` for more details.
+
+        Since ``NeuralNet.fit`` accepts arbitrary ``**fit_params`` that
+        are passed to the module's forward method, metadata names cannot
+        be inferred from the signature and must be declared explicitly
+        using this method.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Arguments should be of the form ``param_name=alias``, where
+            ``alias`` can be one of ``{True, False, None, str}``.
+
+        Returns
+        -------
+        self : object
+            The updated object.
+        """
+        if not _routing_enabled():
+            raise RuntimeError(
+                "This method is only available when metadata routing is"
+                " enabled. You can enable it using"
+                " sklearn.set_config(enable_metadata_routing=True)."
+            )
+
+        requests = self._get_metadata_request()
+        for param, alias in kwargs.items():
+            requests.fit.add_request(param=param, alias=alias)
+        self._metadata_request = requests
+        return self
+
+    def set_partial_fit_request(self, **kwargs):
+        """Set requested parameters by the ``partial_fit`` method.
+
+        Please see :ref:`sklearn:metadata_routing` for more details.
+
+        Since ``NeuralNet.partial_fit`` accepts arbitrary ``**fit_params``
+        that are passed to the module's forward method, metadata names
+        cannot be inferred from the signature and must be declared
+        explicitly using this method.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Arguments should be of the form ``param_name=alias``, where
+            ``alias`` can be one of ``{True, False, None, str}``.
+
+        Returns
+        -------
+        self : object
+            The updated object.
+        """
+        if not _routing_enabled():
+            raise RuntimeError(
+                "This method is only available when metadata routing is"
+                " enabled. You can enable it using"
+                " sklearn.set_config(enable_metadata_routing=True)."
+            )
+
+        requests = self._get_metadata_request()
+        for param, alias in kwargs.items():
+            requests.partial_fit.add_request(param=param, alias=alias)
+        self._metadata_request = requests
+        return self
+
+    def _get_splitter_for_routing(self):
+        """Extract the CV splitter from train_split for routing.
+
+        Returns the underlying CV splitter if ``train_split`` is a
+        :class:`.ValidSplit` whose ``cv`` attribute is a sklearn
+        splitter with metadata routing support. Returns ``None``
+        otherwise (e.g. when ``train_split`` is ``None``, a custom
+        callable, or wraps an integer/float cv).
+        """
+        ts = self.train_split
+        if ts is None:
+            return None
+        if hasattr(ts, 'cv') and hasattr(ts.cv, 'get_metadata_routing'):
+            return ts.cv
+        return None
+
+    def get_metadata_routing(self):
+        """Get metadata routing of this object.
+
+        NeuralNet is both a :term:`consumer` (its module's forward
+        method accepts arbitrary metadata) and a :term:`router` (it
+        routes metadata like ``groups`` to its internal CV splitter).
+
+        Returns
+        -------
+        routing : MetadataRouter
+            A :class:`~sklearn.utils.metadata_routing.MetadataRouter`
+            encapsulating routing information.
+        """
+        router = MetadataRouter(owner=self.__class__.__name__)
+        router.add_self_request(self)
+
+        splitter = self._get_splitter_for_routing()
+        if splitter is not None:
+            router.add(
+                splitter=splitter,
+                method_mapping=(
+                    MethodMapping()
+                    .add(caller="fit", callee="split")
+                    .add(caller="partial_fit", callee="split")
+                ),
+            )
+        return router
 
     def check_is_fitted(self, attributes=None, *args, **kwargs):
         """Checks whether the net is initialized
@@ -1969,7 +2140,12 @@ class NeuralNet(BaseEstimator):
         return args, kwargs
 
     def _get_param_names(self):
-        return [k for k in self.__dict__ if not k.endswith('_')]
+        # Exclude _metadata_request: it is set by set_fit_request()
+        # (not __init__), and sklearn's clone() handles it separately
+        # via deepcopy. Including it here would cause clone() to pass
+        # it to the constructor, which doesn't expect it.
+        return [k for k in self.__dict__
+                if not k.endswith('_') and k != '_metadata_request']
 
     def _get_params_callbacks(self, deep=True):
         """sklearn's .get_params checks for `hasattr(value,
@@ -2230,6 +2406,24 @@ class NeuralNet(BaseEstimator):
                 callbacks_new[i] = (name, new_val)
                 break
         setattr(self, 'callbacks_', callbacks_new)
+
+    def __deepcopy__(self, memo):
+        # NeuralNet's __getstate__ uses pickle.dump for CUDA-dependent
+        # attributes, which blocks or fails when the module is not
+        # picklable. We bypass __getstate__/__setstate__ and deepcopy
+        # each attribute individually, falling back to shallow copy
+        # for non-copyable objects (e.g. torch modules with locally
+        # defined classes).
+        import copy
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            try:
+                setattr(result, k, copy.deepcopy(v, memo))
+            except Exception:
+                setattr(result, k, v)
+        return result
 
     def __getstate__(self):
         state = self.__dict__.copy()
