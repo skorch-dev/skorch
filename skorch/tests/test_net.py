@@ -4489,3 +4489,47 @@ class TestMetadataRouting:
 
         assert len(received_params) == 1
         assert received_params[0] == dict(foo=1, bar=2)
+
+    def test_pipeline_with_dict_x_and_groups_routing(
+        self, data, routing_enabled
+    ):
+        """End-to-end: Pipeline scales part of a dict X, routes groups
+        to GroupKFold, and trains a module that uses auxiliary data."""
+        from sklearn.base import BaseEstimator, TransformerMixin
+        from sklearn.model_selection import GroupKFold
+        from skorch.dataset import ValidSplit
+        from skorch import NeuralNetRegressor
+
+        class RegressionModule(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc = nn.Linear(10, 1)
+
+            def forward(self, X, Z, **kwargs):
+                return self.fc(X + Z)
+
+        class DictScaler(TransformerMixin, BaseEstimator):
+            def fit(self, X, y=None):
+                self.scaler_ = StandardScaler().fit(X['X'])
+                return self
+
+            def transform(self, X):
+                result = dict(X)
+                result['X'] = self.scaler_.transform(
+                    X['X']).astype('float32')
+                return result
+
+        X, _ = data
+        X_arr = X[:100, :10].astype('float32')
+        Z_arr = X[:100, 10:].astype('float32')
+        y = X[:100, 0].astype('float32').reshape(-1, 1)
+        groups = np.array([0] * 50 + [1] * 50)
+
+        X_dict = {'X': X_arr, 'Z': Z_arr}
+
+        net = NeuralNetRegressor(
+            RegressionModule, max_epochs=2, lr=0.01,
+            train_split=ValidSplit(GroupKFold(2)),
+        )
+        pipe = Pipeline([('scale', DictScaler()), ('net', net)])
+        pipe.fit(X_dict, y, groups=groups)
