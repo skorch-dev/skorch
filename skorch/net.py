@@ -19,10 +19,10 @@ import warnings
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from sklearn.utils._metadata_requests import UNUSED
 from sklearn.utils.metadata_routing import (
     MetadataRouter,
     MethodMapping,
+    UNUSED,
     _routing_enabled,
     process_routing,
 )
