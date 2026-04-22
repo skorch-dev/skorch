@@ -22,7 +22,7 @@ from contextlib import ExitStack
 from flaky import flaky
 import numpy as np
 import pytest
-from sklearn.base import clone
+from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
@@ -32,6 +32,7 @@ import torch
 from torch import nn
 
 import skorch
+from skorch.toy import MLPModule
 from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
 from skorch.utils import to_numpy
@@ -4302,6 +4303,44 @@ class TestTorchCompile:
         assert y_pred.shape == (X.shape[0],)
 
 
+# Module-scope helpers for TestMetadataRouting. Defined at module
+# level (not inside the test class) so they are picklable — sklearn
+# 1.8's routing infrastructure deepcopies the net, which triggers
+# NeuralNet.__getstate__ / pickle.dump on the wrapped module.
+_ROUTING_RECORDED_FIT_PARAMS = []
+
+
+class _RoutingRecordingModule(MLPModule):
+    def forward(self, X, **fit_params):
+        _ROUTING_RECORDED_FIT_PARAMS.append(fit_params)
+        return super().forward(X)
+
+
+class _RoutingKwargsModule(MLPModule):
+    def forward(self, X, **kwargs):
+        return super().forward(X)
+
+
+class _RoutingRegressionModule(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(10, 1)
+
+    def forward(self, X, Z, **kwargs):
+        return self.fc(X + Z)
+
+
+class _RoutingDictScaler(TransformerMixin, BaseEstimator):
+    def fit(self, X, y=None):
+        self.scaler_ = StandardScaler().fit(X['X'])
+        return self
+
+    def transform(self, X):
+        result = dict(X)
+        result['X'] = self.scaler_.transform(X['X']).astype('float32')
+        return result
+
+
 class TestMetadataRouting:
     """Tests for sklearn metadata routing support.
 
@@ -4329,6 +4368,12 @@ class TestMetadataRouting:
         with sklearn.config_context(enable_metadata_routing=True):
             yield
 
+    @pytest.fixture
+    def recorded_fit_params(self):
+        _ROUTING_RECORDED_FIT_PARAMS.clear()
+        yield _ROUTING_RECORDED_FIT_PARAMS
+        _ROUTING_RECORDED_FIT_PARAMS.clear()
+
     def test_set_request_requires_routing_enabled(self, net_cls, module_cls):
         """set_fit_request and set_partial_fit_request raise when
         routing is not enabled."""
@@ -4345,30 +4390,40 @@ class TestMetadataRouting:
         assert net.set_fit_request(Z=True) is net
 
     def test_fit_with_extra_params_and_routing(
-        self, net_cls, data, routing_enabled
+        self, net_cls, data, routing_enabled, recorded_fit_params
     ):
         """Extra fit params declared via set_fit_request reach the
         module's forward method when routing is enabled."""
-        from skorch.toy import MLPModule
-
         X, y = data
-        received_params = []
-
-        class RecordingModule(MLPModule):
-            def forward(self, X, **fit_params):
-                received_params.append(fit_params)
-                return super().forward(X)
-
         net = net_cls(
-            RecordingModule, max_epochs=1, batch_size=50, train_split=None,
+            _RoutingRecordingModule, max_epochs=1, batch_size=50,
+            train_split=None,
         )
         net.set_fit_request(foo=True, bar=True)
         net.initialize()
         net.callbacks_ = []
         net.fit(X[:100], y[:100], foo=1, bar=2)
 
-        assert len(received_params) == 2  # 1 epoch, 2 batches
-        assert received_params[0] == dict(foo=1, bar=2)
+        assert len(recorded_fit_params) == 2  # 1 epoch, 2 batches
+        assert recorded_fit_params[0] == dict(foo=1, bar=2)
+
+    def test_partial_fit_with_extra_params_and_routing(
+        self, net_cls, data, routing_enabled, recorded_fit_params
+    ):
+        """Extra fit params declared via set_partial_fit_request reach
+        the module's forward method when routing is enabled."""
+        X, y = data
+        net = net_cls(
+            _RoutingRecordingModule, max_epochs=1, batch_size=50,
+            train_split=None,
+        )
+        net.set_partial_fit_request(foo=True, bar=True)
+        net.initialize()
+        net.callbacks_ = []
+        net.partial_fit(X[:100], y[:100], foo=1, bar=2)
+
+        assert len(recorded_fit_params) == 2  # 1 epoch, 2 batches
+        assert recorded_fit_params[0] == dict(foo=1, bar=2)
 
     def test_fit_with_extra_params_does_not_break_valid_split(
         self, net_cls, data, routing_enabled
@@ -4376,14 +4431,8 @@ class TestMetadataRouting:
         """When routing is enabled, extra fit_params that are only
         declared for self don't reach ValidSplit (which would reject
         them)."""
-        from skorch.toy import MLPModule
-
-        class KwargsModule(MLPModule):
-            def forward(self, X, **fit_params):
-                return super().forward(X)
-
         X, y = data
-        net = net_cls(KwargsModule, max_epochs=1, batch_size=50)
+        net = net_cls(_RoutingKwargsModule, max_epochs=1, batch_size=50)
         net.set_fit_request(Z=True)
         # Should not raise — Z is consumed by self, not passed to ValidSplit
         net.fit(X[:100], y[:100], Z=X[:100, :10])
@@ -4395,18 +4444,13 @@ class TestMetadataRouting:
         automatically — no set_fit_request needed."""
         from sklearn.model_selection import GroupKFold
         from skorch.dataset import ValidSplit
-        from skorch.toy import MLPModule
 
         X, y = data
         n = len(X) // 2
         groups = np.array([0] * n + [1] * (len(X) - n))
 
-        class KwargsModule(MLPModule):
-            def forward(self, X, **kwargs):
-                return super().forward(X)
-
         net = net_cls(
-            KwargsModule, max_epochs=1, batch_size=50,
+            _RoutingKwargsModule, max_epochs=1, batch_size=50,
             train_split=ValidSplit(GroupKFold(2)),
         )
         # No set_fit_request(groups=True) needed — GroupKFold
@@ -4462,62 +4506,35 @@ class TestMetadataRouting:
         gs.fit(X[:100], y[:100])
 
     def test_backward_compat_fit_params_to_train_split(
-        self, net_cls, data
+        self, net_cls, data, recorded_fit_params
     ):
         """Without routing enabled, all fit_params still reach
         train_split (legacy behavior)."""
-        from skorch.toy import MLPModule
-
         X, y = data
-        received_params = []
 
         def recording_split(dataset, y=None, **fit_params):
-            received_params.append(fit_params)
+            recorded_fit_params.append(fit_params)
             return dataset, dataset
 
-        class KwargsModule(MLPModule):
-            def forward(self, X, **fit_params):
-                return super().forward(X)
-
         net = net_cls(
-            KwargsModule, max_epochs=1, batch_size=50,
+            _RoutingKwargsModule, max_epochs=1, batch_size=50,
             train_split=recording_split,
         )
         net.initialize()
         net.callbacks_ = []
         net.fit(X[:100], y[:100], foo=1, bar=2)
 
-        assert len(received_params) == 1
-        assert received_params[0] == dict(foo=1, bar=2)
+        assert len(recorded_fit_params) == 1
+        assert recorded_fit_params[0] == dict(foo=1, bar=2)
 
     def test_pipeline_with_dict_x_and_groups_routing(
         self, data, routing_enabled
     ):
         """End-to-end: Pipeline scales part of a dict X, routes groups
         to GroupKFold, and trains a module that uses auxiliary data."""
-        from sklearn.base import BaseEstimator, TransformerMixin
         from sklearn.model_selection import GroupKFold
         from skorch.dataset import ValidSplit
         from skorch import NeuralNetRegressor
-
-        class RegressionModule(nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.fc = nn.Linear(10, 1)
-
-            def forward(self, X, Z, **kwargs):
-                return self.fc(X + Z)
-
-        class DictScaler(TransformerMixin, BaseEstimator):
-            def fit(self, X, y=None):
-                self.scaler_ = StandardScaler().fit(X['X'])
-                return self
-
-            def transform(self, X):
-                result = dict(X)
-                result['X'] = self.scaler_.transform(
-                    X['X']).astype('float32')
-                return result
 
         X, _ = data
         X_arr = X[:100, :10].astype('float32')
@@ -4528,8 +4545,8 @@ class TestMetadataRouting:
         X_dict = {'X': X_arr, 'Z': Z_arr}
 
         net = NeuralNetRegressor(
-            RegressionModule, max_epochs=2, lr=0.01,
+            _RoutingRegressionModule, max_epochs=2, lr=0.01,
             train_split=ValidSplit(GroupKFold(2)),
         )
-        pipe = Pipeline([('scale', DictScaler()), ('net', net)])
+        pipe = Pipeline([('scale', _RoutingDictScaler()), ('net', net)])
         pipe.fit(X_dict, y, groups=groups)

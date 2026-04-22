@@ -1164,7 +1164,8 @@ class NeuralNet(BaseEstimator):
             self._set_training(training)
             return self.infer(Xi)
 
-    def fit_loop(self, X, y=None, epochs=None, **fit_params):
+    def fit_loop(self, X, y=None, epochs=None, *, _routing_method="fit",
+                 **fit_params):
         """The proper fit loop.
 
         Contains the logic of what actually happens during the fit
@@ -1205,7 +1206,10 @@ class NeuralNet(BaseEstimator):
         epochs = epochs if epochs is not None else self.max_epochs
 
         if _routing_enabled():
-            routed_params = process_routing(self, "fit", **fit_params)
+            # _routing_method matches the public entry point so the
+            # right self-request (fit vs partial_fit) is resolved.
+            routed_params = process_routing(
+                self, _routing_method, **fit_params)
             split_params = routed_params.get(
                 "splitter", {"split": {}}
             )["split"]
@@ -1319,9 +1323,15 @@ class NeuralNet(BaseEstimator):
         if not self.initialized_:
             self.initialize()
 
+        # When called from fit(), _routing_method is threaded in via
+        # fit_params so partial_fit's public signature stays clean
+        # (sklearn introspects it to auto-generate routing machinery).
+        routing_method = fit_params.pop("_routing_method", "partial_fit")
+
         self.notify('on_train_begin', X=X, y=y)
         try:
-            self.fit_loop(X, y, **fit_params)
+            self.fit_loop(
+                X, y, _routing_method=routing_method, **fit_params)
         except KeyboardInterrupt:
             pass
         self.notify('on_train_end', X=X, y=y)
@@ -1362,7 +1372,7 @@ class NeuralNet(BaseEstimator):
         if not self.warm_start or not self.initialized_:
             self.initialize()
 
-        self.partial_fit(X, y, **fit_params)
+        self.partial_fit(X, y, _routing_method="fit", **fit_params)
         return self
 
     def set_fit_request(self, **kwargs):
@@ -1436,9 +1446,9 @@ class NeuralNet(BaseEstimator):
     def get_metadata_routing(self):
         """Get metadata routing of this object.
 
-        NeuralNet is both a :term:`consumer` (its module's forward
-        method accepts arbitrary metadata) and a :term:`router` (it
-        routes metadata like ``groups`` to its internal CV splitter).
+        NeuralNet is both a consumer (its module's forward method
+        accepts arbitrary metadata) and a router (it routes metadata
+        like ``groups`` to its internal CV splitter).
 
         Returns
         -------
@@ -2360,24 +2370,6 @@ class NeuralNet(BaseEstimator):
                 callbacks_new[i] = (name, new_val)
                 break
         setattr(self, 'callbacks_', callbacks_new)
-
-    def __deepcopy__(self, memo):
-        # NeuralNet's __getstate__ uses pickle.dump for CUDA-dependent
-        # attributes, which blocks or fails when the module is not
-        # picklable. We bypass __getstate__/__setstate__ and deepcopy
-        # each attribute individually, falling back to shallow copy
-        # for non-copyable objects (e.g. torch modules with locally
-        # defined classes).
-        import copy
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            try:
-                setattr(result, k, copy.deepcopy(v, memo))
-            except Exception:
-                setattr(result, k, v)
-        return result
 
     def __getstate__(self):
         state = self.__dict__.copy()
