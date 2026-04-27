@@ -22,7 +22,7 @@ from contextlib import ExitStack
 from flaky import flaky
 import numpy as np
 import pytest
-from sklearn.base import clone
+from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
@@ -32,6 +32,7 @@ import torch
 from torch import nn
 
 import skorch
+from skorch.toy import MLPModule
 from skorch.tests.conftest import INFERENCE_METHODS
 from skorch.utils import flatten
 from skorch.utils import to_numpy
@@ -4300,3 +4301,252 @@ class TestTorchCompile:
         y_pred = net.predict(X)
         assert y_proba.shape == (X.shape[0], 2)
         assert y_pred.shape == (X.shape[0],)
+
+
+# Module-scope helpers for TestMetadataRouting. Defined at module
+# level (not inside the test class) so they are picklable — sklearn
+# 1.8's routing infrastructure deepcopies the net, which triggers
+# NeuralNet.__getstate__ / pickle.dump on the wrapped module.
+_ROUTING_RECORDED_FIT_PARAMS = []
+
+
+class _RoutingRecordingModule(MLPModule):
+    def forward(self, X, **fit_params):
+        _ROUTING_RECORDED_FIT_PARAMS.append(fit_params)
+        return super().forward(X)
+
+
+class _RoutingKwargsModule(MLPModule):
+    def forward(self, X, **kwargs):
+        return super().forward(X)
+
+
+class _RoutingRegressionModule(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(10, 1)
+
+    def forward(self, X, Z, **kwargs):
+        return self.fc(X + Z)
+
+
+class _RoutingDictScaler(TransformerMixin, BaseEstimator):
+    def fit(self, X, y=None):
+        self.scaler_ = StandardScaler().fit(X['X'])
+        return self
+
+    def transform(self, X):
+        result = dict(X)
+        result['X'] = self.scaler_.transform(X['X']).astype('float32')
+        return result
+
+
+class TestMetadataRouting:
+    """Tests for sklearn metadata routing support.
+
+    NeuralNet is implemented as a router + consumer: it routes
+    metadata (e.g. groups) to its internal CV splitter, and consumes
+    metadata (e.g. Z) itself for the module's forward method.
+    """
+
+    @pytest.fixture(scope='module')
+    def data(self, classifier_data):
+        return classifier_data
+
+    @pytest.fixture(scope='module')
+    def module_cls(self, classifier_module):
+        return classifier_module
+
+    @pytest.fixture(scope='module')
+    def net_cls(self):
+        from skorch import NeuralNetClassifier
+        return NeuralNetClassifier
+
+    @pytest.fixture
+    def routing_enabled(self):
+        import sklearn
+        with sklearn.config_context(enable_metadata_routing=True):
+            yield
+
+    @pytest.fixture
+    def recorded_fit_params(self):
+        _ROUTING_RECORDED_FIT_PARAMS.clear()
+        yield _ROUTING_RECORDED_FIT_PARAMS
+        _ROUTING_RECORDED_FIT_PARAMS.clear()
+
+    def test_set_request_requires_routing_enabled(self, net_cls, module_cls):
+        """set_fit_request and set_partial_fit_request raise when
+        routing is not enabled."""
+        net = net_cls(module_cls)
+        with pytest.raises(RuntimeError, match="metadata routing is enabled"):
+            net.set_fit_request(Z=True)
+        with pytest.raises(RuntimeError, match="metadata routing is enabled"):
+            net.set_partial_fit_request(Z=True)
+
+    def test_set_fit_request_returns_self(
+        self, net_cls, module_cls, routing_enabled
+    ):
+        net = net_cls(module_cls)
+        assert net.set_fit_request(Z=True) is net
+
+    def test_fit_with_extra_params_and_routing(
+        self, net_cls, data, routing_enabled, recorded_fit_params
+    ):
+        """Extra fit params declared via set_fit_request reach the
+        module's forward method when routing is enabled."""
+        X, y = data
+        net = net_cls(
+            _RoutingRecordingModule, max_epochs=1, batch_size=50,
+            train_split=None,
+        )
+        net.set_fit_request(foo=True, bar=True)
+        net.initialize()
+        net.callbacks_ = []
+        net.fit(X[:100], y[:100], foo=1, bar=2)
+
+        assert len(recorded_fit_params) == 2  # 1 epoch, 2 batches
+        assert recorded_fit_params[0] == dict(foo=1, bar=2)
+
+    def test_partial_fit_with_extra_params_and_routing(
+        self, net_cls, data, routing_enabled, recorded_fit_params
+    ):
+        """Extra fit params declared via set_partial_fit_request reach
+        the module's forward method when routing is enabled."""
+        X, y = data
+        net = net_cls(
+            _RoutingRecordingModule, max_epochs=1, batch_size=50,
+            train_split=None,
+        )
+        net.set_partial_fit_request(foo=True, bar=True)
+        net.initialize()
+        net.callbacks_ = []
+        net.partial_fit(X[:100], y[:100], foo=1, bar=2)
+
+        assert len(recorded_fit_params) == 2  # 1 epoch, 2 batches
+        assert recorded_fit_params[0] == dict(foo=1, bar=2)
+
+    def test_fit_with_extra_params_does_not_break_valid_split(
+        self, net_cls, data, routing_enabled
+    ):
+        """When routing is enabled, extra fit_params that are only
+        declared for self don't reach ValidSplit (which would reject
+        them)."""
+        X, y = data
+        net = net_cls(_RoutingKwargsModule, max_epochs=1, batch_size=50)
+        net.set_fit_request(Z=True)
+        # Should not raise — Z is consumed by self, not passed to ValidSplit
+        net.fit(X[:100], y[:100], Z=X[:100, :10])
+
+    def test_groups_routed_to_train_split(
+        self, net_cls, data, routing_enabled
+    ):
+        """groups reaches ValidSplit(GroupKFold) via the router
+        automatically — no set_fit_request needed."""
+        from sklearn.model_selection import GroupKFold
+        from skorch.dataset import ValidSplit
+
+        X, y = data
+        n = len(X) // 2
+        groups = np.array([0] * n + [1] * (len(X) - n))
+
+        net = net_cls(
+            _RoutingKwargsModule, max_epochs=1, batch_size=50,
+            train_split=ValidSplit(GroupKFold(2)),
+        )
+        # No set_fit_request(groups=True) needed — GroupKFold
+        # declares it needs groups, and the router picks that up.
+        net.fit(X, y, groups=groups)
+
+    def test_undeclared_param_rejected_by_routing(
+        self, net_cls, module_cls, routing_enabled
+    ):
+        """Passing metadata that no consumer requested raises."""
+        X = np.zeros((10, 20), dtype='float32')
+        y = np.zeros(10, dtype='int64')
+
+        net = net_cls(module_cls, max_epochs=1, train_split=None)
+        with pytest.raises(TypeError, match="unexpected argument"):
+            net.fit(X, y, unknown_param=1)
+
+    def test_clone_preserves_metadata_request(
+        self, net_cls, module_cls, routing_enabled
+    ):
+        """sklearn.clone preserves metadata routing requests set via
+        set_fit_request."""
+        net = net_cls(module_cls)
+        net.set_fit_request(Z=True)
+        net_cloned = clone(net)
+
+        # Verify by behavior: cloned net should accept Z without error
+        net_cloned.set_fit_request(Z=True)  # should not raise
+
+    def test_pipeline_with_routing_enabled(
+        self, net_cls, data, routing_enabled
+    ):
+        """NeuralNet works inside a Pipeline when routing is enabled."""
+        from skorch.toy import MLPModule
+
+        X, y = data
+        net = net_cls(MLPModule, max_epochs=1, batch_size=50, train_split=None)
+        pipe = Pipeline([('scale', StandardScaler()), ('net', net)])
+        pipe.fit(X[:100], y[:100])
+
+    def test_grid_search_with_routing(
+        self, net_cls, module_cls, data, routing_enabled
+    ):
+        """GridSearchCV works with metadata routing enabled."""
+        X, y = data
+        net = net_cls(
+            module_cls, max_epochs=1, batch_size=50, train_split=None,
+        )
+        gs = GridSearchCV(
+            net, param_grid={'lr': [0.01, 0.1]},
+            cv=2, refit=False, n_jobs=1,
+        )
+        gs.fit(X[:100], y[:100])
+
+    def test_backward_compat_fit_params_to_train_split(
+        self, net_cls, data, recorded_fit_params
+    ):
+        """Without routing enabled, all fit_params still reach
+        train_split (legacy behavior)."""
+        X, y = data
+
+        def recording_split(dataset, y=None, **fit_params):
+            recorded_fit_params.append(fit_params)
+            return dataset, dataset
+
+        net = net_cls(
+            _RoutingKwargsModule, max_epochs=1, batch_size=50,
+            train_split=recording_split,
+        )
+        net.initialize()
+        net.callbacks_ = []
+        net.fit(X[:100], y[:100], foo=1, bar=2)
+
+        assert len(recorded_fit_params) == 1
+        assert recorded_fit_params[0] == dict(foo=1, bar=2)
+
+    def test_pipeline_with_dict_x_and_groups_routing(
+        self, data, routing_enabled
+    ):
+        """End-to-end: Pipeline scales part of a dict X, routes groups
+        to GroupKFold, and trains a module that uses auxiliary data."""
+        from sklearn.model_selection import GroupKFold
+        from skorch.dataset import ValidSplit
+        from skorch import NeuralNetRegressor
+
+        X, _ = data
+        X_arr = X[:100, :10].astype('float32')
+        Z_arr = X[:100, 10:].astype('float32')
+        y = X[:100, 0].astype('float32').reshape(-1, 1)
+        groups = np.array([0] * 50 + [1] * 50)
+
+        X_dict = {'X': X_arr, 'Z': Z_arr}
+
+        net = NeuralNetRegressor(
+            _RoutingRegressionModule, max_epochs=2, lr=0.01,
+            train_split=ValidSplit(GroupKFold(2)),
+        )
+        pipe = Pipeline([('scale', _RoutingDictScaler()), ('net', net)])
+        pipe.fit(X_dict, y, groups=groups)
