@@ -468,6 +468,21 @@ class TestNeuralNet:
         net = net.initialize()
         assert net.module_.sequential[0].weight.device.type.startswith(device)
 
+    @pytest.mark.parametrize('cuda_available, expected', [
+        (False, 'cpu'),
+        (True, 'cuda'),
+    ])
+    def test_device_auto(
+            self, net_cls, module_cls, cuda_available, expected):
+        if cuda_available and not torch.cuda.is_available():
+            pytest.skip()
+
+        with patch('torch.cuda.is_available', lambda *_: cuda_available):
+            net = net_cls(module=module_cls, device='auto')
+            net = net.initialize()
+
+        assert net.module_.sequential[0].weight.device.type == expected
+
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda device")
     @pytest.mark.parametrize(
         'save_dev, cuda_available, load_dev, expect_warning',
