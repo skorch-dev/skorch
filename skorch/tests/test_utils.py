@@ -1,6 +1,7 @@
 """Test for utils.py"""
 
 from copy import deepcopy
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -32,6 +33,21 @@ class TestToTensor:
 
         t = to_tensor(t, device='cpu')
         assert t.device.type == 'cpu'
+
+    @pytest.mark.parametrize('cuda_available, expected', [
+        (False, 'cpu'),
+        (True, 'cuda'),
+    ])
+    def test_device_setting_auto(
+            self, to_tensor, cuda_available, expected):
+        if cuda_available and not torch.cuda.is_available():
+            pytest.skip()
+
+        x = np.ones((2, 3, 4))
+        with patch('torch.cuda.is_available', lambda *_: cuda_available):
+            t = to_tensor(x, device='auto')
+
+        assert t.device.type == expected
 
     def tensors_equal(self, x, y):
         """"Test that tensors in diverse containers are equal."""
@@ -247,6 +263,10 @@ class TestToDevice:
         if None is device_input:
             assert tensor.device.type == prev_device
 
+        elif device_input == 'auto':
+            expected = 'cuda' if torch.cuda.is_available() else 'cpu'
+            assert tensor.device.type == expected
+
         else:
             assert tensor.device.type == device_input
 
@@ -270,6 +290,35 @@ class TestToDevice:
 
         x = to_device(x, device=device_to)
         self.check_device_type(x, device_to, prev_device)
+
+    @pytest.mark.parametrize('cuda_available, expected', [
+        (False, 'cpu'),
+        (True, 'cuda'),
+    ])
+    def test_check_device_auto(
+            self, to_device, x, cuda_available, expected):
+        if cuda_available and not torch.cuda.is_available():
+            pytest.skip()
+
+        with patch('torch.cuda.is_available', lambda *_: cuda_available):
+            x = to_device(x, device='auto')
+
+        assert x.device.type == expected
+
+    @pytest.mark.parametrize('cuda_available, expected', [
+        (False, 'cpu'),
+        (True, 'cuda'),
+    ])
+    def test_get_map_location_auto(self, cuda_available, expected):
+        if cuda_available and not torch.cuda.is_available():
+            pytest.skip()
+
+        from skorch.utils import get_map_location
+
+        with patch('torch.cuda.is_available', lambda *_: cuda_available):
+            map_location = get_map_location('auto')
+
+        assert map_location.type == expected
 
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),

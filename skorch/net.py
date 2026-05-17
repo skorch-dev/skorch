@@ -48,6 +48,7 @@ from skorch.utils import _infer_predict_nonlinearity
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import TeeGenerator
 from skorch.utils import _check_f_arguments
+from skorch.utils import _check_device_auto
 from skorch.utils import check_is_fitted
 from skorch.utils import duplicate_items
 from skorch.utils import get_map_location
@@ -218,7 +219,8 @@ class NeuralNet(BaseEstimator):
     device : str, torch.device, or None (default='cpu')
       The compute device to be used. If set to 'cuda' in order to use
       GPU acceleration, data in torch tensors will be pushed to cuda
-      tensors before being sent to the module. If set to None, then
+      tensors before being sent to the module. If set to 'auto', CUDA
+      is used if available and CPU otherwise. If set to None, then
       all compute devices will be left unmodified.
 
     compile : bool (default=False)
@@ -2719,6 +2721,9 @@ class NeuralNet(BaseEstimator):
             warnings.warn(msg, DeviceWarning)
             return map_device
 
+        if requested_device == 'auto':
+            return map_device
+
         type_1 = torch.device(requested_device)
         type_2 = torch.device(map_device)
         if type_1 != type_2:
@@ -2796,7 +2801,9 @@ class NeuralNet(BaseEstimator):
 
                 if isinstance(f_name, (str, os.PathLike)):
                     state_dict = {}
-                    with safe_open(f_name, framework='pt', device=self.device) as f:
+                    with safe_open(
+                            f_name, framework='pt',
+                            device=_check_device_auto(self.device)) as f:
                         for key in f.keys():
                             state_dict[key] = f.get_tensor(key)
                 else:
