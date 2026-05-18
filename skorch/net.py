@@ -219,9 +219,10 @@ class NeuralNet(BaseEstimator):
     device : str, torch.device, or None (default='cpu')
       The compute device to be used. If set to 'cuda' in order to use
       GPU acceleration, data in torch tensors will be pushed to cuda
-      tensors before being sent to the module. If set to 'auto', CUDA
-      is used if available and CPU otherwise. If set to None, then
-      all compute devices will be left unmodified.
+      tensors before being sent to the module. If set to 'auto',
+      hardware acceleration like CUDA is being used if available, and
+      CPU otherwise. If set to None, then all compute devices will be
+      left unmodified.
 
     compile : bool (default=False)
       If set to ``True``, compile all modules using ``torch.compile``. For this

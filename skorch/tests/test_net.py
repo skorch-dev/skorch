@@ -346,6 +346,18 @@ class TestNeuralNet:
         y_pred = net.predict(X)
         assert accuracy_score(y, y_pred) > ACCURACY_EXPECTED
 
+    def test_device_auto_fit_predict(self, net_cls, module_cls, data):
+        X, y = data
+        net = net_cls(
+            module_cls,
+            max_epochs=10,
+            lr=0.1,
+            device='auto',
+        )
+        net.fit(X, y)
+        y_pred = net.predict(X)
+        assert accuracy_score(y, y_pred) > ACCURACY_EXPECTED
+
     def test_forward(self, net_fit, data):
         X = data[0]
         n = len(X)

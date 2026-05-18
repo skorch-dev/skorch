@@ -298,8 +298,9 @@ As the name suggests, this determines which computation device should
 be used. If set to ``'cuda'``, the incoming data will be transferred to
 CUDA before being passed to the PyTorch :class:`~torch.nn.Module`. The
 device parameter adheres to the general syntax of the PyTorch device
-parameter. If set to ``'auto'``, CUDA is used if available and CPU otherwise.
-If you want to prevent skorch from handling the device, set ``device=None``.
+parameter. If set to ``'auto'``, hardware acceleration like CUDA is being
+used if available, and CPU otherwise. If you want to prevent skorch from
+handling the device, set ``device=None``.
 
 initialize()
 ^^^^^^^^^^^^

@@ -59,13 +59,13 @@ def is_geometric_data_type(x):
     return isinstance(x, Data)
 
 
-# pylint: disable=not-callable
 def _check_device_auto(device):
     if device == 'auto':
         return 'cuda' if torch.cuda.is_available() else 'cpu'
     return device
 
 
+# pylint: disable=not-callable
 def to_tensor(X, device, accept_sparse=False):
     """Turn input data to torch tensor.
 
@@ -83,7 +83,8 @@ def to_tensor(X, device, accept_sparse=False):
     device : str, torch.device
       The compute device to be used. If set to 'cuda', data in torch
       tensors will be pushed to cuda tensors before being sent to the
-      module. If set to 'auto', use CUDA if available and CPU otherwise.
+      module. If set to 'auto', hardware acceleration like CUDA is
+      being used if available, and CPU otherwise.
 
     accept_sparse : bool (default=False)
       Whether to accept scipy sparse matrices as input. If False,
@@ -192,7 +193,8 @@ def to_device(X, device):
 
     device : str, torch.device
         The compute device to be used. If device=None, return the input
-        unmodified. If device='auto', use CUDA if available and CPU otherwise.
+        unmodified. If device='auto', hardware acceleration like CUDA
+        is being used if available, and CPU otherwise.
 
     """
     device = _check_device_auto(device)
