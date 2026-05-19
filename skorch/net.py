@@ -7,6 +7,7 @@ sklearn-conforming classes like NeuralNetClassifier.
 """
 
 import fnmatch
+import logging
 from collections.abc import Mapping
 from functools import partial
 from itertools import chain
@@ -16,6 +17,8 @@ import os
 import pickle
 import tempfile
 import warnings
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -2027,8 +2030,12 @@ class NeuralNet(BaseEstimator):
             matches = [i for i, (name, _) in enumerate(params) if
                        fnmatch.fnmatch(name, pattern)]
             if matches:
+                matched_names = [params[i][0] for i in matches]
                 p = [params.pop(i)[1] for i in reversed(matches)]
                 pgroups.append({'params': p, **group})
+                logger.info(
+                    "Setting param group '%s' with %s for %s",
+                    group, pattern, ', '.join(matched_names))
 
         if params:
             pgroups.append({'params': [p for _, p in params]})
