@@ -346,17 +346,33 @@ class TestNeuralNet:
         y_pred = net.predict(X)
         assert accuracy_score(y, y_pred) > ACCURACY_EXPECTED
 
-    def test_device_auto_fit_predict(self, net_cls, module_cls, data):
+    @pytest.mark.parametrize('cuda_available, expected', [
+        (False, 'cpu'),
+        (True, 'cuda'),
+    ])
+    def test_device_auto_fit_predict(
+            self, net_cls, module_cls, data, cuda_available, expected):
+        if cuda_available and not torch.cuda.is_available():
+            pytest.skip()
+
         X, y = data
-        net = net_cls(
-            module_cls,
-            max_epochs=10,
-            lr=0.1,
-            device='auto',
-        )
-        net.fit(X, y)
-        y_pred = net.predict(X)
+        with patch('torch.cuda.is_available', lambda *_: cuda_available):
+            net = net_cls(
+                module_cls,
+                max_epochs=10,
+                lr=0.1,
+                device='auto',
+            )
+            net.fit(X, y)
+            y_pred = net.predict(X)
+            y_forward = net.forward(X, device='auto')
+
         assert accuracy_score(y, y_pred) > ACCURACY_EXPECTED
+        assert all(
+            param.device.type == expected
+            for _, param in net.get_all_learnable_params()
+        )
+        assert y_forward.device.type == expected
 
     def test_forward(self, net_fit, data):
         X = data[0]

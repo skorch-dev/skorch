@@ -48,7 +48,7 @@ from skorch.utils import _infer_predict_nonlinearity
 from skorch.utils import FirstStepAccumulator
 from skorch.utils import TeeGenerator
 from skorch.utils import _check_f_arguments
-from skorch.utils import _check_device_auto
+from skorch.utils import _check_device
 from skorch.utils import check_is_fitted
 from skorch.utils import duplicate_items
 from skorch.utils import get_map_location
@@ -2803,8 +2803,9 @@ class NeuralNet(BaseEstimator):
                 if isinstance(f_name, (str, os.PathLike)):
                     state_dict = {}
                     with safe_open(
-                            f_name, framework='pt',
-                            device=_check_device_auto(self.device)) as f:
+                            f_name,
+                            framework='pt',
+                            device=_check_device(self.device)) as f:
                         for key in f.keys():
                             state_dict[key] = f.get_tensor(key)
                 else:

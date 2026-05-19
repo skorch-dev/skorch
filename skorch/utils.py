@@ -59,7 +59,8 @@ def is_geometric_data_type(x):
     return isinstance(x, Data)
 
 
-def _check_device_auto(device):
+def _check_device(device):
+    """Resolve special device shortcuts."""
     if device == 'auto':
         return 'cuda' if torch.cuda.is_available() else 'cpu'
     return device
@@ -96,7 +97,7 @@ def to_tensor(X, device, accept_sparse=False):
     output : torch Tensor
 
     """
-    device = _check_device_auto(device)
+    device = _check_device(device)
     to_tensor_ = partial(to_tensor, device=device)
 
     if is_torch_data_type(X):
@@ -197,7 +198,7 @@ def to_device(X, device):
         is being used if available, and CPU otherwise.
 
     """
-    device = _check_device_auto(device)
+    device = _check_device(device)
 
     if device is None:
         return X
@@ -573,7 +574,7 @@ def get_map_location(target_device, fallback_device='cpu'):
     """
     if target_device is None:
         target_device = fallback_device
-    target_device = _check_device_auto(target_device)
+    target_device = _check_device(target_device)
 
     map_location = torch.device(target_device)
 
