@@ -42,7 +42,7 @@ neural_net_clf_additional_attribute = """    classes_ : array, shape (n_classes,
 """
 
 def get_neural_net_clf_doc(doc):
-    # dedent/indent roundtrip required for consistent indention in both
+    # dedent/indent roundtrip required for consistent indentation in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => no automatic dedent, but it is the case in >=3.13
     indentation = "    "
@@ -255,7 +255,7 @@ neural_net_binary_clf_criterion_text = """
       is used by ``predict`` and ``predict_proba`` for classification."""
 
 def get_neural_net_binary_clf_doc(doc):
-    # dedent/indent roundtrip required for consistent indention in both
+    # dedent/indent roundtrip required for consistent indentation in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => no automatic dedent, but it is the case in >=3.13
     indentation = "    "

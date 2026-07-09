@@ -26,7 +26,7 @@ neural_net_reg_criterion_text = """
 
 def get_neural_net_reg_doc(doc):
     indentation = "    "
-    # dedent/indent roundtrip required for consistent indention in both
+    # dedent/indent roundtrip required for consistent indentation in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => not automatic dedent, but it is the case in >=3.13
     doc = neural_net_reg_doc_start + " " + textwrap.indent(textwrap.dedent(doc.split("\n", 5)[-1]), indentation)

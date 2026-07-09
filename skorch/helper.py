@@ -219,7 +219,7 @@ class SliceDataset(Sequence):
     def transform(self, data):
         """Additional transformations on ``data``.
 
-        Note: If you use this in conjuction with PyTorch
+        Note: If you use this in conjunction with PyTorch
         :class:`~torch.utils.data.DataLoader`, the latter will call
         the dataset for each row separately, which means that the
         incoming ``data`` is a single rows.

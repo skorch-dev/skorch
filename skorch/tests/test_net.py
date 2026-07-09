@@ -262,7 +262,7 @@ class TestNeuralNet:
 
         # the following line used to raise this error: "TypeError: Got
         # an unexpected argument optimizer_2__lr, did you mean
-        # optimizer__2__lr?" because it was erronously assumed that
+        # optimizer__2__lr?" because it was erroneously assumed that
         # "optimizer_2__lr" should be dispatched to "optimizer", not
         # "optimizer_2".
         MyNet(module_cls, optimizer_2__lr=0.123)  # should not raise
@@ -1213,7 +1213,7 @@ class TestNeuralNet:
         # test that the error message of set_params includes helpful
         # information instead of, e.g., generator expressions.
         # sklearn 0.2x does not output the parameter names so we can
-        # skip detailled checks of the error message there.
+        # skip detailed checks of the error message there.
 
         sklearn_0_2x_string = "Check the list of available parameters with `estimator.get_params().keys()`"
 
@@ -3466,7 +3466,7 @@ class TestNeuralNet:
                 super().__init__(*args, **kwargs)
                 self.foo_ = module_cls()
 
-        msg = ("Trying to set torch compoment 'foo_' outside of an initialize method. "
+        msg = ("Trying to set torch component 'foo_' outside of an initialize method. "
                "Consider defining it inside 'initialize_module'")
         with pytest.raises(SkorchAttributeError, match=msg):
             MyNet(module_cls)
@@ -3476,14 +3476,14 @@ class TestNeuralNet:
     ):
         from skorch.exceptions import SkorchAttributeError
 
-        # all optimzers should be set within an initialize method
+        # all optimizers should be set within an initialize method
         class MyNet(net_cls):
             def initialize(self):
                 super().initialize()
                 self.opti = torch.optim.Adam(self.module_.parameters())
                 return self
 
-        msg = ("Trying to set torch compoment 'opti' outside of an initialize method. "
+        msg = ("Trying to set torch component 'opti' outside of an initialize method. "
                "Consider defining it inside 'initialize_optimizer'")
         with pytest.raises(SkorchAttributeError, match=msg):
             MyNet(module_cls).initialize()

@@ -851,7 +851,7 @@ class AccelerateMixin:
 
     .. warning::
 
-        Since accelerate is still quite young and backwards compatiblity
+        Since accelerate is still quite young and backwards compatibility
         breaking features might be added, we treat its integration as an
         experimental feature. When accelerate's API stabilizes, we will consider
         adding it to skorch proper.
@@ -1021,7 +1021,7 @@ class AccelerateMixin:
 
     def _step_optimizer(self, step_fn):
         # We cannot step_fn as a 'closure' to .step because GradScaler doesn't
-        # suppor it:
+        # support it:
         # https://pytorch.org/docs/stable/amp.html#torch.cuda.amp.GradScaler.step
         # Therefore, we need to call step_fn explicitly and step without
         # argument.
@@ -1132,7 +1132,7 @@ class HfHubStorage:
 
     Note that writes to the Hub are synchronous. Therefore, if the time it takes
     to upload the data is long compared to training the model, there can be a
-    signficant slowdown. It is best to use this with
+    significant slowdown. It is best to use this with
     :class:`skorch.callbacks.training.TrainEndCheckpoint`, as that checkpoint
     only uploads the data once, at the end of training. Also, using this writer
     with :class:`skorch.callbacks.training.LoadInitState` is not supported for

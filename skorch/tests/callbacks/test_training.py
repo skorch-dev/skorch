@@ -573,7 +573,7 @@ class TestEarlyStopping:
         val_dataset = TensorDataset(
             torch.as_tensor(X_val).float(), torch.as_tensor(y_val))
 
-        # Fix the network once with early stoppping and fixed seed
+        # Fix the network once with early stopping and fixed seed
         net1 = net_clf_cls(
             classifier_module,
             callbacks=[early_stopping_cb],

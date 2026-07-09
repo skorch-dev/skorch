@@ -258,7 +258,7 @@ def print_help(model, defaults=None):
     model : sklearn.base.BaseEstimator
       The basic model, e.g. a ``NeuralNet`` or sklearn ``Pipeline``.
 
-    defautls : dict or None (default=None)
+    defaults : dict or None (default=None)
       Optionally, change the default values to use custom
       defaults. Commandline arguments have precedence over defaults.
 

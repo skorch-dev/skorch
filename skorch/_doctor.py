@@ -72,7 +72,7 @@ def add_activation_hooks(net, match_fn=None):
 
     If an output is not a simple array, it is disambiguated. E.g. if it's a
     list, the name get a suffix of ``[i]`` where ``i`` designates the index in
-    the list. Similary, when the output is a dict, a ``[key]`` suffix is added,
+    the list. Similarly, when the output is a dict, a ``[key]`` suffix is added,
     where ``[key]`` is the key of the corresponding value in the dictionary.
 
     Parameters
@@ -249,7 +249,7 @@ class SkorchDoctor(BaseEstimator):
           different parameter groups, or an adaptive optimizer like Adam.
 
         - If gradients are too big, consider using gradient clipping. If the
-          mangitude of gradients shifts over time, you might want to use a
+          magnitude of gradients shifts over time, you might want to use a
           learning rate scheduler.
 
     At the end of the day, ``SkorchDoctor`` will not tell you what you need to
@@ -333,7 +333,7 @@ class SkorchDoctor(BaseEstimator):
 
       If an activation is not a simple array, it is disambiguated. E.g. if it's a
       list, the name get a suffix of ``[i]`` where ``i`` designates the index in
-      the list. Similary, when the output is a dict, a ``[key]`` suffix is
+      the list. Similarly, when the output is a dict, a ``[key]`` suffix is
       added, where ``[key]`` is the key of the corresponding value in the
       dictionary.
 

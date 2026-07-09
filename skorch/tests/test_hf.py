@@ -493,7 +493,7 @@ class TestHuggingfacePretrainedTokenizerWithFit(_HuggingfaceTokenizersBaseTest):
         # original tokenizer. However, for this test, we don't have enough data
         # to reach that vocab size (28996). Therefore, we test instead that the
         # vocab size is considerably greater than the one seen when we set
-        # vocab_size explictly.
+        # vocab_size explicitly.
         from transformers import AutoTokenizer
         from skorch.hf import HuggingfacePretrainedTokenizer
 

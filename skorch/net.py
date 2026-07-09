@@ -1,7 +1,7 @@
 """Neural net base class
 
 This is the most flexible class, not making assumptions on the kind of
-task being peformed. Subclass this to create more specialized and
+task being performed. Subclass this to create more specialized and
 sklearn-conforming classes like NeuralNetClassifier.
 
 """
@@ -144,7 +144,7 @@ class NeuralNet(BaseEstimator):
       this if your data is not supported. You should generally pass the
       uninitialized ``Dataset`` class and define additional arguments to
       X and y by prefixing them with ``dataset__``. It is also possible
-      to pass an initialzed ``Dataset``, in which case no additional
+      to pass an initialized ``Dataset``, in which case no additional
       arguments may be passed.
 
     train_split : None or callable (default=skorch.dataset.ValidSplit(5))
@@ -700,7 +700,7 @@ class NeuralNet(BaseEstimator):
         return self
 
     def _format_reinit_msg(self, name, kwargs=None, triggered_directly=True):
-        """Returns a message that informs about re-initializing a compoment.
+        """Returns a message that informs about re-initializing a component.
 
         Sometimes, the module or optimizer need to be
         re-initialized. Not only should the user receive a message
@@ -1593,7 +1593,7 @@ class NeuralNet(BaseEstimator):
 
         device : string (default='cpu')
           The device to store each inference result on.
-          This defaults to CPU memory since there is genereally
+          This defaults to CPU memory since there is generally
           more memory available there. For performance reasons
           this might be changed to a specific CUDA device,
           e.g. 'cuda:0'.
@@ -1641,7 +1641,7 @@ class NeuralNet(BaseEstimator):
 
         device : string (default='cpu')
           The device to store each inference result on.
-          This defaults to CPU memory since there is genereally
+          This defaults to CPU memory since there is generally
           more memory available there. For performance reasons
           this might be changed to a specific CUDA device,
           e.g. 'cuda:0'.
@@ -2350,7 +2350,7 @@ class NeuralNet(BaseEstimator):
             if '__' not in name and name in names:
                 self._replace_callback(name, params.pop(key))
 
-        # 3. Step parameters and other initilisation arguments
+        # 3. Step parameters and other initialisation arguments
         for key in params.copy():
             name = key[11:]
             part0, part1 = name.split('__')
@@ -2527,12 +2527,12 @@ class NeuralNet(BaseEstimator):
 
         """
         if (self.init_context_ is None) and isinstance(attr, torch.nn.Module):
-            msg = ("Trying to set torch compoment '{}' outside of an initialize method."
+            msg = ("Trying to set torch component '{}' outside of an initialize method."
                    " Consider defining it inside 'initialize_module'".format(name))
             raise SkorchAttributeError(msg)
 
         if (self.init_context_ is None) and isinstance(attr, torch.optim.Optimizer):
-            msg = ("Trying to set torch compoment '{}' outside of an initialize method."
+            msg = ("Trying to set torch component '{}' outside of an initialize method."
                    " Consider defining it inside 'initialize_optimizer'".format(name))
             raise SkorchAttributeError(msg)
 

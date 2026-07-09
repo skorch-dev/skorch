@@ -231,7 +231,7 @@ class GPBase(NeuralNet):
 
         device : string (default='cpu')
           The device to store each inference result on.
-          This defaults to CPU memory since there is genereally
+          This defaults to CPU memory since there is generally
           more memory available there. For performance reasons
           this might be changed to a specific CUDA device,
           e.g. 'cuda:0'.
@@ -289,7 +289,7 @@ class GPBase(NeuralNet):
 
         device : string (default='cpu')
           The device to store each inference result on.
-          This defaults to CPU memory since there is genereally
+          This defaults to CPU memory since there is generally
           more memory available there. For performance reasons
           this might be changed to a specific CUDA device,
           e.g. 'cuda:0'.
@@ -514,7 +514,7 @@ gp_likelihood_attribute_text = """
 
 def get_exact_gp_regr_doc(doc):
     """Customizes the net docs to avoid duplication."""
-    # dedent/indent roundtrip required for consistent indention in both
+    # dedent/indent roundtrip required for consistent indentation in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => no automatic dedent, but it is the case in >=3.13
     indentation = "    "
@@ -689,7 +689,7 @@ gp_regr_criterion_text = """
 
 def get_gp_regr_doc(doc):
     """Customizes the net docs to avoid duplication."""
-    # dedent/indent roundtrip required for consistent indention in both
+    # dedent/indent roundtrip required for consistent indentation in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => no automatic dedent, but it is the case in >=3.13
     indentation = "    "
@@ -765,7 +765,7 @@ gp_binary_clf_criterion_text = """
 
 def get_gp_binary_clf_doc(doc):
     """Customizes the net docs to avoid duplication."""
-    # dedent/indent roundtrip required for consistent indention in both
+    # dedent/indent roundtrip required for consistent indentation in both
     # Python <3.13 and Python >=3.13
     # Because <3.13 => no automatic dedent, but it is the case in >=3.13
     indentation = "    "

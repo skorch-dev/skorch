@@ -393,7 +393,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
     def _predict_one(self, text):
         """Make a prediction for a single sample
 
-        The returned probabilites are *not normalized* yet.
+        The returned probabilities are *not normalized* yet.
 
         Raises a ``LowProbabilityError`` if the total probability of all labels
         is 0, or, assuming ``error_low_prob`` is ``'raise'``, when it is below
@@ -534,7 +534,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
           The label for each class.
 
         """
-        # y_proba not normalized but it's not neeeded here
+        # y_proba not normalized but it's not needed here
         y_proba = self._predict_proba(X)
         pred_ids = y_proba.argmax(1)
         y_pred = self.classes_[pred_ids]
@@ -704,7 +704,7 @@ class ZeroShotClassifier(_LlmBase):
     ----------
     classes_ : ndarray of shape (n_classes, )
       A list of class labels known to the classifier. This attribute can be used
-      to identify which column in the probabilties returned by ``predict_proba``
+      to identify which column in the probabilities returned by ``predict_proba``
       corresponds to which class.
 
     """
@@ -932,7 +932,7 @@ class FewShotClassifier(_LlmBase):
     ----------
     classes_ : ndarray of shape (n_classes, )
       A list of class labels known to the classifier. This attribute can be used
-      to identify which column in the probabilties returned by ``predict_proba``
+      to identify which column in the probabilities returned by ``predict_proba``
       corresponds to which class.
 
     """

@@ -387,7 +387,7 @@ class PrintLog(Callback):
 
     ``PrintLog`` treats keys with the ``'event_'`` prefix in a special
     way. They are assumed to contain information about occasionally
-    occuring events. The ``False`` or ``None`` entries (indicating
+    occurring events. The ``False`` or ``None`` entries (indicating
     that an event did not occur) are not printed, resulting in empty
     cells in the table, and ``True`` entries are printed with ``+``
     symbol. ``PrintLog`` groups all event columns together and pushes
@@ -689,7 +689,7 @@ class TensorBoard(Callback):
     """Logs results from history to TensorBoard
 
     "TensorBoard provides the visualization and tooling needed for machine
-    learning experimentation" (`offical docs
+    learning experimentation" (`official docs
     <https://www.tensorflow.org/tensorboard/>`_).
 
     Use this callback to automatically log all interesting values from your

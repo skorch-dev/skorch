@@ -167,7 +167,7 @@ class BatchScoring(ScoringBase):
     the score for each batch and then averages the score at the end of
     the epoch. This can be disadvantageous for some scores if the
     batch size is small -- e.g. area under the ROC will return
-    incorrect scores in this case. Therefore, it is recommnded to use
+    incorrect scores in this case. Therefore, it is recommended to use
     :class:`.EpochScoring` unless you really need the scores for each
     batch.
 

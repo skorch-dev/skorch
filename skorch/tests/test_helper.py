@@ -400,7 +400,7 @@ class TestSliceDataset:
 
     def test_explicitly_pass_indices_at_init(self, slds_cls, custom_ds, X):
         from skorch.utils import to_numpy
-        # test passing indices directy to __init__
+        # test passing indices directly to __init__
         slds = slds_cls(custom_ds, indices=np.arange(10))
         sliced0 = slds[5:]
         sliced1 = sliced0[2]

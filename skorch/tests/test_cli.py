@@ -20,7 +20,7 @@ except ImportError:
     fire_installed = False
 
 
-@pytest.mark.skipif(not fire_installed, reason='fire libarary not installed')
+@pytest.mark.skipif(not fire_installed, reason='fire library not installed')
 class TestCli:
     @pytest.fixture
     def resolve_dotted_name(self):

@@ -556,7 +556,7 @@ class TestTrainSplitIsUsed:
     def net_and_mock(self, module, data, train_split, iterator):
         """Return a NeuralNetClassifier with mocked train and
         validation step which save the args and kwargs the methods are
-        calld with.
+        called with.
 
         """
         from skorch import NeuralNetClassifier

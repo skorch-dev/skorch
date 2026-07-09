@@ -653,7 +653,7 @@ def _sigmoid_then_2d(x):
     return _make_2d_probs(prob)
 
 
-# TODO only needed if multiclass GP classfication is added
+# TODO only needed if multiclass GP classification is added
 # def _transpose(x):
     # return x.T
 
@@ -691,7 +691,7 @@ def _infer_predict_nonlinearity(net):
     return _identity
 
     # TODO: Add the code below to _infer_predict_nonlinearity if multiclass GP
-    # classfication is added.
+    # classification is added.
     # likelihood = getattr(net, 'likelihood_', None)
     # if likelihood is None:
     #     return _identity

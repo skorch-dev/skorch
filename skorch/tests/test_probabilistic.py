@@ -36,7 +36,7 @@ def get_batch_size(dist):
     """Return the shape of the distribution
 
     The method/attribute required to determine the shape depends on the kind of
-    distrubtion.
+    distribution.
 
     """
     shape = getattr(dist, 'shape', None)
@@ -482,7 +482,7 @@ class BaseProbabilisticTests:
         assert gp.likelihood_ is gp_init.likelihood_
 
     ##########################
-    # probabalistic specific #
+    # probabilistic specific #
     ##########################
 
     @pytest.mark.parametrize("n_samples", [1, 2, 10])

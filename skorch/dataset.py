@@ -172,7 +172,7 @@ class Dataset(torch.utils.data.Dataset):
         By default, they are cast to PyTorch :class:`~torch.Tensor`\s.
         Override this if you want a different behavior.
 
-        Note: If you use this in conjuction with PyTorch
+        Note: If you use this in conjunction with PyTorch
         :class:`~torch.utils.data.DataLoader`, the latter will call
         the dataset for each row separately, which means that the
         incoming ``X`` and ``y`` each are single rows.

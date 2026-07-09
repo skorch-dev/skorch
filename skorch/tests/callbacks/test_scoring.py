@@ -503,7 +503,7 @@ class TestEpochScoring:
         # expected count should be:
         # fit loop: 1 (train) + 1 (valid) = 2
         # scoring:
-        #   without cahching: 0
+        #   without caching: 0
         #   with caching: 1 per epoch = 3
         assert net.get_iterator.call_count == count
 
