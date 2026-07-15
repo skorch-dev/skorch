@@ -1396,6 +1396,33 @@ class TestNeuralNet:
         assert net.optimizer_.param_groups[1]['lr'] == 0.5
         assert net.optimizer_.param_groups[2]['lr'] == net.lr
 
+    def test_optimizer_param_groups_verbose_prints(self, net_cls, module_cls, capsys):
+        net = net_cls(
+            module_cls,
+            verbose=1,
+            optimizer__param_groups=[
+                ('sequential.0.*', {'lr': 0.1}),
+            ],
+        )
+        net.initialize()
+        out = capsys.readouterr().out
+        assert "Setting param group {'lr': 0.1} for" in out
+        assert 'sequential.0.weight' in out
+        assert 'sequential.0.bias' in out
+
+    def test_optimizer_param_groups_silent_when_verbose_0(
+            self, net_cls, module_cls, capsys):
+        net = net_cls(
+            module_cls,
+            verbose=0,
+            optimizer__param_groups=[
+                ('sequential.0.*', {'lr': 0.1}),
+            ],
+        )
+        net.initialize()
+        out = capsys.readouterr().out
+        assert 'Setting param group' not in out
+
     def test_module_params_in_init(self, net_cls, module_cls, data):
         X, y = data
 

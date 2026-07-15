@@ -73,3 +73,14 @@ class TestOptimizerSetter:
         assert updated_group_new[0][sub_param] == value
         assert all(old[sub_param] == new[sub_param] for old, new in zip(
             static_groups_pre, static_groups_new))
+
+    def test_set_params_verbose_prints_param_group(self, setter, capsys):
+        from skorch import NeuralNetClassifier
+        from skorch.toy import make_classifier
+
+        net = NeuralNetClassifier(make_classifier(), verbose=1, max_epochs=1)
+        net.initialize()
+        setter(net, 'optimizer__param_groups__0__lr', 0.03)
+        out = capsys.readouterr().out
+        assert "Setting param group {'lr': 0.03} for" in out
+        assert 'sequential.0.weight' in out

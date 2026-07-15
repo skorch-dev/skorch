@@ -41,6 +41,7 @@ from skorch.exceptions import NotInitializedError
 from skorch.exceptions import SkorchAttributeError
 from skorch.exceptions import SkorchTrainingImpossibleError
 from skorch.history import History
+from skorch.setter import format_param_group_msg
 from skorch.setter import optimizer_setter
 from skorch.utils import _TorchLoadUnpickler
 from skorch.utils import _identity
@@ -2030,7 +2031,13 @@ class NeuralNet(BaseEstimator):
             matches = [i for i, (name, _) in enumerate(params) if
                        fnmatch.fnmatch(name, pattern)]
             if matches:
-                p = [params.pop(i)[1] for i in reversed(matches)]
+                # pop high indices first so earlier indices stay valid
+                matched = [params.pop(i) for i in reversed(matches)]
+                p = [param for _, param in matched]
+                if self.verbose:
+                    # show names in the order they were matched
+                    matched_names = [name for name, _ in reversed(matched)]
+                    print(format_param_group_msg(group, matched_names))
                 pgroups.append({'params': p, **group})
 
         if params:
