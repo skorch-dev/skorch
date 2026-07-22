@@ -4,6 +4,13 @@ import re
 
 def format_param_group_msg(group_config, param_names):
     """Message for which module params a param group config applies to."""
+    if not param_names:
+        return (
+            "Setting param group {} for parameters that are not among the "
+            "module's learnable parameters (this may be unintended).".format(
+                group_config,
+            )
+        )
     return "Setting param group {} for {}.".format(
         group_config,
         ', '.join(param_names),
@@ -85,18 +92,18 @@ def optimizer_setter(
         param_group, param_name = _extract_optimizer_param_name_and_group(
             optimizer_name, param)
 
-    optimizer = getattr(net, optimizer_attr)
     groups = _set_optimizer_param(
-        optimizer=optimizer,
+        optimizer=getattr(net, optimizer_attr),
         param_group=param_group,
         param_name=param_name,
         value=value
     )
 
-    if getattr(net, 'verbose', 0):
+    # only report for a specific param group; a global set (e.g. optimizer__lr)
+    # touches every param and is not what #291 asks to surface
+    if getattr(net, 'verbose', 0) and param_group != 'all':
         tensors = []
         for group in groups:
             tensors.extend(group.get('params', []))
         param_names = _param_names_for_tensors(net, tensors)
-        if param_names:
-            print(format_param_group_msg({param_name: value}, param_names))
+        print(format_param_group_msg({param_name: value}, param_names))
