@@ -1,20 +1,27 @@
 """Setter functions for virtual params such as ``optimizer__lr``."""
 import re
 
+# param names can be arbitrarily long, keep the verbose message bounded
+MAX_PARAM_GROUP_MSG_LEN = 200
+
 
 def format_param_group_msg(group_config, param_names):
     """Message for which module params a param group config applies to."""
     if not param_names:
-        return (
+        msg = (
             "Setting param group {} for parameters that are not among the "
             "module's learnable parameters (this may be unintended).".format(
                 group_config,
             )
         )
-    return "Setting param group {} for {}.".format(
-        group_config,
-        ', '.join(param_names),
-    )
+    else:
+        msg = "Setting param group {} for {}.".format(
+            group_config,
+            ', '.join(param_names),
+        )
+    if len(msg) > MAX_PARAM_GROUP_MSG_LEN:
+        msg = msg[:MAX_PARAM_GROUP_MSG_LEN - 3] + '...'
+    return msg
 
 
 def _param_names_for_tensors(net, tensors):

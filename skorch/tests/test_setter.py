@@ -101,3 +101,12 @@ class TestOptimizerSetter:
         msg = format_param_group_msg({'lr': 0.1}, [])
         assert "{'lr': 0.1}" in msg
         assert 'this may be unintended' in msg
+
+    def test_format_param_group_msg_truncated(self):
+        from skorch.setter import MAX_PARAM_GROUP_MSG_LEN
+        from skorch.setter import format_param_group_msg
+
+        names = ['sequential.{}.weight'.format(i) for i in range(100)]
+        msg = format_param_group_msg({'lr': 0.1}, names)
+        assert len(msg) == MAX_PARAM_GROUP_MSG_LEN
+        assert msg.endswith('...')

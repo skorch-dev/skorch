@@ -1396,21 +1396,48 @@ class TestNeuralNet:
         assert net.optimizer_.param_groups[1]['lr'] == 0.5
         assert net.optimizer_.param_groups[2]['lr'] == net.lr
 
-    def test_optimizer_param_groups_verbose_prints(self, net_cls, module_cls, capsys):
+    @pytest.mark.parametrize('param_groups, expected_count, expected_msgs', [
+        ([], 0, []),
+        (
+            [('sequential.0.*', {'lr': 0.1})],
+            1,
+            [
+                "Setting param group {'lr': 0.1} for",
+                'sequential.0.weight',
+                'sequential.0.bias',
+            ],
+        ),
+        (
+            [
+                ('sequential.0.*', {'lr': 0.1}),
+                ('sequential.3.*', {'lr': 0.5}),
+            ],
+            2,
+            [
+                "Setting param group {'lr': 0.1} for",
+                "Setting param group {'lr': 0.5} for",
+                'sequential.0.weight',
+                'sequential.3.weight',
+            ],
+        ),
+    ])
+    def test_optimizer_param_groups_verbose_prints(
+            self, net_cls, module_cls, data, param_groups, expected_count,
+            expected_msgs, capsys):
+        # fit instead of initialize so accidental repetitions during
+        # training would be caught by the count
+        X, y = data
         net = net_cls(
             module_cls,
             verbose=1,
-            optimizer__param_groups=[
-                ('sequential.0.*', {'lr': 0.1}),
-            ],
+            max_epochs=2,
+            optimizer__param_groups=param_groups,
         )
-        net.initialize()
+        net.fit(X, y)
         out = capsys.readouterr().out
-        assert "Setting param group {'lr': 0.1} for" in out
-        assert 'sequential.0.weight' in out
-        assert 'sequential.0.bias' in out
-        # one group configured, so exactly one message (no duplicates)
-        assert out.count('Setting param group') == 1
+        assert out.count('Setting param group') == expected_count
+        for expected in expected_msgs:
+            assert expected in out
 
     def test_optimizer_param_groups_silent_when_verbose_0(
             self, net_cls, module_cls, capsys):
@@ -1424,32 +1451,6 @@ class TestNeuralNet:
         net.initialize()
         out = capsys.readouterr().out
         assert 'Setting param group' not in out
-
-    def test_optimizer_param_groups_verbose_no_param_groups(
-            self, net_cls, module_cls, capsys):
-        net = net_cls(module_cls, verbose=1)
-        net.initialize()
-        out = capsys.readouterr().out
-        assert 'Setting param group' not in out
-
-    def test_optimizer_param_groups_verbose_multiple_groups(
-            self, net_cls, module_cls, capsys):
-        net = net_cls(
-            module_cls,
-            verbose=1,
-            optimizer__param_groups=[
-                ('sequential.0.*', {'lr': 0.1}),
-                ('sequential.3.*', {'lr': 0.5}),
-            ],
-        )
-        net.initialize()
-        out = capsys.readouterr().out
-        # one message per configured group, no duplicates
-        assert out.count('Setting param group') == 2
-        assert "Setting param group {'lr': 0.1} for" in out
-        assert "Setting param group {'lr': 0.5} for" in out
-        assert 'sequential.0.weight' in out
-        assert 'sequential.3.weight' in out
 
     def test_module_params_in_init(self, net_cls, module_cls, data):
         X, y = data
