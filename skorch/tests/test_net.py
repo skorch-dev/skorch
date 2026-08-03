@@ -2160,6 +2160,58 @@ class TestNeuralNet:
         assert exc.value.args[0] == msg
 
     @pytest.fixture
+    def iterable_dataset_cls(self):
+        class MyIterableDataset(torch.utils.data.IterableDataset):
+            def __init__(self, X, y):
+                super().__init__()
+                self.X = X
+                self.y = y
+
+            def __iter__(self):
+                return iter(zip(self.X, self.y))
+
+        return MyIterableDataset
+
+    def test_fit_with_iterable_dataset_and_train_split_raises(
+            self, net_cls, module_cls, iterable_dataset_cls, data):
+        from skorch.dataset import ValidSplit
+
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            train_split=ValidSplit(stratified=False),
+        )
+        ds = iterable_dataset_cls(*data)
+        with pytest.raises(ValueError) as exc:
+            net.fit(ds, None)
+
+        msg = ("Cannot perform a CV split on an IterableDataset because it has "
+               "no length. Set train_split=None to disable the internal "
+               "validation split, or pass a train_split that supports "
+               "IterableDataset.")
+        assert exc.value.args[0] == msg
+
+    def test_fit_with_iterable_dataset_no_train_split(
+            self, net_cls, module_cls, iterable_dataset_cls, data):
+        net = net_cls(module_cls, max_epochs=1, train_split=None)
+        ds = iterable_dataset_cls(*data)
+        net.fit(ds, None)  # does not raise
+
+        assert 'train_loss' in net.history[-1]
+
+    def test_fit_with_iterable_dataset_and_custom_train_split(
+            self, net_cls, module_cls, iterable_dataset_cls, data):
+        # a train_split that never indexes the dataset must keep working
+        def train_split(dataset, **kwargs):
+            return dataset, dataset
+
+        net = net_cls(module_cls, max_epochs=1, train_split=train_split)
+        ds = iterable_dataset_cls(*data)
+        net.fit(ds, None)  # does not raise
+
+        assert 'valid_loss' in net.history[-1]
+
+    @pytest.fixture
     def dataset_1_item(self):
         class Dataset(torch.utils.data.Dataset):
             def __len__(self):

@@ -311,6 +311,13 @@ class ValidSplit:
         if self.stratified and not self._is_stratified(cv):
             raise bad_y_error
 
+        if isinstance(dataset, torch.utils.data.IterableDataset):
+            raise ValueError(
+                "Cannot perform a CV split on an IterableDataset because it has "
+                "no length. Set train_split=None to disable the internal "
+                "validation split, or pass a train_split that supports "
+                "IterableDataset.")
+
         # pylint: disable=invalid-name
         len_dataset = get_len(dataset)
         if y is not None:
