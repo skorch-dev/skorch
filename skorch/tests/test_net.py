@@ -2199,6 +2199,39 @@ class TestNeuralNet:
 
         assert 'train_loss' in net.history[-1]
 
+    @pytest.fixture
+    def sized_iterable_dataset_cls(self):
+        class MySizedIterableDataset(torch.utils.data.IterableDataset):
+            def __init__(self, X, y):
+                super().__init__()
+                self.X = X
+                self.y = y
+
+            def __iter__(self):
+                return iter(zip(self.X, self.y))
+
+            def __len__(self):
+                return len(self.y)
+
+            def __getitem__(self, i):
+                return self.X[i], self.y[i]
+
+        return MySizedIterableDataset
+
+    def test_fit_with_sized_iterable_dataset_and_train_split(
+            self, net_cls, module_cls, sized_iterable_dataset_cls, data):
+        from skorch.dataset import ValidSplit
+
+        net = net_cls(
+            module_cls,
+            max_epochs=1,
+            train_split=ValidSplit(stratified=False),
+        )
+        ds = sized_iterable_dataset_cls(*data)
+        net.fit(ds, None)  # does not raise
+
+        assert 'valid_loss' in net.history[-1]
+
     def test_fit_with_iterable_dataset_and_custom_train_split(
             self, net_cls, module_cls, iterable_dataset_cls, data):
         # a train_split that never indexes the dataset must keep working
