@@ -861,9 +861,48 @@ class TestValidSplit:
     @pytest.mark.parametrize('cv', [5, 0.2])
     @pytest.mark.parametrize('X', [np.zeros((100, 10)), torch.zeros((100, 10))])
     def test_y_none_stratified(self, valid_split_cls, data, cv, X):
+        # data is a skorch.dataset.Dataset, which should be named in the msg
         data.X = X
         with pytest.raises(ValueError) as exc:
             valid_split_cls(cv, stratified=True)(data, None)
+
+        expected = (
+            "Stratified CV requires explicitly passing a suitable y. You "
+            "passed a skorch.dataset.Dataset as dataset, which skorch "
+            "cannot introspect to obtain labels for stratification. To "
+            "resolve this, either wrap your validation data with "
+            "skorch.helper.predefined_split and pass it as train_split, "
+            "disable stratification with train_split=ValidSplit(5, "
+            "stratified=False), or disable the internal validation split "
+            "entirely with train_split=None.")
+        assert exc.value.args[0] == expected
+
+    def test_y_none_stratified_tensor_dataset(self, valid_split_cls):
+        X = torch.zeros((100, 10))
+        y = torch.zeros(100)
+        dataset = torch.utils.data.TensorDataset(X, y)
+
+        with pytest.raises(ValueError) as exc:
+            valid_split_cls(5, stratified=True)(dataset, None)
+
+        expected = (
+            "Stratified CV requires explicitly passing a suitable y. You "
+            "passed a torch.utils.data.TensorDataset as dataset, which "
+            "skorch cannot introspect to obtain labels for stratification. "
+            "To resolve this, either wrap your validation data with "
+            "skorch.helper.predefined_split and pass it as train_split, "
+            "disable stratification with train_split=ValidSplit(5, "
+            "stratified=False), or disable the internal validation split "
+            "entirely with train_split=None.")
+        assert exc.value.args[0] == expected
+
+    def test_y_none_stratified_generic_dataset(self, valid_split_cls):
+        # neither a skorch.dataset.Dataset nor a TensorDataset, so the
+        # error keeps the original, generic message
+        X = np.zeros((100, 10))
+
+        with pytest.raises(ValueError) as exc:
+            valid_split_cls(5, stratified=True)(X, None)
 
         expected = "Stratified CV requires explicitly passing a suitable y."
         assert exc.value.args[0] == expected

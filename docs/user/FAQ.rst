@@ -264,6 +264,58 @@ The ``RandomDataset`` can be passed directly to
     net = NeuralNet(MyModule, criterion=torch.nn.MSELoss)
     net.fit(train_ds)
 
+Why do I get an error about stratified CV when I pass a Dataset?
+------------------------------------------------------------------
+
+By default, :class:`~skorch.classifier.NeuralNetClassifier` performs a
+stratified train/valid split internally (``train_split=ValidSplit(5,
+stratified=True)``). Stratification requires ``y`` so that the split can
+preserve the class proportions in each fold. If you call ``net.fit(dataset)``
+with a single object that already bundles ``X`` and ``y`` -- e.g. a
+:class:`skorch.dataset.Dataset` or a
+:class:`torch.utils.data.TensorDataset` -- instead of calling
+``net.fit(X, y)``, skorch has no way to extract the labels from
+``dataset`` to pass on to scikit-learn's stratified splitter, and raises:
+
+.. code:: text
+
+    ValueError: Stratified CV requires explicitly passing a suitable y. ...
+
+skorch will not guess ``y`` from the dataset or silently turn stratification
+off, since that could hide a real problem. Instead, pick one of the
+following workarounds:
+
+* Wrap your own validation set with
+  :func:`skorch.helper.predefined_split` and pass it via ``train_split``,
+  so skorch doesn't need to split (or stratify) anything itself:
+
+  .. code:: python
+
+      from skorch.helper import predefined_split
+
+      net = NeuralNetClassifier(
+          MyModule,
+          train_split=predefined_split(valid_ds),
+      )
+
+* Disable stratification and let skorch split by index instead:
+
+  .. code:: python
+
+      from skorch.dataset import ValidSplit
+
+      net = NeuralNetClassifier(
+          MyModule,
+          train_split=ValidSplit(5, stratified=False),
+      )
+
+* Disable the internal train/valid split entirely, e.g. if you handle
+  validation yourself outside of ``fit``:
+
+  .. code:: python
+
+      net = NeuralNetClassifier(MyModule, train_split=None)
+
 
 How can I deal with multiple return values from forward?
 --------------------------------------------------------

@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `ValidSplit` now gives an actionable error message when `stratified=True`
+  and no `y` is passed together with a `skorch.dataset.Dataset` or
+  `torch.utils.data.TensorDataset`, naming the dataset type and pointing to
+  `predefined_split`, `stratified=False`, or `train_split=None` as
+  workarounds (#1122)
+
 ## [1.4.0]
 
 ### Added

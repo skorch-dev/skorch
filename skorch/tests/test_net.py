@@ -2212,7 +2212,16 @@ class TestNeuralNet:
         with pytest.raises(ValueError) as exc:
             net.fit(ds, None)
 
-        msg = "Stratified CV requires explicitly passing a suitable y."
+        msg = (
+            "Stratified CV requires explicitly passing a suitable y. You "
+            "passed a skorch.dataset.Dataset as dataset, which skorch "
+            "cannot introspect to obtain labels for stratification. To "
+            "resolve this, either wrap your validation data with "
+            "skorch.helper.predefined_split and pass it as train_split, "
+            "disable stratification with train_split=ValidSplit(5, "
+            "stratified=False), or disable the internal validation split "
+            "entirely with train_split=None."
+        )
         assert exc.value.args[0] == msg
 
     @pytest.fixture
