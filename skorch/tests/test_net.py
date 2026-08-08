@@ -2190,6 +2190,7 @@ class TestNeuralNet:
                "validation split, or pass a train_split that supports "
                "IterableDataset.")
         assert exc.value.args[0] == msg
+        assert isinstance(exc.value.__cause__, TypeError)
 
     def test_fit_with_iterable_dataset_no_train_split(
             self, net_cls, module_cls, iterable_dataset_cls, data):
