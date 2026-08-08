@@ -34,6 +34,18 @@ ERROR_MSG_MORE_THAN_2_ITEMS = (
     "https://skorch.readthedocs.io/en/stable/user/dataset.html).")
 
 
+ERROR_MSG_BAD_Y = "Stratified CV requires explicitly passing a suitable y."
+
+
+ERROR_MSG_BAD_Y_STRATIFIED_DATASET = (
+    ERROR_MSG_BAD_Y + " You passed a {} as dataset, which skorch cannot "
+    "introspect to obtain labels for stratification. To resolve this, "
+    "either wrap your validation data with skorch.helper.predefined_split "
+    "and pass it as train_split, disable stratification with "
+    "train_split=ValidSplit(5, stratified=False), or disable the internal "
+    "validation split entirely with train_split=None.")
+
+
 def _apply_to_data(data, func, unpack_dict=False):
     """Apply a function to data, trying to unpack different data
     types.
@@ -301,15 +313,23 @@ class ValidSplit:
     def _is_regular(self, x):
         return (x is None) or isinstance(x, np.ndarray) or is_pandas_ndframe(x)
 
+    def _bad_y_error(self, dataset):
+        if isinstance(dataset, Dataset):
+            dataset_type = 'skorch.dataset.Dataset'
+        elif isinstance(dataset, torch.utils.data.TensorDataset):
+            dataset_type = 'torch.utils.data.TensorDataset'
+        else:
+            return ValueError(ERROR_MSG_BAD_Y)
+        msg = ERROR_MSG_BAD_Y_STRATIFIED_DATASET.format(dataset_type)
+        return ValueError(msg)
+
     def __call__(self, dataset, y=None, groups=None):
-        bad_y_error = ValueError(
-            "Stratified CV requires explicitly passing a suitable y.")
         if (y is None) and self.stratified:
-            raise bad_y_error
+            raise self._bad_y_error(dataset)
 
         cv = self.check_cv(y)
         if self.stratified and not self._is_stratified(cv):
-            raise bad_y_error
+            raise ValueError(ERROR_MSG_BAD_Y)
 
         # pylint: disable=invalid-name
         len_dataset = get_len(dataset)
