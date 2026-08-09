@@ -1,5 +1,6 @@
 """Test for utils.py"""
 
+from collections import defaultdict
 from copy import deepcopy
 from unittest.mock import patch
 
@@ -373,6 +374,18 @@ class TestToDevice:
         assert x_dict.keys() == original_x_dict.keys()
         for k in x_dict:
             assert np.allclose(x_dict[k], original_x_dict[k])
+
+    def test_check_device_defaultdict_torch_tensor(self, to_device, x_dict):
+        x_defaultdict = defaultdict(list, x_dict)
+
+        result = to_device(x_defaultdict, device='cpu')
+
+        assert isinstance(result, defaultdict)
+        assert result.default_factory is list
+        assert result['missing'] == []
+        for key, value in x_dict.items():
+            assert torch.equal(result[key], value)
+            assert result[key].device.type == 'cpu'
 
     @pytest.mark.parametrize('device_from, device_to', [
         ('cpu', 'cpu'),

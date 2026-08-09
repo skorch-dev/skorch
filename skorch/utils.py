@@ -4,6 +4,7 @@ Should not have any dependency on other skorch packages.
 
 """
 
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from enum import Enum
@@ -205,7 +206,10 @@ def to_device(X, device):
 
     if isinstance(X, Mapping):
         # dict-like but not a dict
-        return type(X)({key: to_device(val, device) for key, val in X.items()})
+        mapped = {key: to_device(val, device) for key, val in X.items()}
+        if isinstance(X, defaultdict):
+            return type(X)(X.default_factory, mapped)
+        return type(X)(mapped)
 
     # PackedSequence class inherits from a namedtuple
     if isinstance(X, (tuple, list)) and (type(X) != PackedSequence):
