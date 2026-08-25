@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `ValidSplit` now raises a clear error when it receives an `IterableDataset`, instead of an opaque `TypeError` about a missing length (#594)
+- `Checkpoint`'s sink message now reports the epoch the checkpoint was actually taken in, instead of the following one
 
 ## [1.4.0]
 

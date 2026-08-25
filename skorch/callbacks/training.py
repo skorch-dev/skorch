@@ -235,7 +235,7 @@ class Checkpoint(Callback):
         if do_checkpoint:
             self.save_model(net)
             self._sink("A checkpoint was triggered in epoch {}.".format(
-                len(net.history) + 1
+                len(net.history)
             ), net.verbose)
 
     def _f_kwargs(self):

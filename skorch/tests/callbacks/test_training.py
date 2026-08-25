@@ -95,6 +95,19 @@ class TestCheckpoint:
         assert sink.call_count == len(net.history)
         assert all((x is True) for x in net.history[:, 'event_another'])
 
+    def test_sink_message_reports_the_current_epoch(
+            self, save_params_mock, net_cls, checkpoint_cls, data):
+        sink = Mock()
+        net = net_cls(callbacks=[checkpoint_cls(monitor=None, sink=sink)])
+        net.fit(*data)
+
+        epochs = net.history[:, 'epoch']
+        expected = [
+            call("A checkpoint was triggered in epoch {}.".format(epoch))
+            for epoch in epochs
+        ]
+        assert sink.call_args_list == expected
+
     @pytest.mark.parametrize('message,files', [
         ('Unable to save module state to params.pt, '
          'Exception: encoding error',
