@@ -742,10 +742,6 @@ class SkorchDoctor(BaseEstimator):
           plot onto an existing plot, pass it here. There should be one subplot
           for each top level module (typically 2).
 
-        bins : np.ndarray or None (default=None)
-          Bins to use for the histogram. If left as ``None``, they are inferred
-          from the data.
-
         **kwargs
           You can override remaining plotting arguments like ``figsize`` (figure
           size).
