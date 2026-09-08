@@ -1,8 +1,10 @@
 """Tests for lr_scheduler.py"""
+import pickle
 from unittest.mock import Mock
 
 import numpy as np
 import pytest
+import torch
 from sklearn.base import clone
 from torch.optim import SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -133,6 +135,51 @@ class TestLRCallbacks:
         net.fit(X, y)
         # pylint: disable=protected-access
         assert lr_policy.lr_scheduler_.last_epoch == max_epochs
+
+    def test_lr_scheduler_dropped_from_pickled_state(
+            self, classifier_module, classifier_data,
+    ):
+        # See issue #1096. torch's LR schedulers keep a reference to the
+        # optimizer they were created for. Since the LRScheduler callback
+        # lives in net.callbacks_, which is not covered by
+        # cuda_dependent_attributes_, pickling it used to drag along a
+        # duplicate of net.optimizer_ (including any device-dependent
+        # tensors, e.g. Adam's running averages). This defeated the
+        # purpose of stripping net.optimizer_ out as a cuda dependent
+        # attribute and broke loading CUDA-trained nets on CPU-only
+        # machines.
+        X, y = classifier_data
+        lr_policy = LRScheduler(policy='StepLR', step_size=1)
+        net = NeuralNetClassifier(
+            classifier_module(),
+            max_epochs=2,
+            optimizer=torch.optim.Adam,
+            callbacks=[('lr_scheduler', lr_policy)],
+        )
+        net.fit(X, y)
+
+        assert lr_policy.lr_scheduler_.optimizer is net.optimizer_
+
+        # lr_scheduler_ must not be part of the pickled state, since it
+        # references the (potentially CUDA-resident) optimizer directly.
+        state = lr_policy.__getstate__()
+        assert state['lr_scheduler_'] is None
+
+        # after a full round trip, the reference should be gone and the
+        # net should remain fully usable
+        net_loaded = pickle.loads(pickle.dumps(net))
+        lr_loaded = dict(net_loaded.callbacks_)['lr_scheduler']
+        assert lr_loaded.lr_scheduler_ is None
+
+        y_pred = net_loaded.predict(X)
+        assert y_pred.shape[0] == X.shape[0]
+
+        # resuming training recreates lr_scheduler_ tied to the (loaded)
+        # optimizer
+        net_loaded.partial_fit(X, y)
+        lr_loaded = dict(net_loaded.callbacks_)['lr_scheduler']
+        assert lr_loaded.lr_scheduler_ is not None
+        assert lr_loaded.lr_scheduler_.optimizer is net_loaded.optimizer_
 
     @pytest.mark.parametrize('policy, kwargs', [
         (CyclicLR, {'base_lr': 1e-3, 'max_lr': 6e-3, 'step_every': 'batch'}),

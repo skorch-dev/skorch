@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ValidSplit` now raises a clear error when it receives an `IterableDataset`, instead of an opaque `TypeError` about a missing length (#594)
 - `Checkpoint`'s sink message now reports the epoch the checkpoint was actually taken in, instead of the following one
+- Fix pickling a net with an `LRScheduler` callback dragging along a reference to the (potentially CUDA-resident) optimizer, which could prevent loading nets trained on CUDA on a CPU-only machine (#1096)
 
 ## [1.4.0]
 

@@ -124,6 +124,19 @@ class LRScheduler(Callback):
         self.batch_idx_ = 0
         return self
 
+    def __getstate__(self):
+        # Don't pickle lr_scheduler_: Torch's LR schedulers keep a reference
+        # to the optimizer they were created for, which means that pickling
+        # it would drag along a duplicate of net.optimizer_, including its
+        # device-dependent tensors (e.g. Adam's running averages). This
+        # would prevent nets trained on CUDA from being unpickled on a
+        # CPU-only machine, since net.optimizer_ is otherwise handled
+        # correctly via cuda_dependent_attributes_. lr_scheduler_ is
+        # recreated in on_train_begin anyway, so it's safe to drop it here.
+        state = self.__dict__.copy()
+        state['lr_scheduler_'] = None
+        return state
+
     def _get_policy_cls(self):
         if isinstance(self.policy, str):
             return getattr(sys.modules[__name__], self.policy)
