@@ -585,8 +585,8 @@ class SkorchDoctor(BaseEstimator):
           from the data.
 
         **kwargs
-          You can override remaining plotting arguments like ``lw`` (line width)
-          or ``figsize`` (figure size).
+          You can override remaining plotting arguments like ``alpha``
+          (transparency).
 
         Returns
         -------
@@ -669,8 +669,8 @@ class SkorchDoctor(BaseEstimator):
           from the data.
 
         **kwargs
-          You can override remaining plotting arguments like ``lw`` (line width)
-          or ``figsize`` (figure size).
+          You can override remaining plotting arguments like ``alpha``
+          (transparency).
 
         Returns
         -------
@@ -743,8 +743,8 @@ class SkorchDoctor(BaseEstimator):
           for each top level module (typically 2).
 
         **kwargs
-          You can override remaining plotting arguments like ``figsize`` (figure
-          size).
+          You can override remaining plotting arguments like ``lw`` (line
+          width).
 
         Returns
         -------
@@ -826,8 +826,8 @@ class SkorchDoctor(BaseEstimator):
           from the data.
 
         **kwargs
-          You can override remaining plotting arguments like ``figsize`` (figure
-          size).
+          You can override remaining plotting arguments like ``linestyle``
+          (line style).
 
         Returns
         -------
@@ -921,8 +921,8 @@ class SkorchDoctor(BaseEstimator):
           from the data.
 
         **kwargs
-          You can override remaining plotting arguments like ``figsize`` (figure
-          size).
+          You can override remaining plotting arguments like ``linestyle``
+          (line style).
 
         Returns
         -------
