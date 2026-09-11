@@ -533,6 +533,26 @@ class SkorchDoctor(BaseEstimator):
 
         Plots the training loss and, if present, the validation loss over time.
 
+        Parameters
+        ----------
+        ax : AxesSubplot or None (default=None)
+          By default, a new matplotlib plot is created. If you instead want to
+          plot onto an existing plot, pass it here. Only a single plot is
+          created.
+
+        figsize : tuple of int or None (default=None)
+          Size of the figure. Only used when a new plot is created, i.e. when
+          ``ax`` is ``None``.
+
+        **kwargs
+          You can override remaining plotting arguments like ``lw`` (line
+          width).
+
+        Returns
+        -------
+        ax : AxesSubplot
+          The ax of the plot.
+
         """
         self.check_is_fitted()
 
@@ -580,9 +600,25 @@ class SkorchDoctor(BaseEstimator):
           plot onto an existing plot, pass it here. There should be one subplot
           for each top level module (typically 2).
 
+        histtype : str (default='step')
+          The type of histogram to draw, passed to
+          :func:`matplotlib.pyplot.hist`.
+
+        lw : int (default=2)
+          The line width of the histogram, passed to
+          :func:`matplotlib.pyplot.hist`.
+
         bins : np.ndarray or None (default=None)
           Bins to use for the histogram. If left as ``None``, they are inferred
           from the data.
+
+        density : bool (default=True)
+          If ``True``, draw a probability density instead of raw counts.
+          Passed to :func:`matplotlib.pyplot.hist`.
+
+        figsize : tuple of int or None (default=None)
+          Size of the figure. Only used when a new plot is created, i.e. when
+          ``axes`` is ``None``.
 
         **kwargs
           You can override remaining plotting arguments like ``alpha``
@@ -664,9 +700,25 @@ class SkorchDoctor(BaseEstimator):
           plot onto an existing plot, pass it here. There should be one subplot
           for each top level module (typically 2).
 
+        histtype : str (default='step')
+          The type of histogram to draw, passed to
+          :func:`matplotlib.pyplot.hist`.
+
+        lw : int (default=2)
+          The line width of the histogram, passed to
+          :func:`matplotlib.pyplot.hist`.
+
         bins : np.ndarray or None (default=None)
           Bins to use for the histogram. If left as ``None``, they are inferred
           from the data.
+
+        density : bool (default=True)
+          If ``True``, draw a probability density instead of raw counts.
+          Passed to :func:`matplotlib.pyplot.hist`.
+
+        figsize : tuple of int or None (default=None)
+          Size of the figure. Only used when a new plot is created, i.e. when
+          ``axes`` is ``None``.
 
         **kwargs
           You can override remaining plotting arguments like ``alpha``
@@ -741,6 +793,10 @@ class SkorchDoctor(BaseEstimator):
           By default, a new matplotlib plot is created. If you instead want to
           plot onto an existing plot, pass it here. There should be one subplot
           for each top level module (typically 2).
+
+        figsize : tuple of int or None (default=None)
+          Size of the figure. Only used when a new plot is created, i.e. when
+          ``axes`` is ``None``.
 
         **kwargs
           You can override remaining plotting arguments like ``lw`` (line
@@ -821,9 +877,21 @@ class SkorchDoctor(BaseEstimator):
           plot onto an existing plot, pass it here. Only a single plot is
           created.
 
+        lw : int (default=2)
+          The line width of the histogram outline, passed to
+          :func:`matplotlib.pyplot.fill_between`.
+
         bins : np.ndarray or None (default=None)
           Bins to use for the histogram. If left as ``None``, they are inferred
           from the data.
+
+        figsize : tuple of int or None (default=None)
+          Size of the figure. Only used when a new plot is created, i.e. when
+          ``ax`` is ``None``.
+
+        color : str (default='k')
+          The color of the plotted histograms, passed to
+          :func:`matplotlib.pyplot.fill_between`.
 
         **kwargs
           You can override remaining plotting arguments like ``linestyle``
@@ -916,9 +984,21 @@ class SkorchDoctor(BaseEstimator):
           plot onto an existing plot, pass it here. Only a single plot is
           created.
 
+        lw : int (default=2)
+          The line width of the histogram outline, passed to
+          :func:`matplotlib.pyplot.fill_between`.
+
         bins : np.ndarray or None (default=None)
           Bins to use for the histogram. If left as ``None``, they are inferred
           from the data.
+
+        figsize : tuple of int or None (default=None)
+          Size of the figure. Only used when a new plot is created, i.e. when
+          ``ax`` is ``None``.
+
+        color : str (default='k')
+          The color of the plotted histograms, passed to
+          :func:`matplotlib.pyplot.fill_between`.
 
         **kwargs
           You can override remaining plotting arguments like ``linestyle``
