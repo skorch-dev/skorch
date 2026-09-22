@@ -2690,6 +2690,33 @@ class TestNeuralNet:
         assert net.history[:, "train_batch_count"] == [train_batch_count]
         assert net.history[:, "valid_batch_count"] == [valid_batch_count]
 
+    @pytest.mark.parametrize('use_generator', [False, True])
+    def test_iterators_across_epochs(
+            self, net_cls, module_cls, data, use_generator):
+        def generator_factory(*args, **kwargs):
+            yield from torch.utils.data.DataLoader(*args, **kwargs)
+
+        factory = generator_factory if use_generator else torch.utils.data.DataLoader
+        train_loader = Mock(side_effect=factory)
+        valid_loader = Mock(side_effect=factory)
+        net = net_cls(module_cls, max_epochs=2, batch_size=100,
+                      iterator_train=train_loader, iterator_valid=valid_loader)
+        net.fit(*data)
+
+        assert net.history[:, 'train_batch_count'] == [8, 8]
+        assert net.history[:, 'valid_batch_count'] == [2, 2]
+        assert train_loader.call_count == (2 if use_generator else 1)
+        assert valid_loader.call_count == (2 if use_generator else 1)
+
+    @pytest.mark.parametrize('iterator', ['iterator_train', 'iterator_valid'])
+    def test_empty_iterator_raises(self, net_cls, module_cls, data, iterator):
+        net = net_cls(module_cls, max_epochs=1, **{
+            iterator + '__batch_size': 2000,
+            iterator + '__drop_last': True,
+        })
+        with pytest.raises(ValueError, match='No batches were produced by ' + iterator):
+            net.fit(*data)
+
     @flaky(max_runs=5)
     def test_fit_lbfgs_optimizer(self, net_cls, module_cls, data):
         # need to randomize the seed, otherwise flaky always runs with
