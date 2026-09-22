@@ -2,11 +2,6 @@
 
 Open tasks:
 
-- Have a "fast/greedy" option for predict - it is not necessary to calculate
-  probabilities for all classes up until the last token. When class A has
-  probability p_A and class B has p_B(t) < p_A at token t, then no matter what
-  the probability for later tokens, it cannot surpass p_A anymore.
-
 - A small use case where the classifiers are used as a transformer in a bigger
   pipeline, e.g. to extract structured knowledge from a text ("Does this
   product description contain the size of the item?")
@@ -169,20 +164,28 @@ def _extend_inputs(inputs, extra):
 
 class _LogitsRecorder(LogitsProcessor):
     """Helper class to record logits and force the given label token ids"""
-    def __init__(self, label_ids, tokenizer):
+    def __init__(self, label_ids, tokenizer, min_proba=0.0, probas=()):
         self.recorded_scores = []
         self.label_ids = label_ids
         self.tokenizer = tokenizer
+        self.min_proba = min_proba
+        self.probas = list(probas)
 
     def __call__(self, input_ids, scores):
         idx = len(self.recorded_scores)
         # we pull the logits to CPU because they are not used as input,
         # therefore there is no device mismatch and we save a bit of GPU memory
         self.recorded_scores.append(scores[0].clone().cpu())
+        if self.min_proba:
+            proba = self.recorded_scores[-1].softmax(-1).float()[self.label_ids[idx]]
+            self.probas.append(proba.item())
         mask = torch.ones(scores.size(), dtype=torch.bool)
         mask[0, self.label_ids[idx]] = False
         scores[mask] = -float('inf')
         return scores
+
+    def should_stop(self, input_ids, scores, **kwargs):
+        return torch.tensor(self.probas, dtype=torch.float).prod().item() < self.min_proba
 
 
 class _CacheModelWrapper:
@@ -237,10 +240,11 @@ class _CacheModelWrapper:
             key = str(input_id)
             self.cache[key] = score
 
-    def generate_logits(self, *, label_id, **kwargs):
+    def generate_logits(self, *, label_id, min_proba=0.0, **kwargs):
         self._total_calls += 1  # mainly for debugging
 
         recorded_logits = []
+        probas = []
         logits_cached = self.get_cache(kwargs)
         while logits_cached is not None:
             if not label_id or label_id[0] == self.tokenizer.eos_token_id:
@@ -249,6 +253,10 @@ class _CacheModelWrapper:
                 break
 
             recorded_logits.append(logits_cached)
+            if min_proba:
+                probas.append(logits_cached.softmax(-1).float()[label_id[0]].item())
+                if torch.tensor(probas, dtype=torch.float).prod().item() < min_proba:
+                    return recorded_logits
             kwargs = _extend_inputs(kwargs, label_id[:1])
             label_id = label_id[1:]
             logits_cached = self.get_cache(kwargs)
@@ -265,9 +273,12 @@ class _CacheModelWrapper:
         recorder = _LogitsRecorder(
             label_ids=label_id,
             tokenizer=self.tokenizer,
+            min_proba=min_proba,
+            probas=probas,
         )
         self.model.generate(
             logits_processor=[recorder],
+            stopping_criteria=[recorder.should_stop] if min_proba else [],
             # TODO: should this be the max len of all labels?
             max_new_tokens=len(label_id),
             **kwargs
@@ -390,10 +401,11 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
         )
         return self
 
-    def _predict_one(self, text):
+    def _predict_one(self, text, *, fast=False):
         """Make a prediction for a single sample
 
-        The returned probabilities are *not normalized* yet.
+        The returned probabilities are *not normalized* yet. With ``fast=True``,
+        losing labels may return upper bounds instead of exact probabilities.
 
         Raises a ``LowProbabilityError`` if the total probability of all labels
         is 0, or, assuming ``error_low_prob`` is ``'raise'``, when it is below
@@ -405,7 +417,13 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
 
         probas_all_labels = []
         for label_id in self.label_ids_:
-            logits = self.cached_model_.generate_logits(label_id=label_id, **inputs)
+            min_proba = max(probas_all_labels, default=0.0) if fast else 0.0
+            # Preserve low-probability handling until a completed label alone
+            # guarantees that the total probability reaches the threshold.
+            if self.error_low_prob != 'ignore' and min_proba < self.threshold_low_prob:
+                min_proba = 0.0
+            logits = self.cached_model_.generate_logits(
+                label_id=label_id, min_proba=min_proba, **inputs)
             logits = torch.vstack(logits)
             probas = torch.nn.functional.softmax(logits, dim=-1)
 
@@ -438,7 +456,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
         y_prob = np.array(probas_all_labels).astype(np.float64)
         return y_prob
 
-    def _predict_proba(self, X):
+    def _predict_proba(self, X, *, fast=False):
         """Return the unnormalized y_proba
 
         Warns if the total probability for a sample is below the threshold and
@@ -449,7 +467,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
         y_proba = []
         for xi in X:
             text = self.get_prompt(xi)
-            proba = self._predict_one(text)
+            proba = self._predict_one(text, fast=fast)
             y_proba.append(proba)
         y_proba = np.vstack(y_proba)
 
@@ -504,7 +522,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
 
         return y_proba
 
-    def predict(self, X):
+    def predict(self, X, *, fast=False):
         """Return the classes predicted by the LLM.
 
         Predictions will be forced to be one of the labels the model learned
@@ -528,6 +546,12 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
           can also contain numerical or categorical data, although it is
           unlikely that the LLM will generate good predictions for those.
 
+        fast : bool (default=False)
+          Stop scoring a label once its probability cannot exceed the best
+          completed label. This preserves predictions and low-probability
+          handling, but may provide less speedup when the threshold is high.
+          This option does not affect ``predict_proba``.
+
         Returns
         -------
         y_pred : numpy ndarray
@@ -535,7 +559,7 @@ class _LlmBase(ClassifierMixin, BaseEstimator):
 
         """
         # y_proba not normalized but it's not needed here
-        y_proba = self._predict_proba(X)
+        y_proba = self._predict_proba(X, fast=fast)
         pred_ids = y_proba.argmax(1)
         y_pred = self.classes_[pred_ids]
 
