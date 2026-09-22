@@ -827,8 +827,9 @@ class AccelerateMixin:
     This is an *experimental* feature.
 
     Use this mixin class with one of the neural net classes (e.g. ``NeuralNet``,
-    ``NeuralNetClassifier``, or ``NeuralNetRegressor``) and pass an instance of
-    ``Accelerator`` for mixed precision, multi-GPU, or TPU training.
+    ``NeuralNetClassifier``, or ``NeuralNetRegressor``) and pass the
+    ``Accelerator`` class or an instance for mixed precision, multi-GPU, or TPU
+    training.
 
     Install the accelerate library using:
 
@@ -879,9 +880,9 @@ class AccelerateMixin:
 
     Parameters
     ----------
-    accelerator : accelerate.Accelerator
-      In addition to the usual parameters, pass an instance of
-      ``accelerate.Accelerator`` with the desired settings.
+    accelerator : accelerate.Accelerator class or instance
+      Pass the class with settings as ``accelerator__param=value``, or an
+      initialized instance of ``accelerate.Accelerator``.
 
     device : str, torch.device, or None (default=None)
       The compute device to be used. When using accelerate, it is recommended to
@@ -924,16 +925,44 @@ class AccelerateMixin:
             **kwargs
         )
         self.accelerator = accelerator
+        if not isinstance(accelerator, type):
+            self.accelerator_ = accelerator
+        self.prefixes_ = self.prefixes_ + ['accelerator']
         self.unwrap_after_train = unwrap_after_train
         self._wrapped_with_accelerator = False
 
     def _validate_params(self):
         super()._validate_params()
 
-        if self.accelerator.device_placement and (self.device is not None):
+        if self.accelerator_.device_placement and (self.device is not None):
             raise ValueError(
                 "When device placement is performed by the accelerator, set device=None"
             )
+
+    def initialize_accelerator(self):
+        """Initialize the accelerator from its class or instance."""
+        kwargs = self.get_params_for('accelerator')
+        accelerator = self.accelerator
+        if isinstance(accelerator, type):
+            accelerator = accelerator(**kwargs)
+        elif kwargs:
+            accelerator = type(accelerator)(**kwargs)
+        self.accelerator_ = accelerator
+        return self
+
+    def set_params(self, **kwargs):
+        """Set parameters, reinitializing the net when accelerator settings change."""
+        accelerator_params = {
+            key: kwargs.pop(key) for key in list(kwargs)
+            if key == 'accelerator' or key.startswith('accelerator__')
+        }
+        super().set_params(**kwargs)
+        for key, value in accelerator_params.items():
+            setattr(self, key, value)
+        self._params_to_validate.update(accelerator_params)
+        if accelerator_params and self.initialized_:
+            self.initialize()
+        return self
 
     def _initialize_accelerator(self):
         """Prepare everything for use with accelerate"""
@@ -944,40 +973,41 @@ class AccelerateMixin:
             for name in self._criteria:
                 criterion = getattr(self, name + '_')
                 if isinstance(criterion, torch.nn.Module):
-                    setattr(self, name + '_', self.accelerator.prepare(criterion))
+                    setattr(self, name + '_', self.accelerator_.prepare(criterion))
 
         with self._current_init_context('module'):
             for name in self._modules:
                 module = getattr(self, name + '_')
                 if isinstance(module, torch.nn.Module):
-                    setattr(self, name + '_', self.accelerator.prepare(module))
+                    setattr(self, name + '_', self.accelerator_.prepare(module))
 
         with self._current_init_context('optimizer'):
             for name in self._optimizers:
                 optimizer = getattr(self, name + '_')
                 if isinstance(optimizer, torch.optim.Optimizer):
-                    setattr(self, name + '_', self.accelerator.prepare(optimizer))
+                    setattr(self, name + '_', self.accelerator_.prepare(optimizer))
 
         for _, callback in self.callbacks_:
             if isinstance(callback, LRScheduler):
-                callback.policy_ = self.accelerator.prepare(callback.policy_)
+                callback.policy_ = self.accelerator_.prepare(callback.policy_)
 
         self._wrapped_with_accelerator = True
         return self
 
     def initialize(self):
         """Initializes all of its components and returns self."""
-        # this should be the same as the parent class, except for the one marked
-        # line
+        # Initialize the accelerator before callbacks, then prepare the components.
         self.check_training_readiness()
 
+        self.initialize_accelerator()
+        self._wrapped_with_accelerator = False
         self._initialize_virtual_params()
         self._initialize_callbacks()
         self._initialize_module()
         self._initialize_criterion()
         self._initialize_optimizer()
         self._initialize_history()
-        self._initialize_accelerator()  # <= added
+        self._initialize_accelerator()
 
         self._validate_params()
 
@@ -985,15 +1015,22 @@ class AccelerateMixin:
         return self
 
     def _initialize_callbacks(self):
-        if self.callbacks__print_log__sink == 'auto':
-            print_func = getattr(self.accelerator, 'print', print)
+        """Use the initialized accelerator's print function for automatic logging."""
+        sink = self.callbacks__print_log__sink
+        if sink == 'auto':
+            if not hasattr(self, 'accelerator_'):
+                self.initialize_accelerator()
+            print_func = getattr(self.accelerator_, 'print', print)
             self.callbacks__print_log__sink = print_func
-        super()._initialize_callbacks()
+        try:
+            super()._initialize_callbacks()
+        finally:
+            self.callbacks__print_log__sink = sink
         return self
 
     def train_step(self, batch, **fit_params):
         # Call training step within the accelerator context manager
-        with self.accelerator.accumulate(self.module_):
+        with self.accelerator_.accumulate(self.module_):
             # Why are we passing only module_ here, even though there might be
             # other modules as well? First of all, there is no possibility to
             # pass multiple modules. Second, the module_ is only used to
@@ -1005,10 +1042,10 @@ class AccelerateMixin:
     def train_step_single(self, batch, **fit_params):
         self._set_training(True)
         Xi, yi = unpack_data(batch)
-        with self.accelerator.autocast():
+        with self.accelerator_.autocast():
             y_pred = self.infer(Xi, **fit_params)
             loss = self.get_loss(y_pred, yi, X=Xi, training=True)
-            self.accelerator.backward(loss)
+            self.accelerator_.backward(loss)
         return {
             'loss': loss,
             'y_pred': y_pred,
@@ -1016,7 +1053,7 @@ class AccelerateMixin:
 
     def get_iterator(self, *args, **kwargs):
         iterator = super().get_iterator(*args, **kwargs)
-        iterator = self.accelerator.prepare(iterator)
+        iterator = self.accelerator_.prepare(iterator)
         return iterator
 
     def _step_optimizer(self, step_fn):
@@ -1037,13 +1074,13 @@ class AccelerateMixin:
         for name in self._modules + self._criteria:
             module = getattr(self, name + '_')
             if isinstance(module, torch.nn.Module):
-                orig = self.accelerator.unwrap_model(module, keep_fp32_wrapper=False)
+                orig = self.accelerator_.unwrap_model(module, keep_fp32_wrapper=False)
                 setattr(self, name + '_', orig)
         self._wrapped_with_accelerator = False
 
     # pylint: disable=unused-argument
     def on_train_end(self, net, X=None, y=None, **kwargs):
-        self.accelerator.wait_for_everyone()
+        self.accelerator_.wait_for_everyone()
         super().on_train_end(net, X=X, y=y, **kwargs)
         if self.unwrap_after_train:
             self._unwrap_accelerator()
@@ -1054,16 +1091,16 @@ class AccelerateMixin:
         # https://github.com/skorch-dev/skorch/issues/944
         # https://huggingface.co/docs/accelerate/quicktour#distributed-evaluation
         output = super().evaluation_step(batch, training=training)
-        y_pred = self.accelerator.gather_for_metrics(output)
+        y_pred = self.accelerator_.gather_for_metrics(output)
         return y_pred
 
     # pylint: disable=missing-function-docstring
     def save_params(self, *args, **kwargs):
         # has to be called even if not main process, or else there is a dead lock
-        self.accelerator.wait_for_everyone()
+        self.accelerator_.wait_for_everyone()
 
         if not self._wrapped_with_accelerator:
-            if self.accelerator.is_main_process:
+            if self.accelerator_.is_main_process:
                 super().save_params(*args, **kwargs)
         else:
             # A potential issue with using accelerate is that a model that has
@@ -1079,14 +1116,14 @@ class AccelerateMixin:
                 # note: although saving is only done on the main process,
                 # unwrapping+wrapping has to be done on all processes, or else
                 # there is an error, not sure why
-                if self.accelerator.is_main_process:
+                if self.accelerator_.is_main_process:
                     super().save_params(*args, **kwargs)
             finally:
                 self._initialize_accelerator()
 
     # pylint: disable=missing-function-docstring
     def load_params(self, *args, **kwargs):
-        self.accelerator.wait_for_everyone()
+        self.accelerator_.wait_for_everyone()
         prev_device = self.device
         if self.device is None:
             self.device = 'cpu'

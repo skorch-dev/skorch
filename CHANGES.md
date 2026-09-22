@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `AccelerateMixin` accepts an `Accelerator` class with `accelerator__...` settings,
+  as well as an initialized instance (#960).
+
 - Add `device='auto'` to select hardware acceleration like CUDA when
   available, and CPU otherwise.
 
