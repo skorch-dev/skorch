@@ -15,6 +15,7 @@ from contextlib import contextmanager
 import os
 import pickle
 import tempfile
+from types import GeneratorType
 import warnings
 
 import numpy as np
@@ -1238,7 +1239,11 @@ class NeuralNet(BaseEstimator):
         if dataset_valid is not None:
             iterator_valid = self.get_iterator(dataset_valid, training=False)
 
-        for _ in range(epochs):
+        for epoch in range(epochs):
+            if epoch and isinstance(iterator_train, GeneratorType):
+                iterator_train = self.get_iterator(dataset_train, training=True)
+            if epoch and isinstance(iterator_valid, GeneratorType):
+                iterator_valid = self.get_iterator(dataset_valid, training=False)
             self.notify('on_epoch_begin', **on_epoch_kwargs)
 
             self.run_single_epoch(iterator_train, training=True, prefix="train",
@@ -1285,6 +1290,8 @@ class NeuralNet(BaseEstimator):
             self.notify("on_batch_end", batch=batch, training=training, **step)
             batch_count += 1
 
+        if not batch_count:
+            raise ValueError("No batches were produced by iterator_{}.".format(prefix))
         self.history.record(prefix + "_batch_count", batch_count)
 
     # pylint: disable=unused-argument
