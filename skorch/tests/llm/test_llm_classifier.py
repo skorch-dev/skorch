@@ -755,3 +755,88 @@ class TestFewShotClassifier:
         first = examples[0]
         for other in examples[1:]:
             assert first == other
+
+
+class TestFastPredict:
+    @pytest.fixture
+    def classifier(self, request):
+        import torch
+        from tokenizers import Tokenizer
+        from tokenizers.models import WordLevel
+        from tokenizers.pre_tokenizers import Whitespace
+        from transformers import (
+            GPT2Config, GPT2LMHeadModel, PreTrainedTokenizerFast,
+            T5Config, T5ForConditionalGeneration,
+        )
+        from skorch.llm import FewShotClassifier, ZeroShotClassifier
+
+        architecture, use_caching, few_shot = request.param
+        vocab = {'[PAD]': 0, '[UNK]': 1, 'A': 2, 'B': 3, 'C': 4, 'D': 5}
+        backend = Tokenizer(WordLevel(vocab, unk_token='[UNK]'))
+        backend.pre_tokenizer = Whitespace()
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_object=backend, pad_token='[PAD]', unk_token='[UNK]')
+        if architecture == 'causal':
+            model = GPT2LMHeadModel(GPT2Config(
+                vocab_size=len(vocab), n_embd=8, n_layer=1, n_head=1,
+                n_positions=256, bos_token_id=None, eos_token_id=None, pad_token_id=0))
+        else:
+            model = T5ForConditionalGeneration(T5Config(
+                vocab_size=len(vocab), d_model=8, d_ff=16, num_layers=1,
+                num_heads=1, decoder_start_token_id=0, eos_token_id=None,
+                pad_token_id=0))
+        # Uniform token probabilities make the losing prefixes deterministic.
+        with torch.no_grad():
+            for parameter in model.parameters():
+                parameter.zero_()
+        model.eval()
+        cls = FewShotClassifier if few_shot else ZeroShotClassifier
+        prompt = '{text} {labels}' + (' {examples}' if few_shot else '')
+        return cls(model=model, tokenizer=tokenizer, prompt=prompt,
+                   use_caching=use_caching)
+
+    @pytest.mark.parametrize('classifier', [
+        ('causal', False, False), ('causal', True, False),
+        ('encoder-decoder', False, False), ('causal', True, True),
+    ], indirect=True)
+    @pytest.mark.parametrize('labels', [
+        ['A', 'B C D'], ['A', 'A B C'], ['A B C', 'B', 'C D A'],
+    ])
+    def test_fast_predict_skips_tokens(self, classifier, labels):
+        classifier.fit(['text'] * len(labels), labels)
+        calls = []
+        hook = classifier.model_.register_forward_hook(
+            lambda *args: calls.append(1))
+        try:
+            expected = classifier.predict(['text'])
+            full_calls = len(calls)
+            classifier.clear_model_cache()
+            calls.clear()
+            actual = classifier.predict(['text'], fast=True)
+            assert len(calls) < full_calls
+            np.testing.assert_array_equal(actual, expected)
+            # Completing a partially cached label must still give exact probabilities.
+            probas = classifier.predict_proba(['text'])
+            classifier.clear_model_cache()
+            np.testing.assert_allclose(probas, classifier.predict_proba(['text']))
+            np.testing.assert_array_equal(classifier.predict(['text'], fast=True), expected)
+        finally:
+            hook.remove()
+
+    @pytest.mark.parametrize('classifier', [('causal', True, False)], indirect=True)
+    @pytest.mark.parametrize('error_low_prob', ['warn', 'raise', 'return_none'])
+    def test_fast_predict_preserves_low_probability(self, classifier, error_low_prob):
+        from skorch.exceptions import LowProbabilityError
+
+        classifier.set_params(error_low_prob=error_low_prob, threshold_low_prob=0.18)
+        classifier.fit(['text', 'text'], ['A', 'B C D'])
+        for fast in (False, True):
+            classifier.clear_model_cache()
+            if error_low_prob == 'raise':
+                with pytest.raises(LowProbabilityError):
+                    classifier.predict(['text'], fast=fast)
+            elif error_low_prob == 'warn':
+                with pytest.warns(UserWarning, match='below the threshold'):
+                    classifier.predict(['text'], fast=fast)
+            else:
+                assert classifier.predict(['text'], fast=fast).tolist() == [None]

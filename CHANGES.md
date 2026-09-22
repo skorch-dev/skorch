@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `predict(..., fast=True)` to LLM classifiers to stop scoring labels that cannot win (#989).
 - Add `device='auto'` to select hardware acceleration like CUDA when
   available, and CPU otherwise.
 
