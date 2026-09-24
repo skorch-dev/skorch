@@ -546,6 +546,118 @@ class TestAccelerate:
             lr=0.1,
         )
 
+    def test_accelerator_class_and_clone(self, net_cls, accelerator_cls, data):
+        net = net_cls(
+            accelerator=accelerator_cls,
+            accelerator__cpu=True,
+            accelerator__gradient_accumulation_steps=2,
+        )
+        X, y = data[0][:100], data[1][:100]
+        net.fit(X, y)
+
+        assert net.accelerator is accelerator_cls
+        assert net.accelerator_.gradient_accumulation_steps == 2
+        assert np.isfinite(net.predict_proba(X)).all()
+        copied = clone(net)
+        assert copied.accelerator is accelerator_cls
+        assert not hasattr(copied, 'accelerator_')
+        copied.initialize()
+        assert copied.accelerator_.gradient_accumulation_steps == 2
+        assert dict(copied.callbacks_)['print_log'].sink == copied.accelerator_.print
+
+    @pytest.mark.parametrize('initialized', [False, True])
+    @pytest.mark.parametrize('as_class', [False, True])
+    def test_accelerator_update_with_other_params(
+            self, net_cls, accelerator_cls, initialized, as_class
+    ):
+        accelerator = accelerator_cls if as_class else accelerator_cls(cpu=True)
+        net = net_cls(accelerator=accelerator)
+        if initialized:
+            net.initialize()
+        if as_class:
+            params = {'accelerator__cpu': True, 'accelerator__device_placement': False}
+        else:
+            params = {'accelerator': accelerator_cls(cpu=True, device_placement=False)}
+        net.set_params(
+            **params, device='cpu', module__hidden_units=7, optimizer__lr=0.2,
+            callbacks__print_log__sink=print,
+        )
+        if not initialized:
+            net.initialize()
+
+        assert net.accelerator_.device_placement is False
+        assert net.module_.hidden_units == 7
+        assert net.optimizer_.param_groups[0]['lr'] == 0.2
+        assert dict(net.callbacks_)['print_log'].sink is print
+
+    def test_accelerator_replacement_before_initialize(
+            self, net_cls, accelerator_cls
+    ):
+        net = net_cls(accelerator=accelerator_cls(cpu=True))
+        replacement = accelerator_cls(cpu=True)
+        replacement.prepare = Mock(wraps=replacement.prepare)
+        net.set_params(accelerator=replacement, callbacks=[])
+        net.get_iterator(torch.utils.data.TensorDataset(torch.ones(2, 1)), False)
+
+        replacement.prepare.assert_called_once()
+        assert dict(net.callbacks_)['print_log'].sink == replacement.print
+
+    def test_same_accelerator_preserves_fitted_state(
+            self, net_cls, accelerator_cls, data
+    ):
+        accelerator = accelerator_cls(cpu=True)
+        net = net_cls(accelerator=accelerator)
+        net.fit(data[0][:100], data[1][:100])
+        module, optimizer = net.module_, net.optimizer_
+        history = deepcopy(net.history)
+        net.set_params(accelerator=accelerator)
+
+        assert net.module_ is module
+        assert net.optimizer_ is optimizer
+        assert net.history == history
+
+    def test_reinitialize_prepares_new_module(
+            self, net_cls, accelerator_cls, monkeypatch
+    ):
+        prepared = []
+        prepare = accelerator_cls.prepare
+
+        def record_prepare(accelerator, obj):
+            prepared.append(obj)
+            return prepare(accelerator, obj)
+
+        monkeypatch.setattr(accelerator_cls, 'prepare', record_prepare)
+        net = net_cls(accelerator=accelerator_cls, accelerator__cpu=True).initialize()
+        prepared.clear()
+        net.initialize()
+
+        assert any(obj is net.module_ for obj in prepared)
+
+    @pytest.mark.parametrize('as_class', [False, True])
+    @pytest.mark.parametrize('skipped', [False, True])
+    @pytest.mark.parametrize('step_every', ['epoch', 'batch'])
+    def test_scheduler_steps_with_accelerator_class_or_instance(
+            self, net_cls, accelerator_cls, data, monkeypatch,
+            as_class, skipped, step_every
+    ):
+        from skorch.callbacks import LRScheduler
+
+        monkeypatch.setattr(
+            accelerator_cls, 'optimizer_step_was_skipped',
+            property(lambda self: skipped),
+        )
+        accelerator = accelerator_cls if as_class else accelerator_cls(cpu=True)
+        net = net_cls(
+            accelerator=accelerator, train_split=None, batch_size=5, max_epochs=2,
+            callbacks=[LRScheduler(
+                policy='StepLR', step_size=1, gamma=0.5, step_every=step_every,
+            )],
+        )
+        net.fit(data[0][:10], data[1][:10])
+
+        steps = 0 if skipped else (2 if step_every == 'epoch' else 4)
+        assert net.optimizer_.param_groups[0]['lr'] == pytest.approx(0.1 * 0.5**steps)
+
     @pytest.mark.parametrize('mixed_precision', ['no', 'fp16', 'bf16'])
     def test_mixed_precision(self, net_cls, accelerator_cls, data, mixed_precision):
         # Only test if training works at all, no specific test of whether the

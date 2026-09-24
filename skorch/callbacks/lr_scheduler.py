@@ -175,7 +175,7 @@ class LRScheduler(Callback):
         https://huggingface.co/docs/accelerate/quicktour#mixed-precision-training
 
         """
-        accelerator_maybe = getattr(net, 'accelerator', None)
+        accelerator_maybe = getattr(net, 'accelerator_', None)
         accelerator_step_skipped = (
             accelerator_maybe and accelerator_maybe.optimizer_step_was_skipped
         )

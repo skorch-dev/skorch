@@ -883,6 +883,9 @@ class AccelerateMixin:
     accelerator : accelerate.Accelerator class or instance
       Pass the class with settings as ``accelerator__param=value``, or an
       initialized instance of ``accelerate.Accelerator``.
+      Changing accelerator settings via ``set_params`` reinitializes an
+      initialized net, including its module, optimizer, and history. Passing
+      the same accelerator object again leaves the fitted state unchanged.
 
     device : str, torch.device, or None (default=None)
       The compute device to be used. When using accelerate, it is recommended to
@@ -952,15 +955,28 @@ class AccelerateMixin:
 
     def set_params(self, **kwargs):
         """Set parameters, reinitializing the net when accelerator settings change."""
+        if 'accelerator' in kwargs and kwargs['accelerator'] is self.accelerator:
+            kwargs.pop('accelerator')
         accelerator_params = {
             key: kwargs.pop(key) for key in list(kwargs)
             if key == 'accelerator' or key.startswith('accelerator__')
         }
-        super().set_params(**kwargs)
+        if not accelerator_params:
+            return super().set_params(**kwargs)
+
         for key, value in accelerator_params.items():
             setattr(self, key, value)
         self._params_to_validate.update(accelerator_params)
-        if accelerator_params and self.initialized_:
+        vars(self).pop('accelerator_', None)
+        if not isinstance(self.accelerator, type):
+            self.accelerator_ = self.accelerator
+
+        # Apply all parameters before validating or rebuilding any components.
+        initialized = self.initialized_
+        self.initialized_ = False
+        self.virtual_params_ = {}  # don't update the optimizer we're replacing
+        super().set_params(**kwargs)
+        if initialized:
             self.initialize()
         return self
 
@@ -996,18 +1012,19 @@ class AccelerateMixin:
 
     def initialize(self):
         """Initializes all of its components and returns self."""
-        # Initialize the accelerator before callbacks, then prepare the components.
+        # Keep this in sync with NeuralNet.initialize, except for the marked
+        # accelerator-specific lines below.
         self.check_training_readiness()
 
-        self.initialize_accelerator()
-        self._wrapped_with_accelerator = False
+        self.initialize_accelerator()  # before callbacks bind accelerator.print
+        self._wrapped_with_accelerator = False  # new components need preparation
         self._initialize_virtual_params()
         self._initialize_callbacks()
         self._initialize_module()
         self._initialize_criterion()
         self._initialize_optimizer()
         self._initialize_history()
-        self._initialize_accelerator()
+        self._initialize_accelerator()  # prepare the initialized components
 
         self._validate_params()
 
