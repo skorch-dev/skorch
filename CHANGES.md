@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Pass keyword arguments from `predict` and `predict_proba` to the module's forward method (#1042).
 - Add `device='auto'` to select hardware acceleration like CUDA when
   available, and CPU otherwise.
 

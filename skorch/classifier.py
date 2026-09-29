@@ -169,7 +169,7 @@ class NeuralNetClassifier(ClassifierMixin, NeuralNet):
         # https://github.com/PyCQA/pylint/issues/1085
         return super(NeuralNetClassifier, self).fit(X, y, **fit_params)
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, **predict_params):
         """Where applicable, return probability estimates for
         samples.
 
@@ -202,9 +202,9 @@ class NeuralNetClassifier(ClassifierMixin, NeuralNet):
         """
         # Only the docstring changed from parent.
         # pylint: disable=useless-super-delegation
-        return super().predict_proba(X)
+        return super().predict_proba(X, **predict_params)
 
-    def predict(self, X):
+    def predict(self, X, **predict_params):
         """Where applicable, return class labels for samples in X.
 
         If the module's forward method returns multiple outputs as a
@@ -234,7 +234,7 @@ class NeuralNetClassifier(ClassifierMixin, NeuralNet):
         y_pred : numpy ndarray
 
         """
-        return self.predict_proba(X).argmax(axis=1)
+        return self.predict_proba(X, **predict_params).argmax(axis=1)
 
 
 neural_net_binary_clf_doc_start = """NeuralNet for binary classification tasks
@@ -356,7 +356,7 @@ class NeuralNetBinaryClassifier(ClassifierMixin, NeuralNet):
         # https://github.com/PyCQA/pylint/issues/1085
         return super().fit(X, y, **fit_params)
 
-    def predict(self, X):
+    def predict(self, X, **predict_params):
         """Where applicable, return class labels for samples in X.
 
         If the module's forward method returns multiple outputs as a
@@ -386,5 +386,5 @@ class NeuralNetBinaryClassifier(ClassifierMixin, NeuralNet):
         y_pred : numpy ndarray
 
         """
-        y_proba = self.predict_proba(X)
+        y_proba = self.predict_proba(X, **predict_params)
         return (y_proba[:, 1] > self.threshold).astype('uint8')
