@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `device='auto'` to select hardware acceleration like CUDA when
   available, and CPU otherwise.
+- Allow saving and loading `History` with pickle when explicitly requested,
+  so histories containing tensors can be persisted (#804).
 
 ### Changed
 

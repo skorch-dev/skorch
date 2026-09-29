@@ -217,30 +217,47 @@ class History(list):
         return list(self)
 
     @classmethod
-    def from_file(cls, f):
-        """Load the history of a ``NeuralNet`` from a json file.
+    def from_file(cls, f, *, format='json'):
+        """Load the history of a ``NeuralNet`` from a file.
 
         Parameters
         ----------
         f : file-like object or str
+        format : {'json', 'pickle'} (default='json')
+          The format used to save the history. Only load pickle files from
+          trusted sources, as unpickling can execute arbitrary code.
 
         """
 
-        with open_file_like(f, 'r') as fp:
-            return cls(json.load(fp))
+        if format == 'json':
+            with open_file_like(f, 'r') as fp:
+                return cls(json.load(fp))
+        if format == 'pickle':
+            with open_file_like(f, 'rb') as fp:
+                return cls(pickle.load(fp))
+        raise ValueError(f"Unknown history format: {format!r}")
 
-    def to_file(self, f):
-        """Saves the history as a json file. In order to use this feature,
-        the history must only contain JSON encodable Python data structures.
-        Numpy and PyTorch types should not be in the history.
+    def to_file(self, f, *, format='json'):
+        """Save the history to a file. JSON is used by default and requires
+        JSON-encodable data. Pickle also supports Numpy and PyTorch values.
 
         Parameters
         ----------
         f : file-like object or str
+        format : {'json', 'pickle'} (default='json')
+          The format used to save the history. Pickle files should only be
+          loaded from trusted sources.
 
         """
-        with open_file_like(f, 'w') as fp:
-            json.dump(self.to_list(), fp)
+        if format == 'json':
+            with open_file_like(f, 'w') as fp:
+                json.dump(self.to_list(), fp)
+            return
+        if format == 'pickle':
+            with open_file_like(f, 'wb') as fp:
+                pickle.dump(self.to_list(), fp)
+            return
+        raise ValueError(f"Unknown history format: {format!r}")
 
     def __getitem__(self, i):
         # This implementation resolves indexing backwards,
@@ -424,8 +441,8 @@ class DistributedHistory:
     def from_file(cls, f):
         raise NotImplementedError
 
-    def to_file(self, f):
-        return self.history.to_file(f)
+    def to_file(self, f, *, format='json'):
+        return self.history.to_file(f, format=format)
 
     def __len__(self):
         return len(self.history)

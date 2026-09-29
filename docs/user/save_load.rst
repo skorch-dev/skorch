@@ -107,6 +107,20 @@ feature can be used to continue training:
     must only contain JSON encodable Python data structures.
     Numpy and PyTorch types should not be in the history.
 
+For histories containing tensors or other values that JSON cannot encode,
+save and load the history directly with the optional pickle format:
+
+.. code:: python
+
+    from skorch.history import History
+
+    net.history.to_file('history.pkl', format='pickle')
+    restored_history = History.from_file('history.pkl', format='pickle')
+
+Only load pickle files from trusted sources, since unpickling can execute
+arbitrary code. The ``f_history`` argument of ``save_params`` and
+``load_params`` continues to use JSON.
+
 
 .. note:: :meth:`~skorch.net.NeuralNet.save_params` does not store
     learned attributes on the net. E.g.,

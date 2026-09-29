@@ -250,6 +250,42 @@ class TestHistory:
 
         assert history == new_history
 
+    @pytest.mark.parametrize('file_obj', [False, True])
+    def test_history_pickle_roundtrip_with_tensors(
+            self, history_cls, tmp_path, file_obj):
+        if not isinstance(history_cls(), list):
+            # DistributedHistory does not support loading from file.
+            pytest.skip()
+
+        history = history_cls()
+        history.new_epoch()
+        history.record('tensor', torch.tensor([1., 2.]))
+        history.record('array', np.array([3., 4.]))
+        path = tmp_path / 'history.pkl'
+
+        if file_obj:
+            with path.open('wb') as f:
+                history.to_file(f, format='pickle')
+            with path.open('rb') as f:
+                loaded = history_cls.from_file(f, format='pickle')
+        else:
+            history.to_file(path, format='pickle')
+            loaded = history_cls.from_file(path, format='pickle')
+
+        assert torch.equal(loaded[0, 'tensor'], history[0, 'tensor'])
+        np.testing.assert_array_equal(loaded[0, 'array'], history[0, 'array'])
+
+    def test_history_rejects_unknown_format(self, history_cls, tmp_path):
+        if not isinstance(history_cls(), list):
+            pytest.skip()
+        path = tmp_path / 'history.dat'
+        history = history_cls()
+        with pytest.raises(ValueError, match='Unknown history format'):
+            history.to_file(path, format='unknown')
+        with pytest.raises(ValueError, match='Unknown history format'):
+            history_cls.from_file(path, format='unknown')
+        assert not path.exists()
+
     @pytest.mark.parametrize('type_', [list, tuple])
     def test_history_multiple_keys(self, history, type_):
         dur_loss = history[-1, type_(['duration', 'total_loss'])]
