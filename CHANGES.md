@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Document a `dill` serialization caveat and the optional `byref=True`
+  workaround for loading or cloning a net (#1026).
+
 ### Fixed
 
 - `ValidSplit` now raises a clear error when it receives an `IterableDataset`, instead of an opaque `TypeError` about a missing length (#594)

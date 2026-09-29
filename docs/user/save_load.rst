@@ -42,6 +42,25 @@ The disadvantage of pickling is that if your underlying code changes,
 unpickling might raise errors. Also, some Python code (e.g. lambda
 functions) cannot be pickled.
 
+.. note:: If you use :mod:`dill` instead of :mod:`pickle`, its default
+    serialization may fail or produce a net that cannot be fitted after
+    loading or cloning. Depending on your versions and model code,
+    ``byref=True`` can help:
+
+    .. code:: python
+
+        import dill
+        from sklearn.base import clone
+
+        restored_net = dill.loads(dill.dumps(net, byref=True))
+        cloned_net = clone(restored_net)
+
+    This stores some objects by reference, so the corresponding Python code
+    must be available when loading. If this does not work for your setup,
+    use the standard :mod:`pickle` approach above or save the net's
+    parameters as described below. Only load pickle or dill files from
+    trusted sources.
+
 Pickling specific parts of the net
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
