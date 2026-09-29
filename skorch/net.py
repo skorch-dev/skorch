@@ -1140,7 +1140,7 @@ class NeuralNet(BaseEstimator):
         self._step_optimizer(step_fn)
         return step_accumulator.get_step()
 
-    def evaluation_step(self, batch, training=False):
+    def evaluation_step(self, batch, training=False, **predict_params):
         """Perform a forward step to produce the output used for
         prediction and scoring.
 
@@ -1156,6 +1156,9 @@ class NeuralNet(BaseEstimator):
         training : bool (default=False)
           Whether to set the module to train mode or not.
 
+        **predict_params : dict
+          Additional keyword arguments passed to the module's forward method.
+
         Returns
         -------
         y_infer
@@ -1166,7 +1169,7 @@ class NeuralNet(BaseEstimator):
         Xi, _ = unpack_data(batch)
         with torch.set_grad_enabled(training):
             self._set_training(training)
-            return self.infer(Xi)
+            return self.infer(Xi, **predict_params)
 
     def fit_loop(self, X, y=None, epochs=None, *, _routing_method="fit",
                  **fit_params):
@@ -1568,7 +1571,7 @@ class NeuralNet(BaseEstimator):
             if hasattr(self, name):
                 setattr(self, name, None)
 
-    def forward_iter(self, X, training=False, device='cpu'):
+    def forward_iter(self, X, training=False, device='cpu', **predict_params):
         """Yield outputs of module forward calls on each batch of data.
         The storage device of the yielded tensors is determined
         by the ``device`` parameter.
@@ -1599,6 +1602,9 @@ class NeuralNet(BaseEstimator):
           this might be changed to a specific CUDA device,
           e.g. 'cuda:0'.
 
+        **predict_params : dict
+          Additional keyword arguments passed to the module's forward method.
+
         Yields
         ------
         yp : torch tensor
@@ -1608,7 +1614,7 @@ class NeuralNet(BaseEstimator):
         dataset = self.get_dataset(X)
         iterator = self.get_iterator(dataset, training=training)
         for batch in iterator:
-            yp = self.evaluation_step(batch, training=training)
+            yp = self.evaluation_step(batch, training=training, **predict_params)
             yield to_device(yp, device=device)
 
     def forward(self, X, training=False, device='cpu'):
@@ -1729,7 +1735,7 @@ class NeuralNet(BaseEstimator):
             raise TypeError("predict_nonlinearity has to be a callable, 'auto' or None")
         return nonlin
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, **predict_params):
         """Return the output of the module's forward method as a numpy
         array.
 
@@ -1755,6 +1761,9 @@ class NeuralNet(BaseEstimator):
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
+        **predict_params : dict
+          Additional keyword arguments passed to the module's forward method.
+
         Returns
         -------
         y_proba : numpy ndarray
@@ -1762,14 +1771,14 @@ class NeuralNet(BaseEstimator):
         """
         nonlin = self._get_predict_nonlinearity()
         y_probas = []
-        for yp in self.forward_iter(X, training=False):
+        for yp in self.forward_iter(X, training=False, **predict_params):
             yp = yp[0] if isinstance(yp, tuple) else yp
             yp = nonlin(yp)
             y_probas.append(to_numpy(yp))
         y_proba = np.concatenate(y_probas, 0)
         return y_proba
 
-    def predict(self, X):
+    def predict(self, X, **predict_params):
         """Where applicable, return class labels for samples in X.
 
         If the module's forward method returns multiple outputs as a
@@ -1794,12 +1803,15 @@ class NeuralNet(BaseEstimator):
           If this doesn't work with your data, you have to pass a
           ``Dataset`` that can deal with the data.
 
+        **predict_params : dict
+          Additional keyword arguments passed to the module's forward method.
+
         Returns
         -------
         y_pred : numpy ndarray
 
         """
-        return self.predict_proba(X)
+        return self.predict_proba(X, **predict_params)
 
     # pylint: disable=unused-argument
     def get_loss(self, y_pred, y_true, X=None, training=False):
