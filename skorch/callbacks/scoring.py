@@ -39,7 +39,7 @@ def _cache_net_forward_iter(net, use_caching, y_preds):
     if not use_caching:
         yield net
         return
-    y_preds = iter(y_preds)
+    y_preds = tuple(y_preds)
 
     # pylint: disable=unused-argument
     def cached_forward_iter(*args, device=net.device, **kwargs):
