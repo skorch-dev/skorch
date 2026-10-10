@@ -139,6 +139,59 @@ class TestToTensor:
         result = to_tensor(inp, device=device, accept_sparse=True)
         assert self.tensors_equal(result, expected)
 
+    @pytest.mark.parametrize('sparse_cls', [
+        sparse.csr_matrix, sparse.csc_matrix, sparse.coo_matrix,
+    ])
+    @pytest.mark.parametrize('explicit_zero', [False, True])
+    def test_sparse_tensor_preserves_values(
+            self, to_tensor, sparse_cls, explicit_zero):
+        values = np.array([1, 0 if explicit_zero else 2, 3, 4], dtype=np.float32)
+        inp = sparse_cls(
+            (values, ([2, 0, 1, 0], [0, 2, 1, 0])), shape=(4, 3))
+        expected = torch.from_numpy(inp.toarray())
+
+        result = to_tensor(inp, device='cpu', accept_sparse=True)
+
+        assert result.is_sparse
+        assert result.dtype == expected.dtype
+        assert self.tensors_equal(result.to_dense(), expected)
+        assert np.array_equal(inp.toarray(), expected.numpy())
+
+    @pytest.mark.parametrize('sparse_cls', [
+        sparse.csr_matrix, sparse.csc_matrix, sparse.coo_matrix,
+    ])
+    def test_sparse_tensor_duplicate_coordinates(self, to_tensor, sparse_cls):
+        inp = sparse.coo_matrix(
+            (np.array([2., -2., 5., 7.]), ([0, 0, 1, 2], [1, 1, 0, 2])),
+            shape=(4, 3))
+        inp = sparse_cls(inp)
+        expected = torch.from_numpy(inp.toarray())
+
+        result = to_tensor(inp, device='cpu', accept_sparse=True)
+
+        assert result.is_sparse
+        assert result.dtype == expected.dtype
+        assert self.tensors_equal(result.to_dense(), expected)
+
+    @pytest.mark.parametrize('shape', [(3,), (2, 2, 3)])
+    @pytest.mark.parametrize('explicit_zero', [False, True])
+    def test_sparse_tensor_array_dimensions(
+            self, to_tensor, shape, explicit_zero):
+        pytest.importorskip('scipy', minversion='1.16')
+        values = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
+        if explicit_zero:
+            coordinates = np.unravel_index(np.arange(values.size), shape)
+            inp = sparse.coo_array((values.ravel(), coordinates), shape=shape)
+        else:
+            inp = sparse.coo_array(values)
+        expected = torch.from_numpy(values)
+
+        result = to_tensor(inp, device='cpu', accept_sparse=True)
+
+        assert result.is_sparse
+        assert result.dtype == expected.dtype
+        assert self.tensors_equal(result.to_dense(), expected)
+
     @pytest.mark.parametrize('device', ['cpu', 'cuda'])
     def test_sparse_tensor_not_accepted_raises(self, to_tensor, device):
         if device == 'cuda' and not torch.cuda.is_available():

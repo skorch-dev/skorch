@@ -119,8 +119,10 @@ def to_tensor(X, device, accept_sparse=False):
         return torch.as_tensor(X, device=device)
     if sparse.issparse(X):
         if accept_sparse:
+            X = X.tocoo()
+            indices = X.coords if hasattr(X, 'coords') else (X.row, X.col)
             return torch.sparse_coo_tensor(
-                X.nonzero(), X.data, size=X.shape).to(device)
+                indices, X.data, size=X.shape).to(device)
         raise TypeError("Sparse matrices are not supported. Set "
                         "accept_sparse=True to allow sparse matrices.")
 
