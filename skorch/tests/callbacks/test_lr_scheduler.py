@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.lr_scheduler import StepLR
 from torch.optim.lr_scheduler import CyclicLR
+from torch.optim.lr_scheduler import OneCycleLR
 
 from skorch import NeuralNetClassifier
 from skorch.callbacks.lr_scheduler import WarmRestartLR, LRScheduler
@@ -571,3 +572,26 @@ class TestWarmRestartLR():
             base_period,
             period_mult
         )
+
+
+@pytest.mark.parametrize('serialize', [False, True])
+@pytest.mark.parametrize('policy, kwargs', [
+    (CyclicLR, {'base_lr': 0.001, 'max_lr': 0.01, 'step_size_up': 5}),
+    (OneCycleLR, {'max_lr': 0.01, 'total_steps': 32}),
+])
+def test_resume_batch_learning_rates(
+        classifier_module, classifier_data, serialize, policy, kwargs):
+    def train(resume):
+        net = NeuralNetClassifier(
+            classifier_module, max_epochs=2 if resume else 4, batch_size=100,
+            callbacks=[LRScheduler(policy, step_every='batch', **kwargs)],
+            verbose=0,
+        ).fit(*classifier_data)
+        if resume:
+            if serialize:
+                net = pickle.loads(pickle.dumps(net))
+            net.partial_fit(*classifier_data)
+        return net.history[:, 'batches', :, 'event_lr']
+
+    # The default validation split adds batches that must not count as steps.
+    np.testing.assert_array_equal(train(resume=False), train(resume=True))

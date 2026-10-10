@@ -267,7 +267,10 @@ class LRScheduler(Callback):
                 (policy not in [ReduceLROnPlateau])
                 and ('last_epoch' not in scheduler_kwargs)
         ):
-            last_epoch = len(net.history) - 1
+            if self.step_every == 'batch':
+                last_epoch = self.batch_idx_ - 1
+            else:
+                last_epoch = len(net.history) - 1
             scheduler_kwargs['last_epoch'] = last_epoch
 
         return policy(net.optimizer_, **scheduler_kwargs)
