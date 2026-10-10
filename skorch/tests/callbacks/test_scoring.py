@@ -1168,3 +1168,31 @@ class TestPassthrougScoring:
         )
         # does not raise
         net.fit(*data)
+
+
+@pytest.mark.parametrize('scoring_name', ['EpochScoring', 'BatchScoring'])
+@pytest.mark.parametrize('predict_first', [False, True])
+def test_cached_scoring_reuses_predictions(
+        classifier_module, classifier_data, scoring_name, predict_first):
+    from skorch import NeuralNetClassifier
+    from skorch import callbacks
+
+    def score(net, X, y):
+        if predict_first:
+            predictions = net.predict(X)
+            probabilities = net.predict_proba(X)
+        else:
+            probabilities = net.predict_proba(X)
+            predictions = net.predict(X)
+        np.testing.assert_array_equal(predictions, probabilities.argmax(axis=1))
+        return accuracy_score(y, predictions)
+
+    net = NeuralNetClassifier(
+        classifier_module, max_epochs=1, batch_size=128, warm_start=True,
+        verbose=0, callbacks=[getattr(callbacks, scoring_name)(score)],
+    ).initialize()
+    with patch.object(net.module_, 'forward', wraps=net.module_.forward) as forward:
+        net.fit(*classifier_data)
+        # 7 training and 2 validation batches, without extra scoring forwards.
+        assert forward.call_count == 9
+    assert np.isfinite(net.history[-1, 'score'])
