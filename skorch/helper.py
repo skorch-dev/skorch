@@ -205,7 +205,7 @@ class SliceDataset(Sequence):
         self.idx = idx
         self.indices = indices
 
-        self.indices_ = (self.indices if self.indices is not None
+        self.indices_ = (np.asarray(self.indices) if self.indices is not None
                          else np.arange(len(self.dataset)))
         self.ndim = 1
 
