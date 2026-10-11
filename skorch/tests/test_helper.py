@@ -398,20 +398,34 @@ class TestSliceDataset:
         x = data[sl0][sl1][sl2]
         assert np.allclose(sliced, x)
 
-    def test_explicitly_pass_indices_at_init(self, slds_cls, custom_ds, X):
+    @pytest.mark.parametrize('indices_type', [list, np.asarray])
+    @pytest.mark.parametrize('sl', [
+        slice(5, None),
+        [5, 6, 7, 8, 9],
+        np.arange(5, 10),
+        np.arange(10) >= 5,
+    ])
+    def test_explicitly_pass_indices_at_init(
+            self, slds_cls, custom_ds, X, indices_type, sl):
         from skorch.utils import to_numpy
         # test passing indices directly to __init__
-        slds = slds_cls(custom_ds, indices=np.arange(10))
-        sliced0 = slds[5:]
+        indices = indices_type([9, 1, 7, 3, 5, 0, 8, 2, 6, 4])
+        slds = slds_cls(custom_ds, indices=indices)
+        sliced0 = slds[sl]
         sliced1 = sliced0[2]
+
+        assert slds.indices is indices
+        assert isinstance(sliced0, slds_cls)
+        assert sliced0.dataset is custom_ds
+        np.testing.assert_array_equal(sliced0.indices_, [0, 8, 2, 6, 4])
 
         # comparison method depends on array type
         if isinstance(sliced1, torch.Tensor):
             sliced0 = to_numpy(sliced0)
             sliced1 = to_numpy(sliced1)
 
-        assert np.allclose(sliced0, X[5:10])
-        assert np.allclose(sliced1, X[7])
+        assert np.allclose(sliced0, X[[0, 8, 2, 6, 4]])
+        assert np.allclose(sliced1, X[2])
 
     def test_access_element_out_of_bounds(self, slds_cls, custom_ds):
         slds = slds_cls(custom_ds, idx=2)
@@ -433,11 +447,14 @@ class TestSliceDataset:
         net = NeuralNetClassifier(classifier_module, train_split=False)
         net.fit(slds, y)  # does not raise
 
+    @pytest.mark.parametrize('indices_type', [None, list, np.asarray])
     def test_grid_search_with_slds_works(
-            self, slds, y, classifier_module):
+            self, slds, y, classifier_module, indices_type):
         from sklearn.model_selection import GridSearchCV
         from skorch import NeuralNetClassifier
 
+        indices = None if indices_type is None else indices_type(range(len(slds)))
+        slds = type(slds)(slds.dataset, indices=indices)
         net = NeuralNetClassifier(
             classifier_module,
             train_split=False,
