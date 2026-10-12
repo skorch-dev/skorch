@@ -526,6 +526,25 @@ class TestSliceDataset:
             expected_dtype = torch_to_numpy_dtype_dict.get(expected.dtype, expected.dtype)
             assert array.dtype == expected_dtype
 
+    @staticmethod
+    @pytest.mark.parametrize('n', [0, 1])
+    @pytest.mark.parametrize('dtype', [None, np.float32])
+    @pytest.mark.parametrize('sl', [
+        slice(0, 0),
+        np.array([], dtype=int),
+        np.zeros(100, dtype=bool),
+    ])
+    def test_slicedataset_asarray_empty(slds_cls, custom_ds, n, dtype, sl):
+        from skorch.utils import to_numpy
+
+        slds = slds_cls(custom_ds, idx=n)[sl]
+        array = np.asarray(slds, dtype=dtype)
+        expected = np.asarray([], dtype=dtype)
+
+        np.testing.assert_array_equal(array, expected)
+        assert array.dtype == expected.dtype
+        np.testing.assert_array_equal(to_numpy(slds), np.asarray([]))
+
     @pytest.mark.parametrize('sl', [slice(0, 2), np.arange(3)])
     def test_subclass_getitem_returns_instance_of_itself(self, slds_cls, custom_ds, sl):
         class MySliceDataset(slds_cls):

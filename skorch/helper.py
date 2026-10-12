@@ -263,7 +263,7 @@ class SliceDataset(Sequence):
         # This method is invoked when calling np.asarray(X)
         # https://numpy.org/devdocs/user/basics.dispatch.html
         X = [self[i] for i in range(len(self))]
-        if np.isscalar(X[0]):
+        if X and np.isscalar(X[0]):
             return np.asarray(X)
         return np.asarray([to_numpy(x) for x in X], dtype=dtype)
 
