@@ -10,6 +10,8 @@ from functools import partial
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
+from sklearn.base import clone
+from sklearn.utils.validation import check_is_fitted
 import torch
 
 from skorch._doctor import SkorchDoctor
@@ -352,7 +354,9 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
     ----------
     treat_int_as_categorical : bool (default=False)
       Whether to treat integers as categorical values or as cardinal
-      values, i.e. the same as floats.
+      values, i.e. the same as floats. Integer categories are learned
+      during fit. Transforming an unseen integer category raises a
+      ValueError.
 
     float_dtype : numpy dtype or None (default=np.float32)
       The dtype to cast the cardinal values to. If None, don't change
@@ -426,7 +430,17 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
 
     # pylint: disable=unused-argument
     def fit(self, df, y=None, **fit_params):
+        """Validate dtypes and learn the vocabulary for integer categories."""
+        import pandas as pd
+
         self._check_dtypes(df)
+        self._int_dtypes_ = {}
+        if self.treat_int_as_categorical:
+            self._int_dtypes_ = {
+                col: df[col].astype('category').dtype
+                for col, dtype in zip(df, df.dtypes)
+                if pd.api.types.is_integer_dtype(dtype)
+            }
         return self
 
     def transform(self, df):
@@ -466,7 +480,15 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
                     np.issubdtype(dtype, np.integer)
                     and self.treat_int_as_categorical
             ):
-                x = X_col.astype('category').cat.codes.values
+                check_is_fitted(self, '_int_dtypes_')
+                if col not in self._int_dtypes_:
+                    raise ValueError(
+                        f"Integer column {col!r} was not categorical during fit.")
+                x = X_col.astype(self._int_dtypes_[col]).cat.codes.values
+                if (x == -1).any():
+                    raise ValueError(
+                        f"Column {col!r} contains unknown categories during "
+                        "transform.")
                 if self.int_dtype is not None:
                     x = x.astype(self.int_dtype)
                 X_dict[col] = x
@@ -508,7 +530,7 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
           required number of input units.
 
         """
-        X_dict = self.fit_transform(df)
+        X_dict = clone(self).fit_transform(df)
         signature = {}
 
         X = X_dict.get('X')
