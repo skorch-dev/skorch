@@ -259,9 +259,13 @@ class SliceDataset(Sequence):
 
         return cls(self.dataset, idx=self.idx, indices=self.indices_[i])
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
         # This method is invoked when calling np.asarray(X)
         # https://numpy.org/devdocs/user/basics.dispatch.html
+        # Materializing dataset items always requires allocating an array.
+        if copy is False:
+            raise ValueError(
+                "A copy is required to convert SliceDataset to a NumPy array.")
         X = [self[i] for i in range(len(self))]
         if np.isscalar(X[0]):
             return np.asarray(X)

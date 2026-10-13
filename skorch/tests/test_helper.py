@@ -1,5 +1,6 @@
 """Test for helper.py"""
 import pickle
+import warnings
 
 import numpy as np
 import pytest
@@ -525,6 +526,62 @@ class TestSliceDataset:
             # numpy equivalent if a torch dtype
             expected_dtype = torch_to_numpy_dtype_dict.get(expected.dtype, expected.dtype)
             assert array.dtype == expected_dtype
+
+    @staticmethod
+    @pytest.mark.skipif(
+        np.lib.NumpyVersion(np.__version__) < '2.0.0',
+        reason='np.asarray copy keyword requires NumPy 2',
+    )
+    @pytest.mark.parametrize('n', [0, 1])
+    @pytest.mark.parametrize('dtype', [None, np.float64])
+    @pytest.mark.parametrize('copy', [None, True])
+    def test_slicedataset_asarray_copy(slds_cls, custom_ds, n, dtype, copy):
+        from skorch.utils import to_numpy
+
+        source = custom_ds.X if n == 0 else custom_ds.y
+        original = to_numpy(source).copy()
+        slds = slds_cls(custom_ds, idx=n)
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', DeprecationWarning)
+            result = np.asarray(slds, dtype=dtype, copy=copy)
+
+        expected = np.asarray(original, dtype=dtype)
+        np.testing.assert_array_equal(result, expected)
+        assert result.dtype == expected.dtype
+        result.flat[0] += 1
+        np.testing.assert_array_equal(to_numpy(source), original)
+
+    @staticmethod
+    @pytest.mark.parametrize('n', [0, 1])
+    @pytest.mark.parametrize('copy', [None, True])
+    def test_slicedataset_array_copy(slds_cls, custom_ds, n, copy):
+        from skorch.utils import to_numpy
+
+        source = custom_ds.X if n == 0 else custom_ds.y
+        original = to_numpy(source).copy()
+        result = slds_cls(custom_ds, idx=n).__array__(copy=copy)
+
+        np.testing.assert_array_equal(result, original)
+        assert result.dtype == original.dtype
+        result.flat[0] += 1
+        np.testing.assert_array_equal(to_numpy(source), original)
+
+    @staticmethod
+    @pytest.mark.parametrize('n', [0, 1])
+    @pytest.mark.parametrize('via_numpy', [False, True])
+    def test_slicedataset_array_copy_false(
+            slds_cls, custom_ds, n, via_numpy):
+        if via_numpy and np.lib.NumpyVersion(np.__version__) < '2.0.0':
+            pytest.skip('np.asarray copy keyword requires NumPy 2')
+
+        slds = slds_cls(custom_ds, idx=n)
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', DeprecationWarning)
+            with pytest.raises(ValueError, match='A copy is required'):
+                if via_numpy:
+                    np.asarray(slds, copy=False)
+                else:
+                    slds.__array__(copy=False)
 
     @pytest.mark.parametrize('sl', [slice(0, 2), np.arange(3)])
     def test_subclass_getitem_returns_instance_of_itself(self, slds_cls, custom_ds, sl):
