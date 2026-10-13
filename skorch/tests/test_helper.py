@@ -631,6 +631,111 @@ class TestDataFrameTransformer:
         Xt = transformer_cls(treat_int_as_categorical=True).fit_transform(df)
         assert_dicts_equal(Xt, expected)
 
+    @staticmethod
+    @pytest.mark.parametrize('dtype', [np.int32, np.int64, np.uint32, np.uint64])
+    @pytest.mark.parametrize('int_dtype', [np.int64, np.int16, None])
+    def test_integer_categories_preserve_codes_across_batches(
+            transformer_cls, dtype, int_dtype):
+        import pandas as pd
+
+        df = pd.DataFrame({'category': np.asarray([30, 10, 20], dtype=dtype)})
+        original = df.copy(deep=True)
+        transformer = transformer_cls(
+            treat_int_as_categorical=True, int_dtype=int_dtype).fit(df)
+        for indices, expected in [
+                ([0], [2]), ([2, 0], [1, 2]), ([0, 2], [2, 1]),
+                ([2, 1, 0], [1, 0, 2]), ([], [])]:
+            actual = transformer.transform(df.iloc[indices])['category']
+            np.testing.assert_array_equal(actual, expected)
+            expected_dtype = np.int8 if int_dtype is None else int_dtype
+            assert actual.dtype == expected_dtype
+        pd.testing.assert_frame_equal(df, original)
+
+    @staticmethod
+    def test_integer_categories_require_fit(transformer_cls):
+        import pandas as pd
+        from sklearn.exceptions import NotFittedError
+
+        transformer = transformer_cls(treat_int_as_categorical=True)
+        with pytest.raises(NotFittedError):
+            transformer.transform(pd.DataFrame({'category': [10]}))
+
+    @staticmethod
+    def test_integer_categories_reject_unknown_values(transformer_cls):
+        import pandas as pd
+
+        transformer = transformer_cls(treat_int_as_categorical=True).fit(
+            pd.DataFrame({'category': [10, 20, 30]}))
+        with pytest.raises(ValueError, match="'category'.*unknown categories"):
+            transformer.transform(pd.DataFrame({'category': [20, 40]}))
+        np.testing.assert_array_equal(
+            transformer.transform(pd.DataFrame({'category': [30]}))['category'],
+            [2])
+
+    @staticmethod
+    def test_integer_categories_refit_replaces_vocabulary(transformer_cls):
+        import pandas as pd
+
+        transformer = transformer_cls(treat_int_as_categorical=True)
+        transformer.fit(pd.DataFrame({'old': [10, 20, 30]}))
+        transformer.fit(pd.DataFrame({'new': [50, 20, 40]}))
+        np.testing.assert_array_equal(
+            transformer.transform(pd.DataFrame({'new': [50]}))['new'], [2])
+        with pytest.raises(ValueError, match="'old'.*not categorical during fit"):
+            transformer.transform(pd.DataFrame({'old': [10]}))
+        with pytest.raises(ValueError, match="'new'.*unknown categories"):
+            transformer.transform(pd.DataFrame({'new': [10]}))
+
+    @staticmethod
+    def test_describe_signature_preserves_integer_vocabulary(transformer_cls):
+        import pandas as pd
+
+        df = pd.DataFrame({'category': [10, 20, 30]})
+        transformer = transformer_cls(treat_int_as_categorical=True).fit(df)
+        signature = transformer.describe_signature(df.iloc[[2]])
+        assert signature['category']['input_units'] == 1
+        np.testing.assert_array_equal(
+            transformer.transform(df.iloc[[2]])['category'], [2])
+
+    @staticmethod
+    def test_integer_categories_pickle_and_clone(transformer_cls):
+        import pandas as pd
+        from sklearn.base import clone
+        from sklearn.exceptions import NotFittedError
+
+        df = pd.DataFrame({'category': [10, 20, 30]})
+        transformer = transformer_cls(treat_int_as_categorical=True).fit(df)
+        restored = pickle.loads(pickle.dumps(transformer))
+        np.testing.assert_array_equal(
+            restored.transform(df.iloc[[2]])['category'], [2])
+        with pytest.raises(NotFittedError):
+            clone(transformer).transform(df.iloc[[2]])
+
+    def test_integer_categories_pipeline_prediction_batches(self, transformer_cls):
+        import pandas as pd
+        from skorch import NeuralNetRegressor
+
+        class FixedEmbedding(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.embedding = nn.Embedding.from_pretrained(
+                    torch.tensor([[100.], [200.], [300.]]), freeze=False)
+
+            def forward(self, category):
+                return self.embedding(category)
+
+        df = pd.DataFrame({'category': [10, 20, 30]})
+        net = NeuralNetRegressor(
+            FixedEmbedding, max_epochs=0, train_split=None, verbose=0)
+        pipe = Pipeline([
+            ('transform', transformer_cls(treat_int_as_categorical=True)),
+            ('net', net),
+        ])
+        pipe.fit(df, np.zeros((3, 1), dtype=np.float32))
+        np.testing.assert_array_equal(pipe.predict(df), [[100.], [200.], [300.]])
+        np.testing.assert_array_equal(pipe.predict(df.iloc[[2]]), [[300.]])
+        np.testing.assert_array_equal(pipe.predict(df.iloc[[2, 1]]), [[300.], [200.]])
+
     @pytest.mark.parametrize('data', [
         np.array([object, object, object]),
         np.array(['foo', 'bar', 'baz']),
