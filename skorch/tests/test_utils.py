@@ -186,6 +186,34 @@ class TestToNumpy:
         x_numpy = to_numpy(x_tensor)
         self.compare_array_to_tensor(x_numpy, x_tensor)
 
+    @pytest.mark.parametrize('dtype', [torch.complex64, torch.complex128])
+    @pytest.mark.parametrize('requires_grad', [False, True])
+    @pytest.mark.parametrize('container', ['direct', 'list', 'tuple', 'dict'])
+    def test_conjugate_tensor(self, to_numpy, dtype, requires_grad, container):
+        data = torch.tensor(
+            [[1 + 2j, 3 - 4j], [5 + 0j, -1 + 6j]],
+            dtype=dtype, requires_grad=requires_grad)
+        before = data.detach().clone()
+        view = data.T.conj()
+        value = {
+            'direct': view, 'list': [view],
+            'tuple': (view,), 'dict': {'signal': view},
+        }[container]
+        result = to_numpy(value)
+        if container in ('list', 'tuple'):
+            assert isinstance(result, type(value))
+            result = result[0]
+        elif container == 'dict':
+            assert isinstance(result, dict)
+            result = result['signal']
+        self.compare_array_to_tensor(result, view)
+        expected = np.conjugate(before.numpy().T)
+        np.testing.assert_array_equal(result, expected)
+        assert result.dtype == expected.dtype
+        assert torch.equal(data, before)
+        assert view.is_conj()
+        assert view.requires_grad == requires_grad
+
     def test_list(self, to_numpy, x_list):
         x_numpy = to_numpy(x_list)
         for entry_numpy, entry_torch in zip(x_numpy, x_list):
