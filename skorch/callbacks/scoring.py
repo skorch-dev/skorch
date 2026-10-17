@@ -77,6 +77,20 @@ def convert_sklearn_metric_function(scoring):
     return scoring
 
 
+def _best_score_from_history(history, name, default):
+    """Return the most recent score of ``name`` that was flagged as best in
+    ``history``, or ``default`` if there is none. This allows to continue
+    training from a loaded history without losing track of the best score."""
+    # Looks for the right most index where `*_best` is True
+    # That index is used to get the best score in `history`
+    with suppress(ValueError, IndexError, KeyError):
+        best_name_history = history[:, '{}_best'.format(name)]
+        idx_best_reverse = best_name_history[::-1].index(True)
+        idx_best = len(best_name_history) - idx_best_reverse - 1
+        return history[idx_best, name]
+    return default
+
+
 class ScoringBase(Callback):
     """Base class for scoring.
 
@@ -130,14 +144,8 @@ class ScoringBase(Callback):
     def on_train_begin(self, net, X, y, **kwargs):
         self.X_indexing_ = check_indexing(X)
         self.y_indexing_ = check_indexing(y)
-
-        # Looks for the right most index where `*_best` is True
-        # That index is used to get the best score in `net.history`
-        with suppress(ValueError, IndexError, KeyError):
-            best_name_history = net.history[:, '{}_best'.format(self.name_)]
-            idx_best_reverse = best_name_history[::-1].index(True)
-            idx_best = len(best_name_history) - idx_best_reverse - 1
-            self.best_score_ = net.history[idx_best, self.name_]
+        self.best_score_ = _best_score_from_history(
+            net.history, self.name_, self.best_score_)
 
     def _scoring(self, net, X_test, y_test):
         """Resolve scoring and apply it to data. Use cached prediction
@@ -497,6 +505,11 @@ class PassthroughScoring(Callback):
     def initialize(self):
         self.best_score_ = np.inf if self.lower_is_better else -np.inf
         return self
+
+    # pylint: disable=attribute-defined-outside-init,unused-argument
+    def on_train_begin(self, net, **kwargs):
+        self.best_score_ = _best_score_from_history(
+            net.history, self.name, self.best_score_)
 
     def _is_best_score(self, current_score):
         if self.lower_is_better is None:

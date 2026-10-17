@@ -1155,6 +1155,43 @@ class TestPassthrougScoring:
                 # pylint: disable=pointless-statement
                 history_empty[:, 'score_best']
 
+    @pytest.mark.parametrize('lower_is_better, expected', [
+        (True, [True, True, True, False, False]),
+        (False, [True, False, False, True, False]),
+    ])
+    @pytest.mark.parametrize('initial_epochs', [1, 2, 3, 4])
+    def test_uses_best_score_when_continuing_training(
+            self, scoring_cls, history_empty, lower_is_better, expected,
+            initial_epochs,
+    ):
+        # When training continues from a loaded history (e.g. after
+        # load_params(f_history=...) and partial_fit), the best score must
+        # be taken from that history instead of starting from scratch.
+        scores = [10, 8, 6, 11, 7]
+        net = Mock(history=history_empty)
+
+        def train(cb, epoch_scores):
+            cb.on_train_begin(net)
+            for score in epoch_scores:
+                history_empty.new_epoch()
+                history_empty.new_batch()
+                history_empty.record_batch('score', score)
+                history_empty.record_batch('valid_batch_size', 55)
+                cb.on_epoch_end(net)
+
+        train(
+            scoring_cls(name='score', lower_is_better=lower_is_better).initialize(),
+            scores[:initial_epochs],
+        )
+        # a freshly initialized callback, as after net.initialize()
+        train(
+            scoring_cls(name='score', lower_is_better=lower_is_better).initialize(),
+            scores[initial_epochs:],
+        )
+
+        is_best = history_empty[:, 'score_best']
+        assert is_best == expected
+
     def test_no_error_when_no_valid_data(
             self, net_cls, module_cls, scoring_cls, data,
     ):
