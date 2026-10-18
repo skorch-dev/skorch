@@ -755,6 +755,29 @@ class TestDataFrameTransformer:
         }
         assert result == expected
 
+    @pytest.mark.parametrize('indices', [[0, 2], [0, 1], []])
+    @pytest.mark.parametrize('ordered', [False, True])
+    def test_describe_signature_unused_categories(
+            self, transformer_cls, indices, ordered):
+        import pandas as pd
+
+        df = pd.DataFrame({
+            'col_cats': pd.Categorical(['a', 'b', 'c'], ordered=ordered),
+        })
+        subset = df.iloc[indices]
+        transformer = transformer_cls()
+
+        result = transformer.describe_signature(subset)
+        assert result == {
+            'col_cats': {'dtype': torch.int64, 'input_units': 3},
+        }
+
+        embedding = nn.Embedding(result['col_cats']['input_units'], 4)
+        for data in (subset, df):
+            codes = transformer.transform(data)['col_cats']
+            embedded = embedding(torch.as_tensor(codes))
+            assert embedded.shape == (len(data), 4)
+
     def test_describe_signature_non_default_df(self, transformer_cls, df):
         # replace float column with integer having 3 unique units
         df = df.assign(col_floats=[1, 2, 0])

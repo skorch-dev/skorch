@@ -10,7 +10,6 @@ from functools import partial
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
-import torch
 
 from skorch._doctor import SkorchDoctor
 from skorch.cli import parse_args
@@ -496,7 +495,8 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
         3. The number of input units that are required for the
         corresponding argument. For the float parameter, this is just
         the number of dimensions of the tensor. For categorical
-        parameters, it is the number of unique elements.
+        parameters, it is the number of categories, including unused
+        categories in the DataFrame's categorical dtype.
 
         Returns
         -------
@@ -523,10 +523,10 @@ class DataFrameTransformer(BaseEstimator, TransformerMixin):
                 continue
 
             tensor = to_tensor(val, device='cpu')
-            nunique = len(torch.unique(tensor))
+            n_categories = len(df[key].astype('category').cat.categories)
             signature[key] = dict(
                 dtype=tensor.dtype,
-                input_units=nunique,
+                input_units=n_categories,
             )
 
         return signature
