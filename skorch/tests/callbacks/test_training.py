@@ -269,6 +269,26 @@ class TestCheckpoint:
         # `epoch_3_scorer` returns 0, which does not trigger a checkpoint.
         assert [True, False, True] + [False] * 7 == net.history[:, 'event_cp']
 
+    @pytest.mark.parametrize('fn_prefix', ['', 'exp1_'])
+    def test_save_history_to_file_like(
+            self, net_cls, checkpoint_cls, data, fn_prefix, tmpdir):
+        history_path = tmpdir.join('history.json')
+        with history_path.open('w') as f_history:
+            cp = checkpoint_cls(
+                f_params=None,
+                f_optimizer=None,
+                f_criterion=None,
+                f_history=f_history,
+                fn_prefix=fn_prefix,
+            )
+            net = net_cls(callbacks=[cp], max_epochs=1)
+            net.fit(*data)
+            assert cp.f_history_ is f_history
+
+        history = net.history
+        net.load_params(f_history=str(history_path))
+        assert net.history == history
+
     def test_save_all_targets(
             self, save_params_mock, pickle_dump_mock,
             net_cls, checkpoint_cls, data, use_safetensors):
@@ -1200,6 +1220,26 @@ class TestTrainEndCheckpoint:
             trainendcheckpoint_cls(
                 f_optimizer='optimizer.safetensors', use_safetensors=True
             )
+
+    @pytest.mark.parametrize('fn_prefix', ['', 'exp1_'])
+    def test_save_history_to_file_like(
+            self, net_cls, trainendcheckpoint_cls, data, fn_prefix, tmpdir):
+        history_path = tmpdir.join('history.json')
+        with history_path.open('w') as f_history:
+            cp = trainendcheckpoint_cls(
+                f_params=None,
+                f_optimizer=None,
+                f_criterion=None,
+                f_history=f_history,
+                fn_prefix=fn_prefix,
+            )
+            net = net_cls(callbacks=[cp])
+            net.fit(*data)
+            assert cp.checkpoint_.f_history_ is f_history
+
+        history = net.history
+        net.load_params(f_history=str(history_path))
+        assert net.history == history
 
     def test_saves_at_end(
             self,

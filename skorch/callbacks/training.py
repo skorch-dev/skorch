@@ -282,8 +282,8 @@ class Checkpoint(Callback):
         # This is a property and not in initialize to allow ``NeuralNet``
         # to call ``load_params`` without needing the checkpoint to
         # by initialized.
-        if self.f_history is None:
-            return None
+        if not isinstance(self.f_history, str):
+            return self.f_history
         return os.path.join(
             self.dirname, self.fn_prefix + self.f_history)
 
