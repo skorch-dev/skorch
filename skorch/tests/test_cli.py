@@ -67,6 +67,11 @@ class TestCli:
         assert np.isclose(parsed_kwargs['module__nonlin'].lower, 0.123)
         assert np.isclose(parsed_kwargs['module__nonlin'].upper, 0.456)
 
+    @pytest.mark.parametrize('label', ['epoch', 'epoch=1', 'epoch=1=best'])
+    def test_parse_net_kwargs_string_with_equals(self, parse_net_kwargs, label):
+        kwargs = {'module__config': f'builtins.dict(label="{label}")'}
+        assert parse_net_kwargs(kwargs) == {'module__config': {'label': label}}
+
     @pytest.fixture
     def net_cls(self):
         from skorch import NeuralNetClassifier
