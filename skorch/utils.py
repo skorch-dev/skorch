@@ -172,6 +172,9 @@ def to_numpy(X):
     if X.requires_grad:
         X = X.detach()
 
+    if hasattr(X, 'is_conj') and X.is_conj():
+        X = X.resolve_conj()
+
     return X.numpy()
 
 
