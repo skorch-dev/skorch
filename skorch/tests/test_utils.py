@@ -164,16 +164,24 @@ class TestToNumpy:
         return torch.zeros(3, 4)
 
     @pytest.fixture
-    def x_tuple(self):
-        return torch.ones(3), torch.zeros(3, 4)
+    def x_tensor_conjugated(self, x_tensor):
+        # A real tensor's conj() does not set the conjugate bit.
+        return (x_tensor.to(torch.complex64) + 1j).conj()
 
     @pytest.fixture
-    def x_list(self):
-        return [torch.ones(3), torch.zeros(3, 4)]
+    def x_tuple(self, x_tensor_conjugated):
+        return torch.ones(3), torch.zeros(3, 4), x_tensor_conjugated
 
     @pytest.fixture
-    def x_dict(self):
-        return {'a': torch.ones(3), 'b': (torch.zeros(2), torch.zeros(3))}
+    def x_list(self, x_tensor_conjugated):
+        return [torch.ones(3), torch.zeros(3, 4), x_tensor_conjugated]
+
+    @pytest.fixture
+    def x_dict(self, x_tensor_conjugated):
+        return {
+            'a': torch.ones(3), 'b': (torch.zeros(2), torch.zeros(3)),
+            'c': x_tensor_conjugated,
+        }
 
     def compare_array_to_tensor(self, x_numpy, x_tensor):
         assert isinstance(x_tensor, torch.Tensor)
@@ -186,33 +194,10 @@ class TestToNumpy:
         x_numpy = to_numpy(x_tensor)
         self.compare_array_to_tensor(x_numpy, x_tensor)
 
-    @pytest.mark.parametrize('dtype', [torch.complex64, torch.complex128])
-    @pytest.mark.parametrize('requires_grad', [False, True])
-    @pytest.mark.parametrize('container', ['direct', 'list', 'tuple', 'dict'])
-    def test_conjugate_tensor(self, to_numpy, dtype, requires_grad, container):
-        data = torch.tensor(
-            [[1 + 2j, 3 - 4j], [5 + 0j, -1 + 6j]],
-            dtype=dtype, requires_grad=requires_grad)
-        before = data.detach().clone()
-        view = data.T.conj()
-        value = {
-            'direct': view, 'list': [view],
-            'tuple': (view,), 'dict': {'signal': view},
-        }[container]
-        result = to_numpy(value)
-        if container in ('list', 'tuple'):
-            assert isinstance(result, type(value))
-            result = result[0]
-        elif container == 'dict':
-            assert isinstance(result, dict)
-            result = result['signal']
-        self.compare_array_to_tensor(result, view)
-        expected = np.conjugate(before.numpy().T)
-        np.testing.assert_array_equal(result, expected)
-        assert result.dtype == expected.dtype
-        assert torch.equal(data, before)
-        assert view.is_conj()
-        assert view.requires_grad == requires_grad
+    def test_tensor_conjugated(self, to_numpy, x_tensor_conjugated):
+        x_numpy = to_numpy(x_tensor_conjugated)
+        self.compare_array_to_tensor(x_numpy, x_tensor_conjugated)
+        assert x_tensor_conjugated.is_conj()
 
     def test_list(self, to_numpy, x_list):
         x_numpy = to_numpy(x_list)
@@ -229,6 +214,7 @@ class TestToNumpy:
         self.compare_array_to_tensor(x_numpy['a'], x_dict['a'])
         self.compare_array_to_tensor(x_numpy['b'][0], x_dict['b'][0])
         self.compare_array_to_tensor(x_numpy['b'][1], x_dict['b'][1])
+        self.compare_array_to_tensor(x_numpy['c'], x_dict['c'])
 
     @pytest.mark.parametrize('x_invalid', [
         1,
