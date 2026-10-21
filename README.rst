@@ -25,6 +25,12 @@ A scikit-learn compatible neural network library that wraps PyTorch.
     :alt: Powered by
     :target: https://github.com/ottogroup/
 
+==============
+Project status
+==============
+
+This repository is in a low development stage. This means it will be maintained in the future and some features may be added on occasion, but overall, feature development has stopped.
+
 =========
 Resources
 =========
