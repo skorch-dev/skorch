@@ -94,7 +94,7 @@ def _parse_args_kwargs(params):
         if '=' not in param:
             args += (DefaultParseValue(param),)
         else:
-            k, v = param.split('=')
+            k, v = param.split('=', 1)
             kwargs[k.strip()] = DefaultParseValue(v)
     return args, kwargs
 

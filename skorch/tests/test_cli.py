@@ -50,22 +50,25 @@ class TestCli:
         from skorch.cli import parse_net_kwargs
         return parse_net_kwargs
 
-    def test_parse_net_kwargs(self, parse_net_kwargs):
+    @pytest.mark.parametrize('label', ['epoch', 'epoch=1', 'epoch=1=best'])
+    def test_parse_net_kwargs(self, parse_net_kwargs, label):
         kwargs = {
             'lr': 0.05,
             'max_epochs': 5,
             'module__num_units': 10,
             'module__nonlin': 'torch.nn.RReLU(0.123, upper=0.456)',
+            'module__config': f'builtins.dict(label="{label}")',
         }
         parsed_kwargs = parse_net_kwargs(kwargs)
 
-        assert len(parsed_kwargs) == 4
+        assert len(parsed_kwargs) == 5
         assert np.isclose(parsed_kwargs['lr'], 0.05)
         assert parsed_kwargs['max_epochs'] == 5
         assert parsed_kwargs['module__num_units'] == 10
         assert isinstance(parsed_kwargs['module__nonlin'], RReLU)
         assert np.isclose(parsed_kwargs['module__nonlin'].lower, 0.123)
         assert np.isclose(parsed_kwargs['module__nonlin'].upper, 0.456)
+        assert parsed_kwargs['module__config'] == {'label': label}
 
     @pytest.fixture
     def net_cls(self):
