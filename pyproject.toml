@@ -67,7 +67,9 @@ extended = [
     "tensorboard>=1.14.0",
     "wandb>=0.12.17",
     "neptune",
-    "sacred",
+    # TODO: sacred is incompatible with Python 3.14; remove restriction when/if
+    # sacred is updated
+    "sacred; python_version < '3.14'",
     "jupyter",
     "matplotlib>=2.0.2",
     "pandas",
