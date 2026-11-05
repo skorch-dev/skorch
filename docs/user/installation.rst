@@ -35,7 +35,7 @@ If you just want to use skorch, use:
 
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
-    conda create -n skorch-env python=3.10
+    conda create -n skorch-env python=3.12
     conda activate skorch-env
     # install pytorch version for your system (see below)
     python -m pip install .
@@ -47,7 +47,7 @@ If you want to help developing, run:
 
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
-    conda create -n skorch-env python==3.10
+    conda create -n skorch-env python==3.12
     conda activate skorch-env
     # install pytorch version for your system (see below)
     python -m pip install '.[test,docs,dev,extended]'
@@ -56,7 +56,7 @@ If you want to help developing, run:
     pylint skorch  # static code checks
 
 You may adjust the Python version to any of the supported Python versions, i.e.
-Python 3.10 or higher.
+Python 3.11 or higher.
 
 Using pip
 ^^^^^^^^^

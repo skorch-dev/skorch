@@ -15,7 +15,7 @@ dynamic = ["version", "readme"]
 description = "scikit-learn compatible neural network library for pytorch"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies =[
     "numpy>=1.13.3",
     "scikit-learn>=0.22.0",
@@ -31,10 +31,10 @@ authors = [
     {name = "skorch Developers"}
 ]
 classifiers = [                                 #note:classifiers are recommended for packages to be visible on PyPI
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
