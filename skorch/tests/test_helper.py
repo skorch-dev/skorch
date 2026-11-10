@@ -652,9 +652,7 @@ class TestDataFrameTransformer:
         expected = (
             r"The following columns have dtypes that cannot be "
             r"interpreted as numerical dtypes: invalid0 \(object\), "
-            # TODO: With pandas 2, the dtype is object, with pandas 3, it's str.
-            # Once Python 3.10 and hence pandas 2.0 is dropped, only match str.
-            r"invalid1 \(object|str\)"
+            r"invalid1 \(str\)"
         )
         with pytest.raises(TypeError, match=expected):
             transformer_cls().fit_transform(df)
